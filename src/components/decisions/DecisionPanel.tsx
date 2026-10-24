@@ -56,20 +56,16 @@ export function DecisionPanel({
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const people = state?.people ?? {};
-  const initial = useMemo<Values>(
-    () => ({
-      title: decision?.title ?? preset?.title ?? '',
-      projectId: decision ? decision.projectId : (preset?.projectId ?? null),
-      status: decision?.status ?? 'proposed',
-      decidedAt: decision?.decidedAt ?? '',
-      deciders: decision?.deciders ?? [],
-      rationale: decision ? tokensToNames(decision.rationale, people) : '',
-      links: decision?.links ?? [],
-    }),
-    // Read once when the panel opens.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: on purpose.
-    [],
-  );
+  // Read once, when the panel opens.
+  const [initial] = useState<Values>(() => ({
+    title: decision?.title ?? preset?.title ?? '',
+    projectId: decision ? decision.projectId : (preset?.projectId ?? null),
+    status: decision?.status ?? 'proposed',
+    decidedAt: decision?.decidedAt ?? '',
+    deciders: decision?.deciders ?? [],
+    rationale: decision ? tokensToNames(decision.rationale, people) : '',
+    links: decision?.links ?? [],
+  }));
   const [values, setValues] = useState(initial);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [dateInvalid, setDateInvalid] = useState(false);
