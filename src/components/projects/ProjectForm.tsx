@@ -1,9 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import {
+  healthOf,
   type Link,
   type Priority,
   type Project,
+  type ProjectHealth,
   type ProjectStatus,
   settingsOf,
 } from '#shared/types';
@@ -16,6 +18,7 @@ import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
 import { NoteComposer } from '@/components/NoteComposer';
 import { OrgPicker } from '@/components/pickers/OrgPicker';
+import { HealthPicker } from '@/components/projects/Health';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +36,7 @@ interface Values {
   name: string;
   org: string;
   status: ProjectStatus;
+  health: ProjectHealth;
   priority: Priority;
   targetDate: string;
   tags: string[];
@@ -46,6 +50,7 @@ function valuesOf(project: Project | undefined, defaultOrg = ''): Values {
     name: project?.name ?? '',
     org: project?.org ?? defaultOrg,
     status: project?.status ?? 'active',
+    health: project ? healthOf(project) : 'none',
     priority: project?.priority ?? 'none',
     targetDate: project?.targetDate ?? '',
     tags: project?.tags ?? [],
@@ -145,7 +150,11 @@ export function ProjectForm({
       links: cleanLinks(values.links),
     };
     if (!project) {
-      const id = actions.createProject({ ...fields, status: values.status });
+      const id = actions.createProject({
+        ...fields,
+        status: values.status,
+        health: values.health,
+      });
       if (!id) return;
       onClose();
       show(`Created ${name}`);
@@ -167,6 +176,9 @@ export function ProjectForm({
     }
     if (values.status !== project.status) {
       actions.setStatus({ id: project.id, status: values.status });
+    }
+    if (values.health !== healthOf(project)) {
+      actions.setHealth({ id: project.id, health: values.health });
     }
     onClose();
     if (dirty) show(`Saved ${name}`);
@@ -262,6 +274,10 @@ export function ProjectForm({
           value: s,
           label: STATUS_LABELS[s],
         }))}
+      />
+      <HealthPicker
+        value={values.health}
+        onChange={(health) => set('health', health)}
       />
       <PriorityPicker
         value={values.priority}

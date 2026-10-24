@@ -9,6 +9,10 @@
 export const PROJECT_STATUSES = ['active', 'paused', 'done'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+/** The leader's judgement of how a project is going, separate from status. */
+export const PROJECT_HEALTHS = ['none', 'green', 'yellow', 'red'] as const;
+export type ProjectHealth = (typeof PROJECT_HEALTHS)[number];
+
 export const PRIORITIES = ['none', 'low', 'med', 'high'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
@@ -51,6 +55,11 @@ export interface Project {
   /** Client or org, free text. */
   org: string;
   status: ProjectStatus;
+  /**
+   * Green, yellow, red, or not judged. Absent on documents written before
+   * it existed (and in the artifact's export): read it with `healthOf()`.
+   */
+  health?: ProjectHealth;
   priority: Priority;
   /** Empty: no target. */
   targetDate: DateString | '';
@@ -145,6 +154,11 @@ export interface ActivityEntry {
  */
 export interface Activity {
   events: ActivityEntry[];
+}
+
+/** A project's health, `none` when it was never set. */
+export function healthOf(project: Pick<Project, 'health'>): ProjectHealth {
+  return project.health ?? 'none';
 }
 
 /** The key of General's activity log. */

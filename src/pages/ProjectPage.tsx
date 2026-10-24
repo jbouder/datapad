@@ -9,7 +9,7 @@ import { useMemo, useRef } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { projectEvents } from '#shared/events';
 import { projectNotes } from '#shared/notes';
-import { GENERAL, type Person } from '#shared/types';
+import { GENERAL, healthOf, type Person } from '#shared/types';
 import { useEventForm } from '@/components/events/EventFormProvider';
 import { EventList } from '@/components/events/EventList';
 import { Initials } from '@/components/Initials';
@@ -20,6 +20,7 @@ import { NoteForm } from '@/components/notes/NoteForm';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
+import { HealthPicker } from '@/components/projects/Health';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { StateLine } from '@/components/projects/StateLine';
 import { StatusPill } from '@/components/projects/StatusPill';
@@ -163,6 +164,16 @@ export function ProjectPage({ id }: { id: string }) {
         >
           <li>
             <StatusPill status={project.status} />
+          </li>
+          <li>
+            <HealthPicker
+              legendHidden
+              value={healthOf(project)}
+              onChange={(health) =>
+                actions.setHealth({ id: project.id, health })
+              }
+              className="w-72 max-w-full"
+            />
           </li>
           <li className="flex items-center gap-1.5">
             <PriorityDot priority={project.priority} labelled={false} />

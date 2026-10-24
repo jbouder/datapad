@@ -226,6 +226,23 @@ describe('project filters and sorts', () => {
     expect(ids(selectProjects(s.projects, all, true))).toEqual(['p-yavin']);
   });
 
+  it('filters by health; unset health matches no colour', () => {
+    const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
+    const projects = {
+      ...s.projects,
+      'p-echo': { ...s.projects['p-echo'], health: 'red' as const },
+    };
+    expect(ids(selectProjects(projects, { ...all, health: 'red' }))).toEqual([
+      'p-echo',
+    ]);
+    expect(ids(selectProjects(projects, { ...all, health: 'green' }))).toEqual(
+      [],
+    );
+    expect(ids(selectProjects(projects, { ...all, health: '' }))).toHaveLength(
+      2,
+    );
+  });
+
   it('sorts by priority then name, by name, and by target date', () => {
     const projects = {
       a: {

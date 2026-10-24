@@ -1,14 +1,22 @@
 import { PRIORITY_RANK } from './select';
-import type { Project, ProjectStatus } from './types';
+import {
+  healthOf,
+  type Project,
+  type ProjectHealth,
+  type ProjectStatus,
+} from './types';
 
 /** How the Projects page orders its cards. */
 export const PROJECT_SORTS = ['updated', 'priority', 'name', 'target'] as const;
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
 
 export type StatusFilter = ProjectStatus | 'all';
+/** Empty: any health. */
+export type HealthFilter = Exclude<ProjectHealth, 'none'> | '';
 
 export interface ProjectFilters {
   status: StatusFilter;
+  health: HealthFilter;
   /** Empty: every org. */
   org: string;
   sort: ProjectSort;
@@ -16,6 +24,7 @@ export interface ProjectFilters {
 
 export const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
   status: 'active',
+  health: '',
   org: '',
   sort: 'updated',
 };
@@ -57,7 +66,8 @@ export function selectProjects(
       (p) =>
         p.archived === archived &&
         (archived || filters.status === 'all' || p.status === filters.status) &&
-        (archived || !filters.org || p.org === filters.org),
+        (archived || !filters.org || p.org === filters.org) &&
+        (archived || !filters.health || healthOf(p) === filters.health),
     )
     .sort(compareProjects(archived ? 'updated' : filters.sort));
 }

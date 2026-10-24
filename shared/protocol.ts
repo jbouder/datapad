@@ -13,6 +13,7 @@ import {
   type Note,
   type Person,
   PRIORITIES,
+  PROJECT_HEALTHS,
   PROJECT_STATUSES,
   type Project,
   type Settings,
@@ -70,6 +71,7 @@ export const LinkSchema = z.object({
 const links = z.array(LinkSchema).max(LIMITS.linksMax);
 
 const projectStatus = z.enum(PROJECT_STATUSES);
+const projectHealth = z.enum(PROJECT_HEALTHS);
 const priority = z.enum(PRIORITIES);
 const eventType = z.enum(EVENT_TYPES);
 const phase = z.enum(NOTE_PHASES).nullable();
@@ -88,6 +90,8 @@ export const ProjectSchema = z.object({
   name: z.string().min(1).max(LIMITS.nameMax),
   org: text(LIMITS.nameMax).default(''),
   status: projectStatus.default('active'),
+  /** Absent in older exports; `healthOf()` reads that as `none`. */
+  health: projectHealth.optional(),
   priority: priority.default('none'),
   targetDate: dateOrEmpty.default(''),
   tags: tags.default([]),
@@ -425,6 +429,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     name: projectFields.name,
     ...z.object(projectFields).omit({ name: true }).partial().shape,
     status: projectStatus.optional(),
+    health: projectHealth.optional(),
     state: z.string().trim().max(LIMITS.stateMax).optional(),
   }),
   z.object({
@@ -438,6 +443,8 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     state: z.string().trim().max(LIMITS.stateMax),
   }),
   z.object({ type: z.literal('setStatus'), id, status: projectStatus }),
+  /** Logs "Health set to <health>". */
+  z.object({ type: z.literal('setHealth'), id, health: projectHealth }),
   z.object({ type: z.literal('archiveProject'), id }),
   z.object({ type: z.literal('unarchiveProject'), id }),
   /** Deletes its tasks, notes and activity; its events move to General. */

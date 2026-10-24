@@ -5,6 +5,7 @@ import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import {
   emptySnapshot,
   GENERAL,
+  type Project,
   type Snapshot,
   settingsOf,
 } from '#shared/types';
@@ -290,6 +291,7 @@ describe('projects', () => {
       name: 'Echo Base',
       org: 'Rebel Alliance',
       status: 'paused',
+      health: 'none',
       priority: 'none',
       targetDate: '',
       tags: [],
@@ -319,6 +321,7 @@ describe('projects', () => {
         { type: 'setStatus', id: 'p1', status: 'paused' },
         'Status changed to paused',
       ],
+      [{ type: 'setHealth', id: 'p1', health: 'red' }, 'Health set to red'],
       [{ type: 'archiveProject', id: 'p1' }, 'Archived project'],
       [{ type: 'unarchiveProject', id: 'p1' }, 'Unarchived project'],
     ];
@@ -331,8 +334,28 @@ describe('projects', () => {
       org: 'Alliance',
       state: 'On track',
       status: 'paused',
+      health: 'red',
       archived: false,
     });
+  });
+
+  it('health starts as none, and a project without it reads as none', () => {
+    const state = run(base(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Falcon',
+      health: 'yellow',
+    });
+    expect(state.projects.p2?.health).toBe('yellow');
+    const old = base();
+    const { health: _, ...legacy } = old.projects.p1 as Project;
+    old.projects.p1 = legacy;
+    expect(
+      at(old, { type: 'setHealth', id: 'p1', health: 'none' }).changed,
+    ).toEqual([]);
+    expect(
+      lastLog(run(old, { type: 'setHealth', id: 'p1', health: 'green' }), 'p1'),
+    ).toBe('Health set to green');
   });
 
   it('setState, setStatus and archive do nothing when nothing changes', () => {
@@ -340,6 +363,7 @@ describe('projects', () => {
     for (const op of [
       { type: 'setState', id: 'p1', state: 'Fine' },
       { type: 'setStatus', id: 'p1', status: 'active' },
+      { type: 'setHealth', id: 'p1', health: 'none' },
       { type: 'unarchiveProject', id: 'p1' },
     ] satisfies Op[]) {
       expect(at(state, op).changed).toEqual([]);

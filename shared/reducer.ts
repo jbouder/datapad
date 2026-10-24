@@ -6,6 +6,7 @@ import {
   type Collections,
   DEFAULT_SETTINGS,
   GENERAL,
+  healthOf,
   type Person,
   type Project,
   SETTINGS_ID,
@@ -301,6 +302,7 @@ function apply(d: Draft, op: Op, now: string) {
         name: op.name,
         org: op.org ?? '',
         status: op.status ?? 'active',
+        health: op.health ?? 'none',
         priority: op.priority ?? 'none',
         targetDate: op.targetDate ?? '',
         tags: op.tags ?? [],
@@ -333,6 +335,13 @@ function apply(d: Draft, op: Op, now: string) {
       if (p.status === op.status) return;
       d.set('projects', p.id, { ...p, status: op.status, updatedAt: now });
       log(d, p.id, `Status changed to ${op.status}`, now);
+      return;
+    }
+    case 'setHealth': {
+      const p = project(d, op.id);
+      if (healthOf(p) === op.health) return;
+      d.set('projects', p.id, { ...p, health: op.health, updatedAt: now });
+      log(d, p.id, `Health set to ${op.health}`, now);
       return;
     }
     case 'archiveProject':

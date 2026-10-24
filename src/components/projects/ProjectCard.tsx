@@ -1,8 +1,9 @@
 import { FlagIcon } from '@phosphor-icons/react';
 import { formatDay } from '#shared/dates';
-import type { Event, Person, Project } from '#shared/types';
+import { type Event, healthOf, type Person, type Project } from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
+import { HEALTH_EDGE, HealthBadge } from '@/components/projects/Health';
 import { StatusPill } from '@/components/projects/StatusPill';
 import { linkProps } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -10,7 +11,8 @@ import { cn } from '@/lib/utils';
 const MAX_MEMBERS = 4;
 
 /**
- * One project as a card, the whole card a link: org, status, priority,
+ * One project as a card, the whole card a link: org, health (a coloured
+ * left edge and its word), status, priority,
  * name, the current state line, then open count, target, the next
  * milestone or deadline, and up to four members (+N for the rest).
  */
@@ -44,6 +46,7 @@ export function ProjectCard({
       data-flip-id={project.id}
       className={cn(
         'press group flex min-h-44 flex-col gap-2 border bg-card p-4 text-card-foreground outline-ring/50 hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-2',
+        HEALTH_EDGE[healthOf(project)],
         enter && 'enter',
       )}
       style={
@@ -56,6 +59,7 @@ export function ProjectCard({
         <span className="min-w-0 flex-1 truncate">
           {project.org || 'No org'}
         </span>
+        <HealthBadge health={healthOf(project)} />
         <StatusPill status={project.status} />
         <PriorityDot priority={project.priority} labelled={false} />
         <span className="sr-only">

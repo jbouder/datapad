@@ -7,10 +7,13 @@ import { formatDay, localDate, relativeTime } from '#shared/dates';
 import type { ProjectSort } from '#shared/projects';
 import { nextMarkers, openCounts } from '#shared/select';
 import {
+  healthOf,
   PRIORITIES,
+  PROJECT_HEALTHS,
   PROJECT_STATUSES,
   type Priority,
   type Project,
+  type ProjectHealth,
   type ProjectStatus,
 } from '#shared/types';
 import { Initials } from '@/components/Initials';
@@ -18,6 +21,11 @@ import { DataTable } from '@/components/layouts/DataTable';
 import { Timeline } from '@/components/layouts/Timeline';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
+import {
+  HEALTH_LABELS,
+  HealthBadge,
+  HealthDot,
+} from '@/components/projects/Health';
 import { STATUS_LABELS } from '@/components/projects/ProjectForm';
 import { ProjectGrid } from '@/components/projects/ProjectGrid';
 import { StatusPill } from '@/components/projects/StatusPill';
@@ -193,6 +201,39 @@ export function ProjectLayouts({
           ),
         },
         {
+          id: 'health',
+          header: 'Health',
+          cell: (p) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="press flex min-h-8 items-center px-1 text-xs outline-ring/50 focus-visible:outline-2"
+                aria-label={`Health: ${HEALTH_LABELS[healthOf(p)]}, change`}
+              >
+                <HealthDot health={healthOf(p)} />
+                <span className="ml-1.5">{HEALTH_LABELS[healthOf(p)]}</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-36">
+                <DropdownMenuRadioGroup
+                  value={healthOf(p)}
+                  onValueChange={(health) =>
+                    actions.setHealth({
+                      id: p.id,
+                      health: health as ProjectHealth,
+                    })
+                  }
+                >
+                  {PROJECT_HEALTHS.map((h) => (
+                    <DropdownMenuRadioItem key={h} value={h} closeOnClick>
+                      <HealthDot health={h} />
+                      {HEALTH_LABELS[h]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
+        },
+        {
           id: 'priority',
           header: 'Priority',
           sortable: Boolean(onSort),
@@ -281,6 +322,7 @@ export function ProjectLayouts({
         >
           <PriorityDot priority={p.priority} />
           <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+          <HealthBadge health={healthOf(p)} className="text-xs" />
           <StatusPill status={p.status} />
           <span className="text-xs text-muted-foreground tabular-nums">
             {counts.get(p.id) ?? 0} open
