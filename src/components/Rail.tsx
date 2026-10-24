@@ -30,6 +30,7 @@ export function Rail({ route }: { route: Route }) {
     const open = openCounts(state.tasks);
     return {
       focus:
+        b.blocked.length +
         b.overdue.length +
         b.today.length +
         b.thisWeek.length +

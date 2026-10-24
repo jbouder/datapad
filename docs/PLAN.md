@@ -76,7 +76,9 @@ artifact imports unchanged.
 Fields added in later milestones (all optional, absent on import):
 - `project.health`: `none | green | yellow | red` (deferred feature 1; M7,
   `setHealth` op, read with `healthOf()` so an absent field is `none`).
-- `task.blocked`: `{ on: personId | null, note: string } | null` (deferred 3).
+- `task.blocked`: `{ on: personId | null, note: string } | null` (deferred 3;
+  M7, `setBlocked` op, read with `blockedOf()`; removing the person keeps
+  the task blocked on no one listed).
 - `project.orgId`: once orgs become first class.
 
 New collections, agreed as worth having (milestone 7):

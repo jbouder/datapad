@@ -104,6 +104,11 @@ export const ProjectSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Project, unknown>;
 
+const blocked = z.object({
+  on: z.union([id, z.null()]),
+  note: z.string().trim().max(LIMITS.blockedNoteMax),
+});
+
 export const TaskSchema = z.object({
   id,
   title: z.string().min(1).max(LIMITS.titleMax),
@@ -117,6 +122,8 @@ export const TaskSchema = z.object({
   links: links.default([]),
   order: z.number().finite().default(0),
   sourceNoteId: id.optional(),
+  /** Absent in older exports; `blockedOf()` reads that as not blocked. */
+  blocked: blocked.nullable().optional(),
   createdAt: timestamp,
   updatedAt: timestamp,
   completedAt: timestamp.nullable().default(null),
@@ -421,6 +428,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('editTask'), id, patch: patch(taskFields) }),
   z.object({ type: z.literal('deleteTask'), id }),
+  /** Logs "Blocked "<title>" on <name>" or "Unblocked "<title>"". */
+  z.object({
+    type: z.literal('setBlocked'),
+    id,
+    blocked: blocked.nullable(),
+  }),
 
   /* projects */
   z.object({

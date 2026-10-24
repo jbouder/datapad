@@ -56,6 +56,20 @@ describe('focusBuckets', () => {
     { id: 'undated' },
   );
 
+  it('puts blocked tasks first, in Blocked only, whatever their date', () => {
+    const blocked = {
+      ...state.tasks,
+      yesterday: {
+        ...state.tasks.yesterday,
+        blocked: { on: null, note: '' },
+      },
+    } as typeof state.tasks;
+    const b = focusBuckets(blocked, state.projects, today, null, anyone);
+    expect(ids(b.blocked)).toEqual(['yesterday']);
+    expect(ids(b.overdue)).toEqual([]);
+    expect(Object.keys(b)[0]).toBe('blocked');
+  });
+
   it('buckets at the day boundaries, this week through Sunday', () => {
     const b = focusBuckets(state.tasks, state.projects, today, null, anyone);
     expect(ids(b.overdue)).toEqual(['yesterday']);
@@ -342,6 +356,21 @@ describe('peopleStats', () => {
     expect(chewie.open.map((t) => t.id)).toEqual(['t-2']);
     // Mon's only task is done, in an archived project.
     expect(statsFor(stats, 'u-mon').open).toEqual([]);
-    expect(statsFor(stats, 'nobody')).toEqual({ projects: [], open: [] });
+    expect(statsFor(stats, 'nobody')).toEqual({
+      projects: [],
+      open: [],
+      waiting: [],
+    });
+  });
+
+  it('lists open tasks blocked on someone as waiting on them', () => {
+    const s = seeded();
+    const tasks = {
+      ...s.tasks,
+      't-2': { ...s.tasks['t-2'], blocked: { on: 'u-leia', note: 'parts' } },
+      't-3': { ...s.tasks['t-3'], blocked: { on: null, note: 'weather' } },
+    } as typeof s.tasks;
+    const stats = peopleStats(s.projects, tasks);
+    expect(statsFor(stats, 'u-leia').waiting.map((t) => t.id)).toEqual(['t-2']);
   });
 });

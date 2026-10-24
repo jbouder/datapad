@@ -19,6 +19,23 @@ const ids = (rows: Task[]) => rows.map((t) => t.id);
 describe('selectTasks', () => {
   const s = seeded();
 
+  it('Blocked shows only tasks waiting on someone', () => {
+    const state = {
+      ...s,
+      tasks: {
+        ...s.tasks,
+        't-4': { ...s.tasks['t-4'], blocked: { on: null, note: 'vet' } },
+      } as typeof s.tasks,
+    };
+    const groups = selectTasks(
+      state,
+      { ...DEFAULT_TASK_FILTERS, blocked: true },
+      today,
+      null,
+    );
+    expect(groups.flatMap((g) => ids(g.rows))).toEqual(['t-4']);
+  });
+
   it('groups open tasks by project, General last', () => {
     const groups = selectTasks(s, DEFAULT_TASK_FILTERS, today, 'u-leia');
     expect(groups.map((g) => g.label)).toEqual([

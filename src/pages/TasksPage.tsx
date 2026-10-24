@@ -70,6 +70,8 @@ function useTaskFilters(): TaskFilters {
         : DEFAULT_TASK_FILTERS.group,
       who: assigneeFromQuery(q.get('who')),
       q: q.get('q') ?? '',
+      // "Blocked" is open tasks waiting on someone.
+      blocked: status === 'blocked',
       sort: (TASK_SORTS as readonly string[]).includes(sort ?? '')
         ? (sort as TaskSortKey)
         : DEFAULT_TASK_FILTERS.sort,
@@ -272,10 +274,11 @@ export function TasksPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 desk:grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr]">
         <Segmented
           legend="Show"
-          value={filters.status}
+          value={filters.blocked ? 'blocked' : filters.status}
           onChange={(v) => changeQuery({ status: v === 'open' ? null : v })}
           options={[
             { value: 'open', label: 'Open' },
+            { value: 'blocked', label: 'Blocked' },
             { value: 'done', label: 'Done' },
             { value: 'all', label: 'All' },
           ]}

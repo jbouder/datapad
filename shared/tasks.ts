@@ -1,6 +1,6 @@
 import { addDays, endOfWeek } from './dates';
 import { type AssigneeFilter, matchesAssignee, PRIORITY_RANK } from './select';
-import type { DateString, Snapshot, Task } from './types';
+import { blockedOf, type DateString, type Snapshot, type Task } from './types';
 
 /** The Tasks view's controls, as kept in the URL. */
 export interface TaskFilters {
@@ -9,6 +9,8 @@ export interface TaskFilters {
   who: AssigneeFilter;
   /** Text to find in titles, details and tags. */
   q: string;
+  /** Only tasks waiting on someone. */
+  blocked: boolean;
   sort: TaskSortKey;
   dir: 'asc' | 'desc';
 }
@@ -28,6 +30,7 @@ export const DEFAULT_TASK_FILTERS: TaskFilters = {
   group: 'project',
   who: { kind: 'anyone' },
   q: '',
+  blocked: false,
   sort: 'due',
   dir: 'asc',
 };
@@ -108,6 +111,7 @@ export function selectTasks(
       (t) =>
         (filters.status === 'all' || t.status === filters.status) &&
         matchesAssignee(t, filters.who, me) &&
+        (!filters.blocked || blockedOf(t) !== null) &&
         (!q ||
           t.title.toLowerCase().includes(q) ||
           t.desc.toLowerCase().includes(q) ||

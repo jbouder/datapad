@@ -77,6 +77,14 @@ export interface Project {
   updatedAt: Timestamp;
 }
 
+/** Why a task is not moving: waiting on someone (or something). */
+export interface Blocked {
+  /** The person it waits on; null for "waiting, not on anyone listed". */
+  on: string | null;
+  /** One line: what it waits for. */
+  note: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -95,6 +103,11 @@ export interface Task {
   order: number;
   /** Set when the task was made from a note. */
   sourceNoteId?: string;
+  /**
+   * Waiting on someone. Absent on documents written before it existed:
+   * read it with `blockedOf()`.
+   */
+  blocked?: Blocked | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   /** null while open. */
@@ -159,6 +172,11 @@ export interface Activity {
 /** A project's health, `none` when it was never set. */
 export function healthOf(project: Pick<Project, 'health'>): ProjectHealth {
   return project.health ?? 'none';
+}
+
+/** A task's blocked flag, null when it is not blocked. */
+export function blockedOf(task: Pick<Task, 'blocked'>): Blocked | null {
+  return task.blocked ?? null;
 }
 
 /** The key of General's activity log. */

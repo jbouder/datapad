@@ -590,6 +590,58 @@ describe('people', () => {
     ).toEqual(['u4']);
   });
 
+  it('setBlocked logs who it waits on, and unblocking', () => {
+    let state = base();
+    state = at(state, {
+      type: 'setBlocked',
+      id: 't1',
+      blocked: { on: 'u1', note: 'Needs the budget' },
+    }).state;
+    expect(state.tasks.t1?.blocked).toEqual({
+      on: 'u1',
+      note: 'Needs the budget',
+    });
+    expect(lastLog(state, 'p1')).toBe('Blocked "Heaters" on Leia Organa');
+    expect(state.projects.p1?.updatedAt).toBe(T1);
+    // The same again changes nothing.
+    expect(
+      at(state, {
+        type: 'setBlocked',
+        id: 't1',
+        blocked: { on: 'u1', note: 'Needs the budget' },
+      }).changed,
+    ).toEqual([]);
+    state = at(state, {
+      type: 'setBlocked',
+      id: 't2',
+      blocked: { on: null, note: '' },
+    }).state;
+    expect(lastLog(state, 'p1')).toBe('Blocked "Doors"');
+    state = at(state, { type: 'setBlocked', id: 't1', blocked: null }).state;
+    expect(lastLog(state, 'p1')).toBe('Unblocked "Heaters"');
+    // A task that never had the field is not blocked.
+    expect(
+      at(base(), { type: 'setBlocked', id: 't1', blocked: null }).changed,
+    ).toEqual([]);
+    expect(() =>
+      at(base(), {
+        type: 'setBlocked',
+        id: 't1',
+        blocked: { on: 'ghost', note: '' },
+      }),
+    ).toThrow('That person no longer exists');
+  });
+
+  it('removePerson keeps a task blocked but on no one listed', () => {
+    const state = run(base(), {
+      type: 'setBlocked',
+      id: 't1',
+      blocked: { on: 'u1', note: 'Budget' },
+    });
+    const next = at(state, { type: 'removePerson', id: 'u1' }).state;
+    expect(next.tasks.t1?.blocked).toEqual({ on: null, note: 'Budget' });
+  });
+
   it('removePerson unassigns them and drops them from members and attendees; mentions stay', () => {
     const state = run(
       base(),

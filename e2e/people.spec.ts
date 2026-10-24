@@ -40,7 +40,9 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   const add = page.getByRole('textbox', { name: 'Add a task' });
   await add.fill('Fix the compressor');
   await add.press('Enter');
-  await page.getByRole('button', { name: 'Fix the compressor' }).click();
+  await page
+    .getByRole('button', { name: 'Fix the compressor', exact: true })
+    .click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   const who = panel.getByRole('combobox', { name: 'Assignee' });
   await who.click();

@@ -2,6 +2,7 @@ import { LIMITS } from './limits';
 import type { Op, OpOf, ParsedExport } from './protocol';
 import {
   type Activity,
+  blockedOf,
   type Collection,
   type Collections,
   DEFAULT_SETTINGS,
@@ -286,6 +287,26 @@ function apply(d: Draft, op: Op, now: string) {
       touch(d, t.projectId, now);
       return;
     }
+    case 'setBlocked': {
+      const t = d.get('tasks', op.id) ?? fail('That task no longer exists');
+      const next = op.blocked;
+      if (next?.on && !d.get('people', next.on)) {
+        fail('That person no longer exists');
+      }
+      if (JSON.stringify(blockedOf(t)) === JSON.stringify(next)) return;
+      d.set('tasks', t.id, { ...t, blocked: next, updatedAt: now });
+      const who = next?.on ? d.get('people', next.on)?.name : undefined;
+      log(
+        d,
+        t.projectId,
+        next
+          ? `Blocked "${t.title}"${who ? ` on ${who}` : ''}`
+          : `Unblocked "${t.title}"`,
+        now,
+      );
+      touch(d, t.projectId, now);
+      return;
+    }
     case 'deleteTask': {
       const t = task(d, op.id);
       d.delete('tasks', t.id);
@@ -473,8 +494,17 @@ function apply(d: Draft, op: Op, now: string) {
       d.get('people', op.id) ?? fail('That person no longer exists');
       d.delete('people', op.id);
       for (const t of d.all('tasks')) {
-        if (t.assignee === op.id) {
-          d.set('tasks', t.id, { ...t, assignee: '', updatedAt: now });
+        const waiting = blockedOf(t)?.on === op.id;
+        if (t.assignee === op.id || waiting) {
+          d.set('tasks', t.id, {
+            ...t,
+            assignee: t.assignee === op.id ? '' : t.assignee,
+            // Still blocked, just not on anyone listed.
+            blocked: waiting
+              ? { on: null, note: blockedOf(t)?.note ?? '' }
+              : t.blocked,
+            updatedAt: now,
+          });
         }
       }
       for (const p of d.all('projects')) {

@@ -73,6 +73,11 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Task lists and tables',
   },
   {
+    keys: ['b'],
+    action: 'Mark it blocked (who it waits on), or unblock it',
+    scope: 'Task lists and tables',
+  },
+  {
     keys: ['Alt+↑', 'Alt+↓'],
     action: 'Move the task up or down (project page)',
     scope: 'Task lists and tables',
@@ -125,4 +130,5 @@ export const ROW_ACTIONS: Record<string, string> = {
   d: 'due',
   a: 'assignee',
   p: 'priority',
+  b: 'blocked',
 };

@@ -5,6 +5,7 @@ import { ImportExportProvider } from '@/components/ImportExport';
 import { NotesProvider } from '@/components/notes/NotesProvider';
 import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
 import { SummaryProvider } from '@/components/summary/SummaryProvider';
+import { BlockedProvider } from '@/components/tasks/BlockedProvider';
 import { TaskPanelProvider } from '@/components/tasks/TaskPanelProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DatapadProvider } from '@/providers/DatapadProvider';
@@ -21,17 +22,19 @@ export default function App() {
             <DatapadProvider>
               <ImportExportProvider>
                 <SummaryProvider>
-                  <ProjectFormProvider>
-                    <TaskPanelProvider>
-                      <EventFormProvider>
-                        <EventNotesProvider>
-                          <NotesProvider>
-                            <AppShell />
-                          </NotesProvider>
-                        </EventNotesProvider>
-                      </EventFormProvider>
-                    </TaskPanelProvider>
-                  </ProjectFormProvider>
+                  <BlockedProvider>
+                    <ProjectFormProvider>
+                      <TaskPanelProvider>
+                        <EventFormProvider>
+                          <EventNotesProvider>
+                            <NotesProvider>
+                              <AppShell />
+                            </NotesProvider>
+                          </EventNotesProvider>
+                        </EventFormProvider>
+                      </TaskPanelProvider>
+                    </ProjectFormProvider>
+                  </BlockedProvider>
                 </SummaryProvider>
               </ImportExportProvider>
             </DatapadProvider>
