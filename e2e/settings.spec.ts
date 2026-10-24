@@ -18,6 +18,14 @@ test('the account menu leads to Settings; People is not in the main nav', async 
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  // Motion and Theme first, then Settings, then Sign out.
+  await expect(
+    page
+      .getByRole('menu')
+      .getByRole('menuitem')
+      .or(page.getByRole('menu').getByRole('menuitemcheckbox'))
+      .or(page.getByRole('menu').getByRole('menuitemradio')),
+  ).toHaveText(['Motion', 'System', 'Light', 'Dark', 'Settings', 'Sign out']);
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page).toHaveTitle('Appearance · Settings · Datapad');

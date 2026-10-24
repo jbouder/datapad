@@ -23,8 +23,8 @@ import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 /**
- * The account menu: who is signed in, Settings (people, orgs, data and
- * the rest), quick Theme and Motion switches, and Sign out.
+ * The account menu: who is signed in, quick Motion and Theme switches,
+ * then Settings (people, orgs, data and the rest) and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
@@ -49,14 +49,6 @@ export function PreferencesMenu({ email }: { email: string | null }) {
           <DropdownMenuLabel className="truncate">
             {email ? `Signed in as ${email}` : 'Signed in'}
           </DropdownMenuLabel>
-          <DropdownMenuItem
-            render={
-              <a {...linkProps({ name: 'settings', section: 'appearance' })} />
-            }
-          >
-            <GearSixIcon />
-            Settings
-          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -94,6 +86,14 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <DropdownMenuItem
+            render={
+              <a {...linkProps({ name: 'settings', section: 'appearance' })} />
+            }
+          >
+            <GearSixIcon />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuItem render={<a href={SIGN_OUT_URL} />}>
             <SignOutIcon />
             Sign out
