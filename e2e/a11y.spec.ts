@@ -52,6 +52,13 @@ for (const theme of CHECKED) {
       });
     }
 
+    test('with the project form open', async ({ page }) => {
+      await page.goto('/projects');
+      await page.getByRole('button', { name: 'New project' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test('with Preferences open', async ({ page }) => {
       await page.goto('/');
       await openPreferences(page);
