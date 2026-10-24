@@ -1,0 +1,11 @@
+# Copy to .dev.vars for local development (`npm run dev`, `npm run e2e`).
+# Never committed, never deployed.
+
+# Who you are while developing. Honoured ONLY while ACCESS_AUD is empty
+# (wrangler.jsonc), which is never the case in production. Each address gets
+# its own Durable Object, so changing it gives you an empty Datapad.
+DEV_ACCESS_EMAIL=dev@example.com
+
+# Keeps the bypass working locally after ACCESS_AUD is set in wrangler.jsonc
+# (.dev.vars overrides vars for `npm run dev` and `vite preview` only).
+ACCESS_AUD=
