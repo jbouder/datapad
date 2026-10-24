@@ -22,11 +22,11 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
   (memoisable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
   `summaries.ts` (the models, prompt and per-item context Summarize
-  sends), `search.ts`
+  sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
-  `DatapadObject` Durable Object), `env.ts` (bindings).
+  `DatapadObject` Durable Object, and its nightly R2 backup alarm), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router),
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
   date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),

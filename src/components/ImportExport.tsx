@@ -26,7 +26,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { fetchExport, postImport, SignedOutError } from '@/lib/api';
+import {
+  fetchBackup,
+  fetchExport,
+  postImport,
+  postRestore,
+  SignedOutError,
+} from '@/lib/api';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -67,6 +73,8 @@ interface Proposal {
   name: string;
   file: unknown;
   counts: Counts;
+  /** A nightly backup's day: restore it on the server instead. */
+  restore?: string;
 }
 
 function useImportExportState() {
@@ -144,15 +152,47 @@ function useImportExportState() {
     [show],
   );
 
+  const restoreBackup = useCallback(
+    async (day: string, label: string) => {
+      let file: unknown;
+      try {
+        file = await fetchBackup(day);
+      } catch (error) {
+        failed(error, 'Could not read that backup. Try again.');
+        return;
+      }
+      const parsed = ExportSchema.safeParse(file);
+      if (!parsed.success) {
+        show('That backup is not a Datapad export. Download it to look.');
+        return;
+      }
+      const { exportedAt: _, ...documents } = parsed.data;
+      setProposal({
+        name: `the backup of ${label}`,
+        file: null,
+        counts: countDocuments(documents),
+        restore: day,
+      });
+    },
+    [failed, show],
+  );
+
   const confirm = useCallback(async () => {
     if (!proposal) return;
     setBusy(true);
     try {
-      const result = await postImport(proposal.file);
+      const result = proposal.restore
+        ? await postRestore(proposal.restore)
+        : await postImport(proposal.file);
       setProposal(null);
-      show(`Imported ${describeCounts(result.imported)}`);
+      show(
+        `${proposal.restore ? 'Restored' : 'Imported'} ${describeCounts(result.imported)}`,
+      );
     } catch (error) {
-      failed(error, 'Import failed. Nothing was changed.');
+      failed(
+        error,
+        `${proposal.restore ? 'Restore' : 'Import'} failed. Nothing was changed.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -177,10 +217,13 @@ function useImportExportState() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Import {proposal?.name}?</DialogTitle>
+            <DialogTitle>
+              {proposal?.restore ? 'Restore' : 'Import'} {proposal?.name}?
+            </DialogTitle>
             <DialogDescription>
-              Import {proposal ? describeCounts(proposal.counts) : ''}; same ids
-              are replaced. Everything else you have stays.
+              {proposal?.restore ? 'Merge' : 'Import'}{' '}
+              {proposal ? describeCounts(proposal.counts) : ''}; same ids are
+              replaced. Everything else you have stays.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -188,7 +231,13 @@ function useImportExportState() {
               Cancel
             </DialogClose>
             <Button onClick={confirm} disabled={busy}>
-              {busy ? 'Importing…' : 'Import'}
+              {proposal?.restore
+                ? busy
+                  ? 'Restoring…'
+                  : 'Restore'
+                : busy
+                  ? 'Importing…'
+                  : 'Import'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -196,13 +245,15 @@ function useImportExportState() {
     </>
   );
 
-  return { exportNow, chooseImport, element };
+  return { exportNow, chooseImport, restoreBackup, element };
 }
 
 interface ImportExport {
   exportNow: () => Promise<void>;
   /** Opens the file picker. Call from a click (it needs the gesture). */
   chooseImport: () => void;
+  /** Count a nightly backup, confirm, then merge it in on the server. */
+  restoreBackup: (day: string, label: string) => Promise<void>;
 }
 
 const ImportExportContext = createContext<ImportExport | null>(null);
@@ -212,10 +263,11 @@ const ImportExportContext = createContext<ImportExport | null>(null);
  * rail footer and the Preferences menu share them.
  */
 export function ImportExportProvider({ children }: { children: ReactNode }) {
-  const { exportNow, chooseImport, element } = useImportExportState();
+  const { exportNow, chooseImport, restoreBackup, element } =
+    useImportExportState();
   const value = useMemo(
-    () => ({ exportNow, chooseImport }),
-    [exportNow, chooseImport],
+    () => ({ exportNow, chooseImport, restoreBackup }),
+    [exportNow, chooseImport, restoreBackup],
   );
   return (
     <ImportExportContext.Provider value={value}>

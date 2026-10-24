@@ -254,6 +254,23 @@ export const ExportSchema = z.object({
 export type ParsedExport = z.output<typeof ExportSchema>;
 
 /** Documents per collection, as an import reports them. */
+/** One nightly backup, as Settings → Data lists it. */
+export interface BackupInfo {
+  /** `YYYY-MM-DD`, the backup's day in the backup time zone. */
+  day: string;
+  bytes: number;
+  /** When it was written, ISO 8601. */
+  at: string;
+}
+
+/** `GET /api/backups`. */
+export interface BackupList {
+  backups: BackupInfo[];
+  /** When they run: the local hour (0–23) in this IANA zone. */
+  hour: number;
+  timeZone: string;
+}
+
 export type Counts = Record<(typeof COLLECTIONS)[number], number>;
 
 export function countDocuments(snapshot: Snapshot): Counts {

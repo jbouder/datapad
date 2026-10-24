@@ -1,4 +1,4 @@
-import type { AppConfig, ImportResult } from '#shared/protocol';
+import type { AppConfig, BackupList, ImportResult } from '#shared/protocol';
 
 /**
  * The few HTTP calls the app makes. Every one goes to this origin, where
@@ -51,12 +51,53 @@ export async function fetchExport(): Promise<string> {
 }
 
 /** Post a parsed export to `/api/import`; the error carries the reason. */
-export async function postImport(file: unknown): Promise<ImportResult> {
-  const response = await fetch('/api/import', {
+export function postImport(file: unknown): Promise<ImportResult> {
+  return postMerge('/api/import', file);
+}
+
+/** Merge one nightly backup back in, on the server. */
+export function postRestore(day: string): Promise<ImportResult> {
+  return postMerge('/api/backups/restore', { day });
+}
+
+/** The nightly backups, newest first, and when they run. */
+export async function fetchBackups(): Promise<BackupList> {
+  const response = await fetch('/api/backups', { credentials: 'same-origin' });
+  if (response.status === 401) {
+    throw new SignedOutError();
+  }
+  if (!response.ok) {
+    throw new Error(`Backups answered ${response.status}`);
+  }
+  return (await response.json()) as BackupList;
+}
+
+/** Where one backup downloads from. */
+export function backupUrl(day: string): string {
+  return `/api/backups/${day}.json`;
+}
+
+/** One backup, parsed, to count before restoring. */
+export async function fetchBackup(day: string): Promise<unknown> {
+  const response = await fetch(backupUrl(day), { credentials: 'same-origin' });
+  if (response.status === 401) {
+    throw new SignedOutError();
+  }
+  if (!response.ok) {
+    throw new Error('That backup is gone. Refresh the list.');
+  }
+  return response.json();
+}
+
+async function postMerge(
+  path: string,
+  payload: unknown,
+): Promise<ImportResult> {
+  const response = await fetch(path, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(file),
+    body: JSON.stringify(payload),
   });
   if (response.status === 401) {
     throw new SignedOutError();

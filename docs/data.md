@@ -8,14 +8,14 @@ commit `.dev.vars`.
 
 ## Where your data lives
 
-| What                               | Where                                                                                     | Who can reach it                                     |
-| ---------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Everything you enter               | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email | The Worker, only after verifying your Access sign-in |
-| Nightly backups (M6)               | The `BACKUPS` R2 bucket in your account, latest 30 kept                                   | You, through the Cloudflare dashboard or API         |
-| Last snapshot (unsent changes: M6) | IndexedDB in each browser you use                                                         | That browser profile                                 |
-| Theme and motion preferences       | `localStorage` in each browser                                                            | That browser profile                                 |
-| Summary model weights              | The browser's cache, downloaded from Hugging Face after you agree                         | That browser profile                                 |
-| Summary model choice               | `localStorage` (`datapad:summary-model`) in each browser                                  | That browser profile                                 |
+| What                               | Where                                                                                      | Who can reach it                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Everything you enter               | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email  | The Worker, only after verifying your Access sign-in |
+| Nightly backups                    | The `BACKUPS` R2 bucket in your account, `<email>/datapad-YYYY-MM-DD.json`, latest 30 kept | You, through the Cloudflare dashboard or API         |
+| Last snapshot (unsent changes: M6) | IndexedDB in each browser you use                                                          | That browser profile                                 |
+| Theme and motion preferences       | `localStorage` in each browser                                                             | That browser profile                                 |
+| Summary model weights              | The browser's cache, downloaded from Hugging Face after you agree                          | That browser profile                                 |
+| Summary model choice               | `localStorage` (`datapad:summary-model`) in each browser                                   | That browser profile                                 |
 
 Cloudflare Access logs record your email and sign-ins, by design. Worker
 logs follow your account's Workers observability settings; the Worker logs
@@ -96,6 +96,36 @@ as it is:
    open tab at once. Archived projects stay archived.
 4. Keep the artifact's file until you have used Datapad for a while; you
    can import it again at any time without making duplicates.
+
+## Backups
+
+Every night at `BACKUP_HOUR` in `BACKUP_TIME_ZONE` (3 AM America/New_York
+unless you change the vars in `wrangler.jsonc`) your Durable Object's
+alarm writes the export JSON to the `BACKUPS` R2 bucket as
+`<your email>/datapad-YYYY-MM-DD.json` (the day in that zone), deletes all
+but the latest 30 of yours, and books the next night. A Datapad with no
+documents writes nothing. If a night is missed, the next time any tab
+connects writes one at once.
+
+The alarm only adds to and prunes the bucket. It never changes or deletes
+a document; the only way to delete your data is the erase below.
+
+**Restore in the app:** Settings → Data → Backups lists them with their
+sizes. Download saves one; Restore counts what it holds, asks, and merges
+it in one transaction exactly like an import: same ids are replaced,
+nothing else is deleted. A document you created after the backup stays.
+
+**Restore without the app** (say the Worker is broken):
+
+```bash
+npx wrangler r2 object get "datapad-backups/you@example.com/datapad-2026-10-24.json" \
+  --file datapad-2026-10-24.json --remote
+```
+
+The file is an ordinary export: read it as JSON, or import it into any
+Datapad through Settings → Data → Import… once the app is back.
+`npx wrangler r2 object list datapad-backups --prefix you@example.com/
+--remote` lists what there is (or browse the bucket in the dashboard).
 
 ## Deleting everything
 

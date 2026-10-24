@@ -111,7 +111,15 @@ owner agrees. `SummaryProvider` keeps the model loaded between summaries and
 owns the `Summary · <item>` panel. No Worker route and no API key are
 involved.
 
-## Backups (M6)
+## Backups
 
-A nightly alarm in each object writes a JSON export to the `BACKUPS` R2
-bucket and keeps the latest 30. See [data.md](data.md).
+Each object books a Durable Object alarm for `BACKUP_HOUR` in
+`BACKUP_TIME_ZONE` (`shared/schedule.ts`, holocron's reset-time maths). The
+alarm writes the export to R2 at `<email>/datapad-YYYY-MM-DD.json` (the
+email is the object's own name, `ctx.id.name`), prunes to 30 and books the
+next night. A socket connection catches up a missed night. `GET
+/api/backups`, `GET /api/backups/<day>.json` and `POST
+/api/backups/restore` run on the signed-in user's object like every other
+route, so nobody can list or read another user's folder. Restore goes
+through the same `merge()` and transaction as Import. See
+[data.md](data.md#backups).

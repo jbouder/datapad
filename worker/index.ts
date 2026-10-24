@@ -1,5 +1,5 @@
 import { LIMITS } from '#shared/limits';
-import type { AppConfig, ImportResult } from '#shared/protocol';
+import type { AppConfig, BackupList, ImportResult } from '#shared/protocol';
 import { type AccessVerifier, verifyAccess } from './access';
 import type { DatapadObject } from './datapad';
 import type { Bindings } from './env';
@@ -47,6 +47,26 @@ export function createHandler(verify: AccessVerifier) {
         }
         const config: AppConfig = { email };
         return json(config);
+      }
+
+      // One backup file: /api/backups/YYYY-MM-DD.json
+      const backup = /^\/api\/backups\/(\d{4}-\d{2}-\d{2})\.json$/.exec(
+        pathname,
+      );
+      if (backup?.[1]) {
+        if (request.method !== 'GET') {
+          return json({ error: 'Method not allowed' }, 405);
+        }
+        const text = await env.DATAPAD.getByName(email).readBackup(backup[1]);
+        if (text === null)
+          return json({ error: 'No backup for that day' }, 404);
+        return new Response(text, {
+          headers: {
+            ...API_HEADERS,
+            'content-type': 'application/json; charset=utf-8',
+            'content-disposition': `attachment; filename="datapad-${backup[1]}.json"`,
+          },
+        });
       }
 
       if (pathname.startsWith('/api/')) {
@@ -127,6 +147,32 @@ const API_ROUTES: Record<string, ApiRoute> = {
       const outcome = await datapad.import(body.value);
       if (!outcome.ok) {
         return json({ error: outcome.error }, 400);
+      }
+      const result: ImportResult = { imported: outcome.imported };
+      return json(result);
+    },
+  },
+  '/api/backups': {
+    method: 'GET',
+    handle: async (_request, datapad) => {
+      const list: BackupList = await datapad.backups();
+      return json(list);
+    },
+  },
+  '/api/backups/restore': {
+    method: 'POST',
+    handle: async (request, datapad) => {
+      const body = await readJson(request);
+      const day =
+        body.ok && typeof body.value === 'object' && body.value !== null
+          ? (body.value as { day?: unknown }).day
+          : undefined;
+      if (typeof day !== 'string') {
+        return json({ error: 'Say which day to restore' }, 400);
+      }
+      const outcome = await datapad.restoreBackup(day);
+      if (!outcome.ok) {
+        return json({ error: outcome.error }, 404);
       }
       const result: ImportResult = { imported: outcome.imported };
       return json(result);
