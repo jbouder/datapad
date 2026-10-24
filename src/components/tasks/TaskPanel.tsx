@@ -7,11 +7,11 @@ import type { Link, Priority, Task } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
-import { MentionTextarea } from '@/components/inputs/MentionTextarea';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
 import { Markdown } from '@/components/Markdown';
+import { NoteComposer } from '@/components/NoteComposer';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
@@ -241,8 +241,8 @@ export function TaskPanel({
           suggestions={tagSuggestions}
         />
       </Field>
-      <Field label="Details" hint="Markdown; type @ to mention someone">
-        <MentionTextarea
+      <Field label="Details" hint="Markdown; type / for styles, @ to mention">
+        <NoteComposer
           value={values.desc}
           onChange={(desc) => set('desc', desc)}
           people={people}
@@ -401,8 +401,8 @@ export function NewTaskPanel({
           />
         </Field>
       </div>
-      <Field label="Details" hint="Markdown; type @ to mention someone">
-        <MentionTextarea
+      <Field label="Details" hint="Markdown; type / for styles, @ to mention">
+        <NoteComposer
           value={values.desc}
           onChange={(desc) => set('desc', desc)}
           people={people}
