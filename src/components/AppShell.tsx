@@ -12,6 +12,7 @@ import {
   setRouteTransition,
   useRoute,
 } from '@/lib/router';
+import { shortcutAllowed } from '@/lib/shortcuts';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -44,6 +45,18 @@ export function AppShell() {
   const addTask = useCallback(() => {
     if (!focusQuickAdd()) navigate({ name: 'focus' });
   }, []);
+
+  // `n`: the nearest quick-add (#24 centralises every binding).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'n' && shortcutAllowed(event)) {
+        event.preventDefault();
+        addTask();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [addTask]);
 
   return (
     <div className="flex min-h-dvh">

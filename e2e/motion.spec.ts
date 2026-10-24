@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, openPreferences, settle, test } from './fixtures';
+import {
+  expect,
+  openLive,
+  openPreferences,
+  SEED,
+  settle,
+  test,
+} from './fixtures';
 
 /**
  * Run `act` in the page, then watch every frame for the next second and
@@ -8,7 +15,7 @@ import { expect, openPreferences, settle, test } from './fixtures';
  */
 async function animationsDuring(
   page: Page,
-  act: 'route' | 'theme',
+  act: 'route' | 'theme' | 'closeTask',
 ): Promise<string[]> {
   await settle(page);
   return page.evaluate(
@@ -36,6 +43,12 @@ async function animationsDuring(
         };
         if (kind === 'route') {
           (document.querySelector('a[href="/help"]') as HTMLElement).click();
+        } else if (kind === 'closeTask') {
+          (
+            document.querySelector(
+              '[data-task-id] input[type="checkbox"]',
+            ) as HTMLElement
+          ).click();
         } else {
           const item = [
             ...document.querySelectorAll('[role="menuitemradio"]'),
@@ -64,6 +77,48 @@ test.describe('with prefers-reduced-motion: reduce', () => {
     await page.goto('/');
     await openPreferences(page);
     expect(await animationsDuring(page, 'theme')).toEqual([]);
+  });
+});
+
+/** A project page with open tasks to close. */
+async function projectWithTasks(
+  page: Page,
+  request: import('@playwright/test').APIRequestContext,
+) {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/projects/p-echo');
+  await expect(page.locator('[data-task-id]').first()).toBeVisible();
+}
+
+test.describe('closing a task', () => {
+  test.describe('with prefers-reduced-motion: reduce', () => {
+    test.use({ reducedMotion: 'reduce' });
+    test('nothing animates', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      expect(await animationsDuring(page, 'closeTask')).toEqual([]);
+    });
+  });
+
+  test.describe('with Preferences → Motion off', () => {
+    test.use({ reducedMotion: 'no-preference' });
+    test('nothing animates', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      await openPreferences(page);
+      await page.getByRole('menuitemcheckbox', { name: 'Motion' }).click();
+      await page.keyboard.press('Escape');
+      expect(await animationsDuring(page, 'closeTask')).toEqual([]);
+    });
+  });
+
+  test.describe('with motion on', () => {
+    test.use({ reducedMotion: 'no-preference' });
+    test('the check animates and the rows FLIP', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      const seen = (await animationsDuring(page, 'closeTask')).join('\n');
+      expect(seen).toMatch(/transition:(scale|opacity) on svg/);
+      // The rows below slide up into the gap (WAAPI FLIP).
+      expect(seen).toMatch(/animation on li/);
+    });
   });
 });
 
