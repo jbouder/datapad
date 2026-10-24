@@ -94,7 +94,10 @@ export function ViewSwitcher<T extends string>({
   return (
     <fieldset className={cn('flex flex-col', className)}>
       <legend className="sr-only">Layout (press v to cycle)</legend>
-      <div className="flex border border-input" title="Layout (v)">
+      <div
+        className="flex outline -outline-offset-1 outline-input"
+        title="Layout (v)"
+      >
         {views.map(({ id, label, icon: ViewIcon }) => (
           <label
             key={id}

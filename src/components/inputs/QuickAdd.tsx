@@ -44,7 +44,7 @@ export function QuickAdd({
 
   return (
     <form
-      className={cn('flex flex-col gap-1 desk:flex-row', className)}
+      className={cn('flex flex-col gap-3 desk:flex-row', className)}
       onSubmit={(event) => {
         event.preventDefault();
         add();
@@ -82,7 +82,7 @@ export function QuickAdd({
           placeholder={label}
           autoComplete="off"
           enterKeyHint="done"
-          className="h-11 pl-8 text-base desk:h-9 desk:text-sm"
+          className="h-11 pl-8 text-base desk:h-8 desk:text-xs"
         />
       </div>
       {onProjectChange && (

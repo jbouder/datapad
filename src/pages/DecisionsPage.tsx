@@ -102,7 +102,7 @@ export function DecisionsPage() {
       </div>
 
       {any && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.6fr)_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.6fr)_1fr_1fr] sm:items-end">
           <Segmented
             legend="Status"
             value={filters.status}
