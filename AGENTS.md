@@ -24,7 +24,7 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router),
-  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `lib/themes.ts`,
+  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `lib/themes.ts` (System, Light, Dark),
   `providers/*` (Motion, Theme, Toast), `components/*`, `pages/*`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
@@ -78,7 +78,7 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (M6, in-browser).
   JS helpers take `enabled` from `useMotion().active`.
 - Motion styling belongs in `src/index.css` or at the call site, never in
   `src/components/ui/*`.
-- **Colours are tokens.** Every theme defines every token
+- **Colours are tokens.** Light and Dark define every token
   (`test/themes.test.ts`); use `text-warn`, `bg-ok/15`, etc., never a literal.
 - Self-hosting docs live in `docs/`, not in the app.
 

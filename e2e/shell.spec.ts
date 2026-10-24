@@ -49,12 +49,16 @@ test('the theme choice persists and applies before first paint', async ({
 }) => {
   await page.goto('/');
   await openPreferences(page);
-  await page.getByRole('menuitemradio', { name: 'Kamino' }).click();
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click();
   const html = page.locator('html');
-  await expect(html).toHaveAttribute('data-theme', 'kamino');
   await expect(html).toHaveClass(/\bdark\b/);
   await page.reload();
-  await expect(html).toHaveAttribute('data-theme', 'kamino');
+  await expect(html).toHaveClass(/\bdark\b/);
+  await openPreferences(page);
+  await page.getByRole('menuitemradio', { name: 'Light' }).click();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+  await page.reload();
+  await expect(html).not.toHaveClass(/\bdark\b/);
 });
 
 test('nothing is requested from another origin', async ({ page }) => {

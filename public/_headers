@@ -15,7 +15,7 @@
 #   connect-src  'self' covers the API and the WebSocket.
 /*
   Referrer-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-sZhozgqiTtexdC0ta8ImOXaPVTH6dWvh4T+UTH9avno='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-AninP3D4U6FRf13VyLzOT4f91MfmzGUmte3Qj5cy87o='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()

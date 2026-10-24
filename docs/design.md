@@ -1,15 +1,16 @@
 # Design
 
 Datapad looks, feels and moves like holocron: Oxanium Variable for UI and
-headings, JetBrains Mono for code, square Lyra corners, and the six themes
-System, Light, Dark (side), Dagobah, Tatooine and Kamino. The spec's
+headings, JetBrains Mono for code, square Lyra corners, and three themes:
+System, Light and Dark (holocron's light set and its "Dark (side)" set).
+Holocron's extra themes are deliberately left out. The spec's
 structural rules carry over; its fonts and colours do not (see
 `PLAN.md` → Deliberate departures).
 
 ## Tokens
 
-Every colour is a semantic token defined by every theme in
-`src/index.css`; `test/themes.test.ts` fails if a theme misses one or if a
+Every colour is a semantic token defined by both Light (`:root`) and Dark
+(`.dark`) in `src/index.css`; `test/themes.test.ts` fails if Dark misses one or if a
 text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 
 | Token                          | Meaning                            | Utilities                                           |

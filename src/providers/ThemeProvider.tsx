@@ -8,12 +8,7 @@ import {
   useState,
 } from 'react';
 import { withViewTransition } from '@/lib/motion';
-import {
-  isThemeId,
-  PALETTE_IDS,
-  type ThemeId,
-  themeOption,
-} from '@/lib/themes';
+import { isThemeId, type ThemeId, themeOption } from '@/lib/themes';
 import { useMotion } from '@/providers/MotionProvider';
 
 const STORAGE_KEY = 'datapad:theme';
@@ -59,11 +54,6 @@ function resolveMode(theme: ThemeId): 'light' | 'dark' {
 function apply(theme: ThemeId) {
   const root = document.documentElement;
   root.classList.toggle('dark', resolveMode(theme) === 'dark');
-  if (PALETTE_IDS.includes(theme)) {
-    root.dataset.theme = theme;
-  } else {
-    delete root.dataset.theme;
-  }
 }
 
 function save(theme: ThemeId) {

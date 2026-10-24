@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { PALETTE_IDS, THEMES, type ThemeOption } from '../src/lib/themes';
+import { THEMES, type ThemeOption } from '../src/lib/themes';
 import { expect, expectAccessible, openPreferences, test } from './fixtures';
 
 /**
@@ -22,11 +22,6 @@ async function expectTheme(page: Page, theme: ThemeOption) {
     await expect(html).toHaveClass(/\bdark\b/);
   } else {
     await expect(html).not.toHaveClass(/\bdark\b/);
-  }
-  if (PALETTE_IDS.includes(theme.id)) {
-    await expect(html).toHaveAttribute('data-theme', theme.id);
-  } else {
-    await expect(html).not.toHaveAttribute('data-theme');
   }
 }
 

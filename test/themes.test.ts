@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import css from '../src/index.css?raw';
-import { PALETTE_IDS, THEMES as THEME_OPTIONS } from '../src/lib/themes';
+import { THEMES as THEME_OPTIONS } from '../src/lib/themes';
 
 /**
  * Every theme's tokens against WCAG AA: 4.5:1 for text on the surfaces it
@@ -26,9 +26,6 @@ const dark = { ...light, ...block('.dark') };
 const THEMES: Record<string, Tokens> = {
   light,
   dark,
-  dagobah: { ...dark, ...block('html[data-theme="dagobah"]') },
-  tatooine: { ...light, ...block('html[data-theme="tatooine"]') },
-  kamino: { ...dark, ...block('html[data-theme="kamino"]') },
 };
 
 /** oklch(L C H) → relative luminance, via OKLab and linear sRGB. */
@@ -91,14 +88,11 @@ describe.each(Object.entries(THEMES))('theme %s', (_, tokens) => {
 });
 
 /**
- * A palette block that forgets a token silently inherits its base theme's
- * value, so each block has to define every colour token :root does.
- * Sidebar tokens follow the card in the extra themes (a shared block), and
- * the radius is the same everywhere.
+ * `.dark` layers on `:root`; a token it forgets silently keeps the light
+ * value, so it has to define every colour token :root does (the radius is
+ * the same in both).
  */
-const REQUIRED = Object.keys(light).filter(
-  (name) => name !== 'radius' && !name.startsWith('sidebar'),
-);
+const REQUIRED = Object.keys(light).filter((name) => name !== 'radius');
 
 describe('token coverage', () => {
   it('requires the Datapad tokens', () => {
@@ -112,30 +106,14 @@ describe('token coverage', () => {
     );
   });
 
-  it.each(['.dark', ...PALETTE_IDS.map((id) => `html[data-theme="${id}"]`)])(
-    '%s defines every token',
-    (selector) => {
-      const own = Object.keys(block(selector));
-      expect(REQUIRED.filter((name) => !own.includes(name))).toEqual([]);
-    },
-  );
+  it('.dark defines every token', () => {
+    const own = Object.keys(block('.dark'));
+    expect(REQUIRED.filter((name) => !own.includes(name))).toEqual([]);
+  });
 });
 
 describe('theme ids', () => {
-  it('has a token block for every palette theme', () => {
-    expect(Object.keys(THEMES).sort()).toEqual(
-      ['light', 'dark', ...PALETTE_IDS].sort(),
-    );
-  });
-
-  it('lists six themes, System first', () => {
-    expect(THEME_OPTIONS.map((t) => t.id)).toEqual([
-      'system',
-      'light',
-      'dark',
-      'dagobah',
-      'tatooine',
-      'kamino',
-    ]);
+  it('lists System, Light and Dark', () => {
+    expect(THEME_OPTIONS.map((t) => t.id)).toEqual(['system', 'light', 'dark']);
   });
 });

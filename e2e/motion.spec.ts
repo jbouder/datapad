@@ -39,7 +39,11 @@ async function animationsDuring(
         } else {
           const item = [
             ...document.querySelectorAll('[role="menuitemradio"]'),
-          ].find((el) => el.textContent?.includes('Tatooine')) as HTMLElement;
+          ].find(
+            (el) =>
+              el.getAttribute('aria-checked') !== 'true' &&
+              el.textContent?.trim() !== 'System',
+          ) as HTMLElement;
           item.click();
         }
         tick();
