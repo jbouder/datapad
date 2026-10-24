@@ -481,7 +481,17 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 /** Server → client. Not validated on the client; the server is trusted. */
 export type ServerMessage =
-  | { type: 'snapshot'; seq: number; state: Snapshot }
+  | {
+      type: 'snapshot';
+      seq: number;
+      state: Snapshot;
+      /**
+       * The latest op ids the object applied (up to `LIMITS.recentOps`),
+       * so a reconnecting client drops pending ops whose echo it missed
+       * instead of sending them twice.
+       */
+      recent: string[];
+    }
   | {
       type: 'op';
       seq: number;

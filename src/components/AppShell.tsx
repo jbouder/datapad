@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { TopBar } from '@/components/TopBar';
-import { useConfig } from '@/hooks/useConfig';
 import { withViewTransition } from '@/lib/motion';
 import { setRouteTransition, useRoute } from '@/lib/router';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
 /**
@@ -15,7 +15,7 @@ import { useMotion } from '@/providers/MotionProvider';
 export function AppShell() {
   const route = useRoute();
   const { active } = useMotion();
-  const config = useConfig();
+  const email = useEmail();
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -29,7 +29,7 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <TopBar route={route} email={config?.email ?? null} />
+      <TopBar route={route} email={email} />
       {/* Keyed by route so each page mounts fresh and its entrances replay. */}
       <main
         id="main"

@@ -65,16 +65,19 @@ can toast when the op cannot apply.
 One WebSocket per tab at `/ws`, JSON text frames. `ping` / `pong` keep it
 alive (answered by the runtime without waking the object).
 
-| Direction       | Message                              | When                                                                           |
-| --------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
-| server → client | `{ type: 'snapshot', seq, state }`   | On connect, on `sync`, and to every socket after an import or erase            |
-| client → server | `{ type: 'op', opId, op }`           | Every change; `opId` is the client's, to match the echo                        |
-| server → client | `{ type: 'op', seq, opId, op, at }`  | To **every** socket, the sender's included, once the op is stored              |
-| server → client | `{ type: 'rejected', opId, reason }` | Only to the sender: invalid, impossible, too large, or over the flood limit    |
-| client → server | `{ type: 'sync' }`                   | After a sequence gap, or when the client's reducer disagrees with an echoed op |
+| Direction       | Message                                    | When                                                                           |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------ |
+| server → client | `{ type: 'snapshot', seq, state, recent }` | On connect, on `sync`, and to every socket after an import or erase            |
+| client → server | `{ type: 'op', opId, op }`                 | Every change; `opId` is the client's, to match the echo                        |
+| server → client | `{ type: 'op', seq, opId, op, at }`        | To **every** socket, the sender's included, once the op is stored              |
+| server → client | `{ type: 'rejected', opId, reason }`       | Only to the sender: invalid, impossible, too large, or over the flood limit    |
+| client → server | `{ type: 'sync' }`                         | After a sequence gap, or when the client's reducer disagrees with an echoed op |
 - `seq` goes up by one per stored op (a no-op too, so its sender gets an
   echo). A client at `seq` n that receives n + 2 has missed one and asks
   for `sync`.
+- `recent` lists the last `LIMITS.recentOps` op ids the object applied.
+  A client that reconnects drops pending ops listed there (their echo went
+  to the socket that closed) and resends the rest once per socket.
 - `at` is the object's clock when it applied the op. Clients pass it to
   `reduce()` so their confirmed state matches the object's byte for byte.
 - Each socket may send `LIMITS.opsPerSecond` ops per second; more are
