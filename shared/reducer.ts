@@ -30,6 +30,23 @@ export class OpError extends Error {
   }
 }
 
+function checkOrg(d: Draft, id: string): string {
+  if (!d.get('orgs', id)) fail('That org no longer exists');
+  return id;
+}
+
+/** Org names are unique, ignoring case. */
+function sameName(d: Draft, name: string, except?: string) {
+  const key = name.trim().toLowerCase();
+  if (
+    d
+      .all('orgs')
+      .some((o) => o.id !== except && o.name.trim().toLowerCase() === key)
+  ) {
+    fail(`There is already an org called ${name.trim()}`);
+  }
+}
+
 const DECISION_VERBS = {
   proposed: 'Proposed',
   decided: 'Decided',
@@ -335,6 +352,7 @@ function apply(d: Draft, op: Op, now: string) {
         id: op.id,
         name: op.name,
         org: op.org ?? '',
+        ...(op.orgId ? { orgId: checkOrg(d, op.orgId) } : {}),
         status: op.status ?? 'active',
         health: op.health ?? 'none',
         priority: op.priority ?? 'none',
@@ -353,6 +371,7 @@ function apply(d: Draft, op: Op, now: string) {
     }
     case 'editProject': {
       const p = project(d, op.id);
+      if (op.patch.orgId) checkOrg(d, op.patch.orgId);
       d.set('projects', p.id, { ...p, ...op.patch, updatedAt: now });
       log(d, p.id, 'Edited project details', now);
       return;
@@ -481,6 +500,95 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
+    /* orgs */
+    case 'addOrg': {
+      fresh(d, 'orgs', op.id, 'org');
+      sameName(d, op.name);
+      d.set('orgs', op.id, {
+        id: op.id,
+        name: op.name,
+        kind: op.kind ?? 'client',
+        links: [],
+        notes: '',
+        contacts: op.contacts ?? [],
+        archived: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return;
+    }
+    case 'editOrg': {
+      const o = d.get('orgs', op.id) ?? fail('That org no longer exists');
+      if (op.patch.name && op.patch.name !== o.name)
+        sameName(d, op.patch.name, o.id);
+      const next = { ...o, ...op.patch, updatedAt: now };
+      d.set('orgs', o.id, next);
+      if (next.name !== o.name) {
+        // Its projects show the new name too.
+        for (const p of d.all('projects')) {
+          if (p.orgId === o.id) {
+            d.set('projects', p.id, { ...p, org: next.name, updatedAt: now });
+          }
+        }
+        for (const s of d.all('settings')) {
+          if (s.defaultOrg === o.name) {
+            d.set('settings', SETTINGS_ID, { ...s, defaultOrg: next.name });
+          }
+        }
+      }
+      return;
+    }
+    case 'deleteOrg': {
+      d.get('orgs', op.id) ?? fail('That org no longer exists');
+      d.delete('orgs', op.id);
+      for (const p of d.all('projects')) {
+        if (p.orgId === op.id) {
+          const { orgId: _, ...rest } = p;
+          d.set('projects', p.id, rest);
+        }
+      }
+      return;
+    }
+    case 'organizeOrgs': {
+      const byName = new Map(
+        d.all('orgs').map((o) => [o.name.trim().toLowerCase(), o.id]),
+      );
+      let made = 0;
+      for (const o of op.orgs) {
+        const key = o.name.trim().toLowerCase();
+        if (byName.has(key) || d.get('orgs', o.id)) continue;
+        d.set('orgs', o.id, {
+          id: o.id,
+          name: o.name.trim(),
+          kind: o.kind ?? 'client',
+          links: [],
+          notes: '',
+          contacts: [],
+          archived: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+        byName.set(key, o.id);
+        made += 1;
+      }
+      let linked = 0;
+      for (const p of d.all('projects')) {
+        const want = byName.get(p.org.trim().toLowerCase());
+        if (!want || p.orgId === want) continue;
+        d.set('projects', p.id, { ...p, orgId: want });
+        linked += 1;
+      }
+      if (made + linked > 0) {
+        log(
+          d,
+          null,
+          `Organised orgs: ${made} new, ${linked} ${linked === 1 ? 'project' : 'projects'} linked`,
+          now,
+        );
+      }
+      return;
+    }
+
     /* decisions */
     case 'addDecision': {
       fresh(d, 'decisions', op.id, 'decision');
@@ -585,6 +693,14 @@ function apply(d: Draft, op: Op, now: string) {
           d.set('projects', p.id, {
             ...p,
             members: p.members.filter((m) => m !== op.id),
+          });
+        }
+      }
+      for (const o of d.all('orgs')) {
+        if (o.contacts.includes(op.id)) {
+          d.set('orgs', o.id, {
+            ...o,
+            contacts: o.contacts.filter((c) => c !== op.id),
           });
         }
       }

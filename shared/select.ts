@@ -53,14 +53,18 @@ export const openCounts = lastCall((tasks: Tasks): Map<string, number> => {
 });
 
 /** Distinct orgs across projects, for autocomplete, sorted. */
-export const orgs = lastCall((projects: Projects): string[] =>
-  [
-    ...new Set(
-      Object.values(projects)
-        .map((p) => p.org.trim())
-        .filter(Boolean),
-    ),
-  ].sort((a, b) => a.localeCompare(b)),
+export const orgs = lastCall(
+  (projects: Projects, records: Snapshot['orgs'] = {}): string[] =>
+    [
+      ...new Set([
+        ...Object.values(records)
+          .filter((o) => !o.archived)
+          .map((o) => o.name),
+        ...Object.values(projects)
+          .map((p) => p.org.trim())
+          .filter(Boolean),
+      ]),
+    ].sort((a, b) => a.localeCompare(b)),
 );
 
 /** The person marked as "me", if any. */

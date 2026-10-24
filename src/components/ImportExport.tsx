@@ -33,6 +33,7 @@ import {
   postRestore,
   SignedOutError,
 } from '@/lib/api';
+import { navigate } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -75,6 +76,8 @@ interface Proposal {
   counts: Counts;
   /** A nightly backup's day: restore it on the server instead. */
   restore?: string;
+  /** Its projects name orgs as text only: offer to organise them. */
+  plainOrgs?: boolean;
 }
 
 function useImportExportState() {
@@ -147,6 +150,9 @@ function useImportExportState() {
         name: picked.name,
         file,
         counts: countDocuments(documents),
+        plainOrgs: Object.values(documents.projects).some(
+          (p) => p.org.trim() && !p.orgId,
+        ),
       });
     },
     [show],
@@ -187,6 +193,13 @@ function useImportExportState() {
       setProposal(null);
       show(
         `${proposal.restore ? 'Restored' : 'Imported'} ${describeCounts(result.imported)}`,
+        undefined,
+        proposal.plainOrgs
+          ? {
+              label: 'Organise orgs',
+              run: () => navigate({ name: 'settings', section: 'orgs' }),
+            }
+          : undefined,
       );
     } catch (error) {
       failed(

@@ -704,6 +704,71 @@ describe('people', () => {
     expect(state.decisions.d1?.projectId).toBeNull();
   });
 
+  it('organizeOrgs makes orgs from project text, links them, and is idempotent', () => {
+    let state = run(
+      base(),
+      { type: 'editProject', id: 'p1', patch: { org: 'Rebel Alliance' } },
+      {
+        type: 'createProject',
+        id: 'p2',
+        name: 'Falcon',
+        org: 'rebel alliance',
+      },
+      { type: 'createProject', id: 'p3', name: 'Yavin', org: 'Corellia' },
+    );
+    const plan = {
+      type: 'organizeOrgs' as const,
+      orgs: [
+        { id: 'o1', name: 'Rebel Alliance' },
+        { id: 'o2', name: 'Corellia', kind: 'vendor' as const },
+      ],
+    };
+    state = at(state, plan).state;
+    expect(Object.keys(state.orgs).sort()).toEqual(['o1', 'o2']);
+    expect(state.orgs.o2?.kind).toBe('vendor');
+    expect(state.projects.p1?.orgId).toBe('o1');
+    // Case does not matter.
+    expect(state.projects.p2?.orgId).toBe('o1');
+    expect(state.projects.p3?.orgId).toBe('o2');
+    expect(lastLog(state, 'general')).toBe(
+      'Organised orgs: 2 new, 3 projects linked',
+    );
+    // Again, even with fresh ids: nothing changes.
+    expect(
+      at(state, {
+        type: 'organizeOrgs',
+        orgs: [{ id: 'o9', name: 'Rebel Alliance' }],
+      }).changed,
+    ).toEqual([]);
+  });
+
+  it('renaming an org renames it on its projects; deleting keeps the text', () => {
+    let state = run(
+      base(),
+      { type: 'addOrg', id: 'o1', name: 'Alliance' },
+      {
+        type: 'editProject',
+        id: 'p1',
+        patch: { org: 'Alliance', orgId: 'o1' },
+      },
+      { type: 'editOrg', id: 'o1', patch: { name: 'Rebel Alliance' } },
+    );
+    expect(state.projects.p1).toMatchObject({
+      org: 'Rebel Alliance',
+      orgId: 'o1',
+    });
+    expect(() =>
+      at(state, { type: 'addOrg', id: 'o2', name: 'rebel alliance' }),
+    ).toThrow('There is already an org called rebel alliance');
+    state = at(state, { type: 'deleteOrg', id: 'o1' }).state;
+    expect(state.orgs.o1).toBeUndefined();
+    expect(state.projects.p1?.org).toBe('Rebel Alliance');
+    expect(state.projects.p1?.orgId).toBeUndefined();
+    expect(() =>
+      at(state, { type: 'editProject', id: 'p1', patch: { orgId: 'o1' } }),
+    ).toThrow('That org no longer exists');
+  });
+
   it('removePerson keeps a task blocked but on no one listed', () => {
     const state = run(base(), {
       type: 'setBlocked',

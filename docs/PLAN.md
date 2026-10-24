@@ -79,7 +79,9 @@ Fields added in later milestones (all optional, absent on import):
 - `task.blocked`: `{ on: personId | null, note: string } | null` (deferred 3;
   M7, `setBlocked` op, read with `blockedOf()`; removing the person keeps
   the task blocked on no one listed).
-- `project.orgId`: once orgs become first class.
+- `project.orgId`: the Org record `project.org` names (M7). The text stays
+  what shows and what older exports carry; `organizeOrgs` links them by name,
+  and renaming an Org renames its projects' text.
 
 New collections, agreed as worth having (milestone 7):
 

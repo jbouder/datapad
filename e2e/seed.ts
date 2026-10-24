@@ -18,4 +18,5 @@ export const SEED_COUNTS = {
   // The artifact's export has no settings.
   settings: 0,
   decisions: 0,
+  orgs: 0,
 };

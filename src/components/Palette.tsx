@@ -1,5 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog';
 import {
+  BuildingsIcon,
   CalendarBlankIcon,
   CheckSquareIcon,
   CircleHalfIcon,
@@ -35,6 +36,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
   { kind: 'event', heading: 'Events', icon: CalendarBlankIcon },
   { kind: 'decision', heading: 'Decisions', icon: GavelIcon },
+  { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
 ];
 
@@ -85,6 +87,7 @@ export function Palette({
         state.events,
         state.people,
         state.decisions,
+        state.orgs,
       )
     : null;
   const results = useMemo(
@@ -167,6 +170,10 @@ export function Palette({
         );
       case 'decision':
         return choose(() => openDecision(id));
+      case 'org':
+        return choose(() =>
+          navigate({ name: 'settings', section: 'orgs', org: id }),
+        );
       case 'person':
         return choose(() =>
           navigate({ name: 'settings', section: 'people', person: id }),
@@ -176,7 +183,7 @@ export function Palette({
 
   const projectName = (hit: SearchHit) => {
     const { projectId, kind } = hit.entry;
-    if (kind === 'project' || kind === 'person') return null;
+    if (kind === 'project' || kind === 'person' || kind === 'org') return null;
     return projectId ? (state?.projects[projectId]?.name ?? null) : 'General';
   };
 
@@ -208,8 +215,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, events, decisions, people and actions. Arrow
-            keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, events, decisions, orgs, people and actions.
+            Arrow keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

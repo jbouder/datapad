@@ -28,6 +28,10 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+/** What an org is to you. */
+export const ORG_KINDS = ['client', 'internal', 'vendor', 'partner'] as const;
+export type OrgKind = (typeof ORG_KINDS)[number];
+
 /** Where a decision stands. */
 export const DECISION_STATUSES = ['proposed', 'decided', 'revisited'] as const;
 export type DecisionStatus = (typeof DECISION_STATUSES)[number];
@@ -56,8 +60,10 @@ export interface Link {
 export interface Project {
   id: string;
   name: string;
-  /** Client or org, free text. */
+  /** Client or org, free text: what shows, and what older exports carry. */
   org: string;
+  /** The Org record `org` names, once orgs are organised (M7). */
+  orgId?: string | null;
   status: ProjectStatus;
   /**
    * Green, yellow, red, or not judged. Absent on documents written before
@@ -170,6 +176,20 @@ export interface Decision {
   updatedAt: Timestamp;
 }
 
+/** A client, an internal team, a vendor or a partner, with its contacts. */
+export interface Org {
+  id: string;
+  name: string;
+  kind: OrgKind;
+  links: Link[];
+  /** Markdown with `@{personId}` mentions. */
+  notes: string;
+  contacts: string[];
+  archived: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 export interface Person {
   id: string;
   /** Mention matching is by name. */
@@ -233,6 +253,7 @@ export interface Collections {
   events: Event;
   people: Person;
   decisions: Decision;
+  orgs: Org;
   activity: Activity;
   settings: Settings;
 }
@@ -246,6 +267,7 @@ export const COLLECTIONS = [
   'events',
   'people',
   'decisions',
+  'orgs',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -260,6 +282,7 @@ export const DOC_COLLECTIONS = [
   'events',
   'people',
   'decisions',
+  'orgs',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -275,6 +298,7 @@ export function emptySnapshot(): Snapshot {
     events: {},
     people: {},
     decisions: {},
+    orgs: {},
     activity: {},
     settings: {},
   };
