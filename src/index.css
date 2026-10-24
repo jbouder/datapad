@@ -329,7 +329,7 @@ html[data-motion="off"] {
 
 /* `withViewTransition()` puts its type on <html data-vt> for the life of the
    transition, so each element is only snapshotted separately when its own
-   transition is running. Types: page, theme, filter. Panels are not a view
+   transition is running. Types: page, theme, filter, layout. Panels are not a view
    transition; they use @starting-style (below). The root snapshot never
    animates: everything that should move has a name. */
 ::view-transition-old(root),
@@ -370,6 +370,17 @@ html[data-vt="filter"] .vt-list {
 }
 ::view-transition-old(list),
 ::view-transition-new(list) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-emphasized);
+}
+
+/* Layout switches (ViewSwitcher): the collection crossfades on its own
+   snapshot and the items named by withLayoutTransition() move. Never
+   longer than --duration-slow. */
+html[data-vt="layout"] .vt-list {
+  view-transition-name: list;
+}
+html[data-vt="layout"]::view-transition-group(*) {
   animation-duration: var(--duration-slow);
   animation-timing-function: var(--ease-emphasized);
 }

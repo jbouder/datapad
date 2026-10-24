@@ -91,7 +91,9 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
 ## Motion
 
 Holocron's rules, in `AGENTS.md`. View transition types: `page` (route
-changes), `theme` (theme switch), `filter` (list filter, group-by and
-layout changes on `.vt-list`). Panels and toasts enter with
+changes), `theme` (theme switch), `filter` (list filter and group-by
+changes on `.vt-list`), `layout` (ViewSwitcher: the first 40 visible items
+carry a `view-transition-name` only while the switch runs, so they move to
+their new place; `withLayoutTransition` in `src/lib/motion.ts`). Panels and toasts enter with
 `@starting-style`. List rows and cards use `.enter`; pressable things use
 `.press`. Counts never animate.

@@ -26,7 +26,9 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   `DatapadObject` Durable Object), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router),
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
-  `providers/*` (Motion, Theme, Toast), `components/*`, `pages/*`.
+  `providers/*` (Motion, Theme, Toast), `components/*` (shared layouts in
+  `components/layouts/`: ViewSwitcher, DataTable, CardGrid, Board, Timeline,
+  Calendar), `pages/*`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a
@@ -75,7 +77,7 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (M6, in-browser).
   Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`).
   Animate `opacity`/`transform` only; position changes go through FLIP or View
   Transitions. Scope `view-transition-name`s with `html[data-vt="…"]`
-  (types in use: `page`, `theme`, `filter`). Panels use `@starting-style`,
+  (types in use: `page`, `theme`, `filter`, `layout`). Panels use `@starting-style`,
   not a view transition. Counts never animate.
 - **Motion respects two switches:** Settings → Appearance → Motion (also in the account menu)
   (`html[data-motion="off"]`) and `prefers-reduced-motion` (hard override).

@@ -42,6 +42,53 @@ export function withViewTransition(
     });
 }
 
+/** Items that keep their identity across a layout switch (first 40). */
+const LAYOUT_ITEMS = 40;
+
+function nameLayoutItems(root: ParentNode): HTMLElement[] {
+  const named: HTMLElement[] = [];
+  const seen = new Set<string>();
+  for (const el of root.querySelectorAll<HTMLElement>('[data-layout-id]')) {
+    const id = el.dataset.layoutId;
+    if (!id || seen.has(id) || el.getClientRects().length === 0) continue;
+    seen.add(id);
+    // Ids are arbitrary strings; a custom-ident must be safe.
+    el.style.viewTransitionName = `layout-${id.replace(/[^\w-]/g, '_')}`;
+    named.push(el);
+    if (named.length >= LAYOUT_ITEMS) break;
+  }
+  return named;
+}
+
+/**
+ * A `layout` view transition: switching between table, cards, board and
+ * the rest. The first 40 visible items carry a view-transition-name only
+ * for the length of the switch (old DOM before, new DOM inside the
+ * update), so the same task or project is seen moving to its new place.
+ * Page transitions never see these names.
+ */
+export function withLayoutTransition(update: () => void, enabled: boolean) {
+  if (!enabled || typeof document.startViewTransition !== 'function') {
+    update();
+    return;
+  }
+  const root = document.documentElement;
+  root.dataset.vt = 'layout';
+  let named = nameLayoutItems(document);
+  const transition = document.startViewTransition(() => {
+    for (const el of named) el.style.viewTransitionName = '';
+    flushSync(update);
+    named = nameLayoutItems(document);
+  });
+  transition.ready.catch(() => undefined);
+  transition.finished
+    .catch(() => undefined)
+    .then(() => {
+      for (const el of named) el.style.viewTransitionName = '';
+      if (root.dataset.vt === 'layout') delete root.dataset.vt;
+    });
+}
+
 /* ---------- Web Animations API ---------- */
 
 export const EASE_EMPHASIZED = 'cubic-bezier(0.2, 0, 0, 1)';

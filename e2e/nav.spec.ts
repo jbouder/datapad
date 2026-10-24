@@ -109,9 +109,10 @@ test('an unknown project or path says Not found, with a way back', async ({
 
 test('tab order is rail, then top bar, then main', async ({ page }) => {
   test.skip(isMobile(page), 'Keyboard order is checked on desktop.');
-  await page.goto('/');
+  // Main has a quick-add once the data is in.
+  await openLive(page, '/');
   const order: string[] = [];
-  for (let i = 0; i < 16; i += 1) {
+  for (let i = 0; i < 24; i += 1) {
     await page.keyboard.press('Tab');
     order.push(
       await page.evaluate(() => {
@@ -140,4 +141,19 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
+});
+
+test('sections run Focus, Projects, Tasks, Events, Notes', async ({ page }) => {
+  await page.goto('/');
+  const nav = page
+    .getByRole('navigation', { name: 'Sections' })
+    .filter({ visible: true })
+    .first();
+  await expect(nav.getByRole('link')).toHaveText([
+    /Focus/,
+    /Projects/,
+    /Tasks/,
+    /Events/,
+    /Notes/,
+  ]);
 });

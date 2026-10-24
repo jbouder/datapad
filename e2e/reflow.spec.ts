@@ -50,7 +50,7 @@ test.describe('on a phone', () => {
       banner.getByRole('button', { name: 'Account and settings' }),
       banner.getByRole('button', { name: 'Add task' }),
       banner.getByRole('link', { name: 'Help' }),
-      ...['Focus', 'Projects', 'Tasks', 'Notes', 'Events'].map((name) =>
+      ...['Focus', 'Projects', 'Tasks', 'Events', 'Notes'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })
           .last()

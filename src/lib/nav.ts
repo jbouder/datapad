@@ -20,8 +20,8 @@ export const NAV: NavItem[] = [
   { route: { name: 'focus' }, label: 'Focus', icon: CrosshairIcon },
   { route: { name: 'projects' }, label: 'Projects', icon: FoldersIcon },
   { route: { name: 'tasks' }, label: 'Tasks', icon: CheckSquareIcon },
-  { route: { name: 'notes' }, label: 'Notes', icon: NoteIcon },
   { route: { name: 'events' }, label: 'Events', icon: CalendarBlankIcon },
+  { route: { name: 'notes' }, label: 'Notes', icon: NoteIcon },
 ];
 
 const TITLES: Partial<Record<RouteName, string>> = {
