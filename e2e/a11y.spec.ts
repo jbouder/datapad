@@ -20,6 +20,8 @@ const ROUTES = [
   { path: '/people', heading: 'People' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
+  // The shared inputs (#19), only in the e2e build.
+  { path: '/dev/components', heading: 'Components' },
 ];
 
 /** The theme really applied, so a silent fallback to Light cannot pass. */

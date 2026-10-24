@@ -1,27 +1,21 @@
-import { PlusIcon } from '@phosphor-icons/react';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { localDate } from '#shared/dates';
 import { activeProjects, focusBuckets } from '#shared/select';
-import { Input } from '@/components/ui/input';
+import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { QUICK_ADD_ID, takeQuickAddFocus } from '@/lib/quickAdd';
 
 const ANYONE = { kind: 'anyone' } as const;
 
 /**
  * Focus: what needs attention today. Until the buckets arrive (M5) and the
- * shared task rows and quick-add (M2, #20), this is a plain list of open
- * tasks with a General quick-add, enough to use the data layer end to end.
+ * shared task rows (#20), this is a plain list of open tasks with a
+ * quick-add and its project picker.
  */
 export function FocusPage() {
   usePageTitle('Focus');
   const { state, actions } = useDatapad();
-  const [title, setTitle] = useState('');
-  const input = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (takeQuickAddFocus()) input.current?.focus();
-  }, []);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   const today = localDate(new Date());
   const open = useMemo(() => {
@@ -30,13 +24,6 @@ export function FocusPage() {
     return [...b.overdue, ...b.today, ...b.thisWeek, ...b.later, ...b.noDate];
   }, [state, today]);
   const projects = state ? activeProjects(state.projects).length : 0;
-
-  const add = (event: FormEvent) => {
-    event.preventDefault();
-    if (actions.addTask({ projectId: null, title })) {
-      setTitle('');
-    }
-  };
 
   return (
     <section
@@ -55,26 +42,11 @@ export function FocusPage() {
         )}
       </div>
 
-      <form onSubmit={add} className="relative">
-        <label htmlFor={QUICK_ADD_ID} className="sr-only">
-          Add a task
-        </label>
-        <PlusIcon
-          weight="bold"
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          ref={input}
-          id={QUICK_ADD_ID}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task"
-          autoComplete="off"
-          enterKeyHint="done"
-          className="h-11 pl-8 text-base sm:h-9 md:text-sm"
-        />
-      </form>
+      <QuickAdd
+        projectId={projectId}
+        onProjectChange={setProjectId}
+        onAdd={(title) => actions.addTask({ projectId, title }) !== null}
+      />
 
       {!state ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

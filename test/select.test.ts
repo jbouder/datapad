@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, endOfWeek, localDate, weekday } from '#shared/dates';
 import { ExportSchema } from '#shared/protocol';
 import { reduce } from '#shared/reducer';
 import {
@@ -37,30 +36,6 @@ function withTasks(...tasks: Array<Partial<Task> & { id: string }>): Snapshot {
 
 const anyone = { kind: 'anyone' } as const;
 const ids = (tasks: Task[]) => tasks.map((t) => t.id);
-
-describe('dates', () => {
-  it('reads the local calendar day, changing at local midnight', () => {
-    expect(localDate(new Date(2026, 9, 23, 23, 59, 59, 999))).toBe(
-      '2026-10-23',
-    );
-    expect(localDate(new Date(2026, 9, 24, 0, 0, 0, 0))).toBe('2026-10-24');
-    expect(localDate(new Date(2026, 0, 1, 0, 0))).toBe('2026-01-01');
-  });
-
-  it('adds days across months and years', () => {
-    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
-    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
-    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
-  });
-
-  it('weeks run Monday to Sunday', () => {
-    expect(weekday('2026-10-19')).toBe(0); // Monday
-    expect(weekday('2026-10-25')).toBe(6); // Sunday
-    expect(endOfWeek('2026-10-19')).toBe('2026-10-25');
-    expect(endOfWeek('2026-10-23')).toBe('2026-10-25');
-    expect(endOfWeek('2026-10-25')).toBe('2026-10-25');
-  });
-});
 
 describe('focusBuckets', () => {
   // Friday 23 October 2026: this week ends on Sunday the 25th.

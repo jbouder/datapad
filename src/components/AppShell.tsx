@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect } from 'react';
 import { Rail } from '@/components/Rail';
 import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
@@ -75,6 +75,11 @@ export function AppShell() {
   );
 }
 
+// Not in production bundles: DEV_ROUTES is false there, so this is dead code.
+const DevComponentsPage = __DEV_ROUTES__
+  ? lazy(() => import('@/pages/DevComponentsPage'))
+  : () => null;
+
 function pageKey(route: Route): string {
   return route.name === 'project' ? `project:${route.id}` : route.name;
 }
@@ -122,6 +127,12 @@ function Page({ route }: { route: Route }) {
         <PlaceholderPage title="People">
           The people you work with, and what mentions them, are on their way.
         </PlaceholderPage>
+      );
+    case 'devComponents':
+      return (
+        <Suspense fallback={null}>
+          <DevComponentsPage />
+        </Suspense>
       );
     case 'notFound':
       return <NotFoundPage />;

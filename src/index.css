@@ -422,58 +422,60 @@ html[data-vt="theme"]::view-transition-new(root) {
 
 /* ---- Side panel --------------------------------------------------------- */
 
-/* Enters and leaves from display:none without JavaScript: the element always
-   exists, React toggles `open`. 460px wide, full width on mobile. */
+/* A Base UI dialog (focus trap, Esc, scroll lock), mounted while open.
+   It enters with @starting-style and leaves through [data-ending-style],
+   which Base UI holds until the transition ends. 460px wide; the whole
+   screen below 820px. */
 .side-panel {
   position: fixed;
   inset-block: 0;
   inset-inline-end: 0;
-  width: min(100%, 460px);
-  display: none;
+  width: 100%;
+  display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top);
   background: var(--popover);
   color: var(--popover-foreground);
-  border-inline-start: 1px solid var(--border);
-  box-shadow: -12px 0 32px rgb(0 0 0 / 0.2);
   z-index: 50;
-  opacity: 0;
-  translate: 24px 0;
-  transition:
-    opacity var(--duration-base) var(--ease-emphasized),
-    translate var(--duration-base) var(--ease-emphasized),
-    display var(--duration-base) allow-discrete,
-    overlay var(--duration-base) allow-discrete;
-}
-.side-panel.open {
-  display: flex;
   opacity: 1;
   translate: 0 0;
+  outline: none;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized);
+}
+@media (min-width: 820px) {
+  .side-panel {
+    width: 460px;
+    border-inline-start: 1px solid var(--border);
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.2);
+  }
 }
 @starting-style {
-  .side-panel.open {
+  .side-panel {
     opacity: 0;
     translate: 24px 0;
   }
 }
+.side-panel[data-ending-style] {
+  opacity: 0;
+  translate: 24px 0;
+}
 .scrim {
   position: fixed;
   inset: 0;
-  display: none;
   background: rgb(0 0 0 / 0.4);
   z-index: 49;
-  opacity: 0;
-  transition:
-    opacity var(--duration-base) var(--ease-standard),
-    display var(--duration-base) allow-discrete;
-}
-.scrim.open {
-  display: block;
   opacity: 1;
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
 @starting-style {
-  .scrim.open {
+  .scrim {
     opacity: 0;
   }
+}
+.scrim[data-ending-style] {
+  opacity: 0;
 }
 
 /* ---- Toast -------------------------------------------------------------- */

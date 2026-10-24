@@ -39,7 +39,9 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: `npx vite build && npx vite preview --port ${PORT} --strictPort`,
+    // VITE_DEV_COMPONENTS adds /dev/components (the shared inputs) for the
+    // a11y suite; the deployed build never has it.
+    command: `VITE_DEV_COMPONENTS=1 npx vite build && npx vite preview --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !CI,
     timeout: 180_000,
