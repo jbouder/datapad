@@ -13,6 +13,7 @@ export const SEARCH_KINDS = [
   'task',
   'note',
   'event',
+  'decision',
   'person',
 ] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
@@ -53,6 +54,7 @@ export const searchIndex = lastCall(
     notes: Snapshot['notes'],
     events: Snapshot['events'],
     people: Snapshot['people'],
+    decisions: Snapshot['decisions'],
   ): SearchIndex => {
     const archived = (projectId: string | null) =>
       projectId !== null && projects[projectId]?.archived === true;
@@ -117,6 +119,17 @@ export const searchIndex = lastCall(
           projectId: e.projectId,
           archived: archived(e.projectId),
           updatedAt: e.updatedAt,
+        }),
+      ),
+      decision: Object.values(decisions).map((x) =>
+        entry({
+          kind: 'decision',
+          id: x.id,
+          title: x.title,
+          body: flat(tokensToNames(x.rationale, people)),
+          projectId: x.projectId,
+          archived: archived(x.projectId),
+          updatedAt: x.updatedAt,
         }),
       ),
       person: Object.values(people).map((p) =>

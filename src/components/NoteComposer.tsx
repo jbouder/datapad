@@ -79,6 +79,7 @@ export function NoteComposer({
   onChange,
   people,
   onSubmit,
+  onDecision,
   onTask,
   draftKey,
   id,
@@ -99,6 +100,8 @@ export function NoteComposer({
   onSubmit?: () => void;
   /** `/task`: make a task titled with the line. Hidden without it. */
   onTask?: (title: string) => boolean;
+  /** `/decision`: record a decision titled with the line. Hidden without it. */
+  onDecision?: (title: string) => boolean;
   /** Where the unsaved draft lives in sessionStorage. */
   draftKey?: string;
   id?: string;
@@ -151,7 +154,8 @@ export function NoteComposer({
     const slash = slashQuery(value, caret);
     if (slash && dismissed !== slash.start) {
       const items = matchCommands(slash.query).filter(
-        (c) => c.id !== 'task' || onTask,
+        (c) =>
+          (c.id !== 'task' || onTask) && (c.id !== 'decision' || onDecision),
       );
       if (items.length > 0) {
         const arg = slash.query.split(' ').slice(1).join(' ');
@@ -166,7 +170,7 @@ export function NoteComposer({
       }
     }
     return null;
-  }, [caret, value, dismissed, people, onTask]);
+  }, [caret, value, dismissed, people, onTask, onDecision]);
   const open = popup !== null;
   const count = popup?.items.length ?? 0;
   const highlighted = Math.min(active, Math.max(count - 1, 0));
@@ -229,6 +233,7 @@ export function NoteComposer({
   const command = (id: CommandId, arg = '') => {
     const result = applyCommand(value, sel(), id, now(), arg);
     if (result.task && onTask && !onTask(result.task)) return;
+    if (result.decision && onDecision && !onDecision(result.decision)) return;
     apply(result);
   };
 
@@ -250,7 +255,10 @@ export function NoteComposer({
     const cmd = popup.items[index];
     if (!cmd) return;
     const result = applyCommand(text, at, cmd.id, now(), popup.arg);
-    if (result.task && onTask && !onTask(result.task)) {
+    if (
+      (result.task && onTask && !onTask(result.task)) ||
+      (result.decision && onDecision && !onDecision(result.decision))
+    ) {
       apply({ text, sel: at });
       return;
     }

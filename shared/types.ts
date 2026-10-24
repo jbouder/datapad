@@ -28,6 +28,10 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+/** Where a decision stands. */
+export const DECISION_STATUSES = ['proposed', 'decided', 'revisited'] as const;
+export type DecisionStatus = (typeof DECISION_STATUSES)[number];
+
 /** A note's role for its event: prep (before) or debrief (after). */
 export const NOTE_PHASES = ['pre', 'post'] as const;
 export type NotePhase = (typeof NOTE_PHASES)[number];
@@ -147,6 +151,25 @@ export interface Event {
   updatedAt: Timestamp;
 }
 
+/** Why something was decided, kept so it can be found and cited later. */
+export interface Decision {
+  id: string;
+  /** null = General. */
+  projectId: string | null;
+  title: string;
+  /** Markdown with `@{personId}` mentions. */
+  rationale: string;
+  status: DecisionStatus;
+  /** When it was decided; empty while proposed. */
+  decidedAt: DateString | '';
+  deciders: string[];
+  links: Link[];
+  /** Set when it was made from a note's line (`/decision`). */
+  sourceNoteId?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 export interface Person {
   id: string;
   /** Mention matching is by name. */
@@ -209,6 +232,7 @@ export interface Collections {
   notes: Note;
   events: Event;
   people: Person;
+  decisions: Decision;
   activity: Activity;
   settings: Settings;
 }
@@ -221,6 +245,7 @@ export const COLLECTIONS = [
   'notes',
   'events',
   'people',
+  'decisions',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -234,6 +259,7 @@ export const DOC_COLLECTIONS = [
   'notes',
   'events',
   'people',
+  'decisions',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -248,6 +274,7 @@ export function emptySnapshot(): Snapshot {
     notes: {},
     events: {},
     people: {},
+    decisions: {},
     activity: {},
     settings: {},
   };

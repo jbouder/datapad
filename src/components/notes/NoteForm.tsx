@@ -14,6 +14,7 @@ import { NoteComposer } from '@/components/NoteComposer';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
+import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
 
 export const PHASE_LABELS: Record<NotePhase, string> = {
@@ -98,11 +99,21 @@ export function NoteForm({
     window.setTimeout(() => prefill.current(event, pending.phase));
   }, [pending, state, fixed, clearPending]);
 
+  /** The id the note will have, known before it is added. */
+  const noteId = useRef(newId());
+
   const add = () => {
     const body = namesToTokens(text, people).trim();
     if (!body) return;
     const event = linked ? { eventId: linked.id, phase: link?.phase } : {};
-    if (actions.addNote({ projectId, body, ...event }) === null) return;
+    if (
+      actions.addNote({ id: noteId.current, projectId, body, ...event }) ===
+      null
+    ) {
+      return;
+    }
+    // The next note gets a fresh id (decisions made from it point there).
+    noteId.current = newId();
     setText('');
     setLink(null);
     document.getElementById(id)?.focus();
@@ -143,6 +154,16 @@ export function NoteForm({
           onTask={(title) => {
             if (actions.addTask({ projectId, title }) === null) return false;
             show(`Added “${title}”`);
+            return true;
+          }}
+          onDecision={(title) => {
+            const made = actions.addDecision({
+              projectId,
+              title,
+              sourceNoteId: noteId.current,
+            });
+            if (made === null) return false;
+            show(`Proposed “${title}”`);
             return true;
           }}
         />

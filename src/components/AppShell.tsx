@@ -12,6 +12,7 @@ import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import { type Route, setRouteTransition, useRoute } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
+import { DecisionsPage } from '@/pages/DecisionsPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
@@ -172,6 +173,8 @@ function Page({ route }: { route: Route }) {
       return <NotesPage />;
     case 'events':
       return <EventsPage />;
+    case 'decisions':
+      return <DecisionsPage />;
     case 'settings':
       return <SettingsPage section={route.section} person={route.person} />;
     case 'devComponents':

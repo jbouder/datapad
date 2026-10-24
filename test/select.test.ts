@@ -360,6 +360,7 @@ describe('peopleStats', () => {
       projects: [],
       open: [],
       waiting: [],
+      decisions: [],
     });
   });
 

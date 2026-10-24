@@ -87,5 +87,5 @@ test('export downloads every document as datapad-<date>.json', async ({
   const { exportedAt, ...documents } = saved;
   const { exportedAt: _, ...seed } = SEED;
   expect(Date.parse(exportedAt)).not.toBeNaN();
-  expect(documents).toEqual({ ...seed, settings: {} });
+  expect(documents).toEqual({ ...seed, settings: {}, decisions: {} });
 });

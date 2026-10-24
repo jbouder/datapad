@@ -3,7 +3,9 @@ import { LIMITS } from './limits';
 import {
   type Activity,
   type COLLECTIONS,
+  DECISION_STATUSES,
   DEFAULT_SETTINGS,
+  type Decision,
   DOC_COLLECTIONS,
   EVENT_TYPES,
   type Event,
@@ -155,6 +157,22 @@ export const EventSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Event, unknown>;
 
+const decisionStatus = z.enum(DECISION_STATUSES);
+
+export const DecisionSchema = z.object({
+  id,
+  projectId: nullableId.default(null),
+  title: z.string().min(1).max(LIMITS.titleMax),
+  rationale: text(LIMITS.bodyMax).default(''),
+  status: decisionStatus.default('proposed'),
+  decidedAt: dateOrEmpty.default(''),
+  deciders: people.default([]),
+  links: links.default([]),
+  sourceNoteId: id.optional(),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}) satisfies z.ZodType<Decision, unknown>;
+
 export const PersonSchema = z.object({
   id,
   name: z.string().min(1).max(LIMITS.nameMax),
@@ -182,6 +200,7 @@ export const DocumentSchemas = {
   notes: NoteSchema,
   events: EventSchema,
   people: PersonSchema,
+  decisions: DecisionSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -258,6 +277,8 @@ export const ExportSchema = z.object({
   notes: collectionOf(NoteSchema),
   events: collectionOf(EventSchema),
   people: collectionOf(PersonSchema),
+  /** Datapad only; older exports and the artifact have none. */
+  decisions: collectionOf(DecisionSchema),
   activity: keyedCollection(ActivitySchema),
   settings: keyedCollection(SettingsSchema),
 });
@@ -291,6 +312,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     notes: Object.keys(snapshot.notes).length,
     events: Object.keys(snapshot.events).length,
     people: Object.keys(snapshot.people).length,
+    decisions: Object.keys(snapshot.decisions).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -344,6 +366,15 @@ const eventFields = {
   note: text(LIMITS.eventNoteMax),
 };
 
+const decisionFields = {
+  projectId: nullableId,
+  title: required(LIMITS.titleMax),
+  rationale: text(LIMITS.bodyMax),
+  decidedAt: dateOrEmpty,
+  deciders: people,
+  links,
+};
+
 const personFields = {
   name: required(LIMITS.nameMax),
   role: z.string().trim().max(LIMITS.nameMax),
@@ -385,6 +416,11 @@ const PutSchema = z.discriminatedUnion('col', [
     type: z.literal('put'),
     col: z.literal('people'),
     doc: PersonSchema,
+  }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('decisions'),
+    doc: DecisionSchema,
   }),
 ]);
 
@@ -496,6 +532,37 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editEvent'), id, patch: patch(eventFields) }),
   /** Keeps the event's notes. */
   z.object({ type: z.literal('deleteEvent'), id }),
+
+  /* decisions */
+  /** Logs "Proposed "<title>"" or "Decided "<title>"". */
+  z.object({
+    type: z.literal('addDecision'),
+    id,
+    projectId: decisionFields.projectId,
+    title: decisionFields.title,
+    status: decisionStatus.optional(),
+    rationale: decisionFields.rationale.optional(),
+    decidedAt: decisionFields.decidedAt.optional(),
+    deciders: decisionFields.deciders.optional(),
+    links: decisionFields.links.optional(),
+    sourceNoteId: id.optional(),
+  }),
+  z.object({
+    type: z.literal('editDecision'),
+    id,
+    patch: patch(decisionFields),
+  }),
+  /**
+   * Logs "Decided", "Revisited" or "Proposed "<title>"". Deciding sets
+   * `decidedAt` to `day` (the client's local date) when it is empty.
+   */
+  z.object({
+    type: z.literal('setDecisionStatus'),
+    id,
+    status: decisionStatus,
+    day: date.optional(),
+  }),
+  z.object({ type: z.literal('deleteDecision'), id }),
 
   /* people */
   z.object({

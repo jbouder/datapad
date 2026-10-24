@@ -5,6 +5,7 @@ import {
   CircleHalfIcon,
   DownloadSimpleIcon,
   FolderIcon,
+  GavelIcon,
   type Icon,
   MagnifyingGlassIcon,
   NoteIcon,
@@ -19,6 +20,7 @@ import {
   search,
   searchIndex,
 } from '#shared/search';
+import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useImportExport } from '@/components/ImportExport';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -32,6 +34,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
   { kind: 'event', heading: 'Events', icon: CalendarBlankIcon },
+  { kind: 'decision', heading: 'Decisions', icon: GavelIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
 ];
 
@@ -64,6 +67,7 @@ export function Palette({
   currentProject: string | null;
 }) {
   const { state } = useDatapad();
+  const { openDecision } = useDecisionPanel();
   const { openTask, newTask } = useTaskPanels();
   const { openProjectForm } = useProjectForm();
   const { exportNow } = useImportExport();
@@ -80,6 +84,7 @@ export function Palette({
         state.notes,
         state.events,
         state.people,
+        state.decisions,
       )
     : null;
   const results = useMemo(
@@ -108,6 +113,12 @@ export function Palette({
         icon: n.icon,
         run: go(n.route),
       })),
+      {
+        id: 'go-decisions',
+        label: 'Go to Decisions',
+        icon: GavelIcon,
+        run: go({ name: 'decisions' }),
+      },
       {
         id: 'go-people',
         label: 'Go to People',
@@ -154,6 +165,8 @@ export function Palette({
         return choose(() =>
           navigate({ name: 'events' }, { query: `view=list&event=${id}` }),
         );
+      case 'decision':
+        return choose(() => openDecision(id));
       case 'person':
         return choose(() =>
           navigate({ name: 'settings', section: 'people', person: id }),
@@ -195,8 +208,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, events, people and actions. Arrow keys move,
-            Enter opens, Esc closes.
+            Projects, tasks, notes, events, decisions, people and actions. Arrow
+            keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

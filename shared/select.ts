@@ -2,6 +2,7 @@ import { addDays, endOfWeek } from './dates';
 import {
   blockedOf,
   type DateString,
+  type Decision,
   type Event,
   type Note,
   type Person,
@@ -254,18 +255,29 @@ export interface PersonStats {
   open: Task[];
   /** Open tasks blocked on them: what to raise in a 1:1. */
   waiting: Task[];
+  /** Decisions they took part in, newest first. */
+  decisions: Decision[];
 }
 
-const NO_STATS: PersonStats = { projects: [], open: [], waiting: [] };
+const NO_STATS: PersonStats = {
+  projects: [],
+  open: [],
+  waiting: [],
+  decisions: [],
+};
 
 /** Per person: their projects and open tasks (People list, detail, cards). */
 export const peopleStats = lastCall(
-  (projects: Projects, tasks: Tasks): Map<string, PersonStats> => {
+  (
+    projects: Projects,
+    tasks: Tasks,
+    decisions: Snapshot['decisions'] = {},
+  ): Map<string, PersonStats> => {
     const stats = new Map<string, PersonStats>();
     const entry = (id: string) => {
       let s = stats.get(id);
       if (!s) {
-        s = { projects: [], open: [], waiting: [] };
+        s = { projects: [], open: [], waiting: [], decisions: [] };
         stats.set(id, s);
       }
       return s;
@@ -280,11 +292,17 @@ export const peopleStats = lastCall(
       const on = blockedOf(t)?.on;
       if (on) entry(on).waiting.push(t);
     }
+    for (const x of Object.values(decisions)) {
+      for (const id of x.deciders) entry(id).decisions.push(x);
+    }
     for (const s of stats.values()) {
       s.projects.sort(
         (a, b) =>
           Number(a.archived) - Number(b.archived) ||
           a.name.localeCompare(b.name),
+      );
+      s.decisions.sort((a, b) =>
+        (b.decidedAt || b.createdAt).localeCompare(a.decidedAt || a.createdAt),
       );
       for (const list of [s.open, s.waiting]) {
         list.sort(

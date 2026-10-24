@@ -17,4 +17,5 @@ export const SEED_COUNTS = {
   activity: Object.keys(seed.activity).length,
   // The artifact's export has no settings.
   settings: 0,
+  decisions: 0,
 };
