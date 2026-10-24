@@ -181,6 +181,7 @@ describe('projectContext', () => {
         'Project: Echo Base',
         'Org: Rebel Alliance',
         'Status: active',
+        'Health: not set',
         'Priority: high',
         'Target date: Fri 20 Nov 2026',
         'Team: Leia Organa, Han Solo',

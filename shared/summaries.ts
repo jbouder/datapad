@@ -1,7 +1,13 @@
 import { formatDay } from './dates';
 import { byWhen, EVENT_TYPE_LABELS, timeRange } from './events';
 import { tokensToNames } from './mentions';
-import type { Event, Note, Snapshot, Task } from './types';
+import {
+  type Event,
+  healthOf,
+  type Note,
+  type Snapshot,
+  type Task,
+} from './types';
 
 /**
  * What Summarize tells the on-device model (docs/SPEC.md § Claude
@@ -187,6 +193,7 @@ export function projectContext(projectId: string, state: Snapshot): string {
     `Project: ${project.name}`,
     `Org: ${project.org || 'none'}`,
     `Status: ${project.status}`,
+    `Health: ${healthOf(project) === 'none' ? 'not set' : healthOf(project)}`,
     `Priority: ${PRIORITY_WORDS[project.priority]}`,
     `Target date: ${project.targetDate ? day(project.targetDate) : 'none'}`,
     `Team: ${names(state, project.members) || 'none listed'}`,

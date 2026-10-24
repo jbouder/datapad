@@ -74,7 +74,8 @@ mention tokens and `order` values are kept so a JSON export from the
 artifact imports unchanged.
 
 Fields added in later milestones (all optional, absent on import):
-- `project.health`: `none | green | yellow | red` (deferred feature 1).
+- `project.health`: `none | green | yellow | red` (deferred feature 1; M7,
+  `setHealth` op, read with `healthOf()` so an absent field is `none`).
 - `task.blocked`: `{ on: personId | null, note: string } | null` (deferred 3).
 - `project.orgId`: once orgs become first class.
 

@@ -2,6 +2,7 @@ import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import {
   DEFAULT_PROJECT_FILTERS,
+  type HealthFilter,
   PROJECT_SORTS,
   type ProjectFilters,
   type ProjectSort,
@@ -31,6 +32,13 @@ const STATUSES: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'All' },
 ];
 
+const HEALTHS: Array<{ value: HealthFilter; label: string }> = [
+  { value: '', label: 'Any health' },
+  { value: 'red', label: 'Red' },
+  { value: 'yellow', label: 'Yellow' },
+  { value: 'green', label: 'Green' },
+];
+
 const SORT_LABELS: Record<ProjectSort, string> = {
   updated: 'Recently updated',
   priority: 'Priority',
@@ -42,11 +50,15 @@ const SORT_LABELS: Record<ProjectSort, string> = {
 function useProjectFilters(): ProjectFilters {
   const query = useQuery();
   const status = query.get('status');
+  const health = query.get('health');
   const sort = query.get('sort');
   return {
     status: STATUSES.some((s) => s.value === status)
       ? (status as StatusFilter)
       : DEFAULT_PROJECT_FILTERS.status,
+    health: HEALTHS.some((h) => h.value === health)
+      ? (health as HealthFilter)
+      : DEFAULT_PROJECT_FILTERS.health,
     org: query.get('org') ?? '',
     sort: (PROJECT_SORTS as readonly string[]).includes(sort ?? '')
       ? (sort as ProjectSort)
@@ -119,12 +131,19 @@ export function ProjectsPage() {
       </div>
 
       {anyProjects && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr]">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr]">
           <Segmented
             legend="Status"
             value={filters.status}
             onChange={(v) => change('status', v)}
             options={STATUSES}
+            className="col-span-2 sm:col-span-1"
+          />
+          <SelectField
+            label="Health"
+            value={filters.health}
+            options={HEALTHS}
+            onChange={(v) => change('health', v)}
           />
           <SelectField
             label="Org"
@@ -164,7 +183,7 @@ export function ProjectsPage() {
             className="press"
             onClick={() =>
               setQuery(
-                { status: null, org: null, sort: null },
+                { status: null, health: null, org: null, sort: null },
                 {
                   transition: (update) =>
                     withViewTransition(update, active, 'filter'),

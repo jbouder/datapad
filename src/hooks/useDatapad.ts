@@ -92,6 +92,7 @@ const OP_TYPES = {
   editProject: true,
   setState: true,
   setStatus: true,
+  setHealth: true,
   archiveProject: true,
   unarchiveProject: true,
   deleteProject: true,

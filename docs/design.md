@@ -33,6 +33,10 @@ text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 | Status pill     | active    | `accent` fill, `accent-foreground` text  |
 |                 | paused    | dashed `border`, `muted-foreground` text |
 |                 | done      | `ok` tint (`bg-ok/15`), `ok` text        |
+| Project health  | green     | `ok` left edge and dot, the word "Green" |
+|                 | yellow    | `warn` left edge and dot, "Yellow"       |
+|                 | red       | `destructive` left edge and dot, "Red"   |
+|                 | none      | no edge, nothing shown on cards          |
 | Event type pill | milestone | `accent` fill                            |
 |                 | deadline  | `destructive` outline and text           |
 |                 | demo      | `ok` outline and text                    |
