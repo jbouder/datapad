@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, isMobile, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectSaved,
+  isMobile,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 const openList = (page: Page) => page.getByRole('list', { name: 'Open tasks' });
 const doneList = (page: Page) => page.getByRole('list', { name: 'Done tasks' });
@@ -65,6 +72,8 @@ test('add three tasks by keyboard, close one, undo', async ({
   await expect(page.getByRole('button', { name: /^Done/ })).toHaveCount(0);
 
   // The log has the pair: closed, then reopened.
+  await expectSaved(page);
+
   const activity = await (await request.get('/api/export.json')).json();
   const lines = activity.activity['p-falcon'].events.map(
     (e: { text: string }) => e.text,
@@ -94,12 +103,12 @@ test('inline popovers change priority, due and assignee from the row', async ({
     task.getByRole('button', { name: /^Priority: High/ }),
   ).toBeFocused();
 
-  await task.getByRole('button', { name: /^Due:/ }).click();
+  await task.getByRole('button', { name: /^Due/ }).click();
   const due = page.getByRole('textbox', { name: 'Due' });
   await expect(due).toBeFocused();
   await due.fill('today');
   await due.press('Enter');
-  await expect(task.getByRole('button', { name: /^Due:/ })).toContainText(
+  await expect(task.getByRole('button', { name: /^Due/ })).toContainText(
     'Today',
   );
 
@@ -112,6 +121,8 @@ test('inline popovers change priority, due and assignee from the row', async ({
   await expect(
     task.getByRole('button', { name: /^Assignee: Chewbacca/ }),
   ).toBeVisible();
+
+  await expectSaved(page);
 
   const data = await (await request.get('/api/export.json')).json();
   expect(data.tasks['t-5']).toMatchObject({

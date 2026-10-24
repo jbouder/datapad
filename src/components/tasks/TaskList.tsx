@@ -3,6 +3,7 @@ import { localDate } from '#shared/dates';
 import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { Section } from '@/components/Section';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
@@ -42,6 +43,7 @@ export function TaskList({
   empty?: string;
 }) {
   const { state, actions } = useDatapad();
+  const { openTask } = useTaskPanels();
   const { active } = useMotion();
   const { toggle, isDone } = useTaskToggle();
   const container = useRef<HTMLDivElement>(null);
@@ -55,6 +57,11 @@ export function TaskList({
     [actions],
   );
 
+  const openFromRow = useCallback(
+    (task: Task) => openTask(task.id),
+    [openTask],
+  );
+
   if (!state) return null;
   const row = (task: Task) => (
     <li key={task.id} data-flip-id={task.id}>
@@ -66,7 +73,7 @@ export function TaskList({
         people={state.people}
         showProject={showProject}
         onToggle={toggle}
-        onOpen={onOpen}
+        onOpen={onOpen ?? openFromRow}
         onEdit={onEdit}
       />
     </li>

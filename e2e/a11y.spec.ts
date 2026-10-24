@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test';
 import { THEMES, type ThemeOption } from '../src/lib/themes';
-import { expect, expectAccessible, openPreferences, test } from './fixtures';
+import {
+  expect,
+  expectAccessible,
+  openPreferences,
+  SEED,
+  test,
+} from './fixtures';
 
 /**
  * Every theme a person can pick, axe-checked on its own: a token pair that
@@ -60,6 +66,25 @@ for (const theme of CHECKED) {
       await page.goto('/projects');
       await page.getByRole('button', { name: 'New project' }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
+      await expectAccessible(page);
+    });
+
+    test('a project with tasks', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/projects/p-echo');
+      await expect(page.locator('[data-task-id]').first()).toBeVisible();
+      await expectAccessible(page);
+    });
+
+    test('with the task panel open', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/projects/p-echo');
+      await page
+        .locator('[data-task-id]')
+        .first()
+        .getByRole('button', { name: 'Confirm shield generator delivery' })
+        .click();
+      await expect(page.getByRole('dialog', { name: 'Task' })).toBeVisible();
       await expectAccessible(page);
     });
 

@@ -126,3 +126,9 @@ export async function openLive(page: Page, path = '/') {
   await page.goto(path);
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
 }
+
+/** Every change has reached the server (the sync status says Saved). */
+export async function expectSaved(page: Page) {
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+  await expect(syncStatus(page)).toContainText('Saved');
+}

@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, openLive, openPreferences, SEED, test } from './fixtures';
+import {
+  expect,
+  expectSaved,
+  openLive,
+  openPreferences,
+  SEED,
+  test,
+} from './fixtures';
 
 const settingsNav = (page: Page) =>
   page.getByRole('navigation', { name: 'Settings' });
@@ -89,6 +96,8 @@ test('People: add, mark yourself, edit and remove', async ({
     .click();
   await expect(list.getByRole('listitem')).toHaveText([/Leia Organa/]);
 
+  await expectSaved(page);
+
   const data = await (await request.get('/api/export.json')).json();
   expect(Object.values(data.people)).toEqual([
     expect.objectContaining({ name: 'Leia Organa', role: 'General', me: true }),
@@ -130,6 +139,8 @@ test('Orgs: a default org that new projects start in', async ({
   await expect(
     page.getByText('New projects start in Rebel Alliance'),
   ).toBeVisible();
+  await expectSaved(page);
+
   const data = await (await request.get('/api/export.json')).json();
   expect(data.settings).toEqual({ user: { defaultOrg: 'Rebel Alliance' } });
 });

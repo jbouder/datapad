@@ -1,4 +1,11 @@
-import { expect, isMobile, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectSaved,
+  isMobile,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
@@ -41,6 +48,8 @@ test('from a card to the project, then edit the state line', async ({
     'Updated current state',
   );
   await expect(log.getByRole('listitem').first()).toContainText('just now');
+  await expectSaved(page);
+
   const data = await (await request.get('/api/export.json')).json();
   expect(
     data.activity['p-echo'].events.filter(
