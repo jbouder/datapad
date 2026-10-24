@@ -16,10 +16,11 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
 
 ## Layout
 
-- `shared/` — the domain, used by both sides. `protocol.ts` (zod schemas for
-  config, ops and messages). M1 adds `types.ts`, `reducer.ts` (**the only
-  place state changes**), `select.ts`, `dates.ts`, `markdown.ts`,
-  `summaries.ts`, `limits.ts`.
+- `shared/` — the domain, used by both sides. `types.ts` (the six
+  collections), `protocol.ts` (zod schemas for documents, the export file,
+  ops and socket messages), `reducer.ts` (**the only place state
+  changes**; also `merge()` for imports), `limits.ts`, `select.ts`
+  (memoisable selectors), `dates.ts`. Later: `markdown.ts`, `summaries.ts`.
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object), `env.ts` (bindings).
@@ -56,9 +57,12 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (M6, in-browser).
   `DEV_ACCESS_EMAIL` as a deployed var.
 - **No credential on a URL.** Sessions are Access cookies; nothing secret
   goes in a path or query string.
-- **Every change is an op through `reduce()`** (from M1). Add the op to
-  `protocol.ts`, handle it in `reducer.ts`, test it. Never mutate state in
-  the DO or the UI directly.
+- **Every change is an op through `reduce()`.** Add the op to
+  `OpSchema` in `protocol.ts`, handle it in `reducer.ts`, test it in
+  `test/reducer.test.ts` (including its activity text), and add the
+  matching action to `useDatapad()`. Never mutate state in the DO or the UI
+  directly; no component touches the socket. The reducer stays pure: ids
+  come in the op, the time as `now`.
 - **The repository is public.** No real data in fixtures, tests or docs;
   never commit `.dev.vars`.
 - **Mobile is first class.** Every view is built and tested at phone width:
