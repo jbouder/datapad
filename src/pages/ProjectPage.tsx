@@ -8,6 +8,7 @@ import { formatDay, localDate } from '#shared/dates';
 import { GENERAL, type Person } from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
+import { Markdown } from '@/components/Markdown';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
@@ -166,11 +167,12 @@ export function ProjectPage({ id }: { id: string }) {
             </li>
           ))}
         </ul>
-        {/* Rendered as plain paragraphs until the Markdown renderer (M3). */}
         {project.desc && (
-          <div className="max-w-prose pt-2 text-sm whitespace-pre-wrap">
-            {project.desc}
-          </div>
+          <Markdown
+            text={project.desc}
+            people={state.people}
+            className="max-w-prose pt-2"
+          />
         )}
         <div className="pt-2">
           <StateLine project={project} />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toggleCheck } from '#shared/markdown';
 import type { Link, Priority } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
@@ -7,6 +8,7 @@ import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { TagInput } from '@/components/inputs/TagInput';
 import { LayoutsDemo } from '@/components/layouts/LayoutsDemo';
+import { Markdown } from '@/components/Markdown';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
@@ -19,6 +21,24 @@ import { useToast } from '@/providers/ToastProvider';
  * Every shared input in its states, for eyeballing and for the a11y suite.
  * Only in dev and e2e builds (see `DEV_ROUTES`); not a Storybook.
  */
+/** Every Markdown style the renderer has. */
+const SAMPLE = [
+  '# Heading one',
+  'Body text with **bold**, _italic_, ~~strike~~, `inline code`, a link to https://example.com and <b>no HTML</b>.',
+  '## Heading two',
+  '- a bullet',
+  '- [ ] an open item',
+  '- [x] a done item',
+  '1. first',
+  '2. second',
+  '### Heading three',
+  '> A quote, kept as said.',
+  '---',
+  '```ts',
+  'const answer = 42;',
+  '```',
+].join('\n');
+
 export default function DevComponentsPage() {
   usePageTitle('Components');
   const { show } = useToast();
@@ -29,6 +49,7 @@ export default function DevComponentsPage() {
   const [tags, setTags] = useState<string[]>(['infra']);
   const [links, setLinks] = useState<Link[]>([]);
   const [panel, setPanel] = useState(false);
+  const [sample, setSample] = useState(SAMPLE);
   const [name, setName] = useState('');
   const dirty = useDirty({ name }, { name: '' });
 
@@ -71,6 +92,17 @@ export default function DevComponentsPage() {
       <Field label="Name" required error="Give it a name">
         <Input className="h-11 text-base desk:h-8 desk:text-xs" />
       </Field>
+
+      <section aria-labelledby="markdown-title" className="flex flex-col gap-2">
+        <h2 id="markdown-title" className="text-xs font-medium">
+          Markdown
+        </h2>
+        <Markdown
+          text={sample}
+          people={{}}
+          onToggle={(line) => setSample((s) => toggleCheck(s, line))}
+        />
+      </section>
 
       <LayoutsDemo />
 
