@@ -1,7 +1,7 @@
-import { QuestionIcon } from '@phosphor-icons/react';
+import { PlusIcon, QuestionIcon } from '@phosphor-icons/react';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -10,28 +10,58 @@ import {
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
-/** Brand on the left, help and preferences on the right. */
+/**
+ * The current title on the left (with the brand on phones, where there is
+ * no rail), then sync trouble on phones, **+** (Add task), Help and
+ * Preferences.
+ */
 export function TopBar({
   route,
+  title,
   email,
+  onAddTask,
 }: {
   route: Route;
+  title: string;
   email: string | null;
+  onAddTask: () => void;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70">
-      <div className="flex h-14 w-full items-center gap-3 px-4 sm:px-6">
+      <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
         <a
           {...linkProps({ name: 'focus' })}
-          className="press flex min-h-11 items-center gap-2 font-heading text-base font-semibold tracking-tight outline-ring/50 focus-visible:outline-2"
+          className="press -ml-1.5 flex size-11 shrink-0 items-center justify-center outline-ring/50 focus-visible:outline-2 desk:hidden"
         >
           <DatapadMark className="size-6" />
-          <span>Datapad</span>
-          <span className="sr-only">, Focus</span>
+          <span className="sr-only">Datapad, Focus</span>
         </a>
+        {/* The page's h1 names it for assistive tech; this is the visual echo. */}
+        <p
+          aria-hidden
+          className="min-w-0 flex-1 truncate font-heading text-base font-semibold tracking-tight"
+        >
+          {title}
+        </p>
 
-        <div className="ml-auto flex items-center gap-1">
-          <SyncStatus className="mr-2" />
+        <div className="flex shrink-0 items-center gap-1">
+          <SyncStatus className="mr-1 desk:hidden" compact />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="press size-11 sm:size-9"
+                  onClick={onAddTask}
+                />
+              }
+            >
+              <PlusIcon weight="bold" />
+              <span className="sr-only">Add task</span>
+            </TooltipTrigger>
+            <TooltipContent>Add task</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={

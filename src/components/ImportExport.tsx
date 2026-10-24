@@ -1,4 +1,13 @@
-import { type ChangeEvent, useCallback, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { localDate } from '#shared/dates';
 import {
   type Counts,
@@ -60,7 +69,7 @@ interface Proposal {
   counts: Counts;
 }
 
-export function useImportExport() {
+function useImportExportState() {
   const { show } = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -99,7 +108,6 @@ export function useImportExport() {
     }
   }, [failed, show]);
 
-  /** Opens the file picker. Call from a click (it needs the gesture). */
   const chooseImport = useCallback(() => {
     input.current?.click();
   }, []);
@@ -189,4 +197,38 @@ export function useImportExport() {
   );
 
   return { exportNow, chooseImport, element };
+}
+
+interface ImportExport {
+  exportNow: () => Promise<void>;
+  /** Opens the file picker. Call from a click (it needs the gesture). */
+  chooseImport: () => void;
+}
+
+const ImportExportContext = createContext<ImportExport | null>(null);
+
+/**
+ * One file picker and one confirmation dialog for the whole app, so the
+ * rail footer and the Preferences menu share them.
+ */
+export function ImportExportProvider({ children }: { children: ReactNode }) {
+  const { exportNow, chooseImport, element } = useImportExportState();
+  const value = useMemo(
+    () => ({ exportNow, chooseImport }),
+    [exportNow, chooseImport],
+  );
+  return (
+    <ImportExportContext.Provider value={value}>
+      {children}
+      {element}
+    </ImportExportContext.Provider>
+  );
+}
+
+export function useImportExport(): ImportExport {
+  const value = useContext(ImportExportContext);
+  if (!value) {
+    throw new Error('useImportExport must be used inside ImportExportProvider');
+  }
+  return value;
 }

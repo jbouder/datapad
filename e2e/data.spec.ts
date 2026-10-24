@@ -17,7 +17,7 @@ async function importFile(page: Page, name: string, contents: unknown) {
 
 test('import the seed, confirm, and see it everywhere', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-status]')).toHaveAttribute(
+  await expect(page.locator('[data-status]').first()).toHaveAttribute(
     'data-status',
     'live',
   );
@@ -42,7 +42,7 @@ test('a malformed file is refused with its first problem, and nothing is written
   request,
 }) => {
   await page.goto('/');
-  await expect(page.locator('[data-status]')).toHaveAttribute(
+  await expect(page.locator('[data-status]').first()).toHaveAttribute(
     'data-status',
     'live',
   );

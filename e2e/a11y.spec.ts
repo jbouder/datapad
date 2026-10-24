@@ -11,7 +11,14 @@ import { expect, expectAccessible, openPreferences, test } from './fixtures';
  */
 const CHECKED = THEMES.filter((t) => t.id !== 'system');
 const ROUTES = [
-  { path: '/', heading: 'Focus' },
+  { path: '/focus', heading: 'Focus' },
+  { path: '/projects', heading: 'Projects' },
+  { path: '/archive', heading: 'Archived' },
+  { path: '/tasks', heading: 'Tasks' },
+  { path: '/notes', heading: 'Notes' },
+  { path: '/events', heading: 'Events' },
+  { path: '/people', heading: 'People' },
+  { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
 ];
 

@@ -10,7 +10,7 @@ async function addTask(page: Page, title: string) {
   await expect(input).toBeFocused();
 }
 
-const status = (page: Page) => page.locator('[data-status]');
+const status = (page: Page) => page.locator('[data-status]').first();
 
 /** Load the app and wait for the socket's first snapshot. */
 async function openLive(page: Page) {
