@@ -106,6 +106,8 @@ test('inline popovers change priority, due and assignee from the row', async ({
   await task.getByRole('button', { name: /^Assignee: Han Solo/ }).click();
   const who = page.getByRole('combobox', { name: 'Assignee' });
   await who.fill('chew');
+  // Enter picks the highlighted option, so let the list filter first.
+  await expect(page.getByRole('option')).toHaveText([/Chewbacca/]);
   await who.press('Enter');
   await expect(
     task.getByRole('button', { name: /^Assignee: Chewbacca/ }),
