@@ -25,11 +25,61 @@ errors with the path only, never document content.
 Nothing about your projects, tasks, notes, events or people. Summaries run
 in your browser on a local model; the only download is the model itself.
 
-## Export and import (M1)
+## Export and import
 
-`GET /api/export.json` returns every document as one JSON file. Import
-merges by id, so repeating an import is safe. The format matches the
-original artifact's export.
+**Export:** Preferences → Export downloads `datapad-YYYY-MM-DD.json` (your
+local date). If the browser cannot save a file, the JSON goes to the
+clipboard instead. The same file is at `GET /api/export.json`.
+
+**Import:** Preferences → Import… picks a file, checks it in the browser,
+and asks before writing anything ("Import 14 projects, 212 tasks, …; same
+ids are replaced"). The server checks it again and merges it in one
+transaction: a document whose id you already have is replaced, everything
+else you have stays. Repeating an import is safe. A file with any invalid
+document is refused whole, with the first problem named
+(`tasks › t-2 › due: …`); nothing is written.
+
+### The format
+
+The original artifact's export, unchanged, so its `ledger-*.json` imports
+as it is:
+
+```json
+{
+  "exportedAt": "2026-10-23T12:00:00.000Z",
+  "projects": { "<id>": { "id": "<id>", "name": "…", … } },
+  "tasks": { … },
+  "notes": { … },
+  "people": { … },
+  "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
+  "events": { … }
+}
+```
+
+- Each collection is a map from id to document, fields exactly as in
+  [SPEC.md § Data model](SPEC.md#data-model). An array of documents that
+  carry their `id` is accepted too.
+- Timestamps are ISO 8601, dates `YYYY-MM-DD`, times `HH:MM`; an empty
+  string means "not set" for dates, times and the assignee.
+- Mentions stay as `@{personId}` tokens; `order`, `sourceNoteId`,
+  `eventId` / `phase`, `archived` and `links[]` carry over untouched.
+- Unknown keys are dropped. A field an older file lacks gets its empty
+  value (`[]`, `''`, `false`, `null`); names, titles, event dates and
+  timestamps must be there.
+- Limits: [`shared/limits.ts`](../shared/limits.ts) (titles 200, bodies
+  20 000 characters, 150 activity entries, 16 MiB per file).
+  `test/fixtures/export.json` is a complete, fictional example.
+
+### Moving from the artifact
+
+1. In the artifact, use Export in the sidebar footer. You get
+   `ledger-YYYY-MM-DD.json`.
+2. Open Datapad, signed in as yourself. Preferences → Import… → pick the
+   file → check the counts → Import.
+3. Projects, tasks, notes, events, people and activity appear in every
+   open tab at once. Archived projects stay archived.
+4. Keep the artifact's file until you have used Datapad for a while; you
+   can import it again at any time without making duplicates.
 
 ## Deleting everything
 
