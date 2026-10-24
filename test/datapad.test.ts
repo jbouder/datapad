@@ -327,12 +327,14 @@ describe('live sync', () => {
   it('answers sync with a fresh snapshot', async () => {
     const inbox = await openSocket(as('resync@example.com'));
     await inbox.snapshot();
-    inbox.send(addTask('t1'));
+    const opId = inbox.send(addTask('t1'));
     await inbox.next();
     inbox.ws.send(JSON.stringify({ type: 'sync' }));
     const snapshot = await inbox.snapshot();
     expect(snapshot.seq).toBe(1);
     expect(Object.keys(snapshot.state.tasks)).toEqual(['t1']);
+    // So a client whose echo got lost drops the op instead of resending it.
+    expect(snapshot.recent).toEqual([opId]);
     inbox.ws.close(1000);
   });
 

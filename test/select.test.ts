@@ -1,0 +1,219 @@
+import { describe, expect, it } from 'vitest';
+import { addDays, endOfWeek, localDate, weekday } from '#shared/dates';
+import { ExportSchema } from '#shared/protocol';
+import { reduce } from '#shared/reducer';
+import {
+  activeProjects,
+  agenda,
+  focusBuckets,
+  GENERAL_KEY,
+  meId,
+  mentionsOf,
+  nextMarkers,
+  openCounts,
+  orgs,
+} from '#shared/select';
+import { emptySnapshot, type Snapshot, type Task } from '#shared/types';
+import fixture from './fixtures/export.json';
+
+const NOW = '2026-10-23T10:00:00.000Z';
+
+function seeded(): Snapshot {
+  const { exportedAt: _, ...state } = ExportSchema.parse(fixture);
+  return state;
+}
+
+function withTasks(...tasks: Array<Partial<Task> & { id: string }>): Snapshot {
+  let state = emptySnapshot();
+  for (const t of tasks) {
+    state = reduce(
+      state,
+      { type: 'addTask', id: t.id, projectId: null, title: t.id, due: t.due },
+      NOW,
+    ).state;
+  }
+  return state;
+}
+
+const anyone = { kind: 'anyone' } as const;
+const ids = (tasks: Task[]) => tasks.map((t) => t.id);
+
+describe('dates', () => {
+  it('reads the local calendar day, changing at local midnight', () => {
+    expect(localDate(new Date(2026, 9, 23, 23, 59, 59, 999))).toBe(
+      '2026-10-23',
+    );
+    expect(localDate(new Date(2026, 9, 24, 0, 0, 0, 0))).toBe('2026-10-24');
+    expect(localDate(new Date(2026, 0, 1, 0, 0))).toBe('2026-01-01');
+  });
+
+  it('adds days across months and years', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('weeks run Monday to Sunday', () => {
+    expect(weekday('2026-10-19')).toBe(0); // Monday
+    expect(weekday('2026-10-25')).toBe(6); // Sunday
+    expect(endOfWeek('2026-10-19')).toBe('2026-10-25');
+    expect(endOfWeek('2026-10-23')).toBe('2026-10-25');
+    expect(endOfWeek('2026-10-25')).toBe('2026-10-25');
+  });
+});
+
+describe('focusBuckets', () => {
+  // Friday 23 October 2026: this week ends on Sunday the 25th.
+  const today = '2026-10-23';
+  const state = withTasks(
+    { id: 'yesterday', due: '2026-10-22' },
+    { id: 'today', due: '2026-10-23' },
+    { id: 'tomorrow', due: '2026-10-24' },
+    { id: 'sunday', due: '2026-10-25' },
+    { id: 'monday', due: '2026-10-26' },
+    { id: 'undated' },
+  );
+
+  it('buckets at the day boundaries, this week through Sunday', () => {
+    const b = focusBuckets(state.tasks, state.projects, today, null, anyone);
+    expect(ids(b.overdue)).toEqual(['yesterday']);
+    expect(ids(b.today)).toEqual(['today']);
+    expect(ids(b.thisWeek)).toEqual(['tomorrow', 'sunday']);
+    expect(ids(b.later)).toEqual(['monday']);
+    expect(ids(b.noDate)).toEqual(['undated']);
+  });
+
+  it('moves everything along a day after midnight', () => {
+    const b = focusBuckets(
+      state.tasks,
+      state.projects,
+      '2026-10-24',
+      null,
+      anyone,
+    );
+    expect(ids(b.overdue)).toEqual(['yesterday', 'today']);
+    expect(ids(b.today)).toEqual(['tomorrow']);
+    expect(ids(b.thisWeek)).toEqual(['sunday']);
+  });
+
+  it('on a Sunday this week is empty; Monday starts a new week', () => {
+    const sunday = focusBuckets(
+      state.tasks,
+      state.projects,
+      '2026-10-25',
+      null,
+      anyone,
+    );
+    expect(ids(sunday.today)).toEqual(['sunday']);
+    expect(ids(sunday.thisWeek)).toEqual([]);
+    expect(ids(sunday.later)).toEqual(['monday']);
+  });
+
+  it('leaves out done tasks and archived projects, and filters by assignee', () => {
+    const s = seeded();
+    const all = focusBuckets(s.tasks, s.projects, today, 'u-leia', anyone);
+    const open = Object.values(all)
+      .flat()
+      .map((t: Task) => t.id);
+    expect(open.sort()).toEqual(['t-1', 't-2', 't-4', 't-5', 't-6']);
+    const mine = focusBuckets(s.tasks, s.projects, today, 'u-leia', {
+      kind: 'mine',
+    });
+    expect(
+      Object.values(mine)
+        .flat()
+        .map((t: Task) => t.id),
+    ).toEqual(['t-1']);
+    const nobody = focusBuckets(s.tasks, s.projects, today, 'u-leia', {
+      kind: 'unassigned',
+    });
+    expect(
+      Object.values(nobody)
+        .flat()
+        .map((t: Task) => t.id)
+        .sort(),
+    ).toEqual(['t-4', 't-6']);
+    const chewie = focusBuckets(s.tasks, s.projects, today, null, {
+      kind: 'person',
+      id: 'u-chewie',
+    });
+    expect(
+      Object.values(chewie)
+        .flat()
+        .map((t: Task) => t.id),
+    ).toEqual(['t-2']);
+  });
+
+  it('is memoised on its arguments', () => {
+    const a = focusBuckets(state.tasks, state.projects, today, null, anyone);
+    expect(focusBuckets(state.tasks, state.projects, today, null, anyone)).toBe(
+      a,
+    );
+    const next = reduce(
+      state,
+      { type: 'toggleTask', id: 'today', done: true },
+      NOW,
+    ).state;
+    const b = focusBuckets(next.tasks, next.projects, today, null, anyone);
+    expect(b).not.toBe(a);
+    expect(ids(b.today)).toEqual([]);
+  });
+});
+
+describe('other selectors', () => {
+  const s = seeded();
+
+  it('counts open tasks per project, General included', () => {
+    const counts = openCounts(s.tasks);
+    expect(counts.get('p-echo')).toBe(3);
+    expect(counts.get('p-falcon')).toBe(1);
+    expect(counts.get(GENERAL_KEY)).toBe(1);
+    expect(counts.get('p-yavin')).toBeUndefined();
+  });
+
+  it('lists distinct orgs, sorted', () => {
+    expect(orgs(s.projects)).toEqual([
+      'Corellian Engineering',
+      'Rebel Alliance',
+    ]);
+  });
+
+  it('finds me', () => {
+    expect(meId(s.people)).toBe('u-leia');
+    expect(meId({})).toBeNull();
+  });
+
+  it('finds the next milestone or deadline per project', () => {
+    const next = nextMarkers(s.events, '2026-10-23');
+    expect(next.get('p-echo')?.id).toBe('e-2');
+    // The demo is past and not a marker; General events have no project.
+    expect(next.has('p-yavin')).toBe(false);
+    expect([...next.keys()]).toEqual(['p-echo']);
+  });
+
+  it('lists the next seven days of events', () => {
+    expect(agenda(s.events, s.projects, '2026-10-23').map((e) => e.id)).toEqual(
+      ['e-1'],
+    );
+    expect(agenda(s.events, s.projects, '2026-10-21').map((e) => e.id)).toEqual(
+      ['e-1'],
+    );
+    expect(agenda(s.events, s.projects, '2026-10-20')).toEqual([]);
+  });
+
+  it('finds every note and task that mentions a person', () => {
+    const chewie = mentionsOf(s.notes, s.tasks, 'u-chewie');
+    expect(chewie.notes.map((n) => n.id)).toEqual(['n-1', 'n-4']);
+    expect(chewie.tasks).toEqual([]);
+    expect(
+      mentionsOf(s.notes, s.tasks, 'u-han').tasks.map((t) => t.id),
+    ).toEqual(['t-1']);
+  });
+
+  it('lists active projects by most recently updated', () => {
+    expect(activeProjects(s.projects).map((p) => p.id)).toEqual([
+      'p-echo',
+      'p-falcon',
+    ]);
+  });
+});

@@ -34,6 +34,8 @@ export const LIMITS = {
   messageBytes: 256 * 1024,
   /** One import or export file. */
   importBytes: 16 * 1024 * 1024,
+  /** Applied op ids a snapshot lists, for replay after a reconnect. */
+  recentOps: 200,
   /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
   /** How long an erase confirmation token works. */

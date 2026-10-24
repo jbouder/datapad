@@ -46,11 +46,14 @@ export type ImportOutcome =
   | { ok: false; error: string };
 
 const SEQ = 'seq';
+const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
 
 export class DatapadObject extends DurableObject<Bindings> {
   private state: Snapshot = emptySnapshot();
   private seq = 0;
+  /** The latest applied op ids, newest last (see `ServerMessage`). */
+  private recentOps: string[] = [];
   /** Recent op times per socket, for the flood limit. */
   private readonly recent = new Map<WebSocket, number[]>();
 
@@ -98,6 +101,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
     this.state = state;
     this.seq = Number(this.meta(SEQ) ?? 0);
+    this.recentOps = JSON.parse(this.meta(RECENT) ?? '[]') as string[];
   }
 
   private meta(key: string): string | undefined {
@@ -118,8 +122,16 @@ export class DatapadObject extends DurableObject<Bindings> {
    * Write the touched rows and the next sequence number in one
    * transaction, then adopt the new state. Nothing changes if it throws.
    */
-  private commit(next: Snapshot, changed: Changed[], at: string) {
+  private commit(
+    next: Snapshot,
+    changed: Changed[],
+    at: string,
+    opId?: string,
+  ) {
     const seq = this.seq + 1;
+    const recentOps = opId
+      ? [...this.recentOps, opId].slice(-LIMITS.recentOps)
+      : this.recentOps;
     this.ctx.storage.transactionSync(() => {
       for (const c of changed) {
         if ('deleted' in c) {
@@ -140,9 +152,11 @@ export class DatapadObject extends DurableObject<Bindings> {
         }
       }
       this.setMeta(SEQ, String(seq));
+      if (opId) this.setMeta(RECENT, JSON.stringify(recentOps));
     });
     this.state = next;
     this.seq = seq;
+    this.recentOps = recentOps;
   }
 
   /* ---------- RPC (called by the Worker) ---------- */
@@ -315,7 +329,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
     // A no-op still takes a sequence number and an echo: the sender is
     // waiting for one to settle its pending copy.
-    this.commit(result.state, result.changed, at);
+    this.commit(result.state, result.changed, at, opId);
     const message: ServerMessage = { type: 'op', seq: this.seq, opId, op, at };
     const text = JSON.stringify(message);
     for (const socket of this.ctx.getWebSockets()) {
@@ -347,6 +361,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       type: 'snapshot',
       seq: this.seq,
       state: this.state,
+      recent: this.recentOps,
     };
     return JSON.stringify(message);
   }

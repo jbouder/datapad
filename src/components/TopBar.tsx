@@ -1,5 +1,6 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
+import { SyncStatus } from '@/components/SyncStatus';
 import { buttonVariants } from '@/components/ui/button';
 import {
   Tooltip,
@@ -30,6 +31,7 @@ export function TopBar({
         </a>
 
         <div className="ml-auto flex items-center gap-1">
+          <SyncStatus className="mr-2" />
           <Tooltip>
             <TooltipTrigger
               render={
