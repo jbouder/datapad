@@ -7,8 +7,6 @@ import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
-import { OrgsSettings } from '@/components/orgs/OrgsSettings';
-import { PeopleView } from '@/components/people/PeopleView';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
 import { Button } from '@/components/ui/button';
@@ -29,8 +27,6 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
-  people: 'People',
-  orgs: 'Orgs',
   templates: 'Templates',
   summaries: 'Summaries',
   data: 'Data',
@@ -39,21 +35,11 @@ const LABELS: Record<SettingsSection, string> = {
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
- * the people and orgs the rest of the app refers to, your data in and
- * out, and who is signed in. Each section has its own address
- * (`/settings/people`); the account menu leads here.
+ * templates, summaries, your data in and out, and who is signed in. Each
+ * section has its own address (`/settings/data`); the account menu leads
+ * here.
  */
-export function SettingsPage({
-  section,
-  person,
-  org,
-}: {
-  section: SettingsSection;
-  /** The person selected in People. */
-  person?: string;
-  /** The org open in Orgs. */
-  org?: string;
-}) {
+export function SettingsPage({ section }: { section: SettingsSection }) {
   usePageTitle(`${LABELS[section]} · Settings`);
   return (
     <div className="enter flex flex-col gap-6">
@@ -83,10 +69,7 @@ export function SettingsPage({
         </nav>
         <section
           aria-labelledby="settings-section"
-          className={cn(
-            'flex min-w-0 flex-col gap-6',
-            section !== 'people' && 'max-w-2xl',
-          )}
+          className="flex min-w-0 max-w-2xl flex-col gap-6"
         >
           <h2
             id="settings-section"
@@ -95,8 +78,6 @@ export function SettingsPage({
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
-          {section === 'people' && <PeopleView selected={person} />}
-          {section === 'orgs' && <OrgsSettings selected={org} />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'data' && <Data />}

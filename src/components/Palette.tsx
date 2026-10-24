@@ -133,7 +133,7 @@ export function Palette({
         id: 'go-people',
         label: 'Go to People',
         icon: UserIcon,
-        run: go({ name: 'settings', section: 'people' }),
+        run: go({ name: 'people' }),
       },
       {
         id: 'theme',
@@ -178,13 +178,9 @@ export function Palette({
       case 'decision':
         return choose(() => openDecision(id));
       case 'org':
-        return choose(() =>
-          navigate({ name: 'settings', section: 'orgs', org: id }),
-        );
+        return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
-        return choose(() =>
-          navigate({ name: 'settings', section: 'people', person: id }),
-        );
+        return choose(() => navigate({ name: 'people', person: id }));
     }
   };
 

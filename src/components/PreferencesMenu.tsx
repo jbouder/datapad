@@ -1,7 +1,9 @@
 import {
+  BuildingsIcon,
   GearSixIcon,
   SignOutIcon,
   UserCircleIcon,
+  UsersIcon,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SIGN_OUT_URL } from '@/lib/api';
 import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
@@ -24,11 +27,13 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * The account menu: who is signed in, quick Motion and Theme switches,
- * then Settings (people, orgs, data and the rest) and Sign out.
+ * then Settings and Sign out. On phones, where the tab bar has no room
+ * for them, People and Orgs come first in that group.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
+  const phone = useMediaQuery('(width < 820px)');
 
   return (
     <DropdownMenu>
@@ -86,6 +91,20 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          {phone && (
+            <>
+              <DropdownMenuItem
+                render={<a {...linkProps({ name: 'people' })} />}
+              >
+                <UsersIcon />
+                People
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<a {...linkProps({ name: 'orgs' })} />}>
+                <BuildingsIcon />
+                Orgs
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem
             render={
               <a {...linkProps({ name: 'settings', section: 'appearance' })} />

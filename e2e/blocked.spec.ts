@@ -78,7 +78,7 @@ test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
   await expect(main.getByText('Insulate the hangar doors')).toHaveCount(0);
 
   // People: waiting on Leia.
-  await openLive(page, '/settings/people/u-leia');
+  await openLive(page, '/people/u-leia');
   await expect(
     page.getByRole('list', { name: 'Tasks waiting on Leia Organa' }),
   ).toContainText(TITLE);

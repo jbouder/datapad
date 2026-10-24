@@ -219,7 +219,6 @@
 
 :root {
   --rail-width: 232px;
-  --content-max: 1040px;
   --row-height: 44px;
   /* The phone's bottom tab bar, without the safe area under it. */
   --tabbar-height: 56px;

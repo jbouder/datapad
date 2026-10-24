@@ -4,7 +4,7 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
  * WCAG 1.4.10 Reflow and the phone layout. 320px is a 1280px window at
  * 400% zoom and the narrowest phone; 1280px is a laptop.
  */
-const ROUTES = ['/', '/projects', '/tasks', '/settings/people', '/help'];
+const ROUTES = ['/', '/projects', '/tasks', '/people', '/help'];
 
 for (const width of [320, 1280]) {
   test.describe(`at ${width}px wide`, () => {

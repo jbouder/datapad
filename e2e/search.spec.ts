@@ -92,7 +92,7 @@ test('archived items are marked; people open their detail', async ({
     .getByRole('option')
     .first()
     .click();
-  await expect(page).toHaveURL(/\/settings\/people\/u-chewie$/);
+  await expect(page).toHaveURL(/\/people\/u-chewie$/);
 });
 
 test('the New task action opens the new-task panel', async ({ page }) => {

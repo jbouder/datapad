@@ -197,7 +197,7 @@ function useImportExportState() {
         proposal.plainOrgs
           ? {
               label: 'Organise orgs',
-              run: () => navigate({ name: 'settings', section: 'orgs' }),
+              run: () => navigate({ name: 'orgs' }),
             }
           : undefined,
       );

@@ -77,7 +77,7 @@ as it is:
   default org for new projects.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and project templates. A file without them imports fine; its projects' `org` text
-  is kept, and Settings → Orgs offers to organise it into records
+  is kept, and Orgs offers to organise it into records
   (`project.orgId` links one). Deleting an org leaves the text. Projects may carry `health` and tasks `blocked`; both
   are optional and absent in older files.
 - Each collection is a map from id to document, fields exactly as in

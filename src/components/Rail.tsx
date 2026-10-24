@@ -8,19 +8,16 @@ import { useToday } from '@/hooks/useNow';
 import { NAV, sectionOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
-import { useEmail } from '@/providers/DatapadProvider';
 
 const ANYONE = { kind: 'anyone' } as const;
 
 /**
- * The desktop rail (≥ 820px): brand, the six sections with live counts, the
+ * The desktop rail (≥ 820px): brand, the sections with live counts, the
  * active projects (most recently updated first) with their open counts,
- * Archived when there is any, and a footer with sync status and who is
- * signed in (a link to Settings → Account). Hidden below 820px; the tab bar takes over.
+ * Archived when there is any, and a footer with sync status. Hidden below 820px; the tab bar takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
-  const email = useEmail();
   const today = useToday();
   const section = sectionOf(route);
 
@@ -197,15 +194,6 @@ export function Rail({ route }: { route: Route }) {
 
       <footer className="flex flex-col gap-2 border-t px-4 py-3">
         <SyncStatus />
-        {email && (
-          <a
-            {...linkProps({ name: 'settings', section: 'account' })}
-            className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-            title={email}
-          >
-            {email}
-          </a>
-        )}
       </footer>
     </aside>
   );

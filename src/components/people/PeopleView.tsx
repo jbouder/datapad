@@ -35,10 +35,10 @@ interface Editing {
 }
 
 /**
- * Settings → People, as a List (everyone by name beside the selected
+ * People, as a List (everyone by name beside the selected
  * person's detail, stacked on phones) or Cards (one card per person with
  * their counts, the detail underneath). Selecting someone is a link
- * (`/settings/people/:id`), so search and other pages can point here.
+ * (`/people/:id`), so search and other pages can point here.
  * Add, Edit and Remove go through the person panel in both.
  */
 export function PeopleView({ selected }: { selected?: string }) {
@@ -113,11 +113,7 @@ export function PeopleView({ selected }: { selected?: string }) {
               {people.map((p) => (
                 <li key={p.id} className="border-b">
                   <a
-                    {...linkProps({
-                      name: 'settings',
-                      section: 'people',
-                      person: p.id,
-                    })}
+                    {...linkProps({ name: 'people', person: p.id })}
                     aria-current={p.id === selected ? 'true' : undefined}
                     className={cn(
                       'press row flex items-center gap-2 px-2 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
@@ -151,11 +147,7 @@ export function PeopleView({ selected }: { selected?: string }) {
                 const s = statsFor(stats, p.id);
                 return (
                   <a
-                    {...linkProps({
-                      name: 'settings',
-                      section: 'people',
-                      person: p.id,
-                    })}
+                    {...linkProps({ name: 'people', person: p.id })}
                     aria-current={p.id === selected ? 'true' : undefined}
                     className={cn(
                       'press flex min-h-24 items-start gap-3 border bg-card p-3 text-card-foreground outline-ring/50 hover:bg-accent/40 focus-visible:outline-2',
@@ -211,10 +203,8 @@ export function PeopleView({ selected }: { selected?: string }) {
           open={editing.open}
           onClose={() => setEditing((e) => (e ? { ...e, open: false } : e))}
           onExited={() => setEditing((e) => (e?.open ? e : null))}
-          onAdded={(id) =>
-            navigate({ name: 'settings', section: 'people', person: id })
-          }
-          onRemoved={() => navigate({ name: 'settings', section: 'people' })}
+          onAdded={(id) => navigate({ name: 'people', person: id })}
+          onRemoved={() => navigate({ name: 'people' })}
         />
       )}
     </>

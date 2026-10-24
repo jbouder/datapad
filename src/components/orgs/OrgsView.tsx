@@ -26,12 +26,12 @@ import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
- * Settings → Orgs: the default org, every org as a record (kind, project
- * count) and, at `/settings/orgs/:id`, one org's page: its projects,
+ * Orgs: the default org, every org as a record (kind, project
+ * count) and, at `/orgs/:id`, one org's page: its projects,
  * contacts, upcoming events, notes and links. Until orgs are organised,
  * projects carry plain org text; "Organise orgs" turns that into records.
  */
-export function OrgsSettings({ selected }: { selected?: string }) {
+export function OrgsView({ selected }: { selected?: string }) {
   const { state } = useDatapad();
   const [form, setForm] = useState<{
     key: number;
@@ -134,7 +134,7 @@ function OrgList({ onAdd }: { onAdd: () => void }) {
       </Field>
       <OrganizeCallout />
       <div className="flex items-center gap-3">
-        <h3 className="flex-1 text-sm font-semibold">Orgs</h3>
+        <h2 className="flex-1 text-sm font-semibold">Orgs</h2>
         <Button variant="outline" className="press" onClick={onAdd}>
           <PlusIcon />
           Add org
@@ -152,11 +152,7 @@ function OrgList({ onAdd }: { onAdd: () => void }) {
                 className="row flex items-center gap-3 border-b text-sm"
               >
                 <a
-                  {...linkProps({
-                    name: 'settings',
-                    section: 'orgs',
-                    org: o.id,
-                  })}
+                  {...linkProps({ name: 'orgs', org: o.id })}
                   className="min-w-0 flex-1 truncate font-medium hover:underline hover:underline-offset-4"
                 >
                   {o.name}
@@ -209,16 +205,16 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
   return (
     <article aria-labelledby="org-title" className="flex flex-col gap-5">
       <a
-        {...linkProps({ name: 'settings', section: 'orgs' })}
+        {...linkProps({ name: 'orgs' })}
         className="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon aria-hidden />
         All orgs
       </a>
       <div className="flex flex-wrap items-center gap-3">
-        <h3 id="org-title" className="font-heading text-xl font-semibold">
+        <h2 id="org-title" className="font-heading text-xl font-semibold">
           {org.name}
-        </h3>
+        </h2>
         <OrgKindPill kind={org.kind} />
         {org.archived && (
           <span className="text-xs text-muted-foreground">Archived</span>
@@ -265,12 +261,12 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
       )}
 
       <section aria-labelledby="org-projects" className="flex flex-col gap-2">
-        <h4 id="org-projects" className="font-heading text-sm font-semibold">
+        <h3 id="org-projects" className="font-heading text-sm font-semibold">
           Projects{' '}
           <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {projects.length}
           </span>
-        </h4>
+        </h3>
         {projects.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No projects yet. Pick this org in a project’s form.
@@ -305,9 +301,9 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
       </section>
 
       <section aria-labelledby="org-people" className="flex flex-col gap-2">
-        <h4 id="org-people" className="font-heading text-sm font-semibold">
+        <h3 id="org-people" className="font-heading text-sm font-semibold">
           Contacts
-        </h4>
+        </h3>
         {contacts.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No contacts. Add them with Edit.
@@ -317,11 +313,7 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
             {contacts.map((p) => (
               <li key={p.id}>
                 <a
-                  {...linkProps({
-                    name: 'settings',
-                    section: 'people',
-                    person: p.id,
-                  })}
+                  {...linkProps({ name: 'people', person: p.id })}
                   className="press flex min-h-11 items-center gap-2 border px-2 text-sm hover:bg-accent desk:min-h-8"
                 >
                   <Initials person={p} />
@@ -334,9 +326,9 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
       </section>
 
       <section aria-labelledby="org-events" className="flex flex-col gap-2">
-        <h4 id="org-events" className="font-heading text-sm font-semibold">
+        <h3 id="org-events" className="font-heading text-sm font-semibold">
           Coming up
-        </h4>
+        </h3>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing scheduled on its projects.
@@ -365,9 +357,9 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
 
       {(org.notes.trim() || org.links.length > 0) && (
         <section aria-labelledby="org-notes" className="flex flex-col gap-2">
-          <h4 id="org-notes" className="font-heading text-sm font-semibold">
+          <h3 id="org-notes" className="font-heading text-sm font-semibold">
             Notes
-          </h4>
+          </h3>
           {org.notes.trim() && (
             <Markdown text={org.notes} people={state.people} />
           )}

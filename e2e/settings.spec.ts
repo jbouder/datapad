@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectSaved,
+  isMobile,
   openLive,
   openPreferences,
   SEED,
@@ -11,21 +12,30 @@ import {
 const settingsNav = (page: Page) =>
   page.getByRole('navigation', { name: 'Settings' });
 
-test('the account menu leads to Settings; People is not in the main nav', async ({
+test('the account menu leads to Settings; People and Orgs are rail-only', async ({
   page,
   email,
 }) => {
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // Motion and Theme first, then Settings, then Sign out.
+  // Motion and Theme first, then Settings, then Sign out. Phones, with no
+  // People or Orgs in the tab bar, get them here.
   await expect(
     page
       .getByRole('menu')
       .getByRole('menuitem')
       .or(page.getByRole('menu').getByRole('menuitemcheckbox'))
       .or(page.getByRole('menu').getByRole('menuitemradio')),
-  ).toHaveText(['Motion', 'System', 'Light', 'Dark', 'Settings', 'Sign out']);
+  ).toHaveText([
+    'Motion',
+    'System',
+    'Light',
+    'Dark',
+    ...(isMobile(page) ? ['People', 'Orgs'] : []),
+    'Settings',
+    'Sign out',
+  ]);
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page).toHaveTitle('Appearance · Settings · Datapad');
@@ -33,11 +43,19 @@ test('the account menu leads to Settings; People is not in the main nav', async 
     settingsNav(page).getByRole('link', { name: 'Appearance' }),
   ).toHaveAttribute('aria-current', 'page');
 
-  for (const nav of await page
-    .getByRole('navigation', { name: 'Sections' })
-    .all()) {
-    await expect(nav.getByRole('link', { name: 'People' })).toHaveCount(0);
+  await expect(
+    settingsNav(page).getByRole('link', { name: /People|Orgs/ }),
+  ).toHaveCount(0);
+  const sections = page.getByRole('navigation', { name: 'Sections' });
+  for (const name of ['People', 'Orgs']) {
+    if (isMobile(page)) {
+      await expect(sections.getByRole('link', { name })).toHaveCount(0);
+    } else {
+      await expect(sections.getByRole('link', { name })).toBeVisible();
+    }
   }
+  // No signed-in email in the rail; the account menu shows it.
+  await expect(page.getByRole('complementary').getByText(email)).toHaveCount(0);
   // No Import / Export in the rail any more.
   await expect(
     page
@@ -45,9 +63,11 @@ test('the account menu leads to Settings; People is not in the main nav', async 
       .getByRole('button', { name: /Import|Export/ }),
   ).toHaveCount(0);
 
-  // The old /people address lands on Settings → People.
-  await page.goto('/people');
-  await expect(page).toHaveURL(/\/settings\/people$/);
+  // The old Settings addresses land on the new pages.
+  await page.goto('/settings/people');
+  await expect(page).toHaveURL(/\/people$/);
+  await expect(page).not.toHaveURL(/settings/);
+  await expect(page).toHaveTitle('People · Datapad');
 });
 
 test.describe('Appearance', () => {
@@ -70,7 +90,7 @@ test('People: add, mark yourself, edit and remove', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/people');
+  await openLive(page, '/people');
   await expect(page.getByText('No people yet.')).toBeVisible();
   const panel = page.getByRole('dialog');
   for (const [who, role] of [
@@ -121,7 +141,7 @@ test('Orgs: a default org that new projects start in', async ({
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/settings/orgs');
+  await openLive(page, '/orgs');
   const picker = page.getByRole('combobox', { name: 'Default org' });
   await expect(picker).toHaveValue('OpenTeams Internal');
   // Plain text until organised; then each is a record with a count.
@@ -145,7 +165,7 @@ test('Orgs: a default org that new projects start in', async ({
     .click();
 
   // Change it; it is stored with your data, not just in this browser.
-  await page.goto('/settings/orgs');
+  await page.goto('/orgs');
   await picker.click();
   await picker.fill('Rebel');
   await page.getByRole('option', { name: 'Rebel Alliance' }).click();
