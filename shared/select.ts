@@ -17,7 +17,7 @@ import type {
  */
 
 /** Remember the last call; recompute only when an argument changes. */
-function lastCall<A extends unknown[], R>(fn: (...args: A) => R) {
+export function lastCall<A extends unknown[], R>(fn: (...args: A) => R) {
   let last: { args: A; result: R } | null = null;
   return (...args: A): R => {
     if (

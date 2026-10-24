@@ -29,9 +29,8 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
   {
     keys: ['⌘K', 'Ctrl+K', '/'],
-    action: 'Search',
+    action: 'Search everything, or run an action',
     scope: 'Anywhere',
-    later: 'with search',
   },
   {
     keys: ['Esc'],

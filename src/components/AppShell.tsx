@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { Palette } from '@/components/Palette';
 import { Rail } from '@/components/Rail';
 import { ShortcutSheet } from '@/components/ShortcutSheet';
 import { TabBar } from '@/components/TabBar';
@@ -54,9 +55,26 @@ export function AppShell() {
   // `?` shows the sheet, and the row keys work on whatever list or table
   // the page shows, starting from its first row when none is focused.
   const [sheet, setSheet] = useState(false);
+  const [palette, setPalette] = useState(false);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // ⌘K / Ctrl+K works even while typing; it opens or closes search.
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'k'
+      ) {
+        event.preventDefault();
+        setPalette((open) => !open);
+        return;
+      }
       if (!shortcutAllowed(event)) return;
+      if (event.key === '/') {
+        event.preventDefault();
+        setPalette(true);
+        return;
+      }
       if (event.key === 'n') {
         event.preventDefault();
         if (!document.getElementById(QUICK_ADD_ID)) newTask(currentProject);
@@ -105,6 +123,7 @@ export function AppShell() {
           title={titleOf(route, projectName)}
           email={email}
           onAddTask={addTask}
+          onSearch={() => setPalette(true)}
         />
         {/* Keyed by page so each mounts fresh and its entrances replay. */}
         <main
@@ -117,6 +136,11 @@ export function AppShell() {
       </div>
       <TabBar route={route} />
       <ShortcutSheet open={sheet} onOpenChange={setSheet} />
+      <Palette
+        open={palette}
+        onOpenChange={setPalette}
+        currentProject={currentProject}
+      />
     </div>
   );
 }
