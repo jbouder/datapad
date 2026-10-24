@@ -123,6 +123,79 @@ export const COMMANDS: readonly Command[] = [
   },
 ];
 
+/**
+ * The composer's formatting keys, all with ⌘ (Ctrl elsewhere). The
+ * composer binds exactly these and the Help page lists them, so the two
+ * cannot drift. Letters match `key`; digits and X match `code`, which
+ * stays put when Shift or Alt changes the character.
+ */
+export interface FormatShortcut {
+  label: string;
+  shift?: boolean;
+  alt?: boolean;
+  /** A letter, matched against `KeyboardEvent.key` (any case). */
+  key?: string;
+  /** A physical key, matched against `KeyboardEvent.code`. */
+  code?: string;
+  /** Wrap the selection in this mark, a link, or run a `/` command. */
+  does: { wrap: string } | { link: true } | { command: CommandId };
+}
+
+export const FORMAT_SHORTCUTS: readonly FormatShortcut[] = [
+  { label: 'Bold', key: 'b', does: { wrap: '**' } },
+  { label: 'Italic', key: 'i', does: { wrap: '_' } },
+  { label: 'Inline code', key: 'e', does: { wrap: '`' } },
+  { label: 'Link', key: 'k', does: { link: true } },
+  { label: 'Strikethrough', shift: true, code: 'KeyX', does: { wrap: '~~' } },
+  {
+    label: 'Numbered list',
+    shift: true,
+    code: 'Digit7',
+    does: { command: 'numbered' },
+  },
+  {
+    label: 'Bulleted list',
+    shift: true,
+    code: 'Digit8',
+    does: { command: 'bullet' },
+  },
+  {
+    label: 'Checklist',
+    shift: true,
+    code: 'Digit9',
+    does: { command: 'checklist' },
+  },
+  { label: 'Heading 1', alt: true, code: 'Digit1', does: { command: 'h1' } },
+  { label: 'Heading 2', alt: true, code: 'Digit2', does: { command: 'h2' } },
+  { label: 'Heading 3', alt: true, code: 'Digit3', does: { command: 'h3' } },
+  { label: 'Body text', alt: true, code: 'Digit0', does: { command: 'text' } },
+];
+
+/** The shortcut a ⌘/Ctrl key press means, if any. */
+export function matchFormatShortcut(e: {
+  key: string;
+  code: string;
+  shiftKey: boolean;
+  altKey: boolean;
+}): FormatShortcut | undefined {
+  return FORMAT_SHORTCUTS.find(
+    (s) =>
+      Boolean(s.shift) === e.shiftKey &&
+      Boolean(s.alt) === e.altKey &&
+      (s.key ? e.key.toLowerCase() === s.key : e.code === s.code),
+  );
+}
+
+/** "⌘/Ctrl+Shift+7", for the Help page. */
+export function describeFormatKeys(s: FormatShortcut): string {
+  const key = s.key
+    ? s.key.toUpperCase()
+    : (s.code ?? '').replace(/^(Digit|Key)/, '');
+  return ['⌘/Ctrl', s.shift && 'Shift', s.alt && 'Alt', key]
+    .filter(Boolean)
+    .join('+');
+}
+
 export interface Context {
   /** `YYYY-MM-DD`, local. */
   today: string;

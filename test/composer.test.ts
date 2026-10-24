@@ -5,9 +5,12 @@ import {
   type CommandId,
   type Context,
   continueList,
+  describeFormatKeys,
   type Edit,
+  FORMAT_SHORTCUTS,
   inList,
   matchCommands,
+  matchFormatShortcut,
   slashQuery,
   toggleLink,
   toggleWrap,
@@ -182,5 +185,35 @@ describe('list continuation', () => {
   it('knows a list line, for Tab', () => {
     expect(inList('- a', { start: 1, end: 1 })).toBe(true);
     expect(inList('a', { start: 1, end: 1 })).toBe(false);
+  });
+});
+
+describe('formatting keys', () => {
+  const press = (key: string, code: string, shiftKey = false, altKey = false) =>
+    matchFormatShortcut({ key, code, shiftKey, altKey })?.label;
+
+  it('match exactly the modifiers they name', () => {
+    expect(press('b', 'KeyB')).toBe('Bold');
+    expect(press('B', 'KeyB')).toBe('Bold');
+    expect(press('k', 'KeyK')).toBe('Link');
+    expect(press('X', 'KeyX', true)).toBe('Strikethrough');
+    expect(press('*', 'Digit8', true)).toBe('Bulleted list');
+    // Alt changes the character on a Mac; the physical key still counts.
+    expect(press('¡', 'Digit1', false, true)).toBe('Heading 1');
+    expect(press('º', 'Digit0', false, true)).toBe('Body text');
+    expect(press('b', 'KeyB', true)).toBeUndefined();
+    expect(press('x', 'KeyX')).toBeUndefined();
+  });
+
+  it('every command they run exists, and none collide', () => {
+    const ids = new Set(COMMANDS.map((c) => c.id));
+    for (const s of FORMAT_SHORTCUTS) {
+      if ('command' in s.does) expect(ids.has(s.does.command)).toBe(true);
+    }
+    const combos = FORMAT_SHORTCUTS.map(describeFormatKeys);
+    expect(new Set(combos).size).toBe(combos.length);
+    expect(combos).toContain('⌘/Ctrl+Shift+7');
+    expect(combos).toContain('⌘/Ctrl+Alt+1');
+    expect(combos).toContain('⌘/Ctrl+B');
   });
 });

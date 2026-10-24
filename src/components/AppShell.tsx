@@ -159,7 +159,7 @@ function Page({ route }: { route: Route }) {
     case 'focus':
       return <FocusPage />;
     case 'help':
-      return <HelpPage />;
+      return <HelpPage section={route.section} />;
     case 'project':
       return <ProjectPage id={route.id} />;
     case 'projects':

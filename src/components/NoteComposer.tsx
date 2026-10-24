@@ -22,6 +22,7 @@ import {
   type Edit,
   inList,
   matchCommands,
+  matchFormatShortcut,
   slashQuery,
   toggleLink,
   toggleWrap,
@@ -288,47 +289,19 @@ export function NoteComposer({
       }
       return;
     }
-    if (mod && e.altKey && !e.shiftKey) {
-      const heading = {
-        Digit1: 'h1',
-        Digit2: 'h2',
-        Digit3: 'h3',
-        Digit0: 'text',
-      }[e.code] as CommandId | undefined;
-      if (heading) {
-        e.preventDefault();
-        command(heading);
-      }
-      return;
-    }
-    if (mod && e.shiftKey) {
-      if (e.code === 'KeyX') {
-        e.preventDefault();
-        apply(toggleWrap(value, sel(), '~~'));
-        return;
-      }
-      const list = {
-        Digit7: 'numbered',
-        Digit8: 'bullet',
-        Digit9: 'checklist',
-      }[e.code] as CommandId | undefined;
-      if (list) {
-        e.preventDefault();
-        command(list);
-      }
-      return;
-    }
     if (mod) {
-      const mark = { b: '**', i: '_', e: '`' }[e.key.toLowerCase()];
-      if (mark) {
-        e.preventDefault();
-        apply(toggleWrap(value, sel(), mark));
-        return;
-      }
-      if (e.key.toLowerCase() === 'k') {
-        e.preventDefault();
+      const shortcut = matchFormatShortcut(e);
+      if (!shortcut) return;
+      e.preventDefault();
+      const { does } = shortcut;
+      if ('wrap' in does) {
+        apply(toggleWrap(value, sel(), does.wrap));
+      } else if ('link' in does) {
+        // ⌘K here is a link, not the search palette.
         e.stopPropagation();
         apply(toggleLink(value, sel()));
+      } else {
+        command(does.command);
       }
       return;
     }
