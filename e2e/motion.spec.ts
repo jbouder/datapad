@@ -15,7 +15,7 @@ import {
  */
 async function animationsDuring(
   page: Page,
-  act: 'route' | 'theme' | 'closeTask',
+  act: 'route' | 'theme' | 'closeTask' | 'openPanel',
 ): Promise<string[]> {
   await settle(page);
   return page.evaluate(
@@ -43,6 +43,12 @@ async function animationsDuring(
         };
         if (kind === 'route') {
           (document.querySelector('a[href="/help"]') as HTMLElement).click();
+        } else if (kind === 'openPanel') {
+          (
+            document.querySelector(
+              '[data-task-id] button:not([aria-label])',
+            ) as HTMLElement
+          ).click();
         } else if (kind === 'closeTask') {
           (
             document.querySelector(
@@ -118,6 +124,36 @@ test.describe('closing a task', () => {
       expect(seen).toMatch(/transition:(scale|opacity) on svg/);
       // The rows below slide up into the gap (WAAPI FLIP).
       expect(seen).toMatch(/animation on li/);
+    });
+  });
+});
+
+test.describe('opening the task panel', () => {
+  test.describe('with prefers-reduced-motion: reduce', () => {
+    test.use({ reducedMotion: 'reduce' });
+    test('nothing animates', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      expect(await animationsDuring(page, 'openPanel')).toEqual([]);
+    });
+  });
+
+  test.describe('with Motion off', () => {
+    test.use({ reducedMotion: 'no-preference' });
+    test('nothing animates', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      await openPreferences(page);
+      await page.getByRole('menuitemcheckbox', { name: 'Motion' }).click();
+      await page.keyboard.press('Escape');
+      expect(await animationsDuring(page, 'openPanel')).toEqual([]);
+    });
+  });
+
+  test.describe('with motion on', () => {
+    test.use({ reducedMotion: 'no-preference' });
+    test('the panel slides in', async ({ page, request }) => {
+      await projectWithTasks(page, request);
+      const seen = (await animationsDuring(page, 'openPanel')).join('\n');
+      expect(seen).toMatch(/transition:(translate|opacity) on div/);
     });
   });
 });

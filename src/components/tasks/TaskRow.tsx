@@ -157,13 +157,18 @@ export const TaskRow = memo(function TaskRow({
         <Popover open={whoOpen} onOpenChange={setWhoOpen}>
           <PopoverTrigger
             className={cn(POPOVER_TRIGGER, 'hidden min-w-8 desk:flex')}
-            aria-label={`Assignee: ${assignee?.name ?? 'Unassigned'}. Change`}
           >
+            {/* The name includes what is shown (WCAG 2.5.3). */}
+            <span className="sr-only">Assignee: </span>
             {assignee ? (
               <Initials person={assignee} />
             ) : (
-              <span aria-hidden className="size-6 border border-dashed" />
+              <>
+                <span aria-hidden className="size-6 border border-dashed" />
+                <span className="sr-only">Unassigned</span>
+              </>
             )}
+            <span className="sr-only">, change</span>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 p-2">
             <PersonPicker
@@ -185,12 +190,18 @@ export const TaskRow = memo(function TaskRow({
         <Popover open={dueOpen} onOpenChange={setDueOpen}>
           <PopoverTrigger
             className={cn(POPOVER_TRIGGER, 'hidden min-w-8 desk:flex')}
-            aria-label={`Due: ${task.due || 'no date'}. Change`}
           >
             {task.due ? (
-              <DueDate due={task.due} today={today} done={done} />
+              <>
+                <span className="sr-only">Due: </span>
+                <DueDate due={task.due} today={today} done={done} />
+                <span className="sr-only">, change</span>
+              </>
             ) : (
-              <span className="text-xs text-muted-foreground/60">Due…</span>
+              <>
+                <span className="text-xs text-muted-foreground">Due…</span>
+                <span className="sr-only"> set a due date</span>
+              </>
             )}
           </PopoverTrigger>
           <PopoverContent align="end" className="w-72 p-2">

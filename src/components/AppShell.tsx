@@ -2,16 +2,12 @@ import { lazy, Suspense, useCallback, useEffect } from 'react';
 import { Rail } from '@/components/Rail';
 import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { withViewTransition } from '@/lib/motion';
 import { titleOf } from '@/lib/nav';
-import { focusQuickAdd } from '@/lib/quickAdd';
-import {
-  navigate,
-  type Route,
-  setRouteTransition,
-  useRoute,
-} from '@/lib/router';
+import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
+import { type Route, setRouteTransition, useRoute } from '@/lib/router';
 import { shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { FocusPage } from '@/pages/FocusPage';
@@ -36,6 +32,7 @@ export function AppShell() {
   const { active } = useMotion();
   const email = useEmail();
   const { state } = useDatapad();
+  const { newTask } = useTaskPanels();
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -44,22 +41,25 @@ export function AppShell() {
   const projectName =
     route.name === 'project' ? state?.projects[route.id]?.name : undefined;
 
-  // Until the new-task panel (#21): the nearest quick-add, or Focus's.
+  // + opens the new-task panel, preset to the project you are on.
+  const currentProject = route.name === 'project' ? route.id : null;
   const addTask = useCallback(() => {
-    if (!focusQuickAdd()) navigate({ name: 'focus' });
-  }, []);
+    newTask(currentProject);
+  }, [newTask, currentProject]);
 
-  // `n`: the nearest quick-add (#24 centralises every binding).
+  // `n`: the nearest quick-add, or the panel where there is none (#24
+  // centralises every binding).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'n' && shortcutAllowed(event)) {
         event.preventDefault();
-        addTask();
+        if (!document.getElementById(QUICK_ADD_ID)) newTask(currentProject);
+        else focusQuickAdd();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [addTask]);
+  }, [newTask, currentProject]);
 
   return (
     <div className="flex min-h-dvh">

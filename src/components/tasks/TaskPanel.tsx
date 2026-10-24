@@ -1,0 +1,413 @@
+import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { useMemo, useRef, useState } from 'react';
+import { formatTimestamp } from '#shared/dates';
+import { LIMITS } from '#shared/limits';
+import { namesToTokens, tokensToNames } from '#shared/mentions';
+import type { Link, Priority, Task } from '#shared/types';
+import { Field } from '@/components/Field';
+import { DatePicker } from '@/components/inputs/DatePicker';
+import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
+import { MentionTextarea } from '@/components/inputs/MentionTextarea';
+import { PriorityPicker } from '@/components/inputs/PriorityPicker';
+import { Segmented } from '@/components/inputs/Segmented';
+import { TagInput } from '@/components/inputs/TagInput';
+import { PersonPicker } from '@/components/pickers/PersonPicker';
+import { ProjectPicker } from '@/components/pickers/ProjectPicker';
+import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useDatapad } from '@/hooks/useDatapad';
+import { useToast } from '@/providers/ToastProvider';
+
+interface Values {
+  title: string;
+  projectId: string | null;
+  done: boolean;
+  priority: Priority;
+  due: string;
+  assignee: string;
+  tags: string[];
+  desc: string;
+  links: Link[];
+}
+
+/**
+ * One task's full editor. The values are read once when it opens, so a
+ * sync in the background never overwrites what you are typing; if the
+ * task changes elsewhere meanwhile, a line offers to reload it. Save sends
+ * at most one `editTask` (one "Edited task" line), plus `moveTask` when
+ * the project changed (logged in both projects) and `toggleTask` when the
+ * status did.
+ */
+export function TaskPanel({
+  task,
+  open,
+  onClose,
+  onExited,
+}: {
+  task: Task;
+  open: boolean;
+  onClose: () => void;
+  onExited: () => void;
+}) {
+  const { state, actions } = useDatapad();
+  const { show } = useToast();
+  const people = state?.people ?? {};
+  const read = (t: Task): Values => ({
+    title: t.title,
+    projectId: t.projectId,
+    done: t.status === 'done',
+    priority: t.priority,
+    due: t.due,
+    assignee: t.assignee,
+    tags: t.tags,
+    desc: tokensToNames(t.desc, people),
+    links: t.links,
+  });
+  const [base, setBase] = useState(() => ({ task, values: read(task) }));
+  const [values, setValues] = useState(base.values);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const dirty = useDirty(values, base.values);
+  const changedElsewhere = task.updatedAt !== base.task.updatedAt;
+
+  const set = <K extends keyof Values>(key: K, value: Values[K]) =>
+    setValues((v) => ({ ...v, [key]: value }));
+
+  const tagSuggestions = useMemo(
+    () => [
+      ...new Set(Object.values(state?.tasks ?? {}).flatMap((t) => t.tags)),
+    ],
+    [state?.tasks],
+  );
+  const sourceNote = task.sourceNoteId
+    ? state?.notes[task.sourceNoteId]
+    : undefined;
+
+  const save = () => {
+    const title = values.title.trim();
+    if (!title) {
+      setTitleError('Give the task a title');
+      titleRef.current?.focus();
+      return;
+    }
+    if (dateInvalid) {
+      document.getElementById('task-due')?.focus();
+      return;
+    }
+    const fields = {
+      title,
+      priority: values.priority,
+      due: values.due,
+      assignee: values.assignee,
+      tags: values.tags,
+      desc: namesToTokens(values.desc, people),
+      links: cleanLinks(values.links),
+    };
+    const patch = Object.fromEntries(
+      Object.entries(fields).filter(
+        ([key, value]) =>
+          JSON.stringify(value) !== JSON.stringify(task[key as keyof Task]),
+      ),
+    );
+    if (Object.keys(patch).length > 0) {
+      if (!actions.editTask({ id: task.id, patch })) return;
+    }
+    if (values.projectId !== task.projectId) {
+      actions.moveTask({ id: task.id, projectId: values.projectId });
+    }
+    if (values.done !== (task.status === 'done')) {
+      actions.toggleTask({ id: task.id, done: values.done });
+    }
+    onClose();
+    if (dirty) show(`Saved “${title}”`);
+  };
+
+  const remove = () => {
+    const deleted = task;
+    if (!actions.deleteTask({ id: task.id })) return;
+    onClose();
+    // Undo puts the very same document back: same id, same order.
+    show(`Deleted “${deleted.title}”`, () => {
+      actions.put({ col: 'tasks', doc: deleted });
+    });
+  };
+
+  return (
+    <SidePanel
+      open={open}
+      onClose={onClose}
+      onExited={onExited}
+      title="Task"
+      description={task.title}
+      dirty={dirty}
+      onSubmit={save}
+      footer={
+        <>
+          {/* Summarize joins the footer with on-device summaries (M6). */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="press text-destructive"
+            onClick={remove}
+          >
+            Delete
+          </Button>
+          <span className="flex-1" />
+          <SidePanelCancel />
+          <Button type="submit" className="press">
+            Save
+          </Button>
+        </>
+      }
+    >
+      {changedElsewhere && (
+        <div
+          role="status"
+          className="flex items-center gap-2 border border-warn/40 bg-warn/10 px-3 py-2 text-sm"
+        >
+          <span className="flex-1">Updated elsewhere.</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="press"
+            onClick={() => {
+              const next = { task, values: read(task) };
+              setBase(next);
+              setValues(next.values);
+            }}
+          >
+            <ArrowClockwiseIcon />
+            Reload
+          </Button>
+        </div>
+      )}
+      <Field label="Title" required error={titleError}>
+        <Input
+          ref={titleRef}
+          value={values.title}
+          maxLength={LIMITS.titleMax}
+          autoComplete="off"
+          className="h-11 text-base desk:h-9 desk:text-sm"
+          onChange={(e) => {
+            set('title', e.target.value);
+            if (titleError && e.target.value.trim()) setTitleError(null);
+          }}
+        />
+      </Field>
+      <Field label="Project">
+        <ProjectPicker
+          value={values.projectId}
+          onChange={(projectId) => set('projectId', projectId)}
+        />
+      </Field>
+      <Segmented
+        legend="Status"
+        value={values.done ? 'done' : 'open'}
+        onChange={(v) => set('done', v === 'done')}
+        options={[
+          { value: 'open', label: 'Open' },
+          { value: 'done', label: 'Done' },
+        ]}
+      />
+      <PriorityPicker
+        value={values.priority}
+        onChange={(priority) => set('priority', priority)}
+      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Due">
+          <DatePicker
+            id="task-due"
+            value={values.due}
+            onChange={(due) => set('due', due)}
+            onInvalidChange={setDateInvalid}
+          />
+        </Field>
+        <Field label="Assignee">
+          <PersonPicker
+            value={values.assignee}
+            onChange={(assignee) => set('assignee', assignee)}
+            allowCreate
+          />
+        </Field>
+      </div>
+      <Field label="Tags">
+        <TagInput
+          value={values.tags}
+          onChange={(tags) => set('tags', tags)}
+          suggestions={tagSuggestions}
+        />
+      </Field>
+      <Field label="Details" hint="Markdown; type @ to mention someone">
+        <MentionTextarea
+          value={values.desc}
+          onChange={(desc) => set('desc', desc)}
+          people={people}
+          maxLength={LIMITS.bodyMax}
+          rows={6}
+        />
+      </Field>
+      <LinksEditor
+        value={values.links}
+        onChange={(links) => set('links', links)}
+      />
+      {sourceNote && (
+        <section aria-labelledby="source-note" className="flex flex-col gap-1">
+          <h3 id="source-note" className="text-xs font-medium">
+            From a note
+          </h3>
+          <blockquote className="line-clamp-4 border-l-2 pl-3 text-sm whitespace-pre-wrap text-muted-foreground">
+            {tokensToNames(sourceNote.body, people)}
+          </blockquote>
+        </section>
+      )}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <dt>Created</dt>
+        <dd>{formatTimestamp(task.createdAt)}</dd>
+        {task.completedAt && (
+          <>
+            <dt>Closed</dt>
+            <dd>{formatTimestamp(task.completedAt)}</dd>
+          </>
+        )}
+      </dl>
+    </SidePanel>
+  );
+}
+
+/**
+ * A new task with more than a title: project (preset to where you are),
+ * priority, due, assignee and details. The + button opens it, and `n`
+ * where there is no quick-add.
+ */
+export function NewTaskPanel({
+  projectId,
+  open,
+  onClose,
+  onExited,
+}: {
+  projectId: string | null;
+  open: boolean;
+  onClose: () => void;
+  onExited: () => void;
+}) {
+  const { state, actions } = useDatapad();
+  const { show } = useToast();
+  const people = state?.people ?? {};
+  const [initial] = useState(() => ({
+    title: '',
+    projectId,
+    priority: 'none' as Priority,
+    due: '',
+    assignee: '',
+    desc: '',
+  }));
+  const [values, setValues] = useState(initial);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const dirty = useDirty(values, initial);
+  const set = <K extends keyof typeof values>(
+    key: K,
+    value: (typeof values)[K],
+  ) => setValues((v) => ({ ...v, [key]: value }));
+
+  const create = () => {
+    const title = values.title.trim();
+    if (!title) {
+      setTitleError('Give the task a title');
+      titleRef.current?.focus();
+      return;
+    }
+    if (dateInvalid) {
+      document.getElementById('new-task-due')?.focus();
+      return;
+    }
+    const id = actions.addTask({
+      title,
+      projectId: values.projectId,
+      priority: values.priority,
+      due: values.due,
+      assignee: values.assignee,
+      desc: namesToTokens(values.desc, people),
+    });
+    if (!id) return;
+    onClose();
+    const where = values.projectId
+      ? state?.projects[values.projectId]?.name
+      : 'General';
+    show(`Added “${title}” to ${where ?? 'General'}`);
+  };
+
+  return (
+    <SidePanel
+      open={open}
+      onClose={onClose}
+      onExited={onExited}
+      title="New task"
+      dirty={dirty}
+      onSubmit={create}
+      footer={
+        <>
+          <span className="flex-1" />
+          <SidePanelCancel />
+          <Button type="submit" className="press">
+            Add task
+          </Button>
+        </>
+      }
+    >
+      <Field label="Title" required error={titleError}>
+        <Input
+          ref={titleRef}
+          value={values.title}
+          maxLength={LIMITS.titleMax}
+          autoComplete="off"
+          enterKeyHint="done"
+          className="h-11 text-base desk:h-9 desk:text-sm"
+          onChange={(e) => {
+            set('title', e.target.value);
+            if (titleError && e.target.value.trim()) setTitleError(null);
+          }}
+        />
+      </Field>
+      <Field label="Project">
+        <ProjectPicker
+          value={values.projectId}
+          onChange={(id) => set('projectId', id)}
+        />
+      </Field>
+      <PriorityPicker
+        value={values.priority}
+        onChange={(priority) => set('priority', priority)}
+      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Due">
+          <DatePicker
+            id="new-task-due"
+            value={values.due}
+            onChange={(due) => set('due', due)}
+            onInvalidChange={setDateInvalid}
+          />
+        </Field>
+        <Field label="Assignee">
+          <PersonPicker
+            value={values.assignee}
+            onChange={(assignee) => set('assignee', assignee)}
+            allowCreate
+          />
+        </Field>
+      </div>
+      <Field label="Details" hint="Markdown; type @ to mention someone">
+        <MentionTextarea
+          value={values.desc}
+          onChange={(desc) => set('desc', desc)}
+          people={people}
+          maxLength={LIMITS.bodyMax}
+        />
+      </Field>
+    </SidePanel>
+  );
+}

@@ -129,7 +129,7 @@ test('tab order is rail, then top bar, then main', async ({ page }) => {
   expect(first('top')).toBeLessThan(first('main'));
 });
 
-test('the + button is “Add task” and takes you to a quick-add', async ({
+test('the + button is “Add task” and opens the new-task panel', async ({
   page,
 }) => {
   await page.goto('/help');
@@ -137,6 +137,7 @@ test('the + button is “Add task” and takes you to a quick-add', async ({
     .getByRole('banner')
     .getByRole('button', { name: 'Add task' })
     .click();
-  await expect(page).toHaveURL(/localhost:\d+\/$/);
-  await expect(page.getByRole('textbox', { name: 'Add a task' })).toBeFocused();
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });

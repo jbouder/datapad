@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, openLive, SEED, test } from './fixtures';
+import { expect, expectSaved, openLive, SEED, test } from './fixtures';
 
 const panel = (page: Page) => page.getByRole('dialog');
 
@@ -82,11 +82,15 @@ test('edit logs details and status separately; a new org is offered', async ({
   await expect(panel(page)).toBeHidden();
   await expect(page.getByText('Kessel Run Ltd')).toBeVisible();
 
+  await expectSaved(page);
+
   const lines = await activity(request, 'p-falcon');
   expect(lines.slice(0, 2)).toEqual([
     'Status changed to active',
     'Edited project details',
   ]);
+  await expectSaved(page);
+
   const data = await (await request.get('/api/export.json')).json();
   expect(data.projects['p-falcon']).toMatchObject({
     org: 'Kessel Run Ltd',
@@ -140,6 +144,8 @@ test('archive with undo, then delete with the counts', async ({
   await ask.getByRole('button', { name: 'Delete project' }).click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByText('Deleted Echo Base relocation')).toBeVisible();
+
+  await expectSaved(page);
 
   const data = await (await request.get('/api/export.json')).json();
   expect(data.projects['p-echo']).toBeUndefined();
