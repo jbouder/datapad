@@ -52,6 +52,8 @@ export interface TaskRowProps {
   ) => void;
   /** Manual order (project page, open tasks): handle, menu, controls. */
   reorder?: RowReorder;
+  /** A select box for bulk actions (Shift extends a range). */
+  select?: { selected: boolean; onToggle: (range: boolean) => void };
 }
 
 export interface RowReorder {
@@ -129,6 +131,7 @@ export const TaskRow = memo(function TaskRow({
   onOpen,
   onEdit,
   reorder,
+  select,
 }: TaskRowProps) {
   const project = task.projectId ? projects[task.projectId] : undefined;
   const assignee = task.assignee ? people[task.assignee] : undefined;
@@ -153,7 +156,21 @@ export const TaskRow = memo(function TaskRow({
           <DotsSixVerticalIcon weight="bold" />
         </span>
       )}
-      <TaskCheck task={task} done={done} onToggle={onToggle} />
+      {select && (
+        <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center desk:size-8">
+          <input
+            type="checkbox"
+            checked={select.selected}
+            onClick={(e) => select.onToggle(e.shiftKey)}
+            onChange={() => {}}
+            aria-label={`Select “${task.title}”`}
+            className="size-4 accent-foreground"
+          />
+        </label>
+      )}
+      {/* With a select box first, completing moves to the end of the row
+          so the two boxes never sit side by side (owner's call). */}
+      {!select && <TaskCheck task={task} done={done} onToggle={onToggle} />}
 
       {onEdit ? (
         <DropdownMenu>
@@ -283,6 +300,8 @@ export const TaskRow = memo(function TaskRow({
           className={cn('px-1', onEdit && 'desk:hidden')}
         />
       )}
+      {select && <TaskCheck task={task} done={done} onToggle={onToggle} />}
+
       {reorder?.controls && (
         <span className="flex shrink-0">
           <Button

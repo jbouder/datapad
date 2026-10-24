@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { localDate, relativeTime } from '#shared/dates';
-import type { AssigneeFilter } from '#shared/select';
-import { meId } from '#shared/select';
+import { localDate } from '#shared/dates';
+import type { Op } from '#shared/protocol';
+import { type AssigneeFilter, meId } from '#shared/select';
 import {
   DEFAULT_TASK_FILTERS,
   selectTasks,
@@ -13,12 +13,19 @@ import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
-import { DataTable } from '@/components/layouts/DataTable';
-import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
+import type { Selection } from '@/components/layouts/DataTable';
+import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { BulkBar } from '@/components/tasks/BulkBar';
-import { DueDate } from '@/components/tasks/DueDate';
+import {
+  defaultTaskView,
+  TASK_VIEWS,
+  TaskBoard,
+  type TaskLayoutProps,
+  TaskListLayout,
+  TaskTable,
+  TaskTimeline,
+} from '@/components/tasks/TaskLayouts';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
-import { TaskCheck, TaskRow } from '@/components/tasks/TaskRow';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
@@ -29,11 +36,13 @@ import { setQuery, useQuery } from '@/lib/router';
 import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 const GROUPS = [
   { value: 'project', label: 'Project' },
   { value: 'due', label: 'Due date' },
   { value: 'assignee', label: 'Assignee' },
+  { value: 'priority', label: 'Priority' },
   { value: 'none', label: 'Nothing' },
 ] as const;
 
@@ -76,28 +85,29 @@ function useTaskFilters(): TaskFilters {
 }
 
 /**
- * Every task, across projects. A dense, sortable table on desktop with
- * group headers, multi-select (Shift for ranges, ⌘/Ctrl+A in a group) and
- * a bulk bar; task rows under group headers on phones. Status, grouping,
- * assignee, text and sort all live in the URL.
+ * Every task, across projects, as a List, a dense Table (the desktop
+ * default), a Board or a Timeline. Status, grouping, assignee, text, sort
+ * and layout live in the URL. Every layout has the quick-add, the
+ * filters and multi-select with the bulk bar.
  */
 export function TasksPage() {
   usePageTitle('Tasks');
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { active } = useMotion();
+  const { show } = useToast();
   const { toggle, isDone } = useTaskToggle();
   const filters = useTaskFilters();
+  const [view, setView] = useView('tasks', TASK_VIEWS, defaultTaskView());
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
   const flipRoot = useRef<HTMLDivElement>(null);
   useFlip(flipRoot, active);
   const today = localDate(new Date());
-  const now = new Date();
   const me = state ? meId(state.people) : null;
 
-  const change = useCallback(
+  const changeQuery = useCallback(
     (changes: Record<string, string | null>, transition = true) => {
       setQuery(changes, {
         replace: !transition,
@@ -114,15 +124,27 @@ export function TasksPage() {
     [state, filters, today, me],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
+  const doneTasks = useMemo(
+    () =>
+      state
+        ? (selectTasks(
+            state,
+            { ...filters, status: 'done', group: 'none' },
+            today,
+            me,
+          )[0]?.rows ?? [])
+        : [],
+    [state, filters, today, me],
+  );
 
   // Selection follows what is shown.
   useEffect(() => {
     setSelected((s) => {
-      const shown = new Set(flat.map((t) => t.id));
+      const shown = new Set([...flat, ...doneTasks].map((t) => t.id));
       const next = new Set([...s].filter((id) => shown.has(id)));
       return next.size === s.size ? s : next;
     });
-  }, [flat]);
+  }, [flat, doneTasks]);
 
   // Esc clears the selection (when nothing else wants it).
   useEffect(() => {
@@ -140,33 +162,67 @@ export function TasksPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selected.size]);
 
+  /** One change for a drag or drop, with Undo putting the tasks back. */
+  const change = useCallback(
+    (ops: Op[], before: Task[], message: string) => {
+      if (ops.length === 0) {
+        show(message);
+        return;
+      }
+      const inner = ops.filter(
+        (o): o is Exclude<Op, { type: 'batch' }> => o.type !== 'batch',
+      );
+      if (!actions.batch({ ops: inner })) return;
+      show(message, () => {
+        actions.batch({
+          ops: before.map((doc) => ({ type: 'put', col: 'tasks', doc })),
+        });
+      });
+    },
+    [actions, show],
+  );
+
   if (!state) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
-  const toggleSelected = (id: string, range: boolean) => {
-    setSelected((s) => {
-      const next = new Set(s);
-      const from = anchor.current
-        ? flat.findIndex((t) => t.id === anchor.current)
-        : -1;
-      const to = flat.findIndex((t) => t.id === id);
-      if (range && from >= 0 && to >= 0) {
-        const [a, b] = from < to ? [from, to] : [to, from];
-        for (const t of flat.slice(a, b + 1)) next.add(t.id);
-      } else if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      anchor.current = id;
-      return next;
-    });
+  const order = view === 'board' ? [...flat, ...doneTasks] : flat;
+  const selection: Selection = {
+    selected,
+    toggle: (id, range) =>
+      setSelected((s) => {
+        const next = new Set(s);
+        const from = anchor.current
+          ? order.findIndex((t) => t.id === anchor.current)
+          : -1;
+        const to = order.findIndex((t) => t.id === id);
+        if (range && from >= 0 && to >= 0) {
+          const [a, b] = from < to ? [from, to] : [to, from];
+          for (const t of order.slice(a, b + 1)) next.add(t.id);
+        } else if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        anchor.current = id;
+        return next;
+      }),
+    toggleGroup: (ids) =>
+      setSelected((s) => {
+        const all = ids.every((id) => s.has(id));
+        const next = new Set(s);
+        for (const id of ids) {
+          if (all) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      }),
+    selectGroup: (ids) => setSelected((s) => new Set([...s, ...ids])),
   };
 
   const sortBy = (column: string) => {
     const same = filters.sort === column;
-    change(
+    changeQuery(
       {
         sort: column === DEFAULT_TASK_FILTERS.sort && !same ? null : column,
         dir: same && filters.dir === 'asc' ? 'desc' : null,
@@ -184,17 +240,33 @@ export function TasksPage() {
   const people = Object.values(state.people).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
-  const project = (t: Task) =>
-    t.projectId ? (state.projects[t.projectId]?.name ?? 'General') : 'General';
+  const layout: TaskLayoutProps = {
+    groups,
+    filters,
+    state,
+    today,
+    selection,
+    isDone,
+    toggle,
+    openTask,
+    change,
+    onSort: sortBy,
+  };
+  const selectedTasks = order.filter((t) => selected.has(t.id));
+  const empty =
+    flat.length === 0 && (view !== 'board' || doneTasks.length === 0);
 
   return (
     <section
       aria-labelledby="tasks-title"
-      className="enter flex flex-col gap-4"
+      className={cn('enter flex flex-col gap-4', selected.size > 0 && 'pb-24')}
     >
-      <h1 id="tasks-title" className="text-page-title">
-        Tasks
-      </h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 id="tasks-title" className="text-page-title flex-1">
+          Tasks
+        </h1>
+        <ViewSwitcher views={TASK_VIEWS} value={view} onChange={setView} />
+      </div>
 
       <QuickAdd
         projectId={projectId}
@@ -212,7 +284,7 @@ export function TasksPage() {
         <Segmented
           legend="Show"
           value={filters.status}
-          onChange={(v) => change({ status: v === 'open' ? null : v })}
+          onChange={(v) => changeQuery({ status: v === 'open' ? null : v })}
           options={[
             { value: 'open', label: 'Open' },
             { value: 'done', label: 'Done' },
@@ -223,7 +295,7 @@ export function TasksPage() {
           label="Group by"
           value={filters.group}
           options={[...GROUPS]}
-          onChange={(v) => change({ group: v === 'project' ? null : v })}
+          onChange={(v) => changeQuery({ group: v === 'project' ? null : v })}
         />
         <SelectField
           label="Assignee"
@@ -234,7 +306,7 @@ export function TasksPage() {
             { value: 'unassigned', label: 'Unassigned' },
             ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
           ]}
-          onChange={(v) => change({ who: v === 'anyone' ? null : v })}
+          onChange={(v) => changeQuery({ who: v === 'anyone' ? null : v })}
         />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="task-find" className="text-xs font-medium">
@@ -246,144 +318,28 @@ export function TasksPage() {
             value={filters.q}
             placeholder="Title, details or tag"
             autoComplete="off"
-            onChange={(e) => change({ q: e.target.value || null }, false)}
+            onChange={(e) => changeQuery({ q: e.target.value || null }, false)}
             className="h-11 text-base desk:h-8 desk:text-xs"
           />
         </div>
       </div>
 
       <div ref={flipRoot}>
-        {flat.length === 0 ? (
+        {empty ? (
           <p className="text-state">No tasks here.</p>
+        ) : view === 'list' ? (
+          <TaskListLayout {...layout} />
+        ) : view === 'board' ? (
+          <TaskBoard {...layout} doneTasks={doneTasks} />
+        ) : view === 'timeline' ? (
+          <TaskTimeline {...layout} />
         ) : (
-          <DataTable<Task>
-            label="Tasks"
-            groups={groups}
-            getId={(t) => t.id}
-            rowLabel={(t) => t.title}
-            sort={{ column: filters.sort, dir: filters.dir }}
-            onSort={sortBy}
-            selection={{
-              selected,
-              toggle: toggleSelected,
-              toggleGroup: (ids) =>
-                setSelected((s) => {
-                  const all = ids.every((id) => s.has(id));
-                  const next = new Set(s);
-                  for (const id of ids) {
-                    if (all) next.delete(id);
-                    else next.add(id);
-                  }
-                  return next;
-                }),
-              selectGroup: (ids) => setSelected((s) => new Set([...s, ...ids])),
-            }}
-            onOpen={(t) => openTask(t.id)}
-            columns={[
-              {
-                id: 'title',
-                header: 'Title',
-                sortable: true,
-                cell: (t) => (
-                  <button
-                    type="button"
-                    data-task-title
-                    onClick={() => openTask(t.id)}
-                    className={cn(
-                      'max-w-[28rem] truncate text-left outline-ring/50 hover:underline focus-visible:outline-2',
-                      isDone(t) && 'text-muted-foreground line-through',
-                    )}
-                  >
-                    {t.title}
-                  </button>
-                ),
-              },
-              ...(filters.group === 'project'
-                ? []
-                : [
-                    {
-                      id: 'project',
-                      header: 'Project',
-                      sortable: true,
-                      cell: (t: Task) => (
-                        <span className="text-muted-foreground">
-                          {project(t)}
-                        </span>
-                      ),
-                    },
-                  ]),
-              {
-                id: 'priority',
-                header: 'Priority',
-                sortable: true,
-                cell: (t) => (
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <PriorityDot priority={t.priority} labelled={false} />
-                    {t.priority === 'none' ? '' : PRIORITY_LABELS[t.priority]}
-                  </span>
-                ),
-              },
-              {
-                id: 'due',
-                header: 'Due',
-                sortable: true,
-                cell: (t) =>
-                  t.due ? (
-                    <DueDate due={t.due} today={today} done={isDone(t)} />
-                  ) : null,
-              },
-              {
-                id: 'assignee',
-                header: 'Assignee',
-                sortable: true,
-                cell: (t) => (
-                  <span className="text-muted-foreground">
-                    {state.people[t.assignee]?.name ?? ''}
-                  </span>
-                ),
-              },
-              {
-                id: 'updated',
-                header: 'Updated',
-                sortable: true,
-                className: 'whitespace-nowrap text-xs text-muted-foreground',
-                cell: (t) => relativeTime(t.updatedAt, now),
-              },
-              {
-                id: 'done',
-                header: 'Complete',
-                className: 'w-9',
-                cell: (t) => (
-                  <TaskCheck
-                    task={t}
-                    done={isDone(t)}
-                    onToggle={toggle}
-                    className="desk:h-8.5"
-                  />
-                ),
-              },
-            ]}
-            mobileRow={(t) => (
-              <TaskRow
-                task={t}
-                done={isDone(t)}
-                today={today}
-                projects={state.projects}
-                people={state.people}
-                showProject={filters.group !== 'project'}
-                onToggle={toggle}
-                onOpen={(task) => openTask(task.id)}
-              />
-            )}
-          />
+          <TaskTable {...layout} />
         )}
       </div>
 
       {selected.size > 0 && (
-        <BulkBar
-          tasks={flat.filter((t) => selected.has(t.id))}
-          onDone={() => setSelected(new Set())}
-        />
+        <BulkBar tasks={selectedTasks} onDone={() => setSelected(new Set())} />
       )}
     </section>
   );

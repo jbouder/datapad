@@ -7,12 +7,17 @@ import { useMemo } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { GENERAL, type Person } from '#shared/types';
 import { Initials } from '@/components/Initials';
+import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { StateLine } from '@/components/projects/StateLine';
 import { StatusPill } from '@/components/projects/StatusPill';
 import { Section } from '@/components/Section';
+import {
+  PROJECT_TASK_VIEWS,
+  ProjectTaskBoard,
+} from '@/components/tasks/ProjectTaskBoard';
 import { TaskList } from '@/components/tasks/TaskList';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -32,6 +37,11 @@ export function ProjectPage({ id }: { id: string }) {
   const { openProjectForm } = useProjectForm();
   const { show } = useToast();
   const project = state?.projects[id];
+  const [taskView, setTaskView] = useView(
+    'project-tasks',
+    PROJECT_TASK_VIEWS,
+    'list',
+  );
   usePageTitle(project?.name ?? (state ? 'Not found' : 'Project'));
 
   const tasks = useMemo(() => {
@@ -173,20 +183,35 @@ export function ProjectPage({ id }: { id: string }) {
             title="Tasks"
             count={tasks.open.length}
             storageKey={key('tasks')}
+            actions={
+              <ViewSwitcher
+                views={PROJECT_TASK_VIEWS}
+                value={taskView}
+                onChange={setTaskView}
+              />
+            }
           >
             <div className="pt-2">
-              <TaskList
-                label="Open tasks"
-                open={tasks.open}
-                done={tasks.done}
-                showProject={false}
-                doneKey={key('done')}
-                reorderProject={id}
-                quickAdd={{
-                  onAdd: (title) =>
-                    actions.addTask({ projectId: id, title }) !== null,
-                }}
-              />
+              {taskView === 'board' ? (
+                <ProjectTaskBoard
+                  projectId={id}
+                  open={tasks.open}
+                  done={tasks.done}
+                />
+              ) : (
+                <TaskList
+                  label="Open tasks"
+                  open={tasks.open}
+                  done={tasks.done}
+                  showProject={false}
+                  doneKey={key('done')}
+                  reorderProject={id}
+                  quickAdd={{
+                    onAdd: (title) =>
+                      actions.addTask({ projectId: id, title }) !== null,
+                  }}
+                />
+              )}
             </div>
           </Section>
         </div>
