@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 export function DatePicker({
   value,
   onChange,
+  onInvalidChange,
   label,
   id,
   className,
@@ -30,6 +31,8 @@ export function DatePicker({
 }: {
   value: DateString | '';
   onChange: (value: DateString | '') => void;
+  /** Told when the typed text becomes unreadable, or readable again. */
+  onInvalidChange?: (invalid: boolean) => void;
   /** The accessible name when no `<label>` points at the input. */
   label?: string;
   id?: string;
@@ -42,14 +45,18 @@ export function DatePicker({
   const resolvedId = `${inputId}-resolved`;
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(value);
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalidState] = useState(false);
+  const setInvalid = (next: boolean) => {
+    setInvalidState(next);
+    onInvalidChange?.(next);
+  };
   const [open, setOpen] = useState(false);
   const today = localDate(new Date());
 
   // A new value from outside (the calendar, an undo) replaces the text.
   useEffect(() => {
     setText(value);
-    setInvalid(false);
+    setInvalidState(false);
   }, [value]);
 
   const commit = () => {

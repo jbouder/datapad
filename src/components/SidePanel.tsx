@@ -39,6 +39,7 @@ const FIELDS =
 export function SidePanel({
   open,
   onClose,
+  onExited,
   title,
   description,
   dirty = false,
@@ -48,6 +49,8 @@ export function SidePanel({
 }: {
   open: boolean;
   onClose: () => void;
+  /** After the exit transition: unmount whatever owns the panel now. */
+  onExited?: () => void;
   title: string;
   description?: string;
   /** Unsaved changes: closing asks first. */
@@ -94,6 +97,9 @@ export function SidePanel({
       open={open}
       onOpenChange={(next) => {
         if (!next) requestClose();
+      }}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) onExited?.();
       }}
     >
       <Dialog.Portal>

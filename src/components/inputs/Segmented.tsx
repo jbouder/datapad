@@ -1,0 +1,64 @@
+import { type ReactNode, useId } from 'react';
+import { cn } from '@/lib/utils';
+
+export interface SegmentedOption<T extends string> {
+  value: T;
+  label: string;
+  /** Shown before the label (a dot, an icon). */
+  icon?: ReactNode;
+}
+
+/**
+ * A row of options of which one is picked: real radios (arrow keys move,
+ * Space picks) styled as a segmented control.
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  legend,
+  legendHidden = false,
+  className,
+}: {
+  options: SegmentedOption<T>[];
+  value: T;
+  onChange: (value: T) => void;
+  legend: string;
+  legendHidden?: boolean;
+  className?: string;
+}) {
+  const name = useId();
+  return (
+    <fieldset className={cn('flex flex-col', className)}>
+      <legend
+        className={cn('mb-1.5 text-xs font-medium', legendHidden && 'sr-only')}
+      >
+        {legend}
+      </legend>
+      <div
+        className="grid border border-input"
+        style={{
+          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {options.map((o) => (
+          <label
+            key={o.value}
+            className="press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-2 text-xs not-last:border-r has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-8"
+          >
+            <input
+              type="radio"
+              name={name}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
+              className="sr-only"
+            />
+            {o.icon}
+            <span className="truncate">{o.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}

@@ -18,6 +18,7 @@ import { HelpPage } from '@/pages/HelpPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { ProjectPage } from '@/pages/ProjectPage';
+import { ProjectsPage } from '@/pages/ProjectsPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -106,11 +107,7 @@ function Page({ route }: { route: Route }) {
     case 'project':
       return <ProjectPage id={route.id} />;
     case 'projects':
-      return (
-        <PlaceholderPage title="Projects">
-          Project cards, filters and sorting are on their way.
-        </PlaceholderPage>
-      );
+      return <ProjectsPage />;
     case 'archive':
       return (
         <PlaceholderPage title="Archived">

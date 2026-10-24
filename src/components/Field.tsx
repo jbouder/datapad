@@ -23,7 +23,9 @@ export function Field({
   labelHidden?: boolean;
   children: ReactElement<Record<string, unknown>>;
 }) {
-  const id = useId();
+  const ownId = useId();
+  // A control that brings its own id (so a form can focus it) keeps it.
+  const id = (children.props.id as string | undefined) ?? ownId;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
   const describedBy =
