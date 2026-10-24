@@ -1,4 +1,6 @@
 import {
+  ArrowsInSimpleIcon,
+  ArrowsOutSimpleIcon,
   CheckSquareOffsetIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -40,6 +42,9 @@ export function NoteCard({
   showProject = true,
   when = 'time',
   highlight,
+  compact = false,
+  expand,
+  layout = true,
   className,
   style,
 }: {
@@ -49,6 +54,15 @@ export function NoteCard({
   /** `time` under a day heading; `day` where there is none. */
   when?: 'time' | 'day';
   highlight?: string[];
+  /** Grid: smaller text, 10 lines, no footer (expand for the rest). */
+  compact?: boolean;
+  /** Grid: the card opens in place, and says whether it is open. */
+  expand?: { expanded: boolean; toggle: () => void };
+  /**
+   * The card itself, carrying its ids (`data-layout-id` so layout
+   * switches move it). False for a stand-in that only holds space.
+   */
+  layout?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -177,18 +191,29 @@ export function NoteCard({
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the Expand button is the keyboard way to open a compact card
     <article
       ref={card}
       tabIndex={-1}
       data-highlighted={flash || undefined}
-      data-flip-id={note.id}
-      data-note-id={note.id}
+      data-flip-id={layout ? note.id : undefined}
+      data-layout-id={layout ? note.id : undefined}
+      data-note-id={layout ? note.id : undefined}
       aria-label={`Note, ${formatTimestamp(note.createdAt)}`}
       className={cn(
         'enter note-card relative flex flex-col gap-2 border bg-card p-3 outline-none',
         className,
       )}
       style={style}
+      onClick={(e) => {
+        // A click on a compact card opens it, unless it was on a control
+        // or ended a text selection.
+        if (!compact || !expand) return;
+        const target = e.target as Element;
+        if (target.closest('a, button, input, textarea, label')) return;
+        if (!document.getSelection()?.isCollapsed) return;
+        expand.toggle();
+      }}
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         {showProject &&
@@ -213,12 +238,30 @@ export function NoteCard({
         {note.editedAt && (
           <span title={formatTimestamp(note.editedAt)}>· edited</span>
         )}
-        {note.pinned && (
-          <span className="ml-auto inline-flex items-center gap-1 text-foreground">
-            <PushPinIcon weight="fill" aria-hidden />
-            Pinned
-          </span>
-        )}
+        <span className="ml-auto flex items-center gap-1">
+          {note.pinned && (
+            <span className="inline-flex items-center gap-1 text-foreground">
+              <PushPinIcon weight="fill" aria-hidden />
+              <span className={cn(compact && 'sr-only')}>Pinned</span>
+            </span>
+          )}
+          {expand && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="press -my-1 size-11 desk:size-7"
+              aria-expanded={expand.expanded}
+              aria-label={expand.expanded ? 'Collapse note' : 'Expand note'}
+              onClick={expand.toggle}
+            >
+              {expand.expanded ? (
+                <ArrowsInSimpleIcon />
+              ) : (
+                <ArrowsOutSimpleIcon />
+              )}
+            </Button>
+          )}
+        </span>
       </header>
 
       {editing !== null ? (
@@ -265,10 +308,15 @@ export function NoteCard({
           <div
             ref={body}
             id={bodyId}
-            className={cn(!expanded && 'note-clamp')}
+            className={cn(
+              compact
+                ? 'note-clamp note-clamp-10'
+                : !expanded && !expand?.expanded && 'note-clamp',
+            )}
             data-overflows={(overflows && !expanded) || undefined}
           >
             <Markdown
+              className={cn(compact && 'prose-compact')}
               text={note.body}
               people={state.people}
               highlight={highlight}
@@ -280,7 +328,7 @@ export function NoteCard({
               }
             />
           </div>
-          {overflows && (
+          {overflows && !compact && !expand && (
             <button
               type="button"
               aria-expanded={expanded}
@@ -308,7 +356,7 @@ export function NoteCard({
         </Button>
       )}
 
-      {editing === null && asking !== null && (
+      {editing === null && asking !== null && !compact && (
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -353,7 +401,7 @@ export function NoteCard({
         </form>
       )}
 
-      {editing === null && asking === null && (
+      {editing === null && asking === null && !compact && (
         <footer className="-mx-1.5 -mb-1.5 flex flex-wrap gap-0.5">
           <Button
             variant="ghost"

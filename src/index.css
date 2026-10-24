@@ -280,6 +280,10 @@
   max-height: calc(12 * 1.45 * 15px);
   overflow: hidden;
 }
+/* Grid cards: 10 lines at the compact scale. */
+.note-clamp.note-clamp-10 {
+  max-height: calc(10 * 1.45 * 15px * 0.88);
+}
 .note-clamp[data-overflows] {
   mask-image: linear-gradient(to bottom, black 85%, transparent);
 }
