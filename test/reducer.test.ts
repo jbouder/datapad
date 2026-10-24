@@ -632,6 +632,78 @@ describe('people', () => {
     ).toThrow('That person no longer exists');
   });
 
+  it('decisions: propose, decide (dated), revisit, edit, delete, with their log lines', () => {
+    let state = base();
+    state = at(state, {
+      type: 'addDecision',
+      id: 'd1',
+      projectId: 'p1',
+      title: 'Move to Hoth',
+      deciders: ['u1'],
+    }).state;
+    expect(state.decisions.d1).toMatchObject({
+      status: 'proposed',
+      decidedAt: '',
+      rationale: '',
+      deciders: ['u1'],
+    });
+    expect(lastLog(state, 'p1')).toBe('Proposed "Move to Hoth"');
+    state = at(state, {
+      type: 'setDecisionStatus',
+      id: 'd1',
+      status: 'decided',
+      day: '2026-10-21',
+    }).state;
+    expect(state.decisions.d1?.decidedAt).toBe('2026-10-21');
+    expect(lastLog(state, 'p1')).toBe('Decided "Move to Hoth"');
+    state = at(state, {
+      type: 'setDecisionStatus',
+      id: 'd1',
+      status: 'revisited',
+    }).state;
+    expect(lastLog(state, 'p1')).toBe('Revisited "Move to Hoth"');
+    // Deciding again keeps the first date.
+    state = at(state, {
+      type: 'setDecisionStatus',
+      id: 'd1',
+      status: 'decided',
+    }).state;
+    expect(state.decisions.d1?.decidedAt).toBe('2026-10-21');
+    expect(
+      at(state, { type: 'setDecisionStatus', id: 'd1', status: 'decided' })
+        .changed,
+    ).toEqual([]);
+    state = at(state, {
+      type: 'editDecision',
+      id: 'd1',
+      patch: { rationale: 'Further from the core' },
+    }).state;
+    expect(lastLog(state, 'p1')).toBe('Edited decision "Move to Hoth"');
+    state = at(state, { type: 'deleteDecision', id: 'd1' }).state;
+    expect(state.decisions.d1).toBeUndefined();
+    expect(lastLog(state, 'p1')).toBe('Deleted decision "Move to Hoth"');
+  });
+
+  it('a decision made decided starts dated; it outlives its project and deciders', () => {
+    let state = run(
+      base(),
+      {
+        type: 'addDecision',
+        id: 'd1',
+        projectId: 'p1',
+        title: 'Shields first',
+        status: 'decided',
+        decidedAt: '2026-10-01',
+        deciders: ['u1'],
+      },
+      { type: 'removePerson', id: 'u1' },
+    );
+    expect(lastLog(state, 'p1')).toBe('Decided "Shields first"');
+    expect(state.decisions.d1?.deciders).toEqual([]);
+    state = run(state, { type: 'deleteProject', id: 'p1' });
+    expect(state.decisions.d1?.projectId).toBeNull();
+  });
+
   it('removePerson keeps a task blocked but on no one listed', () => {
     const state = run(base(), {
       type: 'setBlocked',

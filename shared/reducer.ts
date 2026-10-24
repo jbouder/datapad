@@ -30,6 +30,12 @@ export class OpError extends Error {
   }
 }
 
+const DECISION_VERBS = {
+  proposed: 'Proposed',
+  decided: 'Decided',
+  revisited: 'Revisited',
+} as const;
+
 function fail(message: string): never {
   throw new OpError(message);
 }
@@ -179,6 +185,13 @@ function cascadeProject(d: Draft, id: string, now: string) {
   for (const e of d.all('events')) {
     if (e.projectId === id) {
       d.set('events', e.id, { ...e, projectId: null, updatedAt: now });
+    }
+  }
+  // A decision outlives its project: why something was decided is still
+  // worth finding.
+  for (const x of d.all('decisions')) {
+    if (x.projectId === id) {
+      d.set('decisions', x.id, { ...x, projectId: null, updatedAt: now });
     }
   }
   d.delete('activity', id);
@@ -468,6 +481,66 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
+    /* decisions */
+    case 'addDecision': {
+      fresh(d, 'decisions', op.id, 'decision');
+      checkProject(d, op.projectId);
+      const status = op.status ?? 'proposed';
+      d.set('decisions', op.id, {
+        id: op.id,
+        projectId: op.projectId,
+        title: op.title,
+        rationale: op.rationale ?? '',
+        status,
+        decidedAt: op.decidedAt ?? '',
+        deciders: op.deciders ?? [],
+        links: op.links ?? [],
+        ...(op.sourceNoteId ? { sourceNoteId: op.sourceNoteId } : {}),
+        createdAt: now,
+        updatedAt: now,
+      });
+      log(d, op.projectId, `${DECISION_VERBS[status]} "${op.title}"`, now);
+      touch(d, op.projectId, now);
+      return;
+    }
+    case 'editDecision': {
+      const x =
+        d.get('decisions', op.id) ?? fail('That decision no longer exists');
+      if (op.patch.projectId !== undefined) checkProject(d, op.patch.projectId);
+      const next = { ...x, ...op.patch, updatedAt: now };
+      d.set('decisions', x.id, next);
+      log(d, next.projectId, `Edited decision "${next.title}"`, now);
+      touch(d, x.projectId, now);
+      touch(d, next.projectId, now);
+      return;
+    }
+    case 'setDecisionStatus': {
+      const x =
+        d.get('decisions', op.id) ?? fail('That decision no longer exists');
+      if (x.status === op.status) return;
+      const decidedAt =
+        op.status === 'decided' && !x.decidedAt
+          ? (op.day ?? now.slice(0, 10))
+          : x.decidedAt;
+      d.set('decisions', x.id, {
+        ...x,
+        status: op.status,
+        decidedAt,
+        updatedAt: now,
+      });
+      log(d, x.projectId, `${DECISION_VERBS[op.status]} "${x.title}"`, now);
+      touch(d, x.projectId, now);
+      return;
+    }
+    case 'deleteDecision': {
+      const x =
+        d.get('decisions', op.id) ?? fail('That decision no longer exists');
+      d.delete('decisions', x.id);
+      log(d, x.projectId, `Deleted decision "${x.title}"`, now);
+      touch(d, x.projectId, now);
+      return;
+    }
+
     /* people */
     case 'addPerson': {
       fresh(d, 'people', op.id, 'person');
@@ -512,6 +585,14 @@ function apply(d: Draft, op: Op, now: string) {
           d.set('projects', p.id, {
             ...p,
             members: p.members.filter((m) => m !== op.id),
+          });
+        }
+      }
+      for (const x of d.all('decisions')) {
+        if (x.deciders.includes(op.id)) {
+          d.set('decisions', x.id, {
+            ...x,
+            deciders: x.deciders.filter((p) => p !== op.id),
           });
         }
       }

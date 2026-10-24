@@ -245,7 +245,40 @@ describe('projectContext', () => {
     expect(text).toContain('note 29');
     expect(text).not.toContain('note 9\n');
     expect(count(/: line \d+$/gm)).toBe(SUMMARY_LIMITS.activity);
-    expect(SUMMARY_LIMITS).toEqual({ doneTasks: 15, notes: 20, activity: 25 });
+    expect(SUMMARY_LIMITS).toEqual({
+      doneTasks: 15,
+      notes: 20,
+      activity: 25,
+      decisions: 10,
+    });
+  });
+});
+
+describe('project decisions in the summary', () => {
+  it('lists the last 10, newest first, with status, date and deciders', () => {
+    const state = world();
+    for (let i = 0; i < 12; i += 1) {
+      const day = String(i + 1).padStart(2, '0');
+      state.decisions[`d${i}`] = {
+        id: `d${i}`,
+        projectId: 'p1',
+        title: `Call ${i}`,
+        rationale: i === 11 ? 'Because @{leia} said so' : '',
+        status: 'decided',
+        decidedAt: `2026-10-${day}`,
+        deciders: i === 11 ? ['leia'] : [],
+        links: [],
+        createdAt: '2026-10-01T09:00:00.000Z',
+        updatedAt: '2026-10-01T09:00:00.000Z',
+      };
+    }
+    const text = projectContext('p1', state);
+    expect(text).toContain(
+      'Decisions, newest first:\n- [decided Mon 12 Oct 2026] Call 11 (Leia Organa)\n  Because @Leia Organa said so',
+    );
+    expect(text.match(/^- \[decided/gm)).toHaveLength(10);
+    expect(text).not.toContain('Call 1 ');
+    expect(text).not.toMatch(/Call 0\b/);
   });
 });
 

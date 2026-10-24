@@ -60,6 +60,7 @@ const CREATES = {
   addNote: true,
   addEvent: true,
   addPerson: true,
+  addDecision: true,
 } as const;
 type CreateType = keyof typeof CREATES;
 
@@ -107,6 +108,10 @@ const OP_TYPES = {
   addPerson: true,
   editPerson: true,
   removePerson: true,
+  addDecision: true,
+  editDecision: true,
+  setDecisionStatus: true,
+  deleteDecision: true,
   setSettings: true,
   batch: true,
 } as const satisfies Record<OpType, true>;

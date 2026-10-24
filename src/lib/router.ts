@@ -19,6 +19,7 @@ export type Route =
   | { name: 'tasks' }
   | { name: 'notes' }
   | { name: 'events' }
+  | { name: 'decisions' }
   /** `person` is the one selected in People (`/settings/people/:id`). */
   | { name: 'settings'; section: SettingsSection; person?: string }
   | { name: 'help'; section?: string }
@@ -48,6 +49,7 @@ const SIMPLE = new Set<RouteName>([
   'tasks',
   'notes',
   'events',
+  'decisions',
 ]);
 
 export function parse(pathname: string, hash = ''): Route {

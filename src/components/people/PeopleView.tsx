@@ -54,7 +54,9 @@ export function PeopleView({ selected }: { selected?: string }) {
       ),
     [state?.people],
   );
-  const stats = state ? peopleStats(state.projects, state.tasks) : null;
+  const stats = state
+    ? peopleStats(state.projects, state.tasks, state.decisions)
+    : null;
   const person: Person | undefined = selected
     ? state?.people[selected]
     : undefined;

@@ -65,13 +65,17 @@ as it is:
   "people": { … },
   "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
   "events": { … },
-  "settings": { "user": { "defaultOrg": "OpenTeams Internal" } }
+  "settings": { "user": { "defaultOrg": "OpenTeams Internal" } },
+  "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } }
 }
 ```
 
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, today only the
   default org for new projects.
+- `decisions` is Datapad's own too (M7): the decision log. A file without
+  it imports fine. Projects may carry `health` and tasks `blocked`; both
+  are optional and absent in older files.
 - Each collection is a map from id to document, fields exactly as in
   [SPEC.md § Data model](SPEC.md#data-model). An array of documents that
   carry their `id` is accepted too.

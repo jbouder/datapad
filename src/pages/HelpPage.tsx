@@ -98,8 +98,13 @@ export function HelpPage({ section }: { section?: string }) {
             top.
           </Term>
           <Term name="Search">
-            <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note, event
-            or person.
+            <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note, event,
+            decision or person.
+          </Term>
+          <Term name="Decisions">
+            Why things are the way they are: every decision, by project, with
+            who decided and when. Add them on a project page, or turn a line of
+            a note into one with <code>/decision</code>.
           </Term>
         </dl>
         <p className="text-sm">
