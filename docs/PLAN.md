@@ -181,7 +181,7 @@ every view is designed and tested at phone width, not adapted afterwards:
   inside their own container, never the page.
 - **Touch reorder and swipe.** Drag reorder has a long-press handle on touch
   plus Move up / Move down in the row menu.
-- **Installable.** The PWA manifest (M6) makes it a home-screen app with
+- **Installable.** The PWA manifest (see design.md § Installing) makes it a home-screen app with
   standalone display and theme colours per theme.
 
 ## UX standards (data entry first)
