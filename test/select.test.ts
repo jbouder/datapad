@@ -5,6 +5,9 @@ import { reduce } from '#shared/reducer';
 import {
   activeProjects,
   agenda,
+  assigneeFor,
+  assigneeFromQuery,
+  assigneeToQuery,
   focusBuckets,
   GENERAL_KEY,
   meId,
@@ -281,5 +284,29 @@ describe('reorder helpers', () => {
     expect(dropIndex(1, 4)).toBe(3);
     expect(dropIndex(1, 1)).toBeNull();
     expect(dropIndex(1, 2)).toBeNull();
+  });
+});
+
+describe('assignee filter in the URL', () => {
+  it('round-trips every kind', () => {
+    for (const value of ['anyone', 'mine', 'unassigned', 'p:u-leia']) {
+      expect(assigneeToQuery(assigneeFromQuery(value))).toBe(value);
+    }
+  });
+
+  it('reads anything else as anyone', () => {
+    expect(assigneeFromQuery(null)).toEqual({ kind: 'anyone' });
+    expect(assigneeFromQuery('p:')).toEqual({ kind: 'anyone' });
+    expect(assigneeFromQuery('someone')).toEqual({ kind: 'anyone' });
+  });
+
+  it('pre-assigns quick-added tasks to Mine or the person', () => {
+    expect(assigneeFor({ kind: 'mine' }, 'u-leia')).toBe('u-leia');
+    expect(assigneeFor({ kind: 'mine' }, null)).toBe('');
+    expect(assigneeFor({ kind: 'person', id: 'u-han' }, 'u-leia')).toBe(
+      'u-han',
+    );
+    expect(assigneeFor({ kind: 'unassigned' }, 'u-leia')).toBe('');
+    expect(assigneeFor({ kind: 'anyone' }, 'u-leia')).toBe('');
   });
 });

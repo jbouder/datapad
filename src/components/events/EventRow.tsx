@@ -6,7 +6,7 @@ import {
   PencilSimpleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { timeRange } from '#shared/events';
 import type { Event, Person, Snapshot } from '#shared/types';
@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDatapad } from '@/hooks/useDatapad';
-import { linkProps } from '@/lib/router';
+import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -59,6 +59,19 @@ export function EventRow({
   const { startNote } = useEventNotes();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
+  const row = useRef<HTMLDivElement>(null);
+  const target = useQuery().get('event');
+  const [flash, setFlash] = useState(false);
+
+  // Arriving from Focus's agenda or search: bring the row into view.
+  useEffect(() => {
+    if (target !== event.id || !row.current) return;
+    row.current.scrollIntoView({ block: 'center' });
+    row.current.focus({ preventScroll: true });
+    setFlash(true);
+    const timer = window.setTimeout(() => setFlash(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [target, event.id]);
   const project = event.projectId ? state.projects[event.projectId] : null;
   const attendees = event.attendees
     .map((id) => state.people[id])
@@ -75,9 +88,15 @@ export function EventRow({
 
   return (
     <div
+      ref={row}
+      tabIndex={-1}
       data-event-id={event.id}
       data-layout-id={event.id}
-      className={cn('@container/row flex flex-col border-b', className)}
+      data-highlighted={flash || undefined}
+      className={cn(
+        'event-row @container/row flex flex-col border-b outline-none',
+        className,
+      )}
       style={style}
     >
       <div className="flex min-h-11 items-start gap-1 py-1.5 @xl/row:items-center @xl/row:gap-3">

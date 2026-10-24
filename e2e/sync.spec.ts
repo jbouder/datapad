@@ -18,8 +18,9 @@ async function openLive(page: Page) {
   await expect(status(page)).toHaveAttribute('data-status', 'live');
 }
 
+/** Focus's buckets (No date is collapsed, so read text, not roles). */
 const openTasks = (page: Page) =>
-  page.getByRole('list', { name: 'Open tasks' });
+  page.getByRole('region', { name: 'Open tasks' });
 
 /** Wait until the debounced snapshot cache in IndexedDB holds `title`. */
 async function cached(page: Page, title: string) {
@@ -99,7 +100,7 @@ test('offline: reads keep working, writes queue and replay on reconnect', async 
   await page.reload();
   await expect(status(page)).toHaveAttribute('data-status', 'live');
   await expect(openTasks(page)).toContainText('Patch the hangar roof');
-  await expect(openTasks(page).getByRole('listitem')).toHaveCount(2);
+  await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(2);
 });
 
 test('first paint on a warm cache shows data before the socket connects', async ({

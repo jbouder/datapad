@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
 import type { Op } from '#shared/protocol';
-import { type AssigneeFilter, meId } from '#shared/select';
+import {
+  assigneeFor,
+  assigneeFromQuery,
+  assigneeToQuery,
+  meId,
+} from '#shared/select';
 import {
   DEFAULT_TASK_FILTERS,
   selectTasks,
@@ -46,17 +51,6 @@ const GROUPS = [
   { value: 'none', label: 'Nothing' },
 ] as const;
 
-function whoFrom(value: string | null): AssigneeFilter {
-  if (value === 'mine') return { kind: 'mine' };
-  if (value === 'unassigned') return { kind: 'unassigned' };
-  if (value?.startsWith('p:')) return { kind: 'person', id: value.slice(2) };
-  return { kind: 'anyone' };
-}
-
-function whoTo(who: AssigneeFilter): string {
-  return who.kind === 'person' ? `p:${who.id}` : who.kind;
-}
-
 /** The view's controls, from the URL so Back restores them. */
 function useTaskFilters(): TaskFilters {
   const query = useQuery();
@@ -74,7 +68,7 @@ function useTaskFilters(): TaskFilters {
       group: GROUPS.some((g) => g.value === group)
         ? (group as TaskFilters['group'])
         : DEFAULT_TASK_FILTERS.group,
-      who: whoFrom(q.get('who')),
+      who: assigneeFromQuery(q.get('who')),
       q: q.get('q') ?? '',
       sort: (TASK_SORTS as readonly string[]).includes(sort ?? '')
         ? (sort as TaskSortKey)
@@ -231,12 +225,7 @@ export function TasksPage() {
     );
   };
 
-  const assignTo =
-    filters.who.kind === 'mine'
-      ? (me ?? '')
-      : filters.who.kind === 'person'
-        ? filters.who.id
-        : '';
+  const assignTo = assigneeFor(filters.who, me);
   const people = Object.values(state.people).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
@@ -299,7 +288,7 @@ export function TasksPage() {
         />
         <SelectField
           label="Assignee"
-          value={whoTo(filters.who)}
+          value={assigneeToQuery(filters.who)}
           options={[
             { value: 'anyone', label: 'Anyone' },
             ...(me ? [{ value: 'mine', label: 'Mine' }] : []),

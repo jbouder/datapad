@@ -38,7 +38,7 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
     .first()
     .click();
   await expect(page.getByText('2 projects · 5 open tasks')).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Open tasks' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Open tasks' })).toContainText(
     'Confirm shield generator delivery',
   );
 });

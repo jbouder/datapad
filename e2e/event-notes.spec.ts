@@ -111,14 +111,18 @@ test('from the Focus agenda: a project event and a General one', async ({
 }) => {
   await openLive(page, '/');
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
-  await expect(agenda.locator('[data-event-id]')).toHaveCount(2);
+  await expect(agenda.getByRole('listitem')).toHaveCount(2);
 
-  await action(page, 'Shield review', 'Debrief note');
+  await agenda
+    .getByRole('button', { name: 'Debrief note for “Shield review”' })
+    .click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await expect(composer(page)).toHaveAttribute('data-phase', 'post');
 
   await page.goto('/');
-  await action(page, 'Quarterly planning', 'Prep note');
+  await page
+    .getByRole('button', { name: 'Prep note for “Quarterly planning”' })
+    .click();
   await expect(page).toHaveURL(/\/notes$/);
   await expect(composer(page)).toHaveValue(
     `## Prep: Quarterly planning — ${formatDay(planningDay, today)}\n`,

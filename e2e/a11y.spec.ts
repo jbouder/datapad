@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { addDays, localDate } from '../shared/dates';
 import { THEMES, type ThemeOption } from '../src/lib/themes';
 import {
   expect,
@@ -61,6 +62,27 @@ for (const theme of CHECKED) {
         await expectAccessible(page);
       });
     }
+
+    test('Focus with every bucket and the agenda', async ({
+      page,
+      request,
+    }) => {
+      const seed = structuredClone(SEED);
+      const today = localDate(new Date());
+      seed.tasks['t-1'].due = addDays(today, -1);
+      seed.tasks['t-4'].due = today;
+      seed.tasks['t-5'].due = addDays(today, 30);
+      seed.events['e-1'].date = addDays(today, 1);
+      await request.post('/api/import', { data: seed });
+      await page.goto('/');
+      for (const name of [/^Later/, /^No date/]) {
+        await page.getByRole('button', { name }).click();
+      }
+      await expect(
+        page.getByRole('region', { name: 'Next 7 days' }),
+      ).toBeVisible();
+      await expectAccessible(page);
+    });
 
     test('with the project form open', async ({ page }) => {
       await page.goto('/projects');

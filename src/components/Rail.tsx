@@ -1,10 +1,10 @@
 import { ArchiveIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { localDate } from '#shared/dates';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SyncStatus } from '@/components/SyncStatus';
 import { DatapadMark } from '@/components/TopBar';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import { NAV, sectionOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ const ANYONE = { kind: 'anyone' } as const;
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const email = useEmail();
-  const today = localDate(new Date());
+  const today = useToday();
   const section = sectionOf(route);
 
   const counts = useMemo(() => {
