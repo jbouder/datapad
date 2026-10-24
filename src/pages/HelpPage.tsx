@@ -97,6 +97,11 @@ export function HelpPage({ section }: { section?: string }) {
             Every note, newest first, as a feed or a grid. Pinned notes stay on
             top.
           </Term>
+          <Term name="Digest">
+            Your own status report: what happened in each project over a week,
+            from tasks, notes, events, decisions and the activity logs. Copy it
+            as Markdown, keep it as a note, or Summarize it.
+          </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note, event,
             decision or person.

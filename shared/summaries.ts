@@ -1,4 +1,5 @@
 import { formatDay } from './dates';
+import { buildDigest, digestMarkdown, weekEnding } from './digest';
 import { byWhen, EVENT_TYPE_LABELS, timeRange } from './events';
 import { tokensToNames } from './mentions';
 import {
@@ -365,7 +366,9 @@ export type SummaryTarget =
   | { kind: 'project'; id: string }
   | { kind: 'task'; id: string }
   | { kind: 'event'; id: string }
-  | { kind: 'note'; id: string };
+  | { kind: 'note'; id: string }
+  /** The seven days ending `toDay` (the Digest page). */
+  | { kind: 'digest'; toDay: string };
 
 export interface SummaryRequest {
   /** "Echo Base", "Shield review", "note of Wed 21 Oct 2026". */
@@ -411,6 +414,16 @@ export function summaryRequest(
         context: eventContext(event, state),
         projectId: event.projectId,
         eventId: event.id,
+      };
+    }
+    case 'digest': {
+      const digest = buildDigest(state, weekEnding(target.toDay));
+      const { fromDay, toDay } = digest.range;
+      return {
+        label: `week of ${day(fromDay)} – ${day(toDay)}`,
+        context: `Weekly digest across every project.\n\n${digestMarkdown(digest)}`,
+        projectId: null,
+        eventId: null,
       };
     }
     case 'note': {
