@@ -3,7 +3,7 @@ import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /**
- * The phone's navigation (< 820px): the six sections along the bottom,
+ * The phone's navigation (< 820px): the five sections along the bottom,
  * one thumb away, above the home indicator. The rail replaces it on
  * desktop.
  */
@@ -14,7 +14,7 @@ export function TabBar({ route }: { route: Route }) {
       aria-label="Sections"
       className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 desk:hidden"
     >
-      <ul className="grid h-(--tabbar-height) grid-cols-6">
+      <ul className="grid h-(--tabbar-height) grid-cols-5">
         {NAV.map(({ route: to, label, icon: Icon }) => {
           const current = section === to.name;
           return (

@@ -3,6 +3,7 @@ import { LIMITS } from './limits';
 import {
   type Activity,
   type COLLECTIONS,
+  DEFAULT_SETTINGS,
   DOC_COLLECTIONS,
   EVENT_TYPES,
   type Event,
@@ -14,6 +15,7 @@ import {
   PRIORITIES,
   PROJECT_STATUSES,
   type Project,
+  type Settings,
   type Snapshot,
   TASK_STATUSES,
   type Task,
@@ -158,6 +160,10 @@ export const ActivitySchema = z.object({
   events: z.array(ActivityEntrySchema).max(LIMITS.activityMax).default([]),
 }) satisfies z.ZodType<Activity, unknown>;
 
+export const SettingsSchema = z.object({
+  defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
+}) satisfies z.ZodType<Settings, unknown>;
+
 /** One schema per collection, for imports and `put`. */
 export const DocumentSchemas = {
   projects: ProjectSchema,
@@ -166,6 +172,7 @@ export const DocumentSchemas = {
   events: EventSchema,
   people: PersonSchema,
   activity: ActivitySchema,
+  settings: SettingsSchema,
 } as const;
 
 /* ---------- the export file ---------- */
@@ -202,27 +209,32 @@ function collectionOf<S extends z.ZodType>(schema: S) {
     });
 }
 
-/** The activity map is keyed by project id (or `general`); no `id` field. */
-const activityCollection = z
-  .union([z.record(z.string(), z.unknown()), z.array(z.looseObject({ id }))])
-  .default({})
-  .transform((value, ctx) => {
-    const entries: Array<[string, unknown]> = Array.isArray(value)
-      ? value.map((doc) => [doc.id, doc])
-      : Object.entries(value);
-    const out: Record<string, Activity> = {};
-    for (const [key, doc] of entries) {
-      const parsed = ActivitySchema.safeParse(doc);
-      if (!parsed.success) {
-        for (const issue of parsed.error.issues) {
-          ctx.addIssue({ ...issue, path: [key, ...issue.path] } as never);
+/**
+ * A collection keyed by something other than a document id: activity by
+ * project id (or `general`), settings by `SETTINGS_ID`.
+ */
+function keyedCollection<S extends z.ZodType>(schema: S) {
+  return z
+    .union([z.record(z.string(), z.unknown()), z.array(z.looseObject({ id }))])
+    .default({})
+    .transform((value, ctx) => {
+      const entries: Array<[string, unknown]> = Array.isArray(value)
+        ? value.map((doc) => [doc.id, doc])
+        : Object.entries(value);
+      const out: Record<string, z.output<S>> = {};
+      for (const [key, doc] of entries) {
+        const parsed = schema.safeParse(doc);
+        if (!parsed.success) {
+          for (const issue of parsed.error.issues) {
+            ctx.addIssue({ ...issue, path: [key, ...issue.path] } as never);
+          }
+          continue;
         }
-        continue;
+        out[key] = parsed.data as z.output<S>;
       }
-      out[key] = parsed.data;
-    }
-    return out;
-  });
+      return out;
+    });
+}
 
 /**
  * Datapad's export and the artifact's `ledger-*.json`, unchanged. Missing
@@ -235,7 +247,8 @@ export const ExportSchema = z.object({
   notes: collectionOf(NoteSchema),
   events: collectionOf(EventSchema),
   people: collectionOf(PersonSchema),
-  activity: activityCollection,
+  activity: keyedCollection(ActivitySchema),
+  settings: keyedCollection(SettingsSchema),
 });
 
 export type ParsedExport = z.output<typeof ExportSchema>;
@@ -251,6 +264,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     events: Object.keys(snapshot.events).length,
     people: Object.keys(snapshot.people).length,
     activity: Object.keys(snapshot.activity).length,
+    settings: Object.keys(snapshot.settings).length,
   };
 }
 
@@ -457,6 +471,12 @@ export const OpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editPerson'), id, patch: patch(personFields) }),
   /** Mentions of them render as "@unknown". */
   z.object({ type: z.literal('removePerson'), id }),
+
+  /* settings */
+  z.object({
+    type: z.literal('setSettings'),
+    patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
+  }),
 ]);
 
 export type Op = z.infer<typeof OpSchema>;

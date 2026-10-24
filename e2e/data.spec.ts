@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
-import { expect, openPreferences, SEED, test } from './fixtures';
+import { expect, SEED, test } from './fixtures';
 
 async function importFile(page: Page, name: string, contents: unknown) {
-  await openPreferences(page);
+  await page.goto('/settings/data');
   const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('menuitem', { name: 'Import…' }).click();
+  await page.getByRole('button', { name: 'Import…' }).click();
   await (await chooser).setFiles({
     name,
     mimeType: 'application/json',
@@ -30,7 +30,13 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Import' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(/^Imported 3 projects/)).toBeVisible();
+  await expect(page.getByText('You have 3 projects, 7 tasks')).toBeVisible();
   // Archived projects and their tasks stay out of Focus.
+  await page
+    .getByRole('link', { name: /^Focus/ })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(page.getByText('2 projects · 5 open tasks')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Open tasks' })).toContainText(
     'Confirm shield generator delivery',
@@ -72,14 +78,14 @@ test('export downloads every document as datapad-<date>.json', async ({
   await request.post('/api/import', { data: SEED });
   await page.goto('/');
   await expect(page.getByText('2 projects · 5 open tasks')).toBeVisible();
-  await openPreferences(page);
+  await page.goto('/settings/data');
   const download = page.waitForEvent('download');
-  await page.getByRole('menuitem', { name: 'Export' }).click();
+  await page.getByRole('button', { name: 'Export' }).click();
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/^datapad-\d{4}-\d{2}-\d{2}\.json$/);
   const saved = JSON.parse(await readFile(await file.path(), 'utf8'));
   const { exportedAt, ...documents } = saved;
   const { exportedAt: _, ...seed } = SEED;
   expect(Date.parse(exportedAt)).not.toBeNaN();
-  expect(documents).toEqual(seed);
+  expect(documents).toEqual({ ...seed, settings: {} });
 });

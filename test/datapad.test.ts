@@ -421,6 +421,7 @@ describe('export and import', () => {
         events: 4,
         people: 4,
         activity: 4,
+        settings: 0,
       },
     });
     const exported = await get(email, '/api/export.json');
@@ -437,10 +438,12 @@ describe('export and import', () => {
       'people',
       'activity',
       'events',
+      'settings',
     ]);
     const { exportedAt, ...back } = file;
     expect(Date.parse(exportedAt)).not.toBeNaN();
-    expect(back).toEqual(documents);
+    // The artifact's documents unchanged, plus Datapad's (empty) settings.
+    expect(back).toEqual({ ...documents, settings: {} });
   });
 
   it('merges by id, so importing twice changes nothing', async () => {

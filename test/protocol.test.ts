@@ -101,6 +101,10 @@ const cases = {
     valid: { events: [{ t: at, text: 'Created project' }] },
     invalid: { events: [{ t: 'yesterday', text: 'Created project' }] },
   },
+  settings: {
+    valid: { defaultOrg: 'OpenTeams Internal' },
+    invalid: { defaultOrg: 'x'.repeat(LIMITS.nameMax + 1) },
+  },
 } as const;
 
 describe('document schemas', () => {
@@ -113,7 +117,8 @@ describe('document schemas', () => {
   }
 
   it('parses every document of a real export with zero errors', () => {
-    for (const col of COLLECTIONS) {
+    // The artifact has no settings; Datapad adds that collection.
+    for (const col of COLLECTIONS.filter((c) => c !== 'settings')) {
       const docs = fixture[col] as Record<string, unknown>;
       expect(Object.keys(docs).length).toBeGreaterThan(0);
       for (const [key, doc] of Object.entries(docs)) {
@@ -202,6 +207,13 @@ describe('the export file', () => {
     const parsed = ExportSchema.parse(fixture);
     expect(Object.keys(parsed.projects)).toEqual(Object.keys(fixture.projects));
     expect(parsed.activity.general.events.length).toBe(2);
+  });
+
+  it('fills settings an export lacks with the defaults', () => {
+    expect(DocumentSchemas.settings.parse({})).toEqual({
+      defaultOrg: 'OpenTeams Internal',
+    });
+    expect(ExportSchema.parse(fixture).settings).toEqual({});
   });
 
   it('reads collections given as arrays, and missing ones as empty', () => {

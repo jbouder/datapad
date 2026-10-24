@@ -19,7 +19,7 @@ export type Route =
   | { name: 'tasks' }
   | { name: 'notes' }
   | { name: 'events' }
-  | { name: 'people' }
+  | { name: 'settings'; section: SettingsSection }
   | { name: 'help'; section?: string }
   /** Every shared input, for eyeballing (dev and e2e builds only). */
   | { name: 'devComponents' }
@@ -30,19 +30,39 @@ export const DEV_ROUTES: boolean = __DEV_ROUTES__;
 
 export type RouteName = Route['name'];
 
+/** The Settings page's sections, each its own address. */
+export const SETTINGS_SECTIONS = [
+  'appearance',
+  'people',
+  'orgs',
+  'data',
+  'account',
+] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
 const SIMPLE = new Set<RouteName>([
   'projects',
   'archive',
   'tasks',
   'notes',
   'events',
-  'people',
 ]);
 
 export function parse(pathname: string, hash = ''): Route {
   const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
   if (clean === '/' || clean === '/focus') {
     return { name: 'focus' };
+  }
+  // People live under Settings; the old address still gets there.
+  if (clean === '/people') {
+    return { name: 'settings', section: 'people' };
+  }
+  const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
+  if (settings) {
+    const section = (settings[1] ?? 'appearance') as SettingsSection;
+    return SETTINGS_SECTIONS.includes(section)
+      ? { name: 'settings', section }
+      : { name: 'notFound' };
   }
   if (clean === '/help') {
     const section = decodeURIComponent(hash.replace(/^#/, ''));
@@ -65,7 +85,11 @@ export function parse(pathname: string, hash = ''): Route {
 export function pathFor(route: Route): string {
   switch (route.name) {
     case 'focus':
-      return '/focus';
+      return '/';
+    case 'settings':
+      return route.section === 'appearance'
+        ? '/settings'
+        : `/settings/${route.section}`;
     case 'project':
       return `/projects/${encodeURIComponent(route.id)}`;
     case 'help':
@@ -81,7 +105,10 @@ export function pathFor(route: Route): string {
   }
 }
 
-/** Two routes are the same page (same name, same project). */
+/**
+ * Two routes are the same page (same name, same project). Settings
+ * sections are one page, so moving between them is no page transition.
+ */
 export function samePage(a: Route, b: Route): boolean {
   return (
     a.name === b.name &&
@@ -95,16 +122,21 @@ function here(): string {
   );
 }
 
-// `/` is Focus; say so in the address bar too.
-if (window.location.pathname === '/') {
+let current: Route = parse(window.location.pathname, window.location.hash);
+
+// Old addresses settle on their canonical one: /focus is /, /people is
+// /settings/people.
+if (
+  current.name !== 'notFound' &&
+  pathFor(current) !== window.location.pathname &&
+  current.name !== 'help'
+) {
   window.history.replaceState(
     null,
     '',
-    `/focus${window.location.search}${window.location.hash}`,
+    pathFor(current) + window.location.search + window.location.hash,
   );
 }
-
-let current: Route = parse(window.location.pathname, window.location.hash);
 let search = window.location.search;
 const listeners = new Set<() => void>();
 

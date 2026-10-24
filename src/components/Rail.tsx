@@ -1,15 +1,9 @@
-import {
-  ArchiveIcon,
-  DownloadSimpleIcon,
-  UploadSimpleIcon,
-} from '@phosphor-icons/react';
+import { ArchiveIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { localDate } from '#shared/dates';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
-import { useImportExport } from '@/components/ImportExport';
 import { SyncStatus } from '@/components/SyncStatus';
 import { DatapadMark } from '@/components/TopBar';
-import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { NAV, sectionOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
@@ -21,13 +15,12 @@ const ANYONE = { kind: 'anyone' } as const;
 /**
  * The desktop rail (≥ 820px): brand, the six sections with live counts, the
  * active projects (most recently updated first) with their open counts,
- * Archived when there is any, and a footer with sync status, Export /
- * Import and who is signed in. Hidden below 820px; the tab bar takes over.
+ * Archived when there is any, and a footer with sync status and who is
+ * signed in (a link to Settings → Account). Hidden below 820px; the tab bar takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const email = useEmail();
-  const data = useImportExport();
   const today = localDate(new Date());
   const section = sectionOf(route);
 
@@ -172,30 +165,14 @@ export function Rail({ route }: { route: Route }) {
 
       <footer className="flex flex-col gap-2 border-t px-4 py-3">
         <SyncStatus />
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="press"
-            onClick={data.exportNow}
-          >
-            <DownloadSimpleIcon aria-hidden />
-            Export
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="press"
-            onClick={data.chooseImport}
-          >
-            <UploadSimpleIcon aria-hidden />
-            Import…
-          </Button>
-        </div>
         {email && (
-          <p className="truncate text-xs text-muted-foreground" title={email}>
+          <a
+            {...linkProps({ name: 'settings', section: 'account' })}
+            className="truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+            title={email}
+          >
             {email}
-          </p>
+          </a>
         )}
       </footer>
     </aside>

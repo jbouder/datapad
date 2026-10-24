@@ -27,11 +27,11 @@ in your browser on a local model; the only download is the model itself.
 
 ## Export and import
 
-**Export:** Preferences → Export downloads `datapad-YYYY-MM-DD.json` (your
+**Export:** Settings → Data → Export downloads `datapad-YYYY-MM-DD.json` (your
 local date). If the browser cannot save a file, the JSON goes to the
 clipboard instead. The same file is at `GET /api/export.json`.
 
-**Import:** Preferences → Import… picks a file, checks it in the browser,
+**Import:** Settings → Data → Import… picks a file, checks it in the browser,
 and asks before writing anything ("Import 14 projects, 212 tasks, …; same
 ids are replaced"). The server checks it again and merges it in one
 transaction: a document whose id you already have is replaced, everything
@@ -52,10 +52,14 @@ as it is:
   "notes": { … },
   "people": { … },
   "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
-  "events": { … }
+  "events": { … },
+  "settings": { "user": { "defaultOrg": "OpenTeams Internal" } }
 }
 ```
 
+- `settings` is Datapad's own (the artifact has none, and a file without
+  it imports fine): preferences that follow your data, today only the
+  default org for new projects.
 - Each collection is a map from id to document, fields exactly as in
   [SPEC.md § Data model](SPEC.md#data-model). An array of documents that
   carry their `id` is accepted too.
@@ -74,7 +78,7 @@ as it is:
 
 1. In the artifact, use Export in the sidebar footer. You get
    `ledger-YYYY-MM-DD.json`.
-2. Open Datapad, signed in as yourself. Preferences → Import… → pick the
+2. Open Datapad, signed in as yourself. Settings → Data → Import… → pick the
    file → check the counts → Import.
 3. Projects, tasks, notes, events, people and activity appear in every
    open tab at once. Archived projects stay archived.

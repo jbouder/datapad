@@ -1,6 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
-import type { Link, Priority, Project, ProjectStatus } from '#shared/types';
+import {
+  type Link,
+  type Priority,
+  type Project,
+  type ProjectStatus,
+  settingsOf,
+} from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
@@ -35,10 +41,10 @@ interface Values {
   links: Link[];
 }
 
-function valuesOf(project: Project | undefined): Values {
+function valuesOf(project: Project | undefined, defaultOrg = ''): Values {
   return {
     name: project?.name ?? '',
-    org: project?.org ?? '',
+    org: project?.org ?? defaultOrg,
     status: project?.status ?? 'active',
     priority: project?.priority ?? 'none',
     targetDate: project?.targetDate ?? '',
@@ -78,7 +84,10 @@ export function ProjectForm({
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const [initial] = useState(() => valuesOf(project));
+  // A new project starts in your default org (Settings → Orgs).
+  const [initial] = useState(() =>
+    valuesOf(project, state ? settingsOf(state).defaultOrg : ''),
+  );
   const [values, setValues] = useState(initial);
   const [nameError, setNameError] = useState<string | null>(null);
   const [dateInvalid, setDateInvalid] = useState(false);

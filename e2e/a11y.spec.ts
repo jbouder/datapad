@@ -11,13 +11,17 @@ import { expect, expectAccessible, openPreferences, test } from './fixtures';
  */
 const CHECKED = THEMES.filter((t) => t.id !== 'system');
 const ROUTES = [
-  { path: '/focus', heading: 'Focus' },
+  { path: '/', heading: 'Focus' },
   { path: '/projects', heading: 'Projects' },
   { path: '/archive', heading: 'Archived' },
   { path: '/tasks', heading: 'Tasks' },
   { path: '/notes', heading: 'Notes' },
   { path: '/events', heading: 'Events' },
-  { path: '/people', heading: 'People' },
+  { path: '/settings', heading: 'Settings' },
+  { path: '/settings/people', heading: 'Settings' },
+  { path: '/settings/orgs', heading: 'Settings' },
+  { path: '/settings/data', heading: 'Settings' },
+  { path: '/settings/account', heading: 'Settings' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
   // The shared inputs (#19), only in the e2e build.

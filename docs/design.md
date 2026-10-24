@@ -2,7 +2,8 @@
 
 Datapad looks, feels and moves like holocron: Oxanium Variable for UI and
 headings, JetBrains Mono for code, square Lyra corners, and three themes:
-System, Light and Dark (holocron's light set and its "Dark (side)" set).
+System, Light and Dark: holocron's light set and a neutral dark that mirrors
+it (stock shadcn neutral dark greys, no tint; owner's call 2026-10-24).
 Holocron's extra themes are deliberately left out. The spec's
 structural rules carry over; its fonts and colours do not (see
 `PLAN.md` → Deliberate departures).
