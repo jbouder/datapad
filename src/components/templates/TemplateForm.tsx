@@ -153,7 +153,7 @@ export function TemplateForm({
             setValues((v) => ({ ...v, name: e.target.value }));
             if (nameError && e.target.value.trim()) setNameError(null);
           }}
-          className="h-11 text-base desk:h-8 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
         />
       </Field>
       <Field label="Project tags">
@@ -189,7 +189,7 @@ export function TemplateForm({
                       addRow(i);
                   }
                 }}
-                className="h-11 min-w-0 flex-1 basis-[calc(100%-1.5rem)] text-base sm:basis-auto desk:h-8 desk:text-sm"
+                className="h-11 min-w-0 flex-1 basis-[calc(100%-1.5rem)] text-base sm:basis-auto desk:h-8 desk:text-xs"
               />
               <select
                 aria-label={`Priority of task ${i + 1}`}

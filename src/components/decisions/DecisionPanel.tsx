@@ -179,7 +179,7 @@ export function DecisionPanel({
             set('title', e.target.value);
             if (titleError && e.target.value.trim()) setTitleError(null);
           }}
-          className="h-11 text-base desk:h-8 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
         />
       </Field>
       <Field label="Project">

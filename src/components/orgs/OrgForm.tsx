@@ -132,7 +132,7 @@ export function OrgForm({
             set('name', e.target.value);
             if (nameError && e.target.value.trim()) setNameError(null);
           }}
-          className="h-11 text-base desk:h-8 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
         />
       </Field>
       <Segmented

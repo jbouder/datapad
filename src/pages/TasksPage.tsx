@@ -271,7 +271,7 @@ export function TasksPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 desk:grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr]">
         <Segmented
           legend="Show"
           value={filters.blocked ? 'blocked' : filters.status}

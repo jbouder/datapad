@@ -119,7 +119,7 @@ export function BlockedProvider({ children }: { children: ReactNode }) {
                 maxLength={LIMITS.blockedNoteMax}
                 autoComplete="off"
                 onChange={(e) => setNote(e.target.value)}
-                className="h-11 text-base desk:h-8 desk:text-sm"
+                className="h-11 text-base desk:h-8 desk:text-xs"
               />
             </Field>
             <DialogFooter>

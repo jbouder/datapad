@@ -92,7 +92,7 @@ export function EventsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] desk:items-end">
         <SelectField
           label="Project"
           value={filters.project || 'all'}

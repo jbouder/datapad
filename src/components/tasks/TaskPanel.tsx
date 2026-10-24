@@ -236,7 +236,7 @@ export function TaskPanel({
           value={values.title}
           maxLength={LIMITS.titleMax}
           autoComplete="off"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => {
             set('title', e.target.value);
             if (titleError && e.target.value.trim()) setTitleError(null);
@@ -313,7 +313,7 @@ export function TaskPanel({
                 maxLength={LIMITS.blockedNoteMax}
                 autoComplete="off"
                 onChange={(e) => set('blockedNote', e.target.value)}
-                className="h-11 text-base desk:h-8 desk:text-sm"
+                className="h-11 text-base desk:h-8 desk:text-xs"
               />
             </Field>
           </div>
@@ -464,7 +464,7 @@ export function NewTaskPanel({
           maxLength={LIMITS.titleMax}
           autoComplete="off"
           enterKeyHint="done"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => {
             set('title', e.target.value);
             if (titleError && e.target.value.trim()) setTitleError(null);

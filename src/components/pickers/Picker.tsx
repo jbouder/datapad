@@ -106,7 +106,10 @@ export function Picker({
         {...aria}
         placeholder={placeholder}
         showTrigger={false}
-        className={cn('h-11 w-full desk:h-8', className)}
+        className={cn(
+          'h-11 w-full desk:h-8 *:data-[slot=input-group-control]:text-base desk:*:data-[slot=input-group-control]:text-xs',
+          className,
+        )}
       >
         <InputGroupAddon align="inline-end">
           <InputGroupButton

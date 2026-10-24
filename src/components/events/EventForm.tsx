@@ -75,7 +75,7 @@ function TimeInput({
       placeholder="e.g. 9:30, 2pm"
       aria-describedby={describedBy}
       aria-invalid={invalid}
-      className="h-11 text-base tabular-nums desk:h-9 desk:text-sm"
+      className="h-11 text-base tabular-nums desk:h-8 desk:text-xs"
       onChange={(e) => onChange(e.target.value, parseTime(e.target.value))}
       onBlur={(e) => {
         const time = parseTime(e.target.value);
@@ -267,7 +267,7 @@ export function EventForm({
           maxLength={LIMITS.titleMax}
           autoComplete="off"
           enterKeyHint="done"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => set('title', e.target.value)}
         />
       </Field>
@@ -332,7 +332,7 @@ export function EventForm({
           maxLength={LIMITS.urlMax}
           autoComplete="off"
           placeholder="https://"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => set('link', e.target.value)}
         />
       </Field>

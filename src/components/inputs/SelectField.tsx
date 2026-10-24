@@ -35,7 +35,10 @@ export function SelectField<T extends string>({
           if (next !== null) onChange(next as T);
         }}
       >
-        <SelectTrigger aria-labelledby={id} className="h-11 w-full desk:h-8">
+        <SelectTrigger
+          aria-labelledby={id}
+          className="w-full data-[size=default]:h-11 desk:data-[size=default]:h-8"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -29,7 +29,7 @@ export function PriorityPicker({
   return (
     <fieldset className={cn('flex flex-col gap-1.5', className)}>
       <legend className="mb-1.5 text-xs font-medium">{label}</legend>
-      <div className="grid grid-cols-4 border border-input">
+      <div className="grid grid-cols-4 outline -outline-offset-1 outline-input">
         {PRIORITIES.map((p) => (
           <label
             key={p}

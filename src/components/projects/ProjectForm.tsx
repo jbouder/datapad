@@ -288,7 +288,7 @@ export function ProjectForm({
           maxLength={LIMITS.nameMax}
           autoComplete="off"
           enterKeyHint="done"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => {
             set('name', e.target.value);
             if (nameError && e.target.value.trim()) setNameError(null);

@@ -151,7 +151,7 @@ export function PersonForm({
           value={values.name}
           maxLength={LIMITS.nameMax}
           autoComplete="off"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => {
             setValues((v) => ({ ...v, name: e.target.value }));
             if (error && e.target.value.trim()) setError(null);
@@ -163,7 +163,7 @@ export function PersonForm({
           value={values.role}
           maxLength={LIMITS.nameMax}
           autoComplete="off"
-          className="h-11 text-base desk:h-9 desk:text-sm"
+          className="h-11 text-base desk:h-8 desk:text-xs"
           onChange={(e) => setValues((v) => ({ ...v, role: e.target.value }))}
         />
       </Field>

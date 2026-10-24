@@ -40,7 +40,7 @@ export function Segmented<T extends string>({
       </legend>
       <div
         className={cn(
-          'grid border border-input',
+          'grid outline -outline-offset-1 outline-input',
           wrap &&
             'grid-cols-3 gap-px bg-input sm:grid-cols-(--cols) sm:gap-0 sm:bg-transparent',
         )}

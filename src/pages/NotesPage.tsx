@@ -192,7 +192,7 @@ export function NotesPage() {
 
       <NoteForm people={state.people} />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <SelectField
           label="Project"
           value={filters.project || 'all'}
