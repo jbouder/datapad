@@ -14,6 +14,11 @@
  * font); JetBrains Mono is reserved for code. Datapad adds two semantic
  * colours every theme defines: --warn and --ok (see docs/design.md).
  */
+@theme {
+  /* The one layout breakpoint: rail and two columns above, tab bar below. */
+  --breakpoint-desk: 51.25rem;
+}
+
 @theme inline {
   --font-sans: "Oxanium Variable", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans);
@@ -216,10 +221,13 @@
   --rail-width: 232px;
   --content-max: 1040px;
   --row-height: 44px;
+  /* The phone's bottom tab bar, without the safe area under it. */
+  --tabbar-height: 56px;
 }
 @media (min-width: 820px) {
   :root {
     --row-height: 36px;
+    --tabbar-height: 0px;
   }
 }
 
@@ -474,7 +482,8 @@ html[data-vt="theme"]::view-transition-new(root) {
 .toast {
   position: fixed;
   inset-inline: 0;
-  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  /* Above the tab bar on phones, never under it. */
+  bottom: calc(1rem + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
   margin-inline: auto;
   width: min(calc(100% - 2rem), 26rem);
   display: none;

@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/AppShell';
+import { ImportExportProvider } from '@/components/ImportExport';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DatapadProvider } from '@/providers/DatapadProvider';
 import { MotionProvider } from '@/providers/MotionProvider';
@@ -12,7 +13,9 @@ export default function App() {
         <TooltipProvider>
           <ToastProvider>
             <DatapadProvider>
-              <AppShell />
+              <ImportExportProvider>
+                <AppShell />
+              </ImportExportProvider>
             </DatapadProvider>
           </ToastProvider>
         </TooltipProvider>

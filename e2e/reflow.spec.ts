@@ -2,10 +2,9 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
 
 /**
  * WCAG 1.4.10 Reflow and the phone layout. 320px is a 1280px window at
- * 400% zoom and the narrowest phone; 1280px is a laptop. M2 adds the rail
- * (desktop) and bottom tab bar (phone) assertions here.
+ * 400% zoom and the narrowest phone; 1280px is a laptop.
  */
-const ROUTES = ['/', '/help'];
+const ROUTES = ['/focus', '/projects', '/tasks', '/people', '/help'];
 
 for (const width of [320, 1280]) {
   test.describe(`at ${width}px wide`, () => {
@@ -19,6 +18,19 @@ for (const width of [320, 1280]) {
         await expect(
           page.getByRole('button', { name: 'Preferences' }),
         ).toBeInViewport({ ratio: 1 });
+        // The rail above 820px, the tab bar below: never both, never neither.
+        const rail = page.getByRole('complementary', { name: 'Datapad' });
+        const tabs = page
+          .getByRole('navigation', { name: 'Sections' })
+          .filter({ has: page.getByRole('link', { name: 'People' }) })
+          .last();
+        if (width >= 820) {
+          await expect(rail).toBeVisible();
+          await expect(rail).toHaveCSS('width', '232px');
+        } else {
+          await expect(rail).toBeHidden();
+          await expect(tabs).toBeInViewport({ ratio: 1 });
+        }
       });
     }
   });
@@ -31,15 +43,25 @@ test.describe('on a phone', () => {
     isMobile: true,
   });
 
-  test('top bar controls are at least 44px', async ({ page }) => {
+  test('top bar and tab bar controls are at least 44px', async ({ page }) => {
     await page.goto('/');
-    for (const name of ['Preferences', 'Help']) {
-      const box = await page
-        .getByRole('banner')
-        .getByRole(name === 'Help' ? 'link' : 'button', { name })
-        .boundingBox();
-      expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
-      expect(box?.width ?? 0, name).toBeGreaterThanOrEqual(44);
+    const banner = page.getByRole('banner');
+    const controls = [
+      banner.getByRole('button', { name: 'Preferences' }),
+      banner.getByRole('button', { name: 'Add task' }),
+      banner.getByRole('link', { name: 'Help' }),
+      ...['Focus', 'Projects', 'Tasks', 'Notes', 'Events', 'People'].map(
+        (name) =>
+          page
+            .getByRole('navigation', { name: 'Sections' })
+            .last()
+            .getByRole('link', { name, exact: true }),
+      ),
+    ];
+    for (const control of controls) {
+      const box = await control.boundingBox();
+      expect(box?.height ?? 0, String(control)).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0, String(control)).toBeGreaterThanOrEqual(44);
     }
   });
 

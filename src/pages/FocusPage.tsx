@@ -1,10 +1,11 @@
 import { PlusIcon } from '@phosphor-icons/react';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
 import { activeProjects, focusBuckets } from '#shared/select';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { QUICK_ADD_ID, takeQuickAddFocus } from '@/lib/quickAdd';
 
 const ANYONE = { kind: 'anyone' } as const;
 
@@ -17,6 +18,10 @@ export function FocusPage() {
   usePageTitle('Focus');
   const { state, actions } = useDatapad();
   const [title, setTitle] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (takeQuickAddFocus()) input.current?.focus();
+  }, []);
 
   const today = localDate(new Date());
   const open = useMemo(() => {
@@ -51,7 +56,7 @@ export function FocusPage() {
       </div>
 
       <form onSubmit={add} className="relative">
-        <label htmlFor="quick-add" className="sr-only">
+        <label htmlFor={QUICK_ADD_ID} className="sr-only">
           Add a task
         </label>
         <PlusIcon
@@ -60,7 +65,8 @@ export function FocusPage() {
           className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          id="quick-add"
+          ref={input}
+          id={QUICK_ADD_ID}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a task"

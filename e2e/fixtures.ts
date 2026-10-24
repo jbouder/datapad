@@ -112,3 +112,17 @@ export async function expectAccessible(page: Page) {
   }));
   expect.soft(summary).toEqual([]);
 }
+
+/**
+ * The sync status. The rail has one (desktop) and the top bar a compact
+ * copy (phones); the rail's comes first and is always in the DOM.
+ */
+export function syncStatus(page: Page) {
+  return page.locator('[data-status]').first();
+}
+
+/** Load a page and wait for the socket's first snapshot. */
+export async function openLive(page: Page, path = '/') {
+  await page.goto(path);
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+}
