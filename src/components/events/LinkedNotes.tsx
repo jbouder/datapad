@@ -51,7 +51,7 @@ export function LinkedNotes({
   const now = new Date();
 
   return (
-    <div className="flex flex-col gap-1.5 pb-2 desk:pl-43">
+    <div className="flex flex-col gap-1.5 pb-2 @xl/row:pl-43">
       {GROUPS.map((g) => {
         const list = shown.filter((n) => n.phase === g.phase);
         if (list.length === 0) return null;

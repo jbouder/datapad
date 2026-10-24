@@ -6,6 +6,7 @@ import {
   formatDay,
   formatTimestamp,
   localDate,
+  longDay,
   parseDate,
   relativeTime,
   weekday,
@@ -148,5 +149,12 @@ describe('relativeTime', () => {
     expect(formatTimestamp(at(new Date(2026, 9, 23, 14, 5)))).toBe(
       'Fri 23 Oct 2026, 14:05',
     );
+  });
+});
+
+describe('longDay', () => {
+  it('names the weekday and month in full, with a year only when it differs', () => {
+    expect(longDay('2026-10-27', '2026-10-24')).toBe('Tuesday 27 October');
+    expect(longDay('2027-01-04', '2026-10-24')).toBe('Monday 4 January 2027');
   });
 });

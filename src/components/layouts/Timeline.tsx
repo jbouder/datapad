@@ -9,7 +9,18 @@ export interface TimelinePoint {
   date: DateString;
   label: string;
   /** Milestones and deadlines read differently (filled / outlined). */
-  kind?: 'milestone' | 'deadline' | 'task';
+  kind?: 'milestone' | 'deadline' | 'task' | 'event';
+  /** `HH:MM`: placed within its day (which shows when zoomed to a week). */
+  time?: string;
+  /** `HH:MM`, with `time`: drawn as a range from one to the other. */
+  end?: string;
+}
+
+/** How far through its day `HH:MM` is, 0 to 1. */
+function dayFraction(time: string | undefined): number {
+  if (!time) return 0.5;
+  const [h, m] = time.split(':').map(Number) as [number, number];
+  return (h * 60 + m) / 1440;
 }
 
 export interface TimelineRow {
@@ -337,9 +348,24 @@ export function Timeline({
                         p.kind === 'deadline' &&
                           'border-destructive bg-background',
                         p.kind === 'task' && 'rounded-full bg-background',
+                        p.kind === 'event' &&
+                          'rotate-0 rounded-full bg-primary/60',
+                        p.time &&
+                          p.end &&
+                          'h-3 w-(--span) translate-x-0 rounded-none',
                       )}
                       style={{
-                        left: x(p.date),
+                        left:
+                          x(p.date) +
+                          (p.time || p.end ? dayFraction(p.time) * px : 0),
+                        ...(p.time && p.end
+                          ? ({
+                              '--span': `${Math.max(
+                                6,
+                                (dayFraction(p.end) - dayFraction(p.time)) * px,
+                              )}px`,
+                            } as React.CSSProperties)
+                          : {}),
                         // While dragging: transform only; layout moves on drop.
                         translate:
                           dragging?.pointId === p.id

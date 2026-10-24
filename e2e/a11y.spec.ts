@@ -121,6 +121,19 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    for (const view of ['calendar', 'timeline']) {
+      test(`the Events ${view}`, async ({ page, request }) => {
+        await request.post('/api/import', { data: SEED });
+        await page.goto(`/events?view=${view}`);
+        await expect(
+          page.getByRole('radio', {
+            name: view === 'calendar' ? 'Calendar' : 'Timeline',
+          }),
+        ).toBeChecked();
+        await expectAccessible(page);
+      });
+    }
+
     test('with the event form open', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
       await page.goto('/events');
