@@ -185,6 +185,38 @@ export function formatDay(day: DateString, today: DateString): string {
   return y === ty ? base : `${base} ${y}`;
 }
 
+const LONG_DAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+const LONG_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/** "Tuesday 28 October", with the year when it is not `today`'s. */
+export function longDay(day: DateString, today: DateString): string {
+  const [y, m, d] = parts(day);
+  const [ty] = parts(today);
+  const base = `${LONG_DAYS[weekday(day)]} ${d} ${LONG_MONTHS[m - 1]}`;
+  return y === ty ? base : `${base} ${y}`;
+}
+
 /** "Today", "Tomorrow", "Yesterday", or `formatDay`. */
 export function describeDay(day: DateString, today: DateString): string {
   if (day === today) return 'Today';

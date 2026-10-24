@@ -144,7 +144,7 @@ test('board cards move by menu, and the board scrolls inside its box', async ({
   await expectNoSidewaysScroll(page);
 });
 
-test('timeline and calendar list their items for assistive tech', async ({
+test('the timeline lists its items for assistive tech; the calendar is a table', async ({
   page,
 }) => {
   await openLive(page, '/dev/components?view=timeline');
@@ -159,13 +159,16 @@ test('timeline and calendar list their items for assistive tech', async ({
   await list.getByRole('button').first().focus();
   await expect(list).toBeVisible();
 
+  // The calendar is a real table (a list of days on phones).
   await page.goto('/dev/components?view=calendar');
-  await expect(
-    page.getByRole('list', { name: 'Events, as a list' }).first(),
-  ).toBeAttached();
   if (isMobile(page)) {
+    await expect(
+      page.getByRole('list', { name: 'Events, this week' }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next week' })).toBeVisible();
   } else {
+    await expect(page.getByRole('table', { name: /^Events, / })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Mon' })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Next month' }),
     ).toBeVisible();

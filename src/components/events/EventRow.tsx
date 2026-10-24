@@ -36,7 +36,8 @@ const MENU_TRIGGER =
  * project chip, attendees, link, and the actions: Prep note and Debrief
  * note (beside the row on desktop, in its menu everywhere), Edit, Delete.
  * Delete asks in the row first; the event's notes are kept. Its linked
- * notes follow underneath.
+ * notes follow underneath. It lays out by its own width (a container
+ * query), so it stacks in a narrow column or popover as on a phone.
  */
 export function EventRow({
   event,
@@ -76,29 +77,29 @@ export function EventRow({
     <div
       data-event-id={event.id}
       data-layout-id={event.id}
-      className={cn('flex flex-col border-b', className)}
+      className={cn('@container/row flex flex-col border-b', className)}
       style={style}
     >
-      <div className="flex min-h-11 items-start gap-1 py-1.5 desk:items-center desk:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1 desk:flex-row desk:items-center desk:gap-3 desk:pt-0">
-          <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted-foreground tabular-nums desk:w-40">
+      <div className="flex min-h-11 items-start gap-1 py-1.5 @xl/row:items-center @xl/row:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1 @xl/row:flex-row @xl/row:items-center @xl/row:gap-3 @xl/row:pt-0">
+          <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted-foreground tabular-nums @xl/row:w-40">
             <span className="text-foreground">
               {formatDay(event.date, today)}
             </span>
             {range && <span>{range}</span>}
           </span>
-          <span className="flex min-w-0 items-center gap-2 desk:flex-1 desk:gap-3">
+          <span className="flex min-w-0 items-center gap-2 @xl/row:flex-1 @xl/row:gap-3">
             <TypePill type={event.type} />
             <button
               type="button"
               onClick={() => openEvent(event.id)}
-              className="min-w-0 text-left text-sm font-medium underline-offset-4 outline-ring/50 hover:underline focus-visible:outline-2 desk:flex-1 desk:truncate"
+              className="min-w-0 text-left text-sm font-medium underline-offset-4 outline-ring/50 hover:underline focus-visible:outline-2 @xl/row:flex-1 @xl/row:truncate"
             >
               {event.title}
             </button>
           </span>
           {(showProject || attendees.length > 0) && (
-            <span className="flex min-w-0 flex-wrap items-center gap-2 desk:shrink-0 desk:flex-nowrap">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 @xl/row:shrink-0 @xl/row:flex-nowrap">
               {showProject &&
                 (project ? (
                   <a
@@ -139,7 +140,7 @@ export function EventRow({
             </span>
           </a>
         )}
-        <span className="hidden shrink-0 desk:flex">
+        <span className="hidden shrink-0 @xl/row:flex">
           <Button
             type="button"
             variant="ghost"
@@ -193,7 +194,7 @@ export function EventRow({
         </DropdownMenu>
       </div>
       {event.note && (
-        <p className="pb-2 text-xs whitespace-pre-line text-muted-foreground desk:pl-43">
+        <p className="pb-2 text-xs whitespace-pre-line text-muted-foreground @xl/row:pl-43">
           {event.note}
         </p>
       )}
