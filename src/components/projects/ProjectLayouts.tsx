@@ -51,6 +51,7 @@ export const PROJECT_VIEWS: readonly ViewOption<ProjectView>[] = [
 const SORTABLE: Record<string, ProjectSort> = {
   name: 'name',
   priority: 'priority',
+  start: 'start',
   target: 'target',
   updated: 'updated',
 };
@@ -98,9 +99,12 @@ export function ProjectLayouts({
                 (e.type === 'milestone' || e.type === 'deadline'),
             )
             .sort((a, b) => a.date.localeCompare(b.date));
-          const first = [p.createdAt.slice(0, 10), events[0]?.date]
-            .filter((d): d is string => Boolean(d))
-            .sort()[0];
+          // The start date when set; else creation or the first milestone.
+          const first =
+            p.startDate ||
+            [p.createdAt.slice(0, 10), events[0]?.date]
+              .filter((d): d is string => Boolean(d))
+              .sort()[0];
           return {
             id: p.id,
             label: p.name,
@@ -271,6 +275,13 @@ export function ProjectLayouts({
           header: 'Open tasks',
           className: 'tabular-nums',
           cell: (p) => counts.get(p.id) ?? 0,
+        },
+        {
+          id: 'start',
+          header: 'Start',
+          sortable: Boolean(onSort),
+          className: 'whitespace-nowrap',
+          cell: (p) => (p.startDate ? formatDay(p.startDate, today) : ''),
         },
         {
           id: 'target',

@@ -190,6 +190,12 @@ export function ProjectPage({ id }: { id: string }) {
             <PriorityDot priority={project.priority} labelled={false} />
             {PRIORITY_LABELS[project.priority]}
           </li>
+          {project.startDate && (
+            <li>
+              {project.startDate > today ? 'Starts' : 'Started'}{' '}
+              {formatDay(project.startDate, today)}
+            </li>
+          )}
           {project.targetDate && (
             <li>Target {formatDay(project.targetDate, today)}</li>
           )}

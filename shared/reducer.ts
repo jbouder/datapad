@@ -53,6 +53,13 @@ const DECISION_VERBS = {
   revisited: 'Revisited',
 } as const;
 
+/** A project cannot start after its target. */
+function checkDates(start?: string, target?: string) {
+  if (start && target && start > target) {
+    fail('The start date is after the target date');
+  }
+}
+
 function fail(message: string): never {
   throw new OpError(message);
 }
@@ -355,6 +362,7 @@ function apply(d: Draft, op: Op, now: string) {
       if (template && op.template?.taskIds.length !== template.tasks.length) {
         fail('That template changed. Try again.');
       }
+      checkDates(op.startDate, op.targetDate);
       d.set('projects', op.id, {
         id: op.id,
         name: op.name,
@@ -363,6 +371,7 @@ function apply(d: Draft, op: Op, now: string) {
         status: op.status ?? 'active',
         health: op.health ?? 'none',
         priority: op.priority ?? 'none',
+        ...(op.startDate ? { startDate: op.startDate } : {}),
         targetDate: op.targetDate ?? '',
         tags: [
           ...new Set([...(op.tags ?? []), ...(template?.defaultTags ?? [])]),
@@ -431,6 +440,10 @@ function apply(d: Draft, op: Op, now: string) {
     case 'editProject': {
       const p = project(d, op.id);
       if (op.patch.orgId) checkOrg(d, op.patch.orgId);
+      checkDates(
+        op.patch.startDate ?? p.startDate,
+        op.patch.targetDate ?? p.targetDate,
+      );
       d.set('projects', p.id, { ...p, ...op.patch, updatedAt: now });
       log(d, p.id, 'Edited project details', now);
       return;

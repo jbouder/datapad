@@ -76,6 +76,9 @@ export function ProjectCard({
         <span className="count tabular-nums">
           {open === 1 ? '1 open task' : `${open} open tasks`}
         </span>
+        {project.startDate && project.startDate > today && (
+          <span>Starts {formatDay(project.startDate, today)}</span>
+        )}
         {project.targetDate && (
           <span>Target {formatDay(project.targetDate, today)}</span>
         )}

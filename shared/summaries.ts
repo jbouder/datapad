@@ -208,6 +208,7 @@ export function projectContext(projectId: string, state: Snapshot): string {
     `Status: ${project.status}`,
     `Health: ${healthOf(project) === 'none' ? 'not set' : healthOf(project)}`,
     `Priority: ${PRIORITY_WORDS[project.priority]}`,
+    `Start date: ${project.startDate ? day(project.startDate) : 'none'}`,
     `Target date: ${project.targetDate ? day(project.targetDate) : 'none'}`,
     `Team: ${names(state, project.members) || 'none listed'}`,
   ];

@@ -7,6 +7,7 @@
       "org": "Rebel Alliance",
       "status": "active",
       "priority": "high",
+      "startDate": "2026-09-14",
       "targetDate": "2026-11-14",
       "tags": ["infra", "hoth"],
       "desc": "Move the base to Hoth before winter.\n\n- Shield generator\n- Hangar doors\n- Tauntaun stables",

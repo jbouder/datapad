@@ -71,6 +71,11 @@ export interface Project {
    */
   health?: ProjectHealth;
   priority: Priority;
+  /**
+   * When the work began (or begins). Empty or absent (older documents): not
+   * set, and the timeline starts the bar at `createdAt`.
+   */
+  startDate?: DateString | '';
   /** Empty: no target. */
   targetDate: DateString | '';
   tags: string[];
