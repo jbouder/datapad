@@ -106,7 +106,7 @@ test('moving to another project logs in both', async ({ page, request }) => {
     .getByRole('button', { name: 'Book the tauntaun vet', exact: true })
     .click();
   const panel = page.getByRole('dialog', { name: 'Task' });
-  await expect(panel.getByText('From a note')).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'From note' })).toBeVisible();
   const project = panel.getByRole('combobox', { name: 'Project' });
   await project.click();
   await project.fill('falcon');

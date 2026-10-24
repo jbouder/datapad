@@ -5,6 +5,7 @@ import {
   projectNotes,
   queryWords,
   selectNotes,
+  taskTitleFrom,
 } from '#shared/notes';
 import { emptySnapshot, type Note, type Project } from '#shared/types';
 
@@ -102,5 +103,18 @@ describe('groupByDay and projectNotes', () => {
     expect(ids(projectNotes(state.notes, 'live', new Set(['b'])))).toEqual([
       'a',
     ]);
+  });
+});
+
+describe('taskTitleFrom', () => {
+  it('takes the first line, without markup, names for mentions', () => {
+    expect(taskTitleFrom('\n- [ ] **Call** @{leia}\nmore', state.people)).toBe(
+      'Call @Leia Organa',
+    );
+    expect(taskTitleFrom('## See [the doc](https://x.y)', state.people)).toBe(
+      'See the doc',
+    );
+    expect(taskTitleFrom('x'.repeat(300), state.people)).toHaveLength(200);
+    expect(taskTitleFrom('  \n ', state.people)).toBe('');
   });
 });
