@@ -10,26 +10,32 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
- * Edit one person: name, role, "This is me". Remove confirms and says what
- * happens to their mentions and assignments.
+ * Add a person, or edit one: name, role, "This is me" (at most one person;
+ * ticking it here moves it). Remove confirms and says what happens to
+ * their mentions and assignments.
  */
 export function PersonForm({
   person,
   open,
   onClose,
   onExited,
+  onAdded,
+  onRemoved,
 }: {
-  person: Person;
+  /** Omit to add someone new. */
+  person?: Person;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
+  onAdded?: (id: string) => void;
+  onRemoved?: () => void;
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const [initial] = useState(() => ({
-    name: person.name,
-    role: person.role,
-    me: person.me,
+    name: person?.name ?? '',
+    role: person?.role ?? '',
+    me: person?.me ?? false,
   }));
   const [values, setValues] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +44,12 @@ export function PersonForm({
 
   const assigned = useMemo(
     () =>
-      Object.values(state?.tasks ?? {}).filter((t) => t.assignee === person.id)
-        .length,
-    [state?.tasks, person.id],
+      person
+        ? Object.values(state?.tasks ?? {}).filter(
+            (t) => t.assignee === person.id,
+          ).length
+        : 0,
+    [state?.tasks, person],
   );
 
   const save = () => {
@@ -50,8 +59,17 @@ export function PersonForm({
       document.getElementById('person-name')?.focus();
       return;
     }
+    const role = values.role.trim();
+    if (!person) {
+      const id = actions.addPerson({ name, role, me: values.me });
+      if (!id) return;
+      show(`Added ${name}`);
+      onAdded?.(id);
+      onClose();
+      return;
+    }
     const patch = Object.fromEntries(
-      Object.entries({ name, role: values.role.trim(), me: values.me }).filter(
+      Object.entries({ name, role, me: values.me }).filter(
         ([k, v]) => v !== person[k as keyof Person],
       ),
     );
@@ -67,11 +85,11 @@ export function PersonForm({
       open={open}
       onClose={onClose}
       onExited={onExited}
-      title={`Edit ${person.name}`}
+      title={person ? `Edit ${person.name}` : 'Add person'}
       dirty={dirty}
       onSubmit={save}
       footer={
-        confirming ? (
+        person && confirming ? (
           <div
             role="alertdialog"
             aria-labelledby="remove-question"
@@ -80,7 +98,7 @@ export function PersonForm({
             <p id="remove-question" className="flex-1 text-sm">
               Remove {person.name}? Mentions of them show as @unknown
               {assigned > 0
-                ? ` and ${assigned === 1 ? '1 task keeps' : `${assigned} tasks keep`} the assignment.`
+                ? ` and ${assigned === 1 ? '1 task becomes' : `${assigned} tasks become`} unassigned.`
                 : '.'}
             </p>
             <Button
@@ -99,6 +117,7 @@ export function PersonForm({
               onClick={() => {
                 if (!actions.removePerson({ id: person.id })) return;
                 onClose();
+                onRemoved?.();
                 show(`Removed ${person.name}`);
               }}
             >
@@ -107,18 +126,20 @@ export function PersonForm({
           </div>
         ) : (
           <>
-            <Button
-              type="button"
-              variant="ghost"
-              className="press text-destructive"
-              onClick={() => setConfirming(true)}
-            >
-              Remove
-            </Button>
+            {person && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="press text-destructive"
+                onClick={() => setConfirming(true)}
+              >
+                Remove
+              </Button>
+            )}
             <span className="flex-1" />
             <SidePanelCancel />
             <Button type="submit" className="press">
-              Save
+              {person ? 'Save' : 'Add person'}
             </Button>
           </>
         )

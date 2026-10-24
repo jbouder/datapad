@@ -72,28 +72,32 @@ test('People: add, mark yourself, edit and remove', async ({
 }) => {
   await openLive(page, '/settings/people');
   await expect(page.getByText('No people yet.')).toBeVisible();
-  const name = page.getByRole('textbox', { name: 'Name' });
-  await name.fill('Leia Organa');
-  await page.getByRole('textbox', { name: 'Role' }).fill('General');
-  await name.press('Enter');
-  await expect(name).toHaveValue('');
-  await expect(name).toBeFocused();
-  await name.fill('Han Solo');
-  await name.press('Enter');
+  const panel = page.getByRole('dialog');
+  for (const [who, role] of [
+    ['Leia Organa', 'General'],
+    ['Han Solo', ''],
+  ]) {
+    await page.getByRole('button', { name: 'Add person' }).click();
+    await panel.getByRole('textbox', { name: 'Name' }).fill(who);
+    await panel.getByRole('textbox', { name: 'Role' }).fill(role);
+    await panel.getByRole('button', { name: 'Add person' }).click();
+    await expect(panel).toBeHidden();
+  }
   const list = page.getByRole('list', { name: 'People' });
   await expect(list.getByRole('listitem')).toHaveText([
     /Han Solo/,
     /Leia Organa\s*General/,
   ]);
 
-  await list.getByRole('button', { name: 'Edit Leia Organa' }).click();
-  const panel = page.getByRole('dialog');
+  await list.getByRole('link', { name: /Leia Organa/ }).click();
+  await page.getByRole('button', { name: 'Edit Leia Organa' }).click();
   await panel.getByRole('checkbox', { name: 'This is me' }).click();
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel).toBeHidden();
   await expect(list.getByRole('listitem').last()).toContainText('you');
 
-  await list.getByRole('button', { name: 'Edit Han Solo' }).click();
+  await list.getByRole('link', { name: /Han Solo/ }).click();
+  await page.getByRole('button', { name: 'Edit Han Solo' }).click();
   await panel.getByRole('button', { name: 'Remove' }).click();
   await expect(panel.getByRole('alertdialog')).toContainText(
     'Remove Han Solo? Mentions of them show as @unknown.',

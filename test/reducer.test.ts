@@ -566,15 +566,33 @@ describe('people', () => {
     ).toEqual(['u4']);
   });
 
-  it('removePerson leaves their mentions and assignments alone', () => {
-    const state = run(base(), {
-      type: 'editTask',
-      id: 't1',
-      patch: { assignee: 'u1', desc: 'Ask @{u1}' },
-    });
+  it('removePerson unassigns them and drops them from members and attendees; mentions stay', () => {
+    const state = run(
+      base(),
+      {
+        type: 'editTask',
+        id: 't1',
+        patch: { assignee: 'u1', desc: 'Ask @{u1}' },
+      },
+      { type: 'addPerson', id: 'u2', name: 'Han Solo' },
+      { type: 'editTask', id: 't2', patch: { assignee: 'u2' } },
+      { type: 'editProject', id: 'p1', patch: { members: ['u1', 'u2'] } },
+      {
+        type: 'addEvent',
+        id: 'e1',
+        projectId: 'p1',
+        title: 'Briefing',
+        eventType: 'meeting',
+        date: '2026-10-27',
+        attendees: ['u2', 'u1'],
+      },
+    );
     const { state: next } = at(state, { type: 'removePerson', id: 'u1' });
     expect(next.people.u1).toBeUndefined();
-    expect(next.tasks.t1).toMatchObject({ assignee: 'u1', desc: 'Ask @{u1}' });
+    expect(next.tasks.t1).toMatchObject({ assignee: '', desc: 'Ask @{u1}' });
+    expect(next.tasks.t2?.assignee).toBe('u2');
+    expect(next.projects.p1?.members).toEqual(['u2']);
+    expect(next.events.e1?.attendees).toEqual(['u2']);
   });
 });
 

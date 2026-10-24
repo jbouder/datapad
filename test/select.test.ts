@@ -15,6 +15,8 @@ import {
   nextMarkers,
   openCounts,
   orgs,
+  peopleStats,
+  statsFor,
 } from '#shared/select';
 import { emptySnapshot, type Snapshot, type Task } from '#shared/types';
 import { dropIndex, moveItem } from '../src/lib/reorder';
@@ -308,5 +310,21 @@ describe('assignee filter in the URL', () => {
     );
     expect(assigneeFor({ kind: 'unassigned' }, 'u-leia')).toBe('');
     expect(assigneeFor({ kind: 'anyone' }, 'u-leia')).toBe('');
+  });
+});
+
+describe('peopleStats', () => {
+  it('lists projects (archived last) and open tasks outside the archive', () => {
+    const s = seeded();
+    const stats = peopleStats(s.projects, s.tasks);
+    const leia = statsFor(stats, 'u-leia');
+    expect(leia.projects.map((p) => p.id)).toEqual(['p-echo', 'p-yavin']);
+    expect(leia.open.map((t) => t.id)).toEqual(['t-1']);
+    const chewie = statsFor(stats, 'u-chewie');
+    expect(chewie.projects.map((p) => p.id)).toEqual(['p-echo', 'p-falcon']);
+    expect(chewie.open.map((t) => t.id)).toEqual(['t-2']);
+    // Mon's only task is done, in an archived project.
+    expect(statsFor(stats, 'u-mon').open).toEqual([]);
+    expect(statsFor(stats, 'nobody')).toEqual({ projects: [], open: [] });
   });
 });

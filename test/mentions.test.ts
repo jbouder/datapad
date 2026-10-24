@@ -3,6 +3,7 @@ import {
   mentionedIds,
   mentionMatches,
   mentionQuery,
+  mentionSnippet,
   namesToTokens,
   tokensToNames,
 } from '#shared/mentions';
@@ -65,5 +66,33 @@ describe('typing a mention', () => {
     ]);
     expect(mentionMatches(people, '').length).toBe(4);
     expect(mentionMatches(people, 'zz')).toEqual([]);
+  });
+});
+
+describe('mentionSnippet', () => {
+  const people = {
+    u1: { id: 'u1', name: 'Leia Organa', role: '', me: false },
+    u2: { id: 'u2', name: 'Han Solo', role: '', me: false },
+  };
+
+  it('expands mentions and drops Markdown marks', () => {
+    expect(
+      mentionSnippet('## Sync\n- ask **@{u1}** about @{u2}', 'u1', people),
+    ).toBe('Sync ask @Leia Organa about @Han Solo');
+  });
+
+  it('cuts long text around the first mention', () => {
+    const text = `${'a'.repeat(80)} @{u1} ${'b'.repeat(200)}`;
+    const snippet = mentionSnippet(text, 'u1', people, 10, 30);
+    expect(snippet.startsWith('…')).toBe(true);
+    expect(snippet).toContain('@Leia Organa');
+    expect(snippet.endsWith('…')).toBe(true);
+    expect(snippet.length).toBeLessThanOrEqual(1 + 10 + 30 + 1);
+  });
+
+  it('reads @unknown for people who are gone', () => {
+    expect(mentionSnippet('cc @{u9} and @{u1}', 'u1', people)).toBe(
+      'cc @unknown and @Leia Organa',
+    );
   });
 });

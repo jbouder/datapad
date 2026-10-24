@@ -79,3 +79,34 @@ export function mentionMatches(
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, limit);
 }
+
+/** Markdown marks that would read as noise in a one-line snippet. */
+function plain(text: string): string {
+  return text
+    .replace(/^\s*(?:#{1,3}|>|[-*]|\d+\.|```)\s*/gm, '')
+    .replace(/[*_~`]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * One line of `text` around its first mention of `personId`, with every
+ * mention as `@Name` and Markdown marks dropped: up to `before` characters
+ * ahead of the mention and `after` from it, with ellipses where cut.
+ */
+export function mentionSnippet(
+  text: string,
+  personId: string,
+  people: Record<string, Person>,
+  before = 40,
+  after = 100,
+): string {
+  const at = text.indexOf(`@{${personId}}`);
+  if (at < 0) return plain(tokensToNames(text, people)).trim().slice(0, after);
+  const head = plain(tokensToNames(text.slice(0, at), people)).trimStart();
+  const tail = plain(tokensToNames(text.slice(at), people)).trimEnd();
+  const lead =
+    head.length > before ? `…${head.slice(-before).trimStart()}` : head;
+  const rest =
+    tail.length > after ? `${tail.slice(0, after).trimEnd()}…` : tail;
+  return lead + rest;
+}
