@@ -17,6 +17,7 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { TasksPage } from '@/pages/TasksPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -113,11 +114,7 @@ function Page({ route }: { route: Route }) {
     case 'archive':
       return <ArchivePage />;
     case 'tasks':
-      return (
-        <PlaceholderPage title="Tasks">
-          Every task across projects, grouped and filtered, is on its way.
-        </PlaceholderPage>
-      );
+      return <TasksPage />;
     case 'notes':
       return (
         <PlaceholderPage title="Notes">

@@ -207,6 +207,12 @@ export function reduce(state: Snapshot, op: Op, now: string): ReduceResult {
 
 function apply(d: Draft, op: Op, now: string) {
   switch (op.type) {
+    /* several at once: the first refusal refuses the whole batch */
+    case 'batch': {
+      for (const inner of op.ops) apply(d, inner, now);
+      return;
+    }
+
     /* generic */
     case 'put': {
       d.set(op.col, op.doc.id, op.doc);

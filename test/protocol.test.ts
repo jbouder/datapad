@@ -293,6 +293,25 @@ describe('ops and messages', () => {
     ).toBe(false);
   });
 
+  it('takes a batch of ops, not nested, within the limit', () => {
+    const one = { type: 'deleteTask', id: 't-1' };
+    expect(OpSchema.safeParse({ type: 'batch', ops: [one, one] }).success).toBe(
+      true,
+    );
+    expect(
+      OpSchema.safeParse({
+        type: 'batch',
+        ops: [{ type: 'batch', ops: [one] }],
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'batch',
+        ops: Array.from({ length: LIMITS.batchMax + 1 }, () => one),
+      }).success,
+    ).toBe(false);
+  });
+
   it('wraps ops in client messages', () => {
     expect(
       ClientMessageSchema.safeParse({

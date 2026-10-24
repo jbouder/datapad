@@ -26,6 +26,8 @@ export const LIMITS = {
   /** Entries kept in one activity log (newest first). */
   activityMax: 150,
   activityTextMax: 300,
+  /** Ops in one batch (bulk actions and their undo). */
+  batchMax: 200,
   /** Tasks named in one reorder. */
   reorderMax: 2_000,
   /** One stored document, as UTF-8 JSON. */

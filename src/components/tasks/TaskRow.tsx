@@ -76,6 +76,48 @@ const POPOVER_TRIGGER =
  * 36px tall on desktop, 44px on phones, and the checkbox is a 44px target
  * on touch.
  */
+/**
+ * The round close / reopen checkbox: a real checkbox inside a 44px label
+ * (36px tall on desktop rows), its mark growing in when it closes.
+ */
+export function TaskCheck({
+  task,
+  done,
+  onToggle,
+  className,
+}: {
+  task: Task;
+  done: boolean;
+  onToggle: (task: Task) => void;
+  className?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        'press group/check flex size-11 shrink-0 cursor-pointer items-center justify-center has-focus-visible:outline-2 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ring desk:h-8.75 desk:w-9',
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={done}
+        onChange={() => onToggle(task)}
+        aria-label={`${done ? 'Reopen' : 'Close'} “${task.title}”`}
+        className="sr-only"
+      />
+      <span
+        aria-hidden
+        className={cn(
+          'task-check flex size-4.5 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/70 group-hover/check:border-foreground',
+          done && 'is-done border-ok bg-ok text-ok-foreground',
+        )}
+      >
+        <CheckIcon weight="bold" className="task-check-mark size-3" />
+      </span>
+    </label>
+  );
+}
+
 export const TaskRow = memo(function TaskRow({
   task,
   done,
@@ -111,24 +153,7 @@ export const TaskRow = memo(function TaskRow({
           <DotsSixVerticalIcon weight="bold" />
         </span>
       )}
-      <label className="press group/check flex size-11 shrink-0 cursor-pointer items-center justify-center has-focus-visible:outline-2 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ring desk:h-8.75 desk:w-9">
-        <input
-          type="checkbox"
-          checked={done}
-          onChange={() => onToggle(task)}
-          aria-label={`${done ? 'Reopen' : 'Close'} “${task.title}”`}
-          className="sr-only"
-        />
-        <span
-          aria-hidden
-          className={cn(
-            'task-check flex size-4.5 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/70 group-hover/check:border-foreground',
-            done && 'is-done border-ok bg-ok text-ok-foreground',
-          )}
-        >
-          <CheckIcon weight="bold" className="task-check-mark size-3" />
-        </span>
-      </label>
+      <TaskCheck task={task} done={done} onToggle={onToggle} />
 
       {onEdit ? (
         <DropdownMenu>

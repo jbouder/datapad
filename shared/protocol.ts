@@ -364,7 +364,7 @@ const PutSchema = z.discriminatedUnion('col', [
  * Every change a client can ask for. Ids of new documents come from the
  * client; the time comes from the server (`at` on the broadcast).
  */
-export const OpSchema = z.discriminatedUnion('type', [
+const BaseOpSchema = z.discriminatedUnion('type', [
   /* generic */
   PutSchema,
   z.object({ type: z.literal('remove'), col: docCollection, id }),
@@ -477,6 +477,26 @@ export const OpSchema = z.discriminatedUnion('type', [
     type: z.literal('setSettings'),
     patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
   }),
+]);
+
+/** Everything a single op can be. */
+export type BaseOp = z.infer<typeof BaseOpSchema>;
+
+/**
+ * Several ops applied as one: all or nothing, one sequence number, one
+ * echo. Bulk actions use it (and their undo), so closing 30 tasks is one
+ * change rather than 30 messages against the flood limit. Batches do not
+ * nest.
+ */
+const BatchSchema = z.object({
+  type: z.literal('batch'),
+  ops: z.array(BaseOpSchema).min(1).max(LIMITS.batchMax),
+});
+
+// One discriminated union, so a bad op still gets a field-level reason.
+export const OpSchema = z.discriminatedUnion('type', [
+  ...BaseOpSchema.options,
+  BatchSchema,
 ]);
 
 export type Op = z.infer<typeof OpSchema>;
