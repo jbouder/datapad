@@ -13,6 +13,7 @@ import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { ProjectPage } from '@/pages/ProjectPage';
@@ -144,11 +145,7 @@ function Page({ route }: { route: Route }) {
     case 'tasks':
       return <TasksPage />;
     case 'notes':
-      return (
-        <PlaceholderPage title="Notes">
-          Notes, with mentions and a proper editor, are on their way.
-        </PlaceholderPage>
-      );
+      return <NotesPage />;
     case 'events':
       return (
         <PlaceholderPage title="Events">

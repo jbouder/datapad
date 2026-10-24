@@ -11,22 +11,26 @@ import { useToast } from '@/providers/ToastProvider';
  * descriptions, event-linked notes and summaries all render through here
  * and share the `.prose-note` text styles. Mentions show the person's
  * current name. With `onToggle`, checklist items are checkboxes that hand
- * back the line to flip; without it they are read-only marks.
+ * back the line to flip; without it they are read-only marks. `highlight`
+ * marks every occurrence of those (lower-case) words.
  */
 export const Markdown = memo(function Markdown({
   text,
   people,
   onToggle,
+  highlight,
   className,
 }: {
   text: string;
   people: Record<string, Person>;
   onToggle?: (line: number) => void;
+  highlight?: string[];
   className?: string;
 }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   const base = useId();
-  const inline = (nodes: Inline[]) => renderInline(nodes, people);
+  const words = highlight?.length ? highlight : undefined;
+  const inline = (nodes: Inline[]) => renderInline(nodes, people, words);
 
   return (
     <div className={cn('prose-note', className)}>
@@ -98,7 +102,9 @@ export const Markdown = memo(function Markdown({
               </ul>
             );
           case 'code':
-            return <CodeBlock key={key} lang={b.lang} text={b.text} />;
+            return (
+              <CodeBlock key={key} lang={b.lang} text={b.text} words={words} />
+            );
           case 'hr':
             return <hr key={key} />;
           default:
@@ -122,32 +128,49 @@ function lines(
   ));
 }
 
+/** `text` with every occurrence of `words` in a `<mark>`. */
+function marked(text: string, words: string[] | undefined): ReactNode {
+  if (!words) return text;
+  const pattern = new RegExp(
+    `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi',
+  );
+  const parts = text.split(pattern);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    // Odd parts are the captured matches.
+    // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional
+    i % 2 === 1 ? <mark key={i}>{part}</mark> : part,
+  );
+}
+
 function renderInline(
   nodes: Inline[],
   people: Record<string, Person>,
+  words?: string[],
 ): ReactNode {
   return nodes.map((n, i) => {
     switch (n.t) {
       case 'text':
         // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
-        return <Fragment key={i}>{n.v}</Fragment>;
+        return <Fragment key={i}>{marked(n.v, words)}</Fragment>;
       case 'code':
         // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
-        return <code key={i}>{n.v}</code>;
+        return <code key={i}>{marked(n.v, words)}</code>;
       case 'strong':
         // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
-        return <strong key={i}>{renderInline(n.c, people)}</strong>;
+        return <strong key={i}>{renderInline(n.c, people, words)}</strong>;
       case 'em':
         // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
-        return <em key={i}>{renderInline(n.c, people)}</em>;
+        return <em key={i}>{renderInline(n.c, people, words)}</em>;
       case 's':
         // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
-        return <s key={i}>{renderInline(n.c, people)}</s>;
+        return <s key={i}>{renderInline(n.c, people, words)}</s>;
       case 'link':
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
           <a key={i} href={n.href} target="_blank" rel="noopener noreferrer">
-            {renderInline(n.c, people)}
+            {renderInline(n.c, people, words)}
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
         );
@@ -156,7 +179,7 @@ function renderInline(
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: inline runs are positional
           <span key={i} className="mention" data-person={person?.id}>
-            @{person?.name ?? 'unknown'}
+            {marked(`@${person?.name ?? 'unknown'}`, words)}
           </span>
         );
       }
@@ -166,7 +189,15 @@ function renderInline(
   });
 }
 
-function CodeBlock({ lang, text }: { lang: string; text: string }) {
+function CodeBlock({
+  lang,
+  text,
+  words,
+}: {
+  lang: string;
+  text: string;
+  words?: string[];
+}) {
   const { show } = useToast();
   const copy = async () => {
     try {
@@ -193,7 +224,7 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
       </div>
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable regions need keyboard access */}
       <pre tabIndex={0}>
-        <code>{text}</code>
+        <code>{marked(text, words)}</code>
       </pre>
     </div>
   );
