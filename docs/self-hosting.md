@@ -28,32 +28,43 @@ secret in the dashboard.
 
 ## 2. Put Cloudflare Access in front
 
-1. Zero Trust dashboard → **Access → Applications → Add an application →
-   Self-hosted**.
-2. **Application domain:** the Worker's hostname,
-   `datapad.<your-subdomain>.workers.dev` (or your custom domain, below).
-   Leave the path empty so the whole hostname is covered.
-3. **Session duration:** 1 month is reasonable for your own devices.
-4. **Cookie settings** (Advanced): HttpOnly on, SameSite Lax.
-5. **Policy:** Action _Allow_, Include → _Emails_ → your address. Exactly
-   one email.
-6. **Login methods:** One-time PIN is enough; add Google or another
-   identity provider if you prefer.
-7. Save, then open the application's **Overview** and copy:
-   - the **Application Audience (AUD) Tag**,
-   - your **team domain**, `<team>.cloudflareaccess.com` (Settings →
-     Custom pages, or the URL of the login page).
-8. In `wrangler.jsonc`, set both vars (they are public values):
+### On the workers.dev URL (one click)
+
+The Zero Trust "Add public hostname" form only lists domains that are zones
+in your account, and `workers.dev` is not one. Workers has its own switch:
+1. Dashboard → **Workers & Pages** → **datapad** → **Settings** →
+   **Domains & Routes**.
+2. On the `workers.dev` row, select **Enable Cloudflare Access**.
+3. The dialog shows two values. Copy both:
+   - `POLICY_AUD`, the application's AUD tag;
+   - `TEAM_DOMAIN`, `https://<team>.cloudflareaccess.com`.
+4. Select **Manage Cloudflare Access** and make the policy allow exactly
+   one email, yours. Login with One-time PIN is enough; add Google or
+   another identity provider if you prefer.
+5. Optional but recommended: on the application's **Additional settings**
+   → **Cookie settings**, turn on HttpOnly and set SameSite to Lax.
+6. Put the two values in `wrangler.jsonc` (they are public). The Worker
+   accepts the team domain with or without `https://`:
 
    ```jsonc
    "vars": {
      "ACCESS_TEAM_DOMAIN": "<team>.cloudflareaccess.com",
-     "ACCESS_AUD": "<the AUD tag>"
+     "ACCESS_AUD": "<POLICY_AUD>"
    }
    ```
 
-9. Deploy again (`npm run deploy`, or push to `main` with the workflow
+   Set them here, not under the Worker's Settings → Variables: every deploy
+   replaces dashboard vars with the ones in `wrangler.jsonc`.
+7. Deploy again (`npm run deploy`, or push to `main` with the workflow
    below).
+
+### On a custom domain
+
+Zero Trust → **Access controls** → **Applications** → **Create new
+application** → **Self-hosted and private** → **Add public hostname**, pick
+the domain, add the same one-email Allow policy, and copy the AUD tag from
+the application's overview. If both hostnames are in use, they need the
+same AUD (one application covering both) because the Worker checks one.
 
 ### Check it
 
@@ -84,8 +95,7 @@ Nothing to configure. Summaries run in the browser on a local WebLLM model
 ## Custom domain
 
 Add a custom domain to the Worker (Workers & Pages → datapad → Settings →
-Domains & Routes), then add the same hostname to the Access application
-(or create a second application with the same policy). The Worker checks
+Domains & Routes), then cover it with Access as above. The Worker checks
 the AUD, so a hostname that Access does not cover gets 401.
 
 ## Deploy from GitHub Actions
