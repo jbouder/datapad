@@ -188,8 +188,7 @@ export function HelpPage({ section }: { section?: string }) {
           Type <code>@</code> and a name in any note or description to mention
           someone from People; pick them with the arrow keys and Enter or Tab. A
           mention follows the person if you rename them, and their page lists
-          every note and task that mentions them. Add people in Settings →
-          People.
+          every note and task that mentions them. Add people in People.
         </p>
       </Section>
 
@@ -239,12 +238,12 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="account">
         <p className="text-sm">
           The account button at the top right opens the menu: Motion, Theme,
-          Settings and Sign out. Settings has Appearance, People, Orgs (each org
-          with its projects, contacts, events and notes), Templates (the tasks a
-          new project can start with; Save as template on a project makes one),
-          Summaries, Data and Account. Signing out ends your Cloudflare Access
-          session on this browser; sign in again to come back. When your device
-          asks for reduced motion, Datapad never animates.
+          Settings and Sign out; on phones it also leads to People and Orgs,
+          which sit in the rail on desktop. Settings has Appearance, Templates
+          (the tasks a new project can start with; Save as template on a project
+          makes one), Summaries, Data and Account. Signing out ends your
+          Cloudflare Access session on this browser; sign in again to come back.
+          When your device asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 

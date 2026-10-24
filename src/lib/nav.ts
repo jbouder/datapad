@@ -1,19 +1,22 @@
 import {
+  BuildingsIcon,
   CalendarBlankIcon,
   CheckSquareIcon,
   CrosshairIcon,
   FoldersIcon,
   type Icon,
   NoteIcon,
+  UsersIcon,
 } from '@phosphor-icons/react';
 import type { Route, RouteName } from '@/lib/router';
 
-/** The five top-level sections, in rail and tab-bar order. People and
- * orgs live under Settings, reached from the account menu. */
+/** The top-level sections, in rail and tab-bar order. */
 export interface NavItem {
   route: Route;
   label: string;
   icon: Icon;
+  /** In the rail only: the phone's tab bar holds five. */
+  desktopOnly?: boolean;
 }
 
 export const NAV: NavItem[] = [
@@ -22,6 +25,18 @@ export const NAV: NavItem[] = [
   { route: { name: 'tasks' }, label: 'Tasks', icon: CheckSquareIcon },
   { route: { name: 'events' }, label: 'Events', icon: CalendarBlankIcon },
   { route: { name: 'notes' }, label: 'Notes', icon: NoteIcon },
+  {
+    route: { name: 'people' },
+    label: 'People',
+    icon: UsersIcon,
+    desktopOnly: true,
+  },
+  {
+    route: { name: 'orgs' },
+    label: 'Orgs',
+    icon: BuildingsIcon,
+    desktopOnly: true,
+  },
 ];
 
 const TITLES: Partial<Record<RouteName, string>> = {
@@ -33,6 +48,8 @@ const TITLES: Partial<Record<RouteName, string>> = {
   events: 'Events',
   decisions: 'Decisions',
   digest: 'Weekly digest',
+  people: 'People',
+  orgs: 'Orgs',
   settings: 'Settings',
   help: 'Help',
   devComponents: 'Components',

@@ -72,13 +72,13 @@ export function PersonDetail({
       <div className="flex items-start gap-3">
         <Initials person={person} className="size-10 text-xs" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <h3
+          <h2
             id="person-title"
             className="flex flex-wrap items-center gap-2 font-heading text-lg font-semibold"
           >
             {person.name}
             {person.me && <YouTag />}
-          </h3>
+          </h2>
           {person.role && (
             <p className="text-sm text-muted-foreground">{person.role}</p>
           )}
@@ -95,7 +95,7 @@ export function PersonDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h4 className="font-heading text-sm font-semibold">Projects</h4>
+        <h3 className="font-heading text-sm font-semibold">Projects</h3>
         {stats.projects.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Not on any project. Add them in a project’s form.
@@ -122,12 +122,12 @@ export function PersonDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h4 className="font-heading text-sm font-semibold">
+        <h3 className="font-heading text-sm font-semibold">
           Open tasks{' '}
           <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {stats.open.length}
           </span>
-        </h4>
+        </h3>
         <TaskList
           label={`Open tasks assigned to ${person.name}`}
           open={stats.open}
@@ -137,12 +137,12 @@ export function PersonDetail({
 
       {stats.waiting.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h4 className="font-heading text-sm font-semibold">
+          <h3 className="font-heading text-sm font-semibold">
             Waiting on them{' '}
             <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
               {stats.waiting.length}
             </span>
-          </h4>
+          </h3>
           <TaskList
             label={`Tasks waiting on ${person.name}`}
             open={stats.waiting}
@@ -153,12 +153,12 @@ export function PersonDetail({
 
       {stats.decisions.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h4 className="font-heading text-sm font-semibold">
+          <h3 className="font-heading text-sm font-semibold">
             Decisions{' '}
             <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
               {stats.decisions.length}
             </span>
-          </h4>
+          </h3>
           <DecisionList
             decisions={stats.decisions}
             people={state.people}
@@ -175,12 +175,12 @@ export function PersonDetail({
       )}
 
       <div className="flex flex-col gap-2">
-        <h4 className="font-heading text-sm font-semibold">
+        <h3 className="font-heading text-sm font-semibold">
           Mentions{' '}
           <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {count}
           </span>
-        </h4>
+        </h3>
         {groups.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No notes or tasks mention them yet.
@@ -195,9 +195,9 @@ export function PersonDetail({
                 aria-label={`Mentions in ${title}`}
                 className="flex flex-col"
               >
-                <h5 className="text-xs font-medium text-muted-foreground">
+                <h4 className="text-xs font-medium text-muted-foreground">
                   {title}
-                </h5>
+                </h4>
                 <ul className="flex flex-col border-t">
                   {g.items.map((m) => (
                     <li key={m.doc.id} className="border-b">

@@ -21,16 +21,11 @@ export type Route =
   | { name: 'events' }
   | { name: 'decisions' }
   | { name: 'digest' }
-  /**
-   * `person` is the one selected in People (`/settings/people/:id`), `org`
-   * the one open in Orgs (`/settings/orgs/:id`).
-   */
-  | {
-      name: 'settings';
-      section: SettingsSection;
-      person?: string;
-      org?: string;
-    }
+  /** `person` is the one selected (`/people/:id`). */
+  | { name: 'people'; person?: string }
+  /** `org` is the one open (`/orgs/:id`). */
+  | { name: 'orgs'; org?: string }
+  | { name: 'settings'; section: SettingsSection }
   | { name: 'help'; section?: string }
   /** Every shared input, for eyeballing (dev and e2e builds only). */
   | { name: 'devComponents' }
@@ -44,8 +39,6 @@ export type RouteName = Route['name'];
 /** The Settings page's sections, each its own address. */
 export const SETTINGS_SECTIONS = [
   'appearance',
-  'people',
-  'orgs',
   'templates',
   'summaries',
   'data',
@@ -68,29 +61,19 @@ export function parse(pathname: string, hash = ''): Route {
   if (clean === '/' || clean === '/focus') {
     return { name: 'focus' };
   }
-  // People live under Settings; the old address still gets there.
-  if (clean === '/people') {
-    return { name: 'settings', section: 'people' };
+  // People and orgs lived under Settings until #93; the old addresses
+  // still get there.
+  const people = /^(?:\/settings)?\/people(?:\/([^/]+))?$/.exec(clean);
+  if (people) {
+    return people[1]
+      ? { name: 'people', person: decodeURIComponent(people[1]) }
+      : { name: 'people' };
   }
-  const person = /^\/(?:settings\/)?people\/([^/]+)$/.exec(clean);
-  if (person?.[1]) {
-    return {
-      name: 'settings',
-      section: 'people',
-      person: decodeURIComponent(person[1]),
-    };
-  }
-  // Orgs live under Settings too (#93 may move them); /orgs gets there.
-  if (clean === '/orgs') {
-    return { name: 'settings', section: 'orgs' };
-  }
-  const org = /^\/(?:settings\/)?orgs\/([^/]+)$/.exec(clean);
-  if (org?.[1]) {
-    return {
-      name: 'settings',
-      section: 'orgs',
-      org: decodeURIComponent(org[1]),
-    };
+  const orgs = /^(?:\/settings)?\/orgs(?:\/([^/]+))?$/.exec(clean);
+  if (orgs) {
+    return orgs[1]
+      ? { name: 'orgs', org: decodeURIComponent(orgs[1]) }
+      : { name: 'orgs' };
   }
   const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
   if (settings) {
@@ -121,13 +104,13 @@ export function pathFor(route: Route): string {
   switch (route.name) {
     case 'focus':
       return '/';
+    case 'people':
+      return route.person
+        ? `/people/${encodeURIComponent(route.person)}`
+        : '/people';
+    case 'orgs':
+      return route.org ? `/orgs/${encodeURIComponent(route.org)}` : '/orgs';
     case 'settings':
-      if (route.person) {
-        return `/settings/people/${encodeURIComponent(route.person)}`;
-      }
-      if (route.org) {
-        return `/settings/orgs/${encodeURIComponent(route.org)}`;
-      }
       return route.section === 'appearance'
         ? '/settings'
         : `/settings/${route.section}`;
@@ -148,7 +131,8 @@ export function pathFor(route: Route): string {
 
 /**
  * Two routes are the same page (same name, same project). Settings
- * sections are one page, so moving between them is no page transition.
+ * sections are one page, so moving between them is no page transition;
+ * so is picking another person or org.
  */
 export function samePage(a: Route, b: Route): boolean {
   return (
@@ -165,8 +149,8 @@ function here(): string {
 
 let current: Route = parse(window.location.pathname, window.location.hash);
 
-// Old addresses settle on their canonical one: /focus is /, /people is
-// /settings/people.
+// Old addresses settle on their canonical one: /focus is /,
+// /settings/people is /people.
 if (
   current.name !== 'notFound' &&
   pathFor(current) !== window.location.pathname &&

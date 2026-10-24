@@ -143,7 +143,9 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Events, Notes', async ({ page }) => {
+test('sections run Focus, Projects, Tasks, Events, Notes, then People and Orgs on desktop', async ({
+  page,
+}) => {
   await page.goto('/');
   const nav = page
     .getByRole('navigation', { name: 'Sections' })
@@ -155,5 +157,7 @@ test('sections run Focus, Projects, Tasks, Events, Notes', async ({ page }) => {
     /Tasks/,
     /Events/,
     /Notes/,
+    // The tab bar keeps five; People and Orgs are in the rail only.
+    ...(isMobile(page) ? [] : [/People/, /Orgs/]),
   ]);
 });

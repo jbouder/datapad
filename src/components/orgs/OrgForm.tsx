@@ -87,7 +87,7 @@ export function OrgForm({
       }
       onClose();
       show(`Added ${name}`);
-      navigate({ name: 'settings', section: 'orgs', org: id });
+      navigate({ name: 'orgs', org: id });
       return;
     }
     const patch = Object.fromEntries(

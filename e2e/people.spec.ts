@@ -26,11 +26,11 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/people');
+  await openLive(page, '/people');
   await addPerson(page, 'Leia Organa', true);
   // Adding someone selects them.
-  await expect(page).toHaveURL(/\/settings\/people\/[^/]+$/);
-  await expect(detail(page).getByRole('heading', { level: 3 })).toHaveText(
+  await expect(page).toHaveURL(/\/people\/[^/]+$/);
+  await expect(detail(page).getByRole('heading', { level: 2 })).toHaveText(
     /Leia Organa\s*you/,
   );
   await addPerson(page, 'Han Solo');
@@ -59,11 +59,11 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   await expectSaved(page);
 
   // Han's detail: no projects, the task, the mention under General.
-  await page.goto('/settings/people');
+  await page.goto('/people');
   await people(page)
     .getByRole('link', { name: /Han Solo/ })
     .click();
-  await expect(page).toHaveURL(/\/settings\/people\/[^/]+$/);
+  await expect(page).toHaveURL(/\/people\/[^/]+$/);
   const han = detail(page);
   await expect(han).toContainText('Not on any project.');
   await expect(
@@ -108,7 +108,7 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
     .getByRole('alertdialog')
     .getByRole('button', { name: 'Remove' })
     .click();
-  await expect(page).toHaveURL(/\/settings\/people$/);
+  await expect(page).toHaveURL(/\/people$/);
   await expect(people(page).getByRole('listitem')).toHaveText([/Leia Organa/]);
   await page.goto('/notes');
   await expect(page.getByText('Ask @unknown about the')).toBeVisible();
@@ -120,13 +120,14 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   ).toBe('');
 });
 
-test('an old /people/:id link and the seeded detail pane', async ({
+test('an old /settings/people/:id link and the seeded detail pane', async ({
   page,
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/people/u-chewie');
-  await expect(page).toHaveURL(/\/settings\/people\/u-chewie$/);
+  await openLive(page, '/settings/people/u-chewie');
+  await expect(page).toHaveURL(/\/people\/u-chewie$/);
+  await expect(page).not.toHaveURL(/settings/);
   const chewie = detail(page);
   await expect(chewie.getByRole('list', { name: 'Projects' })).toHaveText(
     /Echo Base relocation\s*Falcon hyperdrive refit/,
@@ -141,14 +142,14 @@ test('Cards: counts match the detail, and a card opens the person', async ({
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/settings/people');
+  await openLive(page, '/people');
   await page.locator('label', { hasText: 'Cards' }).click();
   await expect(page).toHaveURL(/view=cards/);
   const cards = page.getByRole('list', { name: 'People' });
   const han = cards.getByRole('link', { name: /Han Solo/ });
   await expect(han).toContainText('2 projects · 1 open task');
   await han.click();
-  await expect(page).toHaveURL(/\/settings\/people\/u-han$/);
+  await expect(page).toHaveURL(/\/people\/u-han$/);
   const pane = detail(page);
   await expect(pane.getByRole('list', { name: 'Projects' })).toHaveText(
     /Echo Base relocation\s*Falcon hyperdrive refit/,

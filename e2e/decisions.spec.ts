@@ -106,7 +106,7 @@ test('record a decision on a project, decide it, find it again', async ({
   await expect(page.getByRole('dialog', { name: 'Decision' })).toBeVisible();
 
   // Leia's page lists it.
-  await openLive(page, '/settings/people/u-leia');
+  await openLive(page, '/people/u-leia');
   await expect(
     page.getByRole('list', { name: 'Decisions Leia Organa took part in' }),
   ).toContainText('Move the base to Hoth');

@@ -19,6 +19,8 @@ import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { OrgsPage } from '@/pages/OrgsPage';
+import { PeoplePage } from '@/pages/PeoplePage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -131,7 +133,7 @@ export function AppShell() {
         <main
           id="main"
           key={pageKey(route)}
-          className="page mx-auto flex w-full max-w-(--content-max) min-w-0 flex-1 flex-col px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6"
+          className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6"
         >
           <Page route={route} />
         </main>
@@ -178,14 +180,12 @@ function Page({ route }: { route: Route }) {
       return <DecisionsPage />;
     case 'digest':
       return <DigestPage />;
+    case 'people':
+      return <PeoplePage person={route.person} />;
+    case 'orgs':
+      return <OrgsPage org={route.org} />;
     case 'settings':
-      return (
-        <SettingsPage
-          section={route.section}
-          person={route.person}
-          org={route.org}
-        />
-      );
+      return <SettingsPage section={route.section} />;
     case 'devComponents':
       return (
         <Suspense fallback={null}>
