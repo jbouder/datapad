@@ -67,7 +67,7 @@ test('add three tasks by keyboard, close one, undo', async ({
   ).toBeChecked();
 
   // Undo puts it back in the open list.
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(openList(page)).toContainText('Patch the hull');
   await expect(page.getByRole('button', { name: /^Done/ })).toHaveCount(0);
 

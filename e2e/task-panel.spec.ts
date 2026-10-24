@@ -31,6 +31,7 @@ test('edit every field from the panel; one save, one log line', async ({
   await openLive(page, '/projects/p-echo');
   const opener = row(page, 'Insulate the hangar doors').getByRole('button', {
     name: 'Insulate the hangar doors',
+    exact: true,
   });
   await opener.click();
   const panel = page.getByRole('dialog', { name: 'Task' });
@@ -61,7 +62,7 @@ test('edit every field from the panel; one save, one log line', async ({
   await expect(details).toHaveValue('Ask @Chewbacca ');
   await details.pressSequentially('about the seals.');
 
-  await panel.getByRole('button', { name: 'Add link' }).click();
+  await panel.getByRole('button', { name: 'Add link', exact: true }).click();
   await panel
     .getByRole('textbox', { name: 'Link 1 URL' })
     .fill('https://example.com/seals');
@@ -73,6 +74,7 @@ test('edit every field from the panel; one save, one log line', async ({
   await expect(
     row(page, 'Insulate and seal the hangar doors').getByRole('button', {
       name: 'Insulate and seal the hangar doors',
+      exact: true,
     }),
   ).toBeFocused();
 
@@ -101,7 +103,7 @@ test('edit every field from the panel; one save, one log line', async ({
 test('moving to another project logs in both', async ({ page, request }) => {
   await openLive(page, '/projects/p-echo');
   await row(page, 'Book the tauntaun vet')
-    .getByRole('button', { name: 'Book the tauntaun vet' })
+    .getByRole('button', { name: 'Book the tauntaun vet', exact: true })
     .click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   await expect(panel.getByText('From a note')).toBeVisible();
@@ -112,7 +114,7 @@ test('moving to another project logs in both', async ({ page, request }) => {
     /Falcon hyperdrive refit/,
   ]);
   await project.press('Enter');
-  await panel.getByRole('button', { name: 'Save' }).click();
+  await panel.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(panel).toBeHidden();
   await expect(row(page, 'Book the tauntaun vet')).toHaveCount(0);
 
@@ -137,17 +139,17 @@ test('delete with undo restores the same task in the same place', async ({
     .getByRole('listitem')
     .allTextContents();
   await row(page, 'Insulate the hangar doors')
-    .getByRole('button', { name: 'Insulate the hangar doors' })
+    .getByRole('button', { name: 'Insulate the hangar doors', exact: true })
     .click();
   await page
     .getByRole('dialog')
-    .getByRole('button', { name: 'Delete' })
+    .getByRole('button', { name: 'Delete', exact: true })
     .click();
   await expect(
     page.getByText('Deleted “Insulate the hangar doors”'),
   ).toBeVisible();
   await expect(row(page, 'Insulate the hangar doors')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(
     page.getByRole('list', { name: 'Open tasks' }).getByRole('listitem'),
   ).toHaveText(before);
@@ -164,7 +166,7 @@ test('the panel keeps your typing when the task changes elsewhere', async ({
   test.skip(isMobile(page), 'Two windows side by side is a desktop case.');
   await openLive(page, '/projects/p-echo');
   await row(page, 'Insulate the hangar doors')
-    .getByRole('button', { name: 'Insulate the hangar doors' })
+    .getByRole('button', { name: 'Insulate the hangar doors', exact: true })
     .click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   const title = panel.getByRole('textbox', { name: 'Title' });
@@ -179,7 +181,7 @@ test('the panel keeps your typing when the task changes elsewhere', async ({
 
   await expect(panel.getByText('Updated elsewhere.')).toBeVisible();
   await expect(title).toHaveValue('Typed here');
-  await panel.getByRole('button', { name: 'Reload' }).click();
+  await panel.getByRole('button', { name: 'Reload', exact: true }).click();
   await expect(title).toHaveValue('Insulate the hangar doors');
   await expect(panel.getByRole('radio', { name: 'High' })).toBeChecked();
 });
@@ -191,7 +193,7 @@ test('+ opens a new task preset to the project you are on', async ({
   await openLive(page, '/projects/p-falcon');
   await page
     .getByRole('banner')
-    .getByRole('button', { name: 'Add task' })
+    .getByRole('button', { name: 'Add task', exact: true })
     .click();
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(

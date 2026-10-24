@@ -1,4 +1,10 @@
-import { CheckIcon } from '@phosphor-icons/react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  DotsSixVerticalIcon,
+  DotsThreeIcon,
+} from '@phosphor-icons/react';
 import { memo, useState } from 'react';
 import {
   PRIORITIES,
@@ -11,9 +17,11 @@ import { DatePicker } from '@/components/inputs/DatePicker';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { DueDate } from '@/components/tasks/DueDate';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -42,6 +50,19 @@ export interface TaskRowProps {
     task: Task,
     patch: Partial<Pick<Task, 'priority' | 'due' | 'assignee'>>,
   ) => void;
+  /** Manual order (project page, open tasks): handle, menu, controls. */
+  reorder?: RowReorder;
+}
+
+export interface RowReorder {
+  index: number;
+  count: number;
+  /** Move this row to `to` (0-based). */
+  move: (to: number) => void;
+  /** Touch reorder mode: up / down buttons on every row. */
+  controls: boolean;
+  /** The handle was pressed (mouse: arm drag; touch: long-press). */
+  onHandlePointerDown: (event: React.PointerEvent) => void;
 }
 
 const POPOVER_TRIGGER =
@@ -65,6 +86,7 @@ export const TaskRow = memo(function TaskRow({
   onToggle,
   onOpen,
   onEdit,
+  reorder,
 }: TaskRowProps) {
   const project = task.projectId ? projects[task.projectId] : undefined;
   const assignee = task.assignee ? people[task.assignee] : undefined;
@@ -79,6 +101,16 @@ export const TaskRow = memo(function TaskRow({
       )}
       data-task-id={task.id}
     >
+      {reorder && (
+        <span
+          aria-hidden
+          title="Drag to reorder"
+          onPointerDown={reorder.onHandlePointerDown}
+          className="flex h-11 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing desk:h-8"
+        >
+          <DotsSixVerticalIcon weight="bold" />
+        </span>
+      )}
       <label className="press group/check flex size-11 shrink-0 cursor-pointer items-center justify-center has-focus-visible:outline-2 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ring desk:h-8.75 desk:w-9">
         <input
           type="checkbox"
@@ -137,6 +169,7 @@ export const TaskRow = memo(function TaskRow({
         {onOpen ? (
           <button
             type="button"
+            data-task-title
             onClick={() => onOpen(task)}
             className="max-w-full truncate text-left outline-ring/50 hover:underline focus-visible:outline-2"
           >
@@ -224,6 +257,68 @@ export const TaskRow = memo(function TaskRow({
           done={done}
           className={cn('px-1', onEdit && 'desk:hidden')}
         />
+      )}
+      {reorder?.controls && (
+        <span className="flex shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="press size-11"
+            disabled={reorder.index === 0}
+            onClick={() => reorder.move(reorder.index - 1)}
+          >
+            <ArrowUpIcon />
+            <span className="sr-only">Move “{task.title}” up</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="press size-11"
+            disabled={reorder.index === reorder.count - 1}
+            onClick={() => reorder.move(reorder.index + 1)}
+          >
+            <ArrowDownIcon />
+            <span className="sr-only">Move “{task.title}” down</span>
+          </Button>
+        </span>
+      )}
+
+      {reorder && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(POPOVER_TRIGGER, 'size-11 desk:size-8')}
+            aria-label={`More for “${task.title}”`}
+          >
+            <DotsThreeIcon weight="bold" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {onOpen && (
+              <DropdownMenuItem onClick={() => onOpen(task)}>
+                Open
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled={reorder.index === 0}
+              onClick={() => reorder.move(reorder.index - 1)}
+            >
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={reorder.index === reorder.count - 1}
+              onClick={() => reorder.move(reorder.index + 1)}
+            >
+              Move down
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={reorder.index === 0}
+              onClick={() => reorder.move(0)}
+            >
+              Move to top
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
