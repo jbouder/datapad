@@ -40,6 +40,8 @@ export const LIMITS = {
   recentOps: 200,
   /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
+  /** Nightly backups kept per user; older ones are deleted. */
+  backupsKept: 30,
   /** How long an erase confirmation token works. */
   eraseTokenTtlMs: 5 * 60_000,
 } as const;

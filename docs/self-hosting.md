@@ -84,8 +84,15 @@ Sign out is Preferences → Sign out, which goes to
 npx wrangler r2 bucket create datapad-backups
 ```
 
-The `BACKUPS` binding and the nightly backup land in M6; creating the
-bucket now means the deploy that adds them just works.
+Do this before the first deploy: `wrangler.jsonc` binds the bucket as
+`BACKUPS`, and a deploy whose bucket does not exist fails. Use another
+name by changing `bucket_name` there. The bucket stays private; nothing
+serves it publicly.
+
+When the backup runs is two vars in `wrangler.jsonc`: `BACKUP_HOUR` (0–23,
+default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default
+`America/New_York`). Each user's Durable Object books its own alarm for that
+hour. See [data.md § Backups](data.md#backups) for retention and restoring.
 
 ## Summaries
 

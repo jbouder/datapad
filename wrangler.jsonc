@@ -22,12 +22,19 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DatapadObject"] }],
 
+  // Nightly backups: each object writes its export here at BACKUP_HOUR in
+  // BACKUP_TIME_ZONE and keeps the latest 30. Create the bucket once:
+  // `npx wrangler r2 bucket create datapad-backups` (docs/self-hosting.md).
+  "r2_buckets": [{ "binding": "BACKUPS", "bucket_name": "datapad-backups" }],
+
   // Cloudflare Access (Zero Trust). Both values are public. With ACCESS_AUD
   // empty the Worker answers 401 to everything, unless .dev.vars sets
   // DEV_ACCESS_EMAIL for local development. See docs/self-hosting.md.
   "vars": {
     "ACCESS_TEAM_DOMAIN": "broad-term-b836.cloudflareaccess.com",
-    "ACCESS_AUD": "d62a172b799c1ce9fc8be3e15256b4546a79684dfef02e7d491491d112b3f1c2"
+    "ACCESS_AUD": "d62a172b799c1ce9fc8be3e15256b4546a79684dfef02e7d491491d112b3f1c2",
+    "BACKUP_HOUR": "3",
+    "BACKUP_TIME_ZONE": "America/New_York"
   },
 
   "observability": { "enabled": true }

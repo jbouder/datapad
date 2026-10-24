@@ -1,6 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { LIMITS } from '#shared/limits';
 import {
+  type BackupInfo,
+  type BackupList,
   ClientMessageSchema,
   type Counts,
   countDocuments,
@@ -13,6 +15,7 @@ import {
   type ServerMessage,
 } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
+import { lastDailyAt, nextDailyAt, zonedDay } from '#shared/schedule';
 import {
   COLLECTIONS,
   type Collection,
@@ -33,6 +36,10 @@ import type { Bindings } from './env';
  * `reduce()`: the rows it touched are written in one transaction with the
  * new sequence number, then the op goes to every socket, the sender's too,
  * so all tabs apply the same ops in the same order.
+ *
+ * Every night (BACKUP_HOUR in BACKUP_TIME_ZONE) an alarm writes the export
+ * to R2 at `<email>/datapad-YYYY-MM-DD.json` and keeps the latest 30. The
+ * alarm only ever adds to R2 and prunes R2; it never touches the data here.
  */
 
 export interface DatapadStats {
@@ -48,6 +55,9 @@ export type ImportOutcome =
 const SEQ = 'seq';
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
+/** When the last backup ran, in ms. */
+const LAST_BACKUP = 'last_backup';
+const BACKUP_PREFIX = 'datapad-';
 
 export class DatapadObject extends DurableObject<Bindings> {
   private state: Snapshot = emptySnapshot();
@@ -66,7 +76,129 @@ export class DatapadObject extends DurableObject<Bindings> {
       this.ctx.setWebSocketAutoResponse(
         new WebSocketRequestResponsePair('ping', 'pong'),
       );
+      if ((await this.ctx.storage.getAlarm()) === null) {
+        await this.ctx.storage.setAlarm(this.nextBackupAt(Date.now()));
+      }
     });
+  }
+
+  /* ---------- backups ---------- */
+
+  private backupHour(): number {
+    const hour = Number(this.env.BACKUP_HOUR ?? 3);
+    return Number.isInteger(hour) && hour >= 0 && hour < 24 ? hour : 3;
+  }
+
+  private backupZone(): string {
+    return this.env.BACKUP_TIME_ZONE || 'America/New_York';
+  }
+
+  private nextBackupAt(now: number): number {
+    return nextDailyAt(now, this.backupZone(), this.backupHour());
+  }
+
+  /** The R2 folder of this user: the verified email that named us. */
+  private backupFolder(): string {
+    const name = this.ctx.id.name;
+    if (!name) throw new Error('A Datapad object must be named by email');
+    return `${name}/`;
+  }
+
+  private backupKey(day: string): string {
+    return `${this.backupFolder()}${BACKUP_PREFIX}${day}.json`;
+  }
+
+  /**
+   * Write today's backup (the export as JSON), then delete all but the
+   * latest `LIMITS.backupsKept`. An object with no documents writes
+   * nothing. Never changes a document.
+   */
+  async backup(now = Date.now()): Promise<BackupInfo | null> {
+    this.setMeta(LAST_BACKUP, String(now));
+    if (countRows(this.state) === 0) return null;
+    const day = zonedDay(now, this.backupZone());
+    const body = JSON.stringify(await this.export(), null, 2);
+    const object = await this.env.BACKUPS.put(this.backupKey(day), body, {
+      httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    });
+    await this.prune();
+    return { day, bytes: object.size, at: object.uploaded.toISOString() };
+  }
+
+  private async prune() {
+    const all = await this.listBackups();
+    const old = all.slice(LIMITS.backupsKept);
+    if (old.length > 0) {
+      await this.env.BACKUPS.delete(old.map((b) => this.backupKey(b.day)));
+    }
+  }
+
+  /**
+   * The alarm missed its night (the object was being moved, say): back up
+   * now. Called on every connection; cheap when nothing is due.
+   */
+  private async catchUp(now = Date.now()) {
+    const last = Number(this.meta(LAST_BACKUP) ?? 0);
+    const due = lastDailyAt(now, this.backupZone(), this.backupHour());
+    if (last < due) await this.backup(now);
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(this.nextBackupAt(now));
+    }
+  }
+
+  async alarm() {
+    const now = Date.now();
+    try {
+      await this.backup(now);
+    } finally {
+      // Always book the next night, even when this one failed.
+      await this.ctx.storage.setAlarm(this.nextBackupAt(now));
+    }
+  }
+
+  /** The backups and when they run, for Settings → Data. */
+  async backups(): Promise<BackupList> {
+    return {
+      backups: await this.listBackups(),
+      hour: this.backupHour(),
+      timeZone: this.backupZone(),
+    };
+  }
+
+  /** This user's backups, newest first. */
+  async listBackups(): Promise<BackupInfo[]> {
+    const folder = this.backupFolder();
+    const out: BackupInfo[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await this.env.BACKUPS.list({
+        prefix: `${folder}${BACKUP_PREFIX}`,
+        cursor,
+      });
+      for (const o of page.objects) {
+        const day = o.key.slice(folder.length + BACKUP_PREFIX.length, -5);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+          out.push({ day, bytes: o.size, at: o.uploaded.toISOString() });
+        }
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    return out.sort((a, b) => b.day.localeCompare(a.day));
+  }
+
+  /** One backup's JSON text, or null when there is none for that day. */
+  async readBackup(day: string): Promise<string | null> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    const object = await this.env.BACKUPS.get(this.backupKey(day));
+    return object ? object.text() : null;
+  }
+
+  /** Merge a backup back in: the same path, and transaction, as Import. */
+  async restoreBackup(day: string): Promise<ImportOutcome> {
+    const text = await this.readBackup(day);
+    if (text === null)
+      return { ok: false, error: 'There is no backup for that day' };
+    return this.import(JSON.parse(text));
   }
 
   /** Created on first touch; `IF NOT EXISTS` makes it safe on every wake. */
@@ -255,6 +387,8 @@ export class DatapadObject extends DurableObject<Bindings> {
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected a WebSocket upgrade', { status: 426 });
     }
+    // A connection is "the next request" after a missed night.
+    this.ctx.waitUntil(this.catchUp().catch(logBackupError));
     const [client, server] = Object.values(new WebSocketPair());
     // Hibernation API: the object can sleep while sockets stay open.
     this.ctx.acceptWebSocket(server);
@@ -396,6 +530,20 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.recent.set(ws, stamps);
     return allowed;
   }
+}
+
+function countRows(state: Snapshot): number {
+  return COLLECTIONS.reduce((n, col) => n + Object.keys(state[col]).length, 0);
+}
+
+function logBackupError(error: unknown) {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      what: 'backup',
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
 }
 
 function trySend(ws: WebSocket, text: string) {

@@ -6,6 +6,7 @@ import {
 import { useMemo } from 'react';
 import { countDocuments } from '#shared/protocol';
 import { settingsOf } from '#shared/types';
+import { Backups } from '@/components/Backups';
 import { Field } from '@/components/Field';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -260,6 +261,7 @@ function Data() {
           Import…
         </Button>
       </div>
+      <Backups />
     </>
   );
 }
