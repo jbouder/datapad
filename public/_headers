@@ -1,0 +1,21 @@
+# Response headers for the static assets (Workers static assets reads this
+# file). The Worker's own responses (/api, /ws, the 401 page) set theirs in
+# worker/index.ts. Access's /cdn-cgi/access/* paths are answered at the
+# edge before the Worker and these rules.
+#
+# Datapad loads nothing from another origin: fonts are bundled and there is
+# no third-party script. The local summary model (M6) will widen
+# connect-src and script-src only as far as holocron does for its model.
+#
+# Content-Security-Policy, by directive:
+#   script-src   the inline theme script in index.html, by hash (change the
+#                script and test/headers.test.ts tells you the new one).
+#   style-src    'unsafe-inline' for style attributes the UI library sets;
+#                no stylesheet comes from anywhere else.
+#   connect-src  'self' covers the API and the WebSocket.
+/*
+  Referrer-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-sZhozgqiTtexdC0ta8ImOXaPVTH6dWvh4T+UTH9avno='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
