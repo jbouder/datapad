@@ -14,6 +14,7 @@ import {
   orgs,
 } from '#shared/select';
 import { emptySnapshot, type Snapshot, type Task } from '#shared/types';
+import { dropIndex, moveItem } from '../src/lib/reorder';
 import fixture from './fixtures/export.json';
 
 const NOW = '2026-10-23T10:00:00.000Z';
@@ -267,5 +268,18 @@ describe('project filters and sorts', () => {
       'b',
       'a',
     ]);
+  });
+});
+
+describe('reorder helpers', () => {
+  it('moves an item and computes where a drop lands', () => {
+    expect(moveItem(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
+    // Dropping onto a row inserts before it.
+    expect(dropIndex(0, 2)).toBe(1);
+    expect(dropIndex(3, 1)).toBe(1);
+    expect(dropIndex(1, 4)).toBe(3);
+    expect(dropIndex(1, 1)).toBeNull();
+    expect(dropIndex(1, 2)).toBeNull();
   });
 });

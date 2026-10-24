@@ -46,7 +46,7 @@ async function animationsDuring(
         } else if (kind === 'openPanel') {
           (
             document.querySelector(
-              '[data-task-id] button:not([aria-label])',
+              '[data-task-id] [data-task-title]',
             ) as HTMLElement
           ).click();
         } else if (kind === 'closeTask') {

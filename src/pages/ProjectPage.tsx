@@ -181,6 +181,7 @@ export function ProjectPage({ id }: { id: string }) {
                 done={tasks.done}
                 showProject={false}
                 doneKey={key('done')}
+                reorderProject={id}
                 quickAdd={{
                   onAdd: (title) =>
                     actions.addTask({ projectId: id, title }) !== null,

@@ -433,6 +433,17 @@ html[data-vt="theme"]::view-transition-new(root) {
   scale: 1;
 }
 
+/* Drag reorder: a line where the row will land (before the row under
+   the pointer, or after the last). Only a box-shadow; nothing moves until
+   the drop, and then FLIP does it. */
+.task-drop-target[data-drop-before] {
+  box-shadow: inset 0 2px 0 0 var(--ring);
+}
+.task-drop-end {
+  box-shadow: inset 0 -2px 0 0 var(--ring);
+  padding-bottom: 0.5rem;
+}
+
 /* Counts just change. A number ticking over is not an event worth motion. */
 .count {
   display: inline-block;
