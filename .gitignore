@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Playwright (npm run e2e)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Cloudflare
+.wrangler/
+.dev.vars
+worker-configuration.d.ts
+
+# Claude Code agent worktrees
+.claude/worktrees/
