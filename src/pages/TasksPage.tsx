@@ -281,19 +281,6 @@ export function TasksPage() {
             onOpen={(t) => openTask(t.id)}
             columns={[
               {
-                id: 'done',
-                header: 'Done',
-                className: 'w-9',
-                cell: (t) => (
-                  <TaskCheck
-                    task={t}
-                    done={isDone(t)}
-                    onToggle={toggle}
-                    className="desk:h-8.5"
-                  />
-                ),
-              },
-              {
                 id: 'title',
                 header: 'Title',
                 sortable: true,
@@ -361,6 +348,19 @@ export function TasksPage() {
                 sortable: true,
                 className: 'whitespace-nowrap text-xs text-muted-foreground',
                 cell: (t) => relativeTime(t.updatedAt, now),
+              },
+              {
+                id: 'done',
+                header: 'Complete',
+                className: 'w-9',
+                cell: (t) => (
+                  <TaskCheck
+                    task={t}
+                    done={isDone(t)}
+                    onToggle={toggle}
+                    className="desk:h-8.5"
+                  />
+                ),
               },
             ]}
             mobileRow={(t) => (
