@@ -3,12 +3,16 @@ import {
   ArrowSquareOutIcon,
   PencilSimpleIcon,
 } from '@phosphor-icons/react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { formatDay, localDate } from '#shared/dates';
+import { projectNotes } from '#shared/notes';
 import { GENERAL, type Person } from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
+import { NoteCard } from '@/components/notes/NoteCard';
+import { NoteForm } from '@/components/notes/NoteForm';
+import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
@@ -22,15 +26,17 @@ import {
 import { TaskList } from '@/components/tasks/TaskList';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One project, where most entry happens: the header with its facts and
  * actions, the description, the current state line, then Tasks on the
- * left and Activity on the right (3:2 above 820px, one column below).
- * Events (M4) and Notes (M3) join the columns as they land. Sections
+ * left, Notes and Activity on the right (3:2 above 820px, one column
+ * below). Events (M4) join the columns when they land. Sections
  * remember open or closed per project.
  */
 export function ProjectPage({ id }: { id: string }) {
@@ -44,6 +50,14 @@ export function ProjectPage({ id }: { id: string }) {
     'list',
   );
   usePageTitle(project?.name ?? (state ? 'Not found' : 'Project'));
+  const { hidden } = useNotes();
+  const { active } = useMotion();
+  const notesList = useRef<HTMLDivElement>(null);
+  useFlip(notesList, active);
+  const notes = useMemo(
+    () => projectNotes(state?.notes ?? {}, id, hidden),
+    [state?.notes, id, hidden],
+  );
 
   const tasks = useMemo(() => {
     const mine = Object.values(state?.tasks ?? {}).filter(
@@ -218,6 +232,28 @@ export function ProjectPage({ id }: { id: string }) {
           </Section>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
+          <Section title="Notes" count={notes.length} storageKey={key('notes')}>
+            <div className="flex flex-col gap-3 pt-2">
+              <NoteForm projectId={id} people={state.people} />
+              <div ref={notesList} className="flex flex-col gap-2">
+                {notes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No notes on this project yet.
+                  </p>
+                ) : (
+                  notes.map((n) => (
+                    <NoteCard
+                      key={n.id}
+                      note={n}
+                      state={state}
+                      showProject={false}
+                      when="day"
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </Section>
           <Section
             title="Activity"
             storageKey={key('activity')}

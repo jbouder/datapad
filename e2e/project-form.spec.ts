@@ -59,7 +59,7 @@ test('edit logs details and status separately; a new org is offered', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/projects/p-falcon');
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(panel(page)).toBeVisible();
 
   const org = panel(page).getByRole('combobox', { name: 'Org' });
@@ -105,7 +105,7 @@ test('a dirty form asks before Esc throws it away', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel(page).getByRole('textbox', { name: 'Name' }).fill('Echo Base II');
   await page.keyboard.press('Escape');
   await expect(
@@ -135,7 +135,7 @@ test('archive with undo, then delete with the counts', async ({
     'Archived project',
   ]);
 
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel(page).getByRole('button', { name: 'Delete' }).click();
   const ask = panel(page).getByRole('alertdialog');
   await expect(ask).toContainText(

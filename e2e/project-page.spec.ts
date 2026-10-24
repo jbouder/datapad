@@ -123,13 +123,13 @@ test('two columns above 820px, one below', async ({ page }) => {
   const tasks = await page
     .getByRole('button', { name: /^Tasks/ })
     .boundingBox();
-  const activity = await page
-    .getByRole('button', { name: /^Activity/ })
+  const notes = await page
+    .getByRole('button', { name: /^Notes/ })
     .boundingBox();
   if (isMobile(page)) {
-    expect(activity?.y ?? 0).toBeGreaterThan(tasks?.y ?? 0);
+    expect(notes?.y ?? 0).toBeGreaterThan(tasks?.y ?? 0);
   } else {
-    expect(Math.abs((activity?.y ?? 0) - (tasks?.y ?? 0))).toBeLessThan(4);
-    expect(activity?.x ?? 0).toBeGreaterThan(tasks?.x ?? 0);
+    expect(Math.abs((notes?.y ?? 0) - (tasks?.y ?? 0))).toBeLessThan(4);
+    expect(notes?.x ?? 0).toBeGreaterThan(tasks?.x ?? 0);
   }
 });
