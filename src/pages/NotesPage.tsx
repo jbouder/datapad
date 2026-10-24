@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RowsIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { describeDay, localDate } from '#shared/dates';
 import {
   groupByDay,
@@ -8,6 +16,11 @@ import {
 } from '#shared/notes';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import {
+  useView,
+  type ViewOption,
+  ViewSwitcher,
+} from '@/components/layouts/ViewSwitcher';
 import { NoteCard } from '@/components/notes/NoteCard';
 import { NoteForm } from '@/components/notes/NoteForm';
 import { useNotes } from '@/components/notes/NotesProvider';
@@ -16,9 +29,16 @@ import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { withViewTransition } from '@/lib/motion';
+import { withLayoutTransition, withViewTransition } from '@/lib/motion';
 import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+
+type NoteView = 'feed' | 'grid';
+
+export const NOTE_VIEWS: readonly ViewOption<NoteView>[] = [
+  { id: 'feed', label: 'Feed', icon: RowsIcon },
+  { id: 'grid', label: 'Grid', icon: SquaresFourIcon },
+];
 
 /** How long typing in Find waits before filtering. */
 const FIND_DEBOUNCE_MS = 150;
@@ -37,9 +57,10 @@ function useNoteFilters(): NoteFilters {
 }
 
 /**
- * Every note, newest first under its day: the composer at the top
- * (General unless you pick a project), then a project filter, Pinned and
- * Find. Filters live in the URL.
+ * Every note as a Feed (newest first under its day, the default) or a
+ * Grid (compact cards, pinned first, opening in place). The composer is
+ * at the top (General unless you pick a project), then a project filter,
+ * Pinned and Find; filters and layout live in the URL.
  */
 export function NotesPage() {
   usePageTitle('Notes');
@@ -47,6 +68,8 @@ export function NotesPage() {
   const { hidden } = useNotes();
   const { active } = useMotion();
   const filters = useNoteFilters();
+  const [view, setView] = useView('notes', NOTE_VIEWS, 'feed');
+  const [open, setOpen] = useState<string | null>(null);
   const [find, setFind] = useState(filters.q);
   const feed = useRef<HTMLDivElement>(null);
   useFlip(feed, active);
@@ -75,6 +98,72 @@ export function NotesPage() {
     [state, filters, hidden],
   );
   const days = useMemo(() => groupByDay(notes), [notes]);
+  const grid = useMemo(
+    () => [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned)),
+    [notes],
+  );
+
+  const toggleOpen = useCallback(
+    (id: string) =>
+      withLayoutTransition(
+        () => setOpen((current) => (current === id ? null : id)),
+        active,
+      ),
+    [active],
+  );
+
+  // An open card lies over the cells below it; when it reaches past the
+  // grid, the grid makes room under itself so the page scrolls to it.
+  const gridRef = useRef<HTMLUListElement>(null);
+  const [overhang, setOverhang] = useState(0);
+  const overhangRef = useRef(0);
+  overhangRef.current = overhang;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the notes change
+  useLayoutEffect(() => {
+    const list = gridRef.current;
+    const card = open
+      ? list?.querySelector<HTMLElement>(`[data-note-id="${CSS.escape(open)}"]`)
+      : null;
+    if (!list || !card) {
+      setOverhang(0);
+      return;
+    }
+    const measure = () => {
+      const below =
+        card.getBoundingClientRect().bottom -
+        list.getBoundingClientRect().bottom +
+        overhangRef.current;
+      setOverhang(Math.max(0, Math.ceil(below)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [open, notes]);
+
+  // Esc closes the open grid card, and focus goes back to its own
+  // Expand button once the collapsed card is on screen.
+  const closing = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      closing.current = open;
+      toggleOpen(open);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, toggleOpen]);
+  useEffect(() => {
+    const id = closing.current;
+    if (open !== null || !id) return;
+    closing.current = null;
+    document
+      .querySelector<HTMLElement>(
+        `[data-note-id="${CSS.escape(id)}"] [aria-label="Expand note"]`,
+      )
+      ?.focus();
+  }, [open]);
   const words = useMemo(() => queryWords(filters.q), [filters.q]);
 
   if (!state) {
@@ -94,9 +183,12 @@ export function NotesPage() {
       aria-labelledby="notes-title"
       className="enter flex flex-col gap-4"
     >
-      <h1 id="notes-title" className="text-page-title">
-        Notes
-      </h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 id="notes-title" className="text-page-title flex-1">
+          Notes
+        </h1>
+        <ViewSwitcher views={NOTE_VIEWS} value={view} onChange={setView} />
+      </div>
 
       <NoteForm people={state.people} />
 
@@ -160,6 +252,45 @@ export function NotesPage() {
               No notes yet. Write one above; it lands here under today.
             </p>
           )
+        ) : view === 'grid' ? (
+          <ul
+            ref={gridRef}
+            aria-label="Notes"
+            style={{ paddingBottom: overhang }}
+            className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {grid.map((n) => {
+              const isOpen = open === n.id;
+              const card = (layout: boolean) => (
+                <NoteCard
+                  note={n}
+                  state={state}
+                  highlight={words}
+                  when="day"
+                  compact={!isOpen || !layout}
+                  layout={layout}
+                  expand={{ expanded: isOpen, toggle: () => toggleOpen(n.id) }}
+                />
+              );
+              return (
+                <li key={n.id} className="relative">
+                  {isOpen ? (
+                    <>
+                      {/* Holds the cell's size so nothing else moves. */}
+                      <div aria-hidden inert className="invisible">
+                        {card(false)}
+                      </div>
+                      <div className="absolute inset-x-0 top-0 z-20 shadow-xl">
+                        {card(true)}
+                      </div>
+                    </>
+                  ) : (
+                    card(true)
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         ) : (
           days.map((d) => (
             <section
