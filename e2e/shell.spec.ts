@@ -1,4 +1,11 @@
-import { expect, openPreferences, SEED, SEED_COUNTS, test } from './fixtures';
+import {
+  expect,
+  openLive,
+  openPreferences,
+  SEED,
+  SEED_COUNTS,
+  test,
+} from './fixtures';
 
 test('signs in through the dev bypass as this test’s own address', async ({
   page,
@@ -57,6 +64,24 @@ test('every page has its own title', async ({ page }) => {
   await expect(page).toHaveTitle('Help · Datapad');
   await page.goBack();
   await expect(page).toHaveTitle('Focus · Datapad');
+});
+
+test('the top bar shows the title only once the h1 scrolls away', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await page.setViewportSize({
+    width: page.viewportSize()?.width ?? 390,
+    height: 360,
+  });
+  await openLive(page, '/projects/p-echo');
+  const echo = page.getByRole('banner').getByText('Echo Base relocation');
+  await expect(echo).not.toHaveAttribute('data-shown');
+  await page.mouse.wheel(0, 600);
+  await expect(echo).toHaveAttribute('data-shown', 'true');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(echo).not.toHaveAttribute('data-shown');
 });
 
 test('the theme choice persists and applies before first paint', async ({
