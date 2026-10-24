@@ -14,11 +14,11 @@ import { MemberChips } from '@/components/inputs/MemberChips';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
+import { NoteComposer } from '@/components/NoteComposer';
 import { OrgPicker } from '@/components/pickers/OrgPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useDatapad } from '@/hooks/useDatapad';
 import { navigate } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
@@ -287,13 +287,12 @@ export function ProjectForm({
         value={values.members}
         onChange={(members) => set('members', members)}
       />
-      <Field label="Description" hint="Markdown">
-        <Textarea
+      <Field label="Description" hint="Markdown; type / for styles">
+        <NoteComposer
           value={values.desc}
-          maxLength={LIMITS.bodyMax}
+          onChange={(desc) => set('desc', desc)}
+          people={{}}
           rows={5}
-          className="text-base desk:text-sm"
-          onChange={(e) => set('desc', e.target.value)}
         />
       </Field>
       <LinksEditor

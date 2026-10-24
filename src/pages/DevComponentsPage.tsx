@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toggleCheck } from '#shared/markdown';
+import { namesToTokens } from '#shared/mentions';
 import type { Link, Priority } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
@@ -9,11 +10,13 @@ import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { TagInput } from '@/components/inputs/TagInput';
 import { LayoutsDemo } from '@/components/layouts/LayoutsDemo';
 import { Markdown } from '@/components/Markdown';
+import { NoteComposer } from '@/components/NoteComposer';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -50,6 +53,8 @@ export default function DevComponentsPage() {
   const [links, setLinks] = useState<Link[]>([]);
   const [panel, setPanel] = useState(false);
   const [sample, setSample] = useState(SAMPLE);
+  const [draft, setDraft] = useState('');
+  const { state } = useDatapad();
   const [name, setName] = useState('');
   const dirty = useDirty({ name }, { name: '' });
 
@@ -102,6 +107,34 @@ export default function DevComponentsPage() {
           people={{}}
           onToggle={(line) => setSample((s) => toggleCheck(s, line))}
         />
+      </section>
+
+      <section aria-labelledby="composer-title" className="flex flex-col gap-2">
+        <h2 id="composer-title" className="text-xs font-medium">
+          Composer
+        </h2>
+        <NoteComposer
+          value={draft}
+          onChange={setDraft}
+          people={state?.people ?? {}}
+          label="Composer"
+          placeholder="Type / for styles, @ to mention"
+          draftKey="datapad:draft:dev"
+          onTask={(title) => {
+            show(`Would add task “${title}”`);
+            return true;
+          }}
+          onSubmit={() => {
+            show('Would add the note');
+            setDraft('');
+          }}
+        />
+        <div data-testid="composer-preview">
+          <Markdown
+            text={namesToTokens(draft, state?.people ?? {})}
+            people={state?.people ?? {}}
+          />
+        </div>
       </section>
 
       <LayoutsDemo />
