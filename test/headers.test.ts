@@ -84,12 +84,27 @@ describe('static asset headers', () => {
     expect(header('Permissions-Policy')).toContain('camera=()');
   });
 
-  it('talks to nothing but this origin', () => {
-    for (const name of ['script-src', 'connect-src', 'font-src', 'img-src']) {
+  it('loads nothing from another origin', () => {
+    for (const name of ['script-src', 'font-src', 'img-src', 'worker-src']) {
       for (const source of directive(csp, name)) {
         expect(source, `${name} ${source}`).not.toMatch(/^https?:|^\*/);
       }
     }
+  });
+
+  it('connects elsewhere only for the summary model, as holocron does', () => {
+    expect(directive(csp, 'connect-src')).toEqual([
+      "'self'",
+      // The weights, and the CDNs Hugging Face redirects them to.
+      'https://huggingface.co',
+      'https://*.huggingface.co',
+      'https://*.hf.co',
+      // WebLLM's WebGPU model library.
+      'https://raw.githubusercontent.com',
+    ]);
+    // WebAssembly for the model, and still no eval.
+    expect(directive(csp, 'script-src')).toContain("'wasm-unsafe-eval'");
+    expect(directive(csp, 'worker-src')).toEqual(["'self'"]);
   });
 });
 

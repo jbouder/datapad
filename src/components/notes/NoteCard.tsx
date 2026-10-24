@@ -5,6 +5,7 @@ import {
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
+  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -17,6 +18,7 @@ import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
+import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -68,6 +70,7 @@ export function NoteCard({
 }) {
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
+  const { summarize } = useSummaries();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
@@ -434,6 +437,16 @@ export function NoteCard({
           >
             <CheckSquareOffsetIcon />
             Make task
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="press h-11 desk:h-7"
+            aria-label="Summarize note"
+            onClick={() => summarize({ kind: 'note', id: note.id })}
+          >
+            <SparkleIcon />
+            Summarize
           </Button>
           <Button
             variant="ghost"

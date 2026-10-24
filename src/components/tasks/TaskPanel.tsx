@@ -1,4 +1,4 @@
-import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { ArrowClockwiseIcon, SparkleIcon } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
@@ -16,6 +16,7 @@ import { noteLocation } from '@/components/notes/useMakeTask';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
+import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -55,6 +56,7 @@ export function TaskPanel({
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
+  const { summarize } = useSummaries();
   const people = state?.people ?? {};
   const read = (t: Task): Values => ({
     title: t.title,
@@ -161,7 +163,15 @@ export function TaskPanel({
       onSubmit={save}
       footer={
         <>
-          {/* Summarize joins the footer with on-device summaries (M6). */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="press"
+            onClick={() => summarize({ kind: 'task', id: task.id })}
+          >
+            <SparkleIcon />
+            Summarize
+          </Button>
           <Button
             type="button"
             variant="ghost"

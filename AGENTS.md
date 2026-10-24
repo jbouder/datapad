@@ -21,7 +21,8 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
   (memoisable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
-  `summaries.ts` (what Summarize sends; events so far), `search.ts`
+  `summaries.ts` (the models, prompt and per-item context Summarize
+  sends), `search.ts`
   (the ⌘K index and ranking).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
@@ -46,7 +47,7 @@ React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
 · stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do
 not hand-edit) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
-resolver fails on Vitest 4.1 peers) · WebLLM for summaries (M6, in-browser).
+resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`).
 
 ## Rules
 

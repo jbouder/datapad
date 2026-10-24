@@ -4,18 +4,27 @@
 # edge before the Worker and these rules.
 #
 # Datapad loads nothing from another origin: fonts are bundled and there is
-# no third-party script. The local summary model (M6) will widen
-# connect-src and script-src only as far as holocron does for its model.
+# no third-party script. The one exception is the on-device summary model,
+# and the CSP widens only as far as holocron does for the same model.
+#
+# Send no referrer to other sites: Hugging Face refuses model downloads
+# whose Referer is a *.workers.dev page, including the ones the summary
+# worker makes through Cache.add(), which no fetch wrapper can reach.
 #
 # Content-Security-Policy, by directive:
 #   script-src   the inline theme script in index.html, by hash (change the
-#                script and test/headers.test.ts tells you the new one).
+#                script and test/headers.test.ts tells you the new one);
+#                WebAssembly for the summary model.
 #   style-src    'unsafe-inline' for style attributes the UI library sets;
 #                no stylesheet comes from anywhere else.
-#   connect-src  'self' covers the API and the WebSocket.
+#   connect-src  'self' covers the API and the WebSocket. The summary
+#                model's weights (Hugging Face and the CDNs it redirects
+#                to) and its WebGPU library (raw.githubusercontent.com).
+#                Nothing of yours is sent to any of them.
+#   worker-src   the summary model's Web Worker, from this origin.
 /*
   Referrer-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-AninP3D4U6FRf13VyLzOT4f91MfmzGUmte3Qj5cy87o='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-AninP3D4U6FRf13VyLzOT4f91MfmzGUmte3Qj5cy87o=' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()

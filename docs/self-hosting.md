@@ -89,8 +89,12 @@ bucket now means the deploy that adds them just works.
 
 ## Summaries
 
-Nothing to configure. Summaries run in the browser on a local WebLLM model
-(M6); there is no API key.
+Nothing to configure. Summaries run in the browser on a local WebLLM model;
+there is no API key. The browser needs WebGPU (recent Chrome, Edge, Safari
+or Firefox on most hardware); without it Summarize says so and does
+nothing else. If you serve the assets somewhere other than Workers, keep
+the CSP from `public/_headers`: the model needs `'wasm-unsafe-eval'` and
+its download hosts in `connect-src`.
 
 ## Custom domain
 
