@@ -1,6 +1,5 @@
 import { PlusIcon } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { localDate } from '#shared/dates';
+import { useCallback, useMemo } from 'react';
 import {
   DEFAULT_PROJECT_FILTERS,
   PROJECT_SORTS,
@@ -9,11 +8,15 @@ import {
   type StatusFilter,
   selectProjects,
 } from '#shared/projects';
-import { nextMarkers, openCounts, orgs } from '#shared/select';
+import { orgs } from '#shared/select';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
-import { ProjectCard } from '@/components/projects/ProjectCard';
+import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
+import {
+  PROJECT_VIEWS,
+  ProjectLayouts,
+} from '@/components/projects/ProjectLayouts';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -51,47 +54,6 @@ function useProjectFilters(): ProjectFilters {
   };
 }
 
-/** Cards in a grid, entering only the first time the page mounts. */
-export function ProjectGrid({
-  projects,
-  label,
-}: {
-  projects: ReturnType<typeof selectProjects>;
-  label: string;
-}) {
-  const { state } = useDatapad();
-  const first = useRef(true);
-  useEffect(() => {
-    first.current = false;
-  }, []);
-  const today = localDate(new Date());
-  if (!state) return null;
-  const open = openCounts(state.tasks);
-  const next = nextMarkers(state.events, today);
-  return (
-    <ul
-      aria-label={label}
-      className="vt-list grid grid-cols-1 gap-3 sm:grid-cols-2 desk:grid-cols-2 lg:grid-cols-3"
-    >
-      {projects.map((p, i) => (
-        <li key={p.id} className="flex">
-          <div className="flex flex-1 flex-col *:flex-1">
-            <ProjectCard
-              project={p}
-              open={open.get(p.id) ?? 0}
-              next={next.get(p.id)}
-              people={state.people}
-              today={today}
-              enter={first.current}
-              index={i}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /**
  * Every project that is not archived, as cards: filter by status (Active
  * by default) and org, sort four ways, all kept in the URL. Changing them
@@ -103,6 +65,7 @@ export function ProjectsPage() {
   const { openProjectForm } = useProjectForm();
   const { active } = useMotion();
   const filters = useProjectFilters();
+  const [view, setView] = useView('projects', PROJECT_VIEWS, 'cards');
 
   const change = useCallback(
     (key: keyof ProjectFilters, value: string) => {
@@ -144,6 +107,9 @@ export function ProjectsPage() {
         <h1 id="projects-title" className="text-page-title flex-1">
           Projects
         </h1>
+        {anyProjects && (
+          <ViewSwitcher views={PROJECT_VIEWS} value={view} onChange={setView} />
+        )}
         {anyProjects && (
           <Button className="press" onClick={() => openProjectForm()}>
             <PlusIcon weight="bold" />
@@ -210,7 +176,13 @@ export function ProjectsPage() {
           </Button>
         </div>
       ) : (
-        <ProjectGrid projects={projects} label="Projects" />
+        <ProjectLayouts
+          view={view}
+          projects={projects}
+          label="Projects"
+          sort={filters.sort}
+          onSort={(sort) => change('sort', sort)}
+        />
       )}
     </section>
   );
