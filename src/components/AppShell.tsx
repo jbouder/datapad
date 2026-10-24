@@ -125,6 +125,7 @@ export function AppShell() {
         <TopBar
           route={route}
           title={titleOf(route, projectName)}
+          pageKey={pageKey(route)}
           email={email}
           onAddTask={addTask}
           onSearch={() => setPalette(true)}

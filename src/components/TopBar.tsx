@@ -3,6 +3,7 @@ import {
   PlusIcon,
   QuestionIcon,
 } from '@phosphor-icons/react';
+import { useRef } from 'react';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
@@ -12,30 +13,39 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /**
- * The current title on the left (with the brand on phones, where there is
- * no rail), then Search (with its shortcut on desktop), sync trouble on
+ * The current title on the left once the page's own h1 has scrolled away
+ * (with the brand on phones, where there is no rail), then Search (with its shortcut on desktop), sync trouble on
  * phones, **+** (Add task), Help and Preferences.
  */
 export function TopBar({
   route,
   title,
+  pageKey,
   email,
   onAddTask,
   onSearch,
 }: {
   route: Route;
   title: string;
+  /** Changes when the page does, so the h1 is found again. */
+  pageKey: string;
   email: string | null;
   onAddTask: () => void;
   onSearch: () => void;
 }) {
   const hint = paletteHint();
+  const bar = useRef<HTMLElement>(null);
+  const showTitle = useHeadingScrolledPast(bar, pageKey);
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70">
+    <header
+      ref={bar}
+      className="sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70"
+    >
       <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
         <a
           {...linkProps({ name: 'focus' })}
@@ -44,10 +54,12 @@ export function TopBar({
           <DatapadMark className="size-6" />
           <span className="sr-only">Datapad, Focus</span>
         </a>
-        {/* The page's h1 names it for assistive tech; this is the visual echo. */}
+        {/* The page's h1 names it for assistive tech; this is the visual echo,
+            shown only once that h1 has scrolled under the bar. */}
         <p
           aria-hidden
-          className="min-w-0 flex-1 truncate font-heading text-base font-semibold tracking-tight"
+          data-shown={showTitle || undefined}
+          className="min-w-0 flex-1 translate-y-1 truncate font-heading text-base font-semibold tracking-tight opacity-0 transition-[opacity,translate] duration-(--duration-base) ease-(--ease-standard) data-shown:translate-y-0 data-shown:opacity-100"
         >
           {title}
         </p>
