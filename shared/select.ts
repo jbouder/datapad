@@ -74,6 +74,27 @@ export type AssigneeFilter =
   | { kind: 'unassigned' }
   | { kind: 'person'; id: string };
 
+/** The filter as it sits in the URL (`who=`): anyone, mine, unassigned, p:<id>. */
+export function assigneeFromQuery(value: string | null): AssigneeFilter {
+  if (value === 'mine') return { kind: 'mine' };
+  if (value === 'unassigned') return { kind: 'unassigned' };
+  if (value?.startsWith('p:') && value.length > 2) {
+    return { kind: 'person', id: value.slice(2) };
+  }
+  return { kind: 'anyone' };
+}
+
+export function assigneeToQuery(filter: AssigneeFilter): string {
+  return filter.kind === 'person' ? `p:${filter.id}` : filter.kind;
+}
+
+/** Who a task quick-added under the filter goes to ('' = nobody). */
+export function assigneeFor(filter: AssigneeFilter, me: string | null): string {
+  if (filter.kind === 'mine') return me ?? '';
+  if (filter.kind === 'person') return filter.id;
+  return '';
+}
+
 export function matchesAssignee(
   task: Task,
   filter: AssigneeFilter,

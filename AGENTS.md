@@ -26,7 +26,8 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router),
-  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
+  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
+  date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `providers/*` (Motion, Theme, Toast), `components/*` (shared layouts in
   `components/layouts/`: ViewSwitcher, DataTable, CardGrid, Board, Timeline,
   Calendar), `pages/*`.

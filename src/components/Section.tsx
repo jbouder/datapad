@@ -13,7 +13,8 @@ function read(key: string, fallback: boolean): boolean {
 
 /**
  * A titled section whose header is a button with `aria-expanded`. With
- * `storageKey`, open or closed is remembered in this browser.
+ * `storageKey`, open or closed is remembered in this browser. Pass `open`
+ * to override it (a section opened to show what was just added).
  */
 export function Section({
   title,
@@ -21,6 +22,8 @@ export function Section({
   storageKey,
   defaultOpen = true,
   actions,
+  open: forced,
+  onToggle,
   className,
   children,
 }: {
@@ -30,25 +33,29 @@ export function Section({
   defaultOpen?: boolean;
   /** Controls on the right of the header (outside the toggle). */
   actions?: ReactNode;
+  /** Shown open regardless of the remembered state while true. */
+  open?: boolean;
+  /** After the header is clicked, with the new state. */
+  onToggle?: (open: boolean) => void;
   className?: string;
   children: ReactNode;
 }) {
   const id = useId();
-  const [open, setOpen] = useState(() =>
+  const [remembered, setOpen] = useState(() =>
     storageKey ? read(storageKey, defaultOpen) : defaultOpen,
   );
+  const open = forced || remembered;
   const toggle = () => {
-    setOpen((was) => {
-      const next = !was;
-      if (storageKey) {
-        try {
-          localStorage.setItem(storageKey, next ? 'open' : 'closed');
-        } catch {
-          // Not remembered; it still toggles.
-        }
+    const next = !open;
+    setOpen(next);
+    if (storageKey) {
+      try {
+        localStorage.setItem(storageKey, next ? 'open' : 'closed');
+      } catch {
+        // Not remembered; it still toggles.
       }
-      return next;
-    });
+    }
+    onToggle?.(next);
   };
   return (
     <section

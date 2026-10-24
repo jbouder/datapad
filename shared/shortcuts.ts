@@ -10,7 +10,12 @@ export interface Shortcut {
   keys: string[];
   action: string;
   /** Where it works. */
-  scope: 'Anywhere' | 'Task lists and tables' | 'Collection pages' | 'Panels';
+  scope:
+    | 'Anywhere'
+    | 'Focus'
+    | 'Task lists and tables'
+    | 'Collection pages'
+    | 'Panels';
   /** Not bound yet: arrives with a later feature. */
   later?: string;
 }
@@ -32,6 +37,11 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['Esc'],
     action: 'Close the panel or menu; clear a selection',
     scope: 'Anywhere',
+  },
+  {
+    keys: ['m'],
+    action: 'Show only my tasks, or everyone’s again',
+    scope: 'Focus',
   },
   {
     keys: ['j', 'k'],

@@ -270,8 +270,9 @@
 
 /* ---- Note cards --------------------------------------------------------- */
 
-/* Arrived at from a task's "From note" link. */
-.note-card[data-highlighted] {
+/* Arrived at from a link to it ("From note", the agenda, search). */
+.note-card[data-highlighted],
+.event-row[data-highlighted] {
   box-shadow: 0 0 0 2px var(--ring);
 }
 

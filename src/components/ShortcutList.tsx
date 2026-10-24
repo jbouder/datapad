@@ -2,6 +2,7 @@ import { SHORTCUTS, type Shortcut } from '@/lib/shortcuts';
 
 const SCOPES: Shortcut['scope'][] = [
   'Anywhere',
+  'Focus',
   'Task lists and tables',
   'Collection pages',
   'Panels',
