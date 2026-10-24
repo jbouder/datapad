@@ -16,7 +16,8 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "types": "wrangler types",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "icons": "node --experimental-strip-types scripts/icons.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

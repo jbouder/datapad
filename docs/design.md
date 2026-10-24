@@ -100,6 +100,31 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
 - Tables become stacked rows; wide layouts (board, timeline) scroll inside
   their own container, never the page.
 
+## Installing (PWA)
+
+- `public/site.webmanifest`: standalone, opens at `/focus`, scope `/`.
+  The page links it with `crossorigin="use-credentials"`: behind
+  Cloudflare Access, a manifest fetched without the session cookie would
+  get the login page instead.
+- Icons: a near-black tile (`#0a0a0a`, Dark's `--background`) with the
+  Datapad mark in near-white, so they read on light and dark home screens
+  alike. 192 and 512 (`any`), a 512 `maskable` with the mark inside the
+  safe zone, a 180 `apple-touch-icon`, `favicon.ico` (32) and the SVG
+  favicon. `og.png` (1200×630) for link previews. `npm run icons`
+  (`scripts/icons.ts`) redraws them all from the mark; commit the output.
+- `theme-color` has one value per scheme in `index.html` and follows the
+  theme picked in the app (`ThemeProvider`). `viewport-fit=cover` with
+  safe-area padding on the top bar, the tab bar, panel footers and toasts.
+- **No service worker.** Every request, assets included, must pass the
+  Access check in the Worker, and an app shell cached on the device would
+  open after the Access session ended, then fail on its first request. Chrome
+  and Safari install without one, the IndexedDB snapshot already paints the
+  last data at once, and the offline queue covers writes. Revisit only if
+  measured cold start on a phone needs it (M8 #55).
+- The installed app shares the browser's cookies (Android: always; iOS:
+  from Safari's Add to Home Screen, a separate cookie jar, so sign in to
+  Access once inside the installed app).
+
 ## Copy
 
 - Sentence case everywhere, including buttons and headings.

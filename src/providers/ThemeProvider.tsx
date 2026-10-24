@@ -51,9 +51,22 @@ function resolveMode(theme: ThemeId): 'light' | 'dark' {
 }
 
 /** Same logic as the inline script in index.html. */
+/** `--background` of each mode, as hex for the browser's chrome. */
+export const THEME_COLORS = { light: '#ffffff', dark: '#0a0a0a' } as const;
+
 function apply(theme: ThemeId) {
   const root = document.documentElement;
   root.classList.toggle('dark', resolveMode(theme) === 'dark');
+  // The status bar and title bar follow the app's theme, not only the
+  // device's: index.html has one theme-color per scheme; a picked theme
+  // sets both.
+  for (const meta of document.querySelectorAll<HTMLMetaElement>(
+    'meta[name="theme-color"]',
+  )) {
+    const scheme = meta.media.includes('dark') ? 'dark' : 'light';
+    meta.content =
+      THEME_COLORS[theme === 'system' ? scheme : resolveMode(theme)];
+  }
 }
 
 function save(theme: ThemeId) {
