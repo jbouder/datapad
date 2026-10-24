@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { addDays, formatDay, localDate } from '#shared/dates';
 import type { DateString } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -20,6 +20,8 @@ export interface TimelineRow {
   end?: DateString;
   /** No real end: draw the bar dashed. */
   open?: boolean;
+  /** Points only (tasks): no bar from the first to the last. */
+  noBar?: boolean;
   points: TimelinePoint[];
 }
 
@@ -72,15 +74,33 @@ export function Timeline({
   rows,
   onOpenRow,
   onOpenPoint,
+  onMovePoint,
+  onDropItem,
   defaultZoom = 'month',
 }: {
   label: string;
   rows: TimelineRow[];
   onOpenRow?: (id: string) => void;
   onOpenPoint?: (rowId: string, pointId: string) => void;
+  /** Dragging a point sideways moves it to another day. */
+  onMovePoint?: (rowId: string, pointId: string, date: DateString) => void;
+  /**
+   * Something dragged in from outside (an undated tray item, carrying its
+   * id as `text/plain`) dropped on a lane at a day.
+   */
+  onDropItem?: (itemId: string, rowId: string, date: DateString) => void;
   defaultZoom?: Zoom;
 }) {
   const [zoom, setZoom] = useState<Zoom>(defaultZoom);
+  /** The point being dragged and how far, in days. */
+  const [dragging, setDragging] = useState<{
+    rowId: string;
+    pointId: string;
+    startX: number;
+    days: number;
+  } | null>(null);
+  const [dropRow, setDropRow] = useState<string | null>(null);
+  const moved = useRef(false);
   const today = localDate(new Date());
 
   const range = useMemo(() => {
@@ -104,6 +124,9 @@ export function Timeline({
 
   const px = DAY_PX[zoom];
   const x = (d: DateString) => Math.max(0, days(range.from, d)) * px;
+  /** The day under a horizontal offset inside a lane. */
+  const dayAt = (offset: number) =>
+    addDays(range.from, Math.max(0, Math.round(offset / px)));
   const width = range.width * px;
 
   return (
@@ -210,8 +233,35 @@ export function Timeline({
                 >
                   {r.label}
                 </button>
-                <div className="relative h-full flex-1">
-                  {start && end && (
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: a drop target in the aria-hidden visual; the tray and the list carry the keyboard path */}
+                <div
+                  className={cn(
+                    'relative h-full flex-1',
+                    dropRow === r.id && 'bg-accent/40',
+                  )}
+                  onDragOver={
+                    onDropItem
+                      ? (e) => {
+                          e.preventDefault();
+                          setDropRow(r.id);
+                        }
+                      : undefined
+                  }
+                  onDragLeave={() => setDropRow((d) => (d === r.id ? null : d))}
+                  onDrop={
+                    onDropItem
+                      ? (e) => {
+                          e.preventDefault();
+                          setDropRow(null);
+                          const id = e.dataTransfer.getData('text/plain');
+                          const box = e.currentTarget.getBoundingClientRect();
+                          if (id)
+                            onDropItem(id, r.id, dayAt(e.clientX - box.left));
+                        }
+                      : undefined
+                  }
+                >
+                  {!r.noBar && start && end && (
                     <span
                       className={cn(
                         'absolute top-1/2 h-2 -translate-y-1/2 bg-primary/25',
@@ -229,8 +279,58 @@ export function Timeline({
                       key={p.id}
                       type="button"
                       tabIndex={-1}
+                      data-layout-id={p.id}
                       title={`${p.label} · ${formatDay(p.date, today)}`}
-                      onClick={() => onOpenPoint?.(r.id, p.id)}
+                      onClick={() => {
+                        // A drag ends with a click; only a still press opens.
+                        if (!moved.current) onOpenPoint?.(r.id, p.id);
+                        moved.current = false;
+                      }}
+                      onPointerDown={
+                        onMovePoint
+                          ? (e) => {
+                              e.currentTarget.setPointerCapture(e.pointerId);
+                              moved.current = false;
+                              setDragging({
+                                rowId: r.id,
+                                pointId: p.id,
+                                startX: e.clientX,
+                                days: 0,
+                              });
+                            }
+                          : undefined
+                      }
+                      onPointerMove={
+                        onMovePoint
+                          ? (e) => {
+                              if (dragging?.pointId !== p.id) return;
+                              const daysMoved = Math.round(
+                                (e.clientX - dragging.startX) / px,
+                              );
+                              if (daysMoved !== 0) moved.current = true;
+                              if (daysMoved !== dragging.days) {
+                                setDragging({ ...dragging, days: daysMoved });
+                              }
+                            }
+                          : undefined
+                      }
+                      onPointerUp={
+                        onMovePoint
+                          ? () => {
+                              if (
+                                dragging?.pointId === p.id &&
+                                dragging.days !== 0
+                              ) {
+                                onMovePoint(
+                                  r.id,
+                                  p.id,
+                                  addDays(p.date, dragging.days),
+                                );
+                              }
+                              setDragging(null);
+                            }
+                          : undefined
+                      }
                       className={cn(
                         'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-foreground',
                         p.kind === 'milestone' && 'bg-foreground',
@@ -238,7 +338,14 @@ export function Timeline({
                           'border-destructive bg-background',
                         p.kind === 'task' && 'rounded-full bg-background',
                       )}
-                      style={{ left: x(p.date) }}
+                      style={{
+                        left: x(p.date),
+                        // While dragging: transform only; layout moves on drop.
+                        translate:
+                          dragging?.pointId === p.id
+                            ? `calc(-50% + ${dragging.days * px}px) -50%`
+                            : undefined,
+                      }}
                     />
                   ))}
                 </div>

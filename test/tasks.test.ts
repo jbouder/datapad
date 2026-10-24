@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ExportSchema } from '#shared/protocol';
-import { DEFAULT_TASK_FILTERS, dueBucket, selectTasks } from '#shared/tasks';
+import {
+  DEFAULT_TASK_FILTERS,
+  dueBucket,
+  dueForBucket,
+  selectTasks,
+} from '#shared/tasks';
 import type { Snapshot, Task } from '#shared/types';
 import fixture from './fixtures/export.json';
 
@@ -108,5 +113,35 @@ describe('selectTasks', () => {
     expect(dueBucket(t('2026-10-25'), today)).toBe('week');
     expect(dueBucket(t('2026-10-26'), today)).toBe('later');
     expect(dueBucket(t(''), today)).toBe('none');
+  });
+});
+
+describe('dropping on a due column', () => {
+  it('sets a concrete date per bucket', () => {
+    // Friday 23 October 2026.
+    expect(dueForBucket('today', today)).toBe('2026-10-23');
+    expect(dueForBucket('week', today)).toBe('2026-10-23');
+    expect(dueForBucket('week', '2026-10-21')).toBe('2026-10-23');
+    // Saturday: Friday has gone, so Sunday.
+    expect(dueForBucket('week', '2026-10-24')).toBe('2026-10-25');
+    expect(dueForBucket('later', today)).toBe('2026-11-06');
+    expect(dueForBucket('none', today)).toBe('');
+    expect(dueForBucket('overdue', today)).toBeNull();
+  });
+
+  it('groups by priority, highest first', () => {
+    const s = seeded();
+    const groups = selectTasks(
+      s,
+      { ...DEFAULT_TASK_FILTERS, group: 'priority' },
+      today,
+      null,
+    );
+    expect(groups.map((g) => g.label)).toEqual([
+      'High',
+      'Medium',
+      'Low',
+      'No priority',
+    ]);
   });
 });

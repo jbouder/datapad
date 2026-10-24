@@ -1,11 +1,11 @@
-import { endOfWeek } from './dates';
+import { addDays, endOfWeek } from './dates';
 import { type AssigneeFilter, matchesAssignee, PRIORITY_RANK } from './select';
 import type { DateString, Snapshot, Task } from './types';
 
 /** The Tasks view's controls, as kept in the URL. */
 export interface TaskFilters {
   status: 'open' | 'done' | 'all';
-  group: 'project' | 'due' | 'assignee' | 'none';
+  group: 'project' | 'due' | 'assignee' | 'priority' | 'none';
   who: AssigneeFilter;
   /** Text to find in titles, details and tags. */
   q: string;
@@ -37,6 +37,13 @@ export interface TaskGroup {
   label: string;
   rows: Task[];
 }
+
+const PRIORITY_NAMES = {
+  high: 'High',
+  med: 'Medium',
+  low: 'Low',
+  none: 'No priority',
+} as const;
 
 /** Due buckets, in the order Focus uses them. */
 export const DUE_BUCKETS = [
@@ -121,6 +128,8 @@ export function selectTasks(
     if (filters.group === 'project') {
       const p = t.projectId ? state.projects[t.projectId] : undefined;
       add(p ? p.id : 'general', p ? p.name : 'General', t);
+    } else if (filters.group === 'priority') {
+      add(t.priority, PRIORITY_NAMES[t.priority], t);
     } else if (filters.group === 'due') {
       const b = dueBucket(t, today);
       add(b, DUE_BUCKETS.find((x) => x.id === b)?.label ?? b, t);
@@ -134,6 +143,13 @@ export function selectTasks(
     }
   }
   const list = [...groups.values()];
+  if (filters.group === 'priority') {
+    return list.sort(
+      (a, b) =>
+        PRIORITY_RANK[b.id as keyof typeof PRIORITY_RANK] -
+        PRIORITY_RANK[a.id as keyof typeof PRIORITY_RANK],
+    );
+  }
   if (filters.group === 'due') {
     const order: string[] = DUE_BUCKETS.map((b) => b.id);
     return list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
@@ -144,4 +160,30 @@ export function selectTasks(
       Number(a.id === last) - Number(b.id === last) ||
       a.label.localeCompare(b.label),
   );
+}
+
+/**
+ * The due date a card gets when it is dropped in a due column: Today is
+ * today, This week is Friday (or Sunday once Friday has gone), Later is
+ * two weeks out, No date clears it. Overdue takes no drops (null).
+ */
+export function dueForBucket(
+  bucket: DueBucket,
+  today: DateString,
+): DateString | '' | null {
+  switch (bucket) {
+    case 'today':
+      return today;
+    case 'week': {
+      const sunday = endOfWeek(today);
+      const friday = addDays(sunday, -2);
+      return friday >= today ? friday : sunday;
+    }
+    case 'later':
+      return addDays(today, 14);
+    case 'none':
+      return '';
+    case 'overdue':
+      return null;
+  }
 }

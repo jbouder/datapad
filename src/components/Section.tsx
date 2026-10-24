@@ -55,31 +55,33 @@ export function Section({
       aria-labelledby={`${id}-title`}
       className={cn('flex flex-col', className)}
     >
-      <h2 id={`${id}-title`} className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-          onClick={toggle}
-          className="press -ml-1 flex min-h-11 flex-1 items-center gap-1.5 px-1 text-left font-heading text-sm font-semibold outline-ring/50 focus-visible:outline-2 desk:min-h-8"
-        >
-          <CaretRightIcon
-            weight="bold"
-            aria-hidden
-            className={cn(
-              'size-3.5 transition-transform duration-(--duration-fast)',
-              open && 'rotate-90',
+      <div className="flex items-center gap-2">
+        <h2 id={`${id}-title`} className="flex min-w-0 flex-1">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={toggle}
+            className="press -ml-1 flex min-h-11 flex-1 items-center gap-1.5 px-1 text-left font-heading text-sm font-semibold outline-ring/50 focus-visible:outline-2 desk:min-h-8"
+          >
+            <CaretRightIcon
+              weight="bold"
+              aria-hidden
+              className={cn(
+                'size-3.5 transition-transform duration-(--duration-fast)',
+                open && 'rotate-90',
+              )}
+            />
+            <span>{title}</span>
+            {count !== undefined && (
+              <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
+                {count}
+              </span>
             )}
-          />
-          <span>{title}</span>
-          {count !== undefined && (
-            <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
-              {count}
-            </span>
-          )}
-        </button>
+          </button>
+        </h2>
         {actions}
-      </h2>
+      </div>
       <div id={`${id}-body`} hidden={!open}>
         {children}
       </div>
