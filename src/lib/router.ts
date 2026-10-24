@@ -21,7 +21,12 @@ export type Route =
   | { name: 'events' }
   | { name: 'people' }
   | { name: 'help'; section?: string }
+  /** Every shared input, for eyeballing (dev and e2e builds only). */
+  | { name: 'devComponents' }
   | { name: 'notFound' };
+
+/** `/dev/components` exists in `vite dev` and in the e2e build only. */
+export const DEV_ROUTES: boolean = __DEV_ROUTES__;
 
 export type RouteName = Route['name'];
 
@@ -42,6 +47,9 @@ export function parse(pathname: string, hash = ''): Route {
   if (clean === '/help') {
     const section = decodeURIComponent(hash.replace(/^#/, ''));
     return section ? { name: 'help', section } : { name: 'help' };
+  }
+  if (DEV_ROUTES && clean === '/dev/components') {
+    return { name: 'devComponents' };
   }
   const project = /^\/projects\/([^/]+)$/.exec(clean);
   if (project?.[1]) {
@@ -64,6 +72,8 @@ export function pathFor(route: Route): string {
       return route.section
         ? `/help#${encodeURIComponent(route.section)}`
         : '/help';
+    case 'devComponents':
+      return '/dev/components';
     case 'notFound':
       return window.location.pathname;
     default:
