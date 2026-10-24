@@ -11,11 +11,11 @@ import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import { type Route, setRouteTransition, useRoute } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
+import { EventsPage } from '@/pages/EventsPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -147,11 +147,7 @@ function Page({ route }: { route: Route }) {
     case 'notes':
       return <NotesPage />;
     case 'events':
-      return (
-        <PlaceholderPage title="Events">
-          Meetings, milestones and deadlines are on their way.
-        </PlaceholderPage>
-      );
+      return <EventsPage />;
     case 'settings':
       return <SettingsPage section={route.section} />;
     case 'devComponents':

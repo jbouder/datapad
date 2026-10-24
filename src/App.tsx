@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/AppShell';
+import { EventFormProvider } from '@/components/events/EventFormProvider';
 import { ImportExportProvider } from '@/components/ImportExport';
 import { NotesProvider } from '@/components/notes/NotesProvider';
 import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
@@ -19,9 +20,11 @@ export default function App() {
               <ImportExportProvider>
                 <ProjectFormProvider>
                   <TaskPanelProvider>
-                    <NotesProvider>
-                      <AppShell />
-                    </NotesProvider>
+                    <EventFormProvider>
+                      <NotesProvider>
+                        <AppShell />
+                      </NotesProvider>
+                    </EventFormProvider>
                   </TaskPanelProvider>
                 </ProjectFormProvider>
               </ImportExportProvider>

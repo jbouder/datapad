@@ -113,6 +113,24 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    test('the Events view with data, Past open', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/events');
+      await page.getByRole('button', { name: /^Past/ }).click();
+      await expect(page.locator('[data-event-id]').first()).toBeVisible();
+      await expectAccessible(page);
+    });
+
+    test('with the event form open', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/events');
+      await page.getByRole('button', { name: 'Add event' }).click();
+      await expect(
+        page.getByRole('dialog', { name: 'New event' }),
+      ).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test('with Preferences open', async ({ page }) => {
       await page.goto('/');
       await openPreferences(page);
