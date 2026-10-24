@@ -182,6 +182,20 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    test('with search open and results', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Search' }).click();
+      await page
+        .getByRole('dialog', { name: 'Search' })
+        .getByRole('combobox')
+        .fill('e');
+      await expect(
+        page.getByRole('group', { name: 'Tasks' }).getByRole('option').first(),
+      ).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test('with Preferences open', async ({ page }) => {
       await page.goto('/');
       await openPreferences(page);

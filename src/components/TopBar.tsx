@@ -1,4 +1,9 @@
-import { PlusIcon, QuestionIcon } from '@phosphor-icons/react';
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  QuestionIcon,
+} from '@phosphor-icons/react';
+import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -12,20 +17,23 @@ import { cn } from '@/lib/utils';
 
 /**
  * The current title on the left (with the brand on phones, where there is
- * no rail), then sync trouble on phones, **+** (Add task), Help and
- * Preferences.
+ * no rail), then Search (with its shortcut on desktop), sync trouble on
+ * phones, **+** (Add task), Help and Preferences.
  */
 export function TopBar({
   route,
   title,
   email,
   onAddTask,
+  onSearch,
 }: {
   route: Route;
   title: string;
   email: string | null;
   onAddTask: () => void;
+  onSearch: () => void;
 }) {
+  const hint = paletteHint();
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70">
       <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
@@ -45,6 +53,23 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="outline"
+            className="press size-11 p-0 text-muted-foreground sm:size-9 desk:mr-1 desk:h-9 desk:w-auto desk:gap-2 desk:px-2.5"
+            aria-keyshortcuts="Meta+K Control+K /"
+            onClick={onSearch}
+          >
+            <MagnifyingGlassIcon weight="bold" />
+            <span className="sr-only desk:not-sr-only desk:text-xs">
+              Search
+            </span>
+            <kbd
+              aria-hidden
+              className="hidden border px-1 font-sans text-[11px] desk:inline"
+            >
+              {hint}
+            </kbd>
+          </Button>
           <SyncStatus className="mr-1 desk:hidden" compact />
           <Tooltip>
             <TooltipTrigger

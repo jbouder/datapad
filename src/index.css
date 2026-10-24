@@ -767,3 +767,47 @@ html[data-vt="theme"]::view-transition-new(root) {
     translate: 0 12px;
   }
 }
+
+/* ---- Search palette ----------------------------------------------------- */
+
+/* Above any side panel, on the same scrim: over an open panel it adds no
+   second shade. Near the top on desktop; the full width on phones. */
+.palette-scrim {
+  z-index: 59;
+}
+.palette-scrim[data-over-panel] {
+  background: transparent;
+}
+.palette {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 0.5rem);
+  inset-inline: 0.5rem;
+  margin-inline: auto;
+  max-width: 40rem;
+  z-index: 60;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.25);
+  outline: none;
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    scale var(--duration-fast) var(--ease-emphasized);
+}
+@media (min-width: 820px) {
+  .palette {
+    top: 12dvh;
+  }
+}
+@starting-style {
+  .palette {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+.palette[data-ending-style] {
+  opacity: 0;
+  scale: 0.98;
+}
