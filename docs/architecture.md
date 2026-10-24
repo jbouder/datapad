@@ -10,16 +10,18 @@ Browser ──HTTPS──▶ Cloudflare Access (login, session cookie, signed JW
                    Worker (worker/index.ts)
                       ├─ verifyAccess(): Cf-Access-Jwt-Assertion → email, else 401
                       ├─ GET  /api/config        { email }
-                      ├─ GET  /api/export.json   DO.export()            (M1)
-                      ├─ POST /api/import        DO.import(json)        (M1)
+                      ├─ GET  /api/export.json   DO.export()
+                      ├─ POST /api/import        DO.import(json)        merge by id
+                      ├─ GET  /api/erase-token   DO.eraseToken()
+                      ├─ POST /api/erase         DO.erase(token)        the only delete-all
                       ├─ GET  /ws                DO.fetch() → acceptWebSocket()
                       └─ everything else: static assets, SPA fallback
                       │
                       ▼
                    DatapadObject (worker/datapad.ts), name = verified email
                       ├─ SQLite: docs(col, id, json, updated_at), meta(key, value)
-                      ├─ onMessage: zod parse → reduce() → persist → broadcast {op, seq}   (M1)
-                      ├─ snapshot on connect, {type: 'sync'} on a gap                    (M1)
+                      ├─ onMessage: zod parse → reduce() → persist → broadcast {op, seq}
+                      ├─ snapshot on connect, {type: 'sync'} on a gap
                       └─ alarm(): nightly export to the R2 BACKUPS bucket, keep 30      (M6)
 ```
 
@@ -42,7 +44,7 @@ the edge and never reach the Worker.
 the only way a Durable Object is reached. A second person signing in gets a
 second, empty object; nothing is shared.
 
-## State changes (M1)
+## State changes
 
 Every change is a typed op from `shared/protocol.ts`, applied by
 `reduce()` in `shared/reducer.ts`: optimistically on the client, then
@@ -52,9 +54,44 @@ Clients that see a gap ask for a fresh snapshot. Compound ops (cascading
 deletes, moves, reorders, activity appends) are single ops so two devices
 cannot clobber each other.
 
+`reduce(state, op, now)` is pure: ids arrive in the op and the time as
+`now`, so the client and the object compute the same result. It returns
+the next state and `changed`, the rows it touched (`{col, id}` or
+`{col, id, deleted: true}`), and throws `OpError` with a sentence the UI
+can toast when the op cannot apply.
+
+### The message protocol
+
+One WebSocket per tab at `/ws`, JSON text frames. `ping` / `pong` keep it
+alive (answered by the runtime without waking the object).
+
+| Direction       | Message                              | When                                                                           |
+| --------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
+| server → client | `{ type: 'snapshot', seq, state }`   | On connect, on `sync`, and to every socket after an import or erase            |
+| client → server | `{ type: 'op', opId, op }`           | Every change; `opId` is the client's, to match the echo                        |
+| server → client | `{ type: 'op', seq, opId, op, at }`  | To **every** socket, the sender's included, once the op is stored              |
+| server → client | `{ type: 'rejected', opId, reason }` | Only to the sender: invalid, impossible, too large, or over the flood limit    |
+| client → server | `{ type: 'sync' }`                   | After a sequence gap, or when the client's reducer disagrees with an echoed op |
+- `seq` goes up by one per stored op (a no-op too, so its sender gets an
+  echo). A client at `seq` n that receives n + 2 has missed one and asks
+  for `sync`.
+- `at` is the object's clock when it applied the op. Clients pass it to
+  `reduce()` so their confirmed state matches the object's byte for byte.
+- Each socket may send `LIMITS.opsPerSecond` ops per second; more are
+  rejected, not dropped, so the sender rolls back its optimistic copy.
+- Messages over `LIMITS.messageBytes`, and documents over
+  `LIMITS.docBytes`, are rejected with a readable reason.
+
+### Storage
+
+`docs(col, id, json, updated_at)` holds one row per document; `meta` holds
+`seq` and a pending erase token. The object loads every row into memory
+when it starts (again after hibernation), and writes only the rows in
+`changed`, with the new `seq`, in one `transactionSync`.
+
 ## Client
 
-React 19 SPA. `useDatapad()` (M1) keeps a confirmed snapshot plus pending
+React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending
 ops and caches the last snapshot in IndexedDB for instant first paint. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition.
