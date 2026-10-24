@@ -459,8 +459,31 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
     case 'removePerson': {
+      // Mentions stay as tokens (they read @unknown); every reference
+      // that picks the person goes: assignments, members, attendees.
       d.get('people', op.id) ?? fail('That person no longer exists');
       d.delete('people', op.id);
+      for (const t of d.all('tasks')) {
+        if (t.assignee === op.id) {
+          d.set('tasks', t.id, { ...t, assignee: '', updatedAt: now });
+        }
+      }
+      for (const p of d.all('projects')) {
+        if (p.members.includes(op.id)) {
+          d.set('projects', p.id, {
+            ...p,
+            members: p.members.filter((m) => m !== op.id),
+          });
+        }
+      }
+      for (const e of d.all('events')) {
+        if (e.attendees.includes(op.id)) {
+          d.set('events', e.id, {
+            ...e,
+            attendees: e.attendees.filter((a) => a !== op.id),
+          });
+        }
+      }
       return;
     }
 

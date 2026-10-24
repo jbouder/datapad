@@ -149,7 +149,7 @@ function Page({ route }: { route: Route }) {
     case 'events':
       return <EventsPage />;
     case 'settings':
-      return <SettingsPage section={route.section} />;
+      return <SettingsPage section={route.section} person={route.person} />;
     case 'devComponents':
       return (
         <Suspense fallback={null}>

@@ -3,17 +3,15 @@ import {
   SignOutIcon,
   UploadSimpleIcon,
 } from '@phosphor-icons/react';
-import { type FormEvent, useMemo, useState } from 'react';
-import { LIMITS } from '#shared/limits';
+import { useMemo } from 'react';
 import { countDocuments } from '#shared/protocol';
-import { type Person, settingsOf } from '#shared/types';
+import { settingsOf } from '#shared/types';
 import { Field } from '@/components/Field';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { PeopleView } from '@/components/people/PeopleView';
 import { OrgPicker } from '@/components/pickers/OrgPicker';
-import { PersonForm } from '@/components/settings/PersonForm';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -44,7 +42,14 @@ const LABELS: Record<SettingsSection, string> = {
  * out, and who is signed in. Each section has its own address
  * (`/settings/people`); the account menu leads here.
  */
-export function SettingsPage({ section }: { section: SettingsSection }) {
+export function SettingsPage({
+  section,
+  person,
+}: {
+  section: SettingsSection;
+  /** The person selected in People. */
+  person?: string;
+}) {
   usePageTitle(`${LABELS[section]} · Settings`);
   return (
     <div className="enter flex flex-col gap-6">
@@ -74,7 +79,10 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
         </nav>
         <section
           aria-labelledby="settings-section"
-          className="flex min-w-0 max-w-2xl flex-col gap-6"
+          className={cn(
+            'flex min-w-0 flex-col gap-6',
+            section !== 'people' && 'max-w-2xl',
+          )}
         >
           <h2
             id="settings-section"
@@ -83,7 +91,7 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
-          {section === 'people' && <People />}
+          {section === 'people' && <PeopleView selected={person} />}
           {section === 'orgs' && <Orgs />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}
@@ -132,131 +140,6 @@ function Appearance() {
           />
         </label>
       </div>
-    </>
-  );
-}
-
-function People() {
-  const { state, actions } = useDatapad();
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [editing, setEditing] = useState<{
-    key: number;
-    id: string;
-    open: boolean;
-  } | null>(null);
-
-  const people = useMemo(
-    () =>
-      Object.values(state?.people ?? {}).sort((a, b) =>
-        a.name.localeCompare(b.name),
-      ),
-    [state?.people],
-  );
-  const usage = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of Object.values(state?.tasks ?? {})) {
-      if (t.assignee && t.status === 'open') {
-        counts.set(t.assignee, (counts.get(t.assignee) ?? 0) + 1);
-      }
-    }
-    return counts;
-  }, [state?.tasks]);
-
-  const add = (event: FormEvent) => {
-    event.preventDefault();
-    if (!name.trim()) return;
-    if (actions.addPerson({ name, role })) {
-      setName('');
-      setRole('');
-      document.getElementById('new-person-name')?.focus();
-    }
-  };
-  const person: Person | undefined = editing
-    ? state?.people[editing.id]
-    : undefined;
-
-  return (
-    <>
-      <p className="text-sm text-muted-foreground">
-        The people you assign, add to projects and mention. Mark yourself to use
-        the “Mine” filters.
-      </p>
-      <form
-        onSubmit={add}
-        className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-      >
-        <Input
-          id="new-person-name"
-          aria-label="Name"
-          placeholder="Name"
-          value={name}
-          maxLength={LIMITS.nameMax}
-          autoComplete="off"
-          onChange={(e) => setName(e.target.value)}
-          className="h-11 text-base desk:h-9 desk:text-sm"
-        />
-        <Input
-          aria-label="Role"
-          placeholder="Role (optional)"
-          value={role}
-          maxLength={LIMITS.nameMax}
-          autoComplete="off"
-          onChange={(e) => setRole(e.target.value)}
-          className="h-11 text-base desk:h-9 desk:text-sm"
-        />
-        <Button type="submit" className="press h-11 desk:h-9">
-          Add person
-        </Button>
-      </form>
-      {people.length === 0 ? (
-        <p className="text-state">
-          No people yet. Add your team members above.
-        </p>
-      ) : (
-        <ul aria-label="People" className="flex flex-col border-t">
-          {people.map((p) => (
-            <li
-              key={p.id}
-              className="row flex items-center gap-3 border-b text-sm"
-            >
-              <span className="min-w-0 flex-1 truncate">
-                <span className="font-medium">{p.name}</span>
-                {p.me && (
-                  <span className="ml-2 bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-foreground">
-                    you
-                  </span>
-                )}
-                {p.role && (
-                  <span className="ml-2 text-muted-foreground">{p.role}</span>
-                )}
-              </span>
-              <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
-                {usage.get(p.id) ?? 0} open
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="press min-h-11 desk:min-h-8"
-                onClick={() =>
-                  setEditing({ key: Date.now(), id: p.id, open: true })
-                }
-              >
-                Edit<span className="sr-only"> {p.name}</span>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {editing && person && (
-        <PersonForm
-          key={editing.key}
-          person={person}
-          open={editing.open}
-          onClose={() => setEditing((e) => (e ? { ...e, open: false } : e))}
-          onExited={() => setEditing((e) => (e?.open ? e : null))}
-        />
-      )}
     </>
   );
 }

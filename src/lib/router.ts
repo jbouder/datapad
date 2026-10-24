@@ -19,7 +19,8 @@ export type Route =
   | { name: 'tasks' }
   | { name: 'notes' }
   | { name: 'events' }
-  | { name: 'settings'; section: SettingsSection }
+  /** `person` is the one selected in People (`/settings/people/:id`). */
+  | { name: 'settings'; section: SettingsSection; person?: string }
   | { name: 'help'; section?: string }
   /** Every shared input, for eyeballing (dev and e2e builds only). */
   | { name: 'devComponents' }
@@ -57,6 +58,14 @@ export function parse(pathname: string, hash = ''): Route {
   if (clean === '/people') {
     return { name: 'settings', section: 'people' };
   }
+  const person = /^\/(?:settings\/)?people\/([^/]+)$/.exec(clean);
+  if (person?.[1]) {
+    return {
+      name: 'settings',
+      section: 'people',
+      person: decodeURIComponent(person[1]),
+    };
+  }
   const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
   if (settings) {
     const section = (settings[1] ?? 'appearance') as SettingsSection;
@@ -87,6 +96,9 @@ export function pathFor(route: Route): string {
     case 'focus':
       return '/';
     case 'settings':
+      if (route.person) {
+        return `/settings/people/${encodeURIComponent(route.person)}`;
+      }
       return route.section === 'appearance'
         ? '/settings'
         : `/settings/${route.section}`;

@@ -84,6 +84,15 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    test('People with a person selected', async ({ page, request }) => {
+      const seed = structuredClone(SEED);
+      seed.notes['n-1'].body = 'Ask @{u-han} about the hyperdrive';
+      await request.post('/api/import', { data: seed });
+      await page.goto('/settings/people/u-han');
+      await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test('with the project form open', async ({ page }) => {
       await page.goto('/projects');
       await page

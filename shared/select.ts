@@ -241,3 +241,56 @@ export const activeProjects = lastCall((projects: Projects): Project[] =>
     .filter((p) => !p.archived)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
 );
+
+export interface PersonStats {
+  /** Projects they are a member of, archived last, then by name. */
+  projects: Project[];
+  /** Open tasks assigned to them, outside archived projects. */
+  open: Task[];
+}
+
+const NO_STATS: PersonStats = { projects: [], open: [] };
+
+/** Per person: their projects and open tasks (People list, detail, cards). */
+export const peopleStats = lastCall(
+  (projects: Projects, tasks: Tasks): Map<string, PersonStats> => {
+    const stats = new Map<string, PersonStats>();
+    const entry = (id: string) => {
+      let s = stats.get(id);
+      if (!s) {
+        s = { projects: [], open: [] };
+        stats.set(id, s);
+      }
+      return s;
+    };
+    for (const p of Object.values(projects)) {
+      for (const id of p.members) entry(id).projects.push(p);
+    }
+    for (const t of Object.values(tasks)) {
+      if (!t.assignee || t.status !== 'open') continue;
+      if (t.projectId !== null && projects[t.projectId]?.archived) continue;
+      entry(t.assignee).open.push(t);
+    }
+    for (const s of stats.values()) {
+      s.projects.sort(
+        (a, b) =>
+          Number(a.archived) - Number(b.archived) ||
+          a.name.localeCompare(b.name),
+      );
+      s.open.sort(
+        (a, b) =>
+          Number(a.due === '') - Number(b.due === '') ||
+          byDueThenPriority(a, b),
+      );
+    }
+    return stats;
+  },
+);
+
+/** One person's stats; empty when they have none. */
+export function statsFor(
+  stats: Map<string, PersonStats>,
+  id: string,
+): PersonStats {
+  return stats.get(id) ?? NO_STATS;
+}
