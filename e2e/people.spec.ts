@@ -133,3 +133,27 @@ test('an old /people/:id link and the seeded detail pane', async ({
     people(page).getByRole('link', { name: /Chewbacca/ }),
   ).toHaveAttribute('aria-current', 'true');
 });
+
+test('Cards: counts match the detail, and a card opens the person', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/settings/people');
+  await page.locator('label', { hasText: 'Cards' }).click();
+  await expect(page).toHaveURL(/view=cards/);
+  const cards = page.getByRole('list', { name: 'People' });
+  const han = cards.getByRole('link', { name: /Han Solo/ });
+  await expect(han).toContainText('2 projects · 1 open task');
+  await han.click();
+  await expect(page).toHaveURL(/\/settings\/people\/u-han$/);
+  const pane = detail(page);
+  await expect(pane.getByRole('list', { name: 'Projects' })).toHaveText(
+    /Echo Base relocation\s*Falcon hyperdrive refit/,
+  );
+  await expect(
+    pane.getByRole('list', { name: 'Open tasks assigned to Han Solo' }),
+  ).toContainText('Find a replacement motivator');
+  // The layout is remembered after navigating.
+  await expect(page.getByRole('radio', { name: 'Cards' })).toBeChecked();
+});

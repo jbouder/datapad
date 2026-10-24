@@ -93,6 +93,13 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    test('People as Cards', async ({ page, request }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/settings/people/u-han?view=cards');
+      await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test('with the project form open', async ({ page }) => {
       await page.goto('/projects');
       await page
