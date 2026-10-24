@@ -142,6 +142,7 @@ export function TaskTable(props: TaskLayoutProps) {
             <button
               type="button"
               data-task-title
+              data-row-action="open"
               onClick={() => openTask(t.id)}
               className={cn(
                 'max-w-[28rem] truncate text-left outline-ring/50 hover:underline focus-visible:outline-2',
@@ -276,6 +277,8 @@ function BoardCard({
         <button
           type="button"
           data-task-title
+          data-row-focus
+          data-row-action="open"
           onClick={onOpen}
           className={cn(
             'line-clamp-3 min-w-0 flex-1 text-left outline-ring/50 hover:underline focus-visible:outline-2',

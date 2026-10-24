@@ -1,25 +1,35 @@
+import { allowsShortcut, ROW_ACTIONS, TYPING } from '#shared/shortcuts';
+
 /**
- * Single-letter shortcuts and the rule that keeps them out of the way:
- * they never fire while you are typing (an input, textarea, select or
- * contenteditable has focus) or while a panel, dialog, menu or the palette
- * is open, and never with a modifier held. #24 adds the rest of the
- * bindings and the shortcut sheet here.
+ * The DOM side of the shortcut rules in `shared/shortcuts.ts`: reading the
+ * focused element and the open overlays, and the row keys.
  */
 
-const TYPING = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+export {
+  allowsShortcut,
+  ROW_ACTIONS,
+  SHORTCUTS,
+  type Shortcut,
+  type ShortcutContext,
+} from '#shared/shortcuts';
 
 /** Whether `target` takes typed text. */
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (TYPING.has(target.tagName)) return true;
-  return target.isContentEditable;
+  return TYPING.has(target.tagName) || target.isContentEditable;
 }
 
 /** Whether something modal-ish is open over the page. */
 export function overlayOpen(root: ParentNode = document): boolean {
   return (
     root.querySelector(
-      '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      // Not one that is on its way out (Base UI marks a closing popup).
+      ['dialog', 'alertdialog', 'menu', 'listbox']
+        .map(
+          (role) =>
+            `[role="${role}"]:not([hidden]):not([data-ending-style]):not([data-closed])`,
+        )
+        .join(', '),
     ) !== null
   );
 }
@@ -32,8 +42,60 @@ export function shortcutAllowed(
   >,
   root: ParentNode = document,
 ): boolean {
-  if (event.defaultPrevented) return false;
-  if (event.metaKey || event.ctrlKey || event.altKey) return false;
-  if (isTypingTarget(event.target)) return false;
-  return !overlayOpen(root);
+  const el = event.target instanceof HTMLElement ? event.target : null;
+  return allowsShortcut({
+    tag: el?.tagName ?? '',
+    contentEditable: el?.isContentEditable ?? false,
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    defaultPrevented: event.defaultPrevented,
+    overlay: overlayOpen(root),
+  });
+}
+
+/**
+ * j / k and the row letters for a list of rows (`[data-task-id]`): j and
+ * k move focus to the next or previous row's title, and x / e / d / a / p
+ * press the control marked `data-row-action` in the focused row. Returns
+ * whether it handled the key.
+ */
+export function handleRowKey(
+  event: KeyboardEvent,
+  container: HTMLElement,
+): boolean {
+  if (!shortcutAllowed(event)) return false;
+  const rows = [
+    ...container.querySelectorAll<HTMLElement>('[data-task-id]'),
+  ].filter((r) => r.getClientRects().length > 0);
+  if (rows.length === 0) return false;
+  const current = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+    '[data-task-id]',
+  );
+  const index = current ? rows.indexOf(current) : -1;
+
+  if (event.key === 'j' || event.key === 'k') {
+    const next =
+      rows[
+        index < 0
+          ? 0
+          : Math.max(
+              0,
+              Math.min(rows.length - 1, index + (event.key === 'j' ? 1 : -1)),
+            )
+      ];
+    const target =
+      next?.querySelector<HTMLElement>('[data-row-focus]') ?? next ?? null;
+    target?.focus();
+    target?.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  const action = ROW_ACTIONS[event.key];
+  if (!action || !current) return false;
+  const control = current.querySelector<HTMLElement>(
+    `[data-row-action="${action}"]`,
+  );
+  if (!control || control.getClientRects().length === 0) return false;
+  control.click();
+  return true;
 }

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ROW_ACTIONS, shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 
 export interface Column<T> {
@@ -97,10 +98,22 @@ export function DataTable<T>({
     }
     if (event.target !== event.currentTarget) return;
     const i = flat.findIndex((r) => getId(r) === getId(row));
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    const down = event.key === 'ArrowDown' || event.key === 'j';
+    const up = event.key === 'ArrowUp' || event.key === 'k';
+    if (down || up) {
+      if (!event.key.startsWith('Arrow') && !shortcutAllowed(event.nativeEvent))
+        return;
       event.preventDefault();
-      const next = flat[i + (event.key === 'ArrowDown' ? 1 : -1)];
+      const next = flat[i + (down ? 1 : -1)];
       if (next) focusRow(getId(next));
+    } else if (ROW_ACTIONS[event.key] && shortcutAllowed(event.nativeEvent)) {
+      const control = event.currentTarget.querySelector<HTMLElement>(
+        `[data-row-action="${ROW_ACTIONS[event.key]}"]`,
+      );
+      if (control) {
+        event.preventDefault();
+        control.click();
+      }
     } else if (event.key === 'Enter' && onOpen) {
       event.preventDefault();
       onOpen(row);

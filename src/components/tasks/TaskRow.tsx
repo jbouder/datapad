@@ -105,6 +105,7 @@ export function TaskCheck({
         checked={done}
         onChange={() => onToggle(task)}
         aria-label={`${done ? 'Reopen' : 'Close'} “${task.title}”`}
+        data-row-action="complete"
         className="sr-only"
       />
       <span
@@ -175,6 +176,7 @@ export const TaskRow = memo(function TaskRow({
       {onEdit ? (
         <DropdownMenu>
           <DropdownMenuTrigger
+            data-row-action="priority"
             className={cn(POPOVER_TRIGGER, 'hidden size-8 desk:flex')}
             aria-label={`Priority: ${PRIORITY_LABELS[task.priority]}. Change`}
           >
@@ -212,6 +214,8 @@ export const TaskRow = memo(function TaskRow({
           <button
             type="button"
             data-task-title
+            data-row-focus
+            data-row-action="open"
             onClick={() => onOpen(task)}
             className="max-w-full truncate text-left outline-ring/50 hover:underline focus-visible:outline-2"
           >
@@ -231,6 +235,7 @@ export const TaskRow = memo(function TaskRow({
       {onEdit ? (
         <Popover open={whoOpen} onOpenChange={setWhoOpen}>
           <PopoverTrigger
+            data-row-action="assignee"
             className={cn(POPOVER_TRIGGER, 'hidden min-w-8 desk:flex')}
           >
             {/* The name includes what is shown (WCAG 2.5.3). */}
@@ -264,6 +269,7 @@ export const TaskRow = memo(function TaskRow({
       {onEdit ? (
         <Popover open={dueOpen} onOpenChange={setDueOpen}>
           <PopoverTrigger
+            data-row-action="due"
             className={cn(POPOVER_TRIGGER, 'hidden min-w-8 desk:flex')}
           >
             {task.due ? (
