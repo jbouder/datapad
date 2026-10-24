@@ -8,14 +8,14 @@ commit `.dev.vars`.
 
 ## Where your data lives
 
-| What                                     | Where                                                                                      | Who can reach it                                     |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| Everything you enter                     | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email  | The Worker, only after verifying your Access sign-in |
-| Nightly backups                          | The `BACKUPS` R2 bucket in your account, `<email>/datapad-YYYY-MM-DD.json`, latest 30 kept | You, through the Cloudflare dashboard or API         |
-| Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`)                  | That browser profile                                 |
-| Theme and motion preferences             | `localStorage` in each browser                                                             | That browser profile                                 |
-| Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                          | That browser profile                                 |
-| Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                   | That browser profile                                 |
+| What                                     | Where                                                                                                                                              | Who can reach it                                     |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Everything you enter                     | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email                                                          | The Worker, only after verifying your Access sign-in |
+| Nightly backups                          | The `BACKUPS` R2 bucket in your account, `<email>/datapad-YYYY-MM-DD.json`, latest 30 kept                                                         | You, through the Cloudflare dashboard or API         |
+| Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`), and the unsaved changes again in `localStorage` (`datapad:pending-now`) | That browser profile                                 |
+| Theme and motion preferences             | `localStorage` in each browser                                                                                                                     | That browser profile                                 |
+| Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                                                                                  | That browser profile                                 |
+| Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                           | That browser profile                                 |
 
 Cloudflare Access logs record your email and sign-ins, by design. Worker
 logs follow your account's Workers observability settings; the Worker logs

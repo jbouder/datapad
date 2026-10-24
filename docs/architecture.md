@@ -102,7 +102,8 @@ when it starts (again after hibernation), and writes only the rows in
 React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending
 ops and caches the last snapshot in IndexedDB for instant first paint.
 The pending ops are in IndexedDB too (`datapad:pending`), written on every
-change, so writes made offline, or in a tab closed before their echo,
+change (and copied synchronously to `localStorage` as `datapad:pending-now`,
+because an IndexedDB write can lose the race with an immediate reload), so writes made offline, or in a tab closed before their echo,
 come back on the next load and are sent, in order and with their original
 op ids, on the next connection. Tabs share that store and merge into it
 atomically, keeping each other's ops until some tab sees them settle. A
