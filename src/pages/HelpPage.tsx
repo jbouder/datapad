@@ -17,11 +17,13 @@ export function HelpPage() {
         people. Only you can open it: every request is checked against your
         Cloudflare Access sign-in.
       </p>
-      <h2 className="font-heading text-lg font-semibold">Preferences</h2>
+      <h2 className="font-heading text-lg font-semibold">Settings</h2>
       <p>
-        The gear button holds Motion, Theme and Sign out. Motion and Theme are
-        remembered on this device. When your device asks for reduced motion,
-        Datapad never animates.
+        The account button at the top right opens Settings: Appearance (theme
+        and motion, remembered on this device), People, Orgs (including the
+        default org new projects start in), Data (export and import) and
+        Account. Theme, Motion and Sign out are in the menu itself too. When
+        your device asks for reduced motion, Datapad never animates.
       </p>
       <p>
         <a

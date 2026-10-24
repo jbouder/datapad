@@ -150,6 +150,27 @@ export interface Activity {
 /** The key of General's activity log. */
 export const GENERAL = 'general';
 
+/**
+ * Your preferences that belong with your data (and so follow you to every
+ * device), as one document keyed `SETTINGS_ID`. Theme and motion stay per
+ * device, in localStorage.
+ */
+export interface Settings {
+  /** The org a new project starts with. */
+  defaultOrg: string;
+}
+
+export const SETTINGS_ID = 'user';
+
+export const DEFAULT_SETTINGS: Settings = {
+  defaultOrg: 'OpenTeams Internal',
+};
+
+/** The settings in effect: what is stored over the defaults. */
+export function settingsOf(snapshot: Pick<Snapshot, 'settings'>): Settings {
+  return { ...DEFAULT_SETTINGS, ...snapshot.settings[SETTINGS_ID] };
+}
+
 export interface Collections {
   projects: Project;
   tasks: Task;
@@ -157,6 +178,7 @@ export interface Collections {
   events: Event;
   people: Person;
   activity: Activity;
+  settings: Settings;
 }
 
 export type Collection = keyof Collections;
@@ -168,10 +190,11 @@ export const COLLECTIONS = [
   'events',
   'people',
   'activity',
+  'settings',
 ] as const satisfies readonly Collection[];
 
 /** The collections whose documents carry their own `id`. */
-export type DocCollection = Exclude<Collection, 'activity'>;
+export type DocCollection = Exclude<Collection, 'activity' | 'settings'>;
 
 export const DOC_COLLECTIONS = [
   'projects',
@@ -194,6 +217,7 @@ export function emptySnapshot(): Snapshot {
     events: {},
     people: {},
     activity: {},
+    settings: {},
   };
 }
 

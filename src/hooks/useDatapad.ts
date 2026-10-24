@@ -99,6 +99,7 @@ const OP_TYPES = {
   addPerson: true,
   editPerson: true,
   removePerson: true,
+  setSettings: true,
 } as const satisfies Record<OpType, true>;
 
 export interface Datapad {

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import { ExportSchema, type Op } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
-import { emptySnapshot, GENERAL, type Snapshot } from '#shared/types';
+import {
+  emptySnapshot,
+  GENERAL,
+  type Snapshot,
+  settingsOf,
+} from '#shared/types';
 import fixture from './fixtures/export.json';
 
 const T1 = '2026-10-23T10:00:00.000Z';
@@ -635,6 +640,26 @@ describe('generic ops and the log', () => {
     expect(() => at(base(), { type: 'put', col: 'tasks', doc })).toThrow(
       'That is too big to save',
     );
+  });
+});
+
+describe('settings', () => {
+  it('starts from the defaults and stores a patch, unlogged', () => {
+    const state = base();
+    expect(settingsOf(state)).toEqual({ defaultOrg: 'OpenTeams Internal' });
+    const { state: next, changed } = at(state, {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    expect(settingsOf(next).defaultOrg).toBe('Rebel Alliance');
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(next.activity).toBe(state.activity);
+    // Empty means "no default org".
+    const cleared = at(next, {
+      type: 'setSettings',
+      patch: { defaultOrg: '' },
+    });
+    expect(settingsOf(cleared.state).defaultOrg).toBe('');
   });
 });
 

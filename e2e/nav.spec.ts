@@ -6,7 +6,7 @@ test('the rail shows live counts, active projects and Archived', async ({
 }) => {
   test.skip(isMobile(page), 'The rail is desktop only.');
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/focus');
+  await openLive(page, '/');
   const rail = page.getByRole('complementary', { name: 'Datapad' });
 
   // Seed: 5 open tasks, none in the archived project. Events in the next
@@ -38,7 +38,7 @@ test('the rail shows live counts, active projects and Archived', async ({
   await expect(page).toHaveTitle('Echo Base relocation · Datapad');
 
   // Counts follow the data.
-  await page.goto('/focus');
+  await page.goto('/');
   const input = page.getByRole('textbox', { name: 'Add a task' });
   await input.fill('Count me');
   await input.press('Enter');
@@ -51,7 +51,7 @@ test('the tab bar navigates on a phone and marks the current section', async ({
   page,
 }) => {
   test.skip(!isMobile(page), 'The tab bar is for phones.');
-  await page.goto('/focus');
+  await page.goto('/');
   const tabs = page.getByRole('navigation', { name: 'Sections' }).last();
   await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('link', { name: 'Focus' })).toHaveAttribute(
@@ -70,15 +70,18 @@ test('the tab bar navigates on a phone and marks the current section', async ({
 });
 
 test('/ is Focus, and every section has its route', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/focus$/);
+  // The old /focus address lands on /.
+  await page.goto('/focus');
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Focus' }),
+  ).toBeVisible();
   for (const [path, heading] of [
     ['/projects', 'Projects'],
     ['/archive', 'Archived'],
     ['/tasks', 'Tasks'],
     ['/notes', 'Notes'],
     ['/events', 'Events'],
-    ['/people', 'People'],
   ]) {
     await page.goto(path);
     await expect(
@@ -106,7 +109,7 @@ test('an unknown project or path says Not found, with a way back', async ({
 
 test('tab order is rail, then top bar, then main', async ({ page }) => {
   test.skip(isMobile(page), 'Keyboard order is checked on desktop.');
-  await page.goto('/focus');
+  await page.goto('/');
   const order: string[] = [];
   for (let i = 0; i < 16; i += 1) {
     await page.keyboard.press('Tab');
@@ -134,6 +137,6 @@ test('the + button is “Add task” and takes you to a quick-add', async ({
     .getByRole('banner')
     .getByRole('button', { name: 'Add task' })
     .click();
-  await expect(page).toHaveURL(/\/focus$/);
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
   await expect(page.getByRole('textbox', { name: 'Add a task' })).toBeFocused();
 });

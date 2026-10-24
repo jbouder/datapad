@@ -20,6 +20,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -129,12 +130,8 @@ function Page({ route }: { route: Route }) {
           Meetings, milestones and deadlines are on their way.
         </PlaceholderPage>
       );
-    case 'people':
-      return (
-        <PlaceholderPage title="People">
-          The people you work with, and what mentions them, are on their way.
-        </PlaceholderPage>
-      );
+    case 'settings':
+      return <SettingsPage section={route.section} />;
     case 'devComponents':
       return (
         <Suspense fallback={null}>

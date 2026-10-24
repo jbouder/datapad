@@ -1,10 +1,8 @@
 import {
-  DownloadSimpleIcon,
   GearSixIcon,
   SignOutIcon,
-  UploadSimpleIcon,
+  UserCircleIcon,
 } from '@phosphor-icons/react';
-import { useImportExport } from '@/components/ImportExport';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,18 +17,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SIGN_OUT_URL } from '@/lib/api';
+import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 /**
- * Motion and theme (per device), your data (export and import), and the
- * signed-in account.
+ * The account menu: who is signed in, Settings (people, orgs, data and
+ * the rest), quick Theme and Motion switches, and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
-  const data = useImportExport();
 
   return (
     <DropdownMenu>
@@ -40,15 +38,28 @@ export function PreferencesMenu({ email }: { email: string | null }) {
             variant="ghost"
             size="icon"
             className="press size-11 sm:size-9"
-            aria-label="Preferences"
+            aria-label="Account and settings"
           />
         }
       >
-        <GearSixIcon weight="bold" />
+        <UserCircleIcon weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Preferences</DropdownMenuLabel>
+          <DropdownMenuLabel className="truncate">
+            {email ? `Signed in as ${email}` : 'Signed in'}
+          </DropdownMenuLabel>
+          <DropdownMenuItem
+            render={
+              <a {...linkProps({ name: 'settings', section: 'appearance' })} />
+            }
+          >
+            <GearSixIcon />
+            Settings
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
           <DropdownMenuCheckboxItem
             closeOnClick={false}
             checked={motion.preference}
@@ -83,21 +94,6 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Your data</DropdownMenuLabel>
-          <DropdownMenuItem onClick={data.exportNow}>
-            <DownloadSimpleIcon />
-            Export
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={data.chooseImport}>
-            <UploadSimpleIcon />
-            Import…
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="truncate">
-            {email ? `Signed in as ${email}` : 'Signed in'}
-          </DropdownMenuLabel>
           <DropdownMenuItem render={<a href={SIGN_OUT_URL} />}>
             <SignOutIcon />
             Sign out

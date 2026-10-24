@@ -66,9 +66,9 @@ export function isMobile(page: Page): boolean {
   return (page.viewportSize()?.width ?? 1280) < 820;
 }
 
-/** Open the Preferences menu. */
+/** Open the account menu (Settings, Theme, Motion, Sign out). */
 export async function openPreferences(page: Page) {
-  await page.getByRole('button', { name: 'Preferences' }).click();
+  await page.getByRole('button', { name: 'Account and settings' }).click();
   await expect(page.getByRole('menu')).toBeVisible();
 }
 

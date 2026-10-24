@@ -117,3 +117,21 @@ describe('theme ids', () => {
     expect(THEME_OPTIONS.map((t) => t.id)).toEqual(['system', 'light', 'dark']);
   });
 });
+
+describe('Dark is the neutral counterpart of Light', () => {
+  it('has no tint on its surfaces and text', () => {
+    for (const token of [
+      'background',
+      'foreground',
+      'card',
+      'popover',
+      'muted',
+      'border',
+      'primary',
+    ]) {
+      const value = dark[token] ?? '';
+      // oklch(L C H [/ alpha]): chroma 0 means grey.
+      expect(value, token).toMatch(/^oklch\(\s*[\d.]+\s+0(\s|\))/);
+    }
+  });
+});

@@ -4,9 +4,11 @@ import {
   type Activity,
   type Collection,
   type Collections,
+  DEFAULT_SETTINGS,
   GENERAL,
   type Person,
   type Project,
+  SETTINGS_ID,
   type Snapshot,
   type Task,
 } from './types';
@@ -453,6 +455,13 @@ function apply(d: Draft, op: Op, now: string) {
     case 'removePerson': {
       d.get('people', op.id) ?? fail('That person no longer exists');
       d.delete('people', op.id);
+      return;
+    }
+
+    /* settings (not logged) */
+    case 'setSettings': {
+      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      d.set('settings', SETTINGS_ID, { ...current, ...op.patch });
       return;
     }
   }

@@ -172,7 +172,9 @@ export class DatapadObject extends DurableObject<Bindings> {
 
   /** Every document, in the artifact's export format. */
   async export(): Promise<ExportFile> {
-    const { projects, tasks, notes, people, activity, events } = this.state;
+    const { projects, tasks, notes, people, activity, events, settings } =
+      this.state;
+    // The artifact's order, then what Datapad adds.
     return {
       exportedAt: new Date().toISOString(),
       projects,
@@ -181,6 +183,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       people,
       activity,
       events,
+      settings,
     };
   }
 
