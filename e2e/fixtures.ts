@@ -99,8 +99,10 @@ export async function settle(page: Page) {
  * failure, not just the first.
  */
 export async function expectAccessible(page: Page) {
-  // Let entrances finish so contrast is measured at rest.
+  // Let entrances finish so contrast is measured at rest, and start from
+  // the top: a target scrolled under the sticky header reads as obscured.
   await settle(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();

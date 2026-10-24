@@ -6,6 +6,7 @@ import { LinksEditor } from '@/components/inputs/LinksEditor';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { TagInput } from '@/components/inputs/TagInput';
+import { LayoutsDemo } from '@/components/layouts/LayoutsDemo';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
@@ -34,7 +35,7 @@ export default function DevComponentsPage() {
   return (
     <section
       aria-labelledby="components-title"
-      className="flex max-w-xl flex-col gap-6"
+      className="flex flex-col gap-6 *:max-w-xl [&>#layouts]:max-w-none"
     >
       <h1 id="components-title" className="text-page-title">
         Components
@@ -70,6 +71,8 @@ export default function DevComponentsPage() {
       <Field label="Name" required error="Give it a name">
         <Input className="h-11 text-base desk:h-8 desk:text-xs" />
       </Field>
+
+      <LayoutsDemo />
 
       <div>
         <Button className="press" onClick={() => setPanel(true)}>
