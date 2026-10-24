@@ -3,15 +3,12 @@ import {
   SignOutIcon,
   UploadSimpleIcon,
 } from '@phosphor-icons/react';
-import { useMemo } from 'react';
 import { countDocuments } from '#shared/protocol';
-import { settingsOf } from '#shared/types';
 import { Backups } from '@/components/Backups';
-import { Field } from '@/components/Field';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { OrgsSettings } from '@/components/orgs/OrgsSettings';
 import { PeopleView } from '@/components/people/PeopleView';
-import { OrgPicker } from '@/components/pickers/OrgPicker';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -28,7 +25,6 @@ import { cn } from '@/lib/utils';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
-import { useToast } from '@/providers/ToastProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
@@ -48,10 +44,13 @@ const LABELS: Record<SettingsSection, string> = {
 export function SettingsPage({
   section,
   person,
+  org,
 }: {
   section: SettingsSection;
   /** The person selected in People. */
   person?: string;
+  /** The org open in Orgs. */
+  org?: string;
 }) {
   usePageTitle(`${LABELS[section]} · Settings`);
   return (
@@ -95,7 +94,7 @@ export function SettingsPage({
           </h2>
           {section === 'appearance' && <Appearance />}
           {section === 'people' && <PeopleView selected={person} />}
-          {section === 'orgs' && <Orgs />}
+          {section === 'orgs' && <OrgsSettings selected={org} />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}
@@ -144,82 +143,6 @@ function Appearance() {
           />
         </label>
       </div>
-    </>
-  );
-}
-
-function Orgs() {
-  const { state, actions } = useDatapad();
-  const { show } = useToast();
-  const defaultOrg = state ? settingsOf(state).defaultOrg : '';
-  const orgs = useMemo(() => {
-    const counts = new Map<string, number>();
-    if (defaultOrg) counts.set(defaultOrg, 0);
-    for (const p of Object.values(state?.projects ?? {})) {
-      const org = p.org.trim();
-      if (org) counts.set(org, (counts.get(org) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [state?.projects, defaultOrg]);
-  return (
-    <>
-      <p className="text-sm text-muted-foreground">
-        The clients and orgs your projects belong to. Pick or add one in a
-        project’s form; they become full records of their own in a later
-        release.
-      </p>
-      <div className="flex flex-col gap-1.5">
-        <Field
-          label="Default org"
-          hint="New projects start in this org. Change it in a project’s form."
-        >
-          <OrgPicker
-            value={defaultOrg}
-            onChange={(org) => {
-              if (org === defaultOrg) return;
-              if (actions.setSettings({ patch: { defaultOrg: org } })) {
-                show(org ? `New projects start in ${org}` : 'No default org');
-              }
-            }}
-          />
-        </Field>
-      </div>
-      {orgs.length === 0 ? (
-        <p className="text-state">No orgs yet. Give a project an org.</p>
-      ) : (
-        <ul aria-label="Orgs" className="flex flex-col border-t">
-          {orgs.map(([org, count]) => (
-            <li
-              key={org}
-              className="row flex items-center gap-3 border-b text-sm"
-            >
-              <span className="min-w-0 flex-1 truncate">
-                <span className="font-medium">{org}</span>
-                {org === defaultOrg && (
-                  <span className="ml-2 bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-foreground">
-                    default
-                  </span>
-                )}
-              </span>
-              {count > 0 ? (
-                <a
-                  {...linkProps(
-                    { name: 'projects' },
-                    new URLSearchParams({ status: 'all', org }).toString(),
-                  )}
-                  className="flex min-h-11 items-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground desk:min-h-8"
-                >
-                  {count === 1 ? '1 project' : `${count} projects`}
-                </a>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  No projects
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
     </>
   );
 }

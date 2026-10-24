@@ -13,6 +13,8 @@ import {
   type Link,
   NOTE_PHASES,
   type Note,
+  ORG_KINDS,
+  type Org,
   type Person,
   PRIORITIES,
   PROJECT_HEALTHS,
@@ -91,6 +93,8 @@ export const ProjectSchema = z.object({
   id,
   name: z.string().min(1).max(LIMITS.nameMax),
   org: text(LIMITS.nameMax).default(''),
+  /** Absent in older exports: not organised yet. */
+  orgId: nullableId.optional(),
   status: projectStatus.default('active'),
   /** Absent in older exports; `healthOf()` reads that as `none`. */
   health: projectHealth.optional(),
@@ -157,6 +161,20 @@ export const EventSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Event, unknown>;
 
+const orgKind = z.enum(ORG_KINDS);
+
+export const OrgSchema = z.object({
+  id,
+  name: z.string().min(1).max(LIMITS.nameMax),
+  kind: orgKind.default('client'),
+  links: links.default([]),
+  notes: text(LIMITS.bodyMax).default(''),
+  contacts: people.default([]),
+  archived: z.boolean().default(false),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}) satisfies z.ZodType<Org, unknown>;
+
 const decisionStatus = z.enum(DECISION_STATUSES);
 
 export const DecisionSchema = z.object({
@@ -201,6 +219,7 @@ export const DocumentSchemas = {
   events: EventSchema,
   people: PersonSchema,
   decisions: DecisionSchema,
+  orgs: OrgSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -279,6 +298,8 @@ export const ExportSchema = z.object({
   people: collectionOf(PersonSchema),
   /** Datapad only; older exports and the artifact have none. */
   decisions: collectionOf(DecisionSchema),
+  /** Datapad only (M7); older files carry orgs as project text. */
+  orgs: collectionOf(OrgSchema),
   activity: keyedCollection(ActivitySchema),
   settings: keyedCollection(SettingsSchema),
 });
@@ -313,6 +334,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     events: Object.keys(snapshot.events).length,
     people: Object.keys(snapshot.people).length,
     decisions: Object.keys(snapshot.decisions).length,
+    orgs: Object.keys(snapshot.orgs).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -346,6 +368,7 @@ const taskFields = {
 const projectFields = {
   name: required(LIMITS.nameMax),
   org: z.string().trim().max(LIMITS.nameMax),
+  orgId: nullableId,
   priority,
   targetDate: dateOrEmpty,
   tags,
@@ -364,6 +387,15 @@ const eventFields = {
   attendees: people,
   link: z.string().trim().max(LIMITS.urlMax),
   note: text(LIMITS.eventNoteMax),
+};
+
+const orgFields = {
+  name: required(LIMITS.nameMax),
+  kind: orgKind,
+  links,
+  notes: text(LIMITS.bodyMax),
+  contacts: people,
+  archived: z.boolean(),
 };
 
 const decisionFields = {
@@ -421,6 +453,11 @@ const PutSchema = z.discriminatedUnion('col', [
     type: z.literal('put'),
     col: z.literal('decisions'),
     doc: DecisionSchema,
+  }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('orgs'),
+    doc: OrgSchema,
   }),
 ]);
 
@@ -532,6 +569,36 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editEvent'), id, patch: patch(eventFields) }),
   /** Keeps the event's notes. */
   z.object({ type: z.literal('deleteEvent'), id }),
+
+  /* orgs */
+  z.object({
+    type: z.literal('addOrg'),
+    id,
+    name: orgFields.name,
+    kind: orgKind.optional(),
+    contacts: orgFields.contacts.optional(),
+  }),
+  /** A rename renames it on its projects too. */
+  z.object({ type: z.literal('editOrg'), id, patch: patch(orgFields) }),
+  /** Its projects keep their org text; only the link goes. */
+  z.object({ type: z.literal('deleteOrg'), id }),
+  /**
+   * "Organise orgs": make an Org for each project org text that has none
+   * (ids from the client), then link every project whose text names an
+   * Org. Running it again changes nothing.
+   */
+  z.object({
+    type: z.literal('organizeOrgs'),
+    orgs: z
+      .array(
+        z.object({
+          id,
+          name: orgFields.name,
+          kind: orgKind.optional(),
+        }),
+      )
+      .max(LIMITS.batchMax),
+  }),
 
   /* decisions */
   /** Logs "Proposed "<title>"" or "Decided "<title>"". */

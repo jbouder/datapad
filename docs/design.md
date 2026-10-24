@@ -32,7 +32,7 @@ text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 |                 | none      | `border`                                                                            |
 | Status pill     | active    | `accent` fill, `accent-foreground` text                                             |
 |                 | paused    | dashed `border`, `muted-foreground` text                                            |
-|                 | done      | `ok` tint (`bg-ok/15`), `ok` text                                                   |
+|                 | done      | `ok` fill, `ok-foreground` text                                                     |
 | Project health  | green     | `ok` left edge and dot, the word "Green"                                            |
 |                 | yellow    | `warn` left edge and dot, "Yellow"                                                  |
 |                 | red       | `destructive` left edge and dot, "Red"                                              |

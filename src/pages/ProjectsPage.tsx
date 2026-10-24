@@ -102,7 +102,7 @@ export function ProjectsPage() {
   const orgOptions = useMemo(
     () => [
       { value: '', label: 'All orgs' },
-      ...(state ? orgs(state.projects) : []).map((o) => ({
+      ...(state ? orgs(state.projects, state.orgs) : []).map((o) => ({
         value: o,
         label: o,
       })),

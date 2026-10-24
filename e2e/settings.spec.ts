@@ -124,13 +124,14 @@ test('Orgs: a default org that new projects start in', async ({
   await openLive(page, '/settings/orgs');
   const picker = page.getByRole('combobox', { name: 'Default org' });
   await expect(picker).toHaveValue('OpenTeams Internal');
+  // Plain text until organised; then each is a record with a count.
+  await page.getByRole('button', { name: 'Organise orgs' }).click();
   const list = page.getByRole('list', { name: 'Orgs' });
   await expect(list).toContainText('OpenTeams Internal');
   await expect(list).toContainText('default');
-  await expect(list.getByRole('link', { name: '2 projects' })).toHaveAttribute(
-    'href',
-    '/projects?status=all&org=Rebel+Alliance',
-  );
+  await expect(
+    list.getByRole('listitem').filter({ hasText: 'Rebel Alliance' }),
+  ).toContainText('2 projects');
 
   // New projects start in it.
   await page.goto('/projects');

@@ -14,6 +14,7 @@ export const SEARCH_KINDS = [
   'note',
   'event',
   'decision',
+  'org',
   'person',
 ] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
@@ -55,6 +56,7 @@ export const searchIndex = lastCall(
     events: Snapshot['events'],
     people: Snapshot['people'],
     decisions: Snapshot['decisions'],
+    orgs: Snapshot['orgs'],
   ): SearchIndex => {
     const archived = (projectId: string | null) =>
       projectId !== null && projects[projectId]?.archived === true;
@@ -132,6 +134,20 @@ export const searchIndex = lastCall(
           updatedAt: x.updatedAt,
         }),
       ),
+      org: Object.values(orgs).map((o) =>
+        entry(
+          {
+            kind: 'org',
+            id: o.id,
+            title: o.name,
+            body: flat(tokensToNames(o.notes, people)),
+            projectId: null,
+            archived: o.archived,
+            updatedAt: o.updatedAt,
+          },
+          o.kind,
+        ),
+      ),
       person: Object.values(people).map((p) =>
         entry({
           kind: 'person',
@@ -206,7 +222,7 @@ export function search(
         a.key.localeCompare(b.key),
     );
     results[kind] = matches.slice(0, limit).map((entry) => {
-      if (kind === 'person' || kind === 'project') {
+      if (kind === 'person' || kind === 'project' || kind === 'org') {
         return { entry, snippet: entry.body };
       }
       const word = words.find((w) => !entry.key.includes(w)) ?? first;

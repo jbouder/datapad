@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
+import { orgByName } from '#shared/orgs';
 import {
   healthOf,
   type Link,
@@ -128,6 +129,9 @@ export function ProjectForm({
     };
   }, [project, state]);
 
+  const orgIdFor = (name: string): string | null =>
+    (state && orgByName(state.orgs, name)?.id) || null;
+
   const save = () => {
     const name = values.name.trim();
     if (!name) {
@@ -154,6 +158,7 @@ export function ProjectForm({
         ...fields,
         status: values.status,
         health: values.health,
+        orgId: orgIdFor(values.org) ?? undefined,
       });
       if (!id) return;
       onClose();
@@ -162,7 +167,7 @@ export function ProjectForm({
       return;
     }
     const before = valuesOf(project);
-    const patch = Object.fromEntries(
+    const patch: Record<string, unknown> = Object.fromEntries(
       Object.entries(fields).filter(
         ([key, value]) =>
           JSON.stringify(value) !==
@@ -171,6 +176,9 @@ export function ProjectForm({
           ),
       ),
     );
+    // The org's record, by name; null when there is none (text only).
+    const orgId = orgIdFor(values.org);
+    if (orgId !== (project.orgId ?? null)) patch.orgId = orgId;
     if (Object.keys(patch).length > 0) {
       if (!actions.editProject({ id: project.id, patch })) return;
     }

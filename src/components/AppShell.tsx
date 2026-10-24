@@ -176,7 +176,13 @@ function Page({ route }: { route: Route }) {
     case 'decisions':
       return <DecisionsPage />;
     case 'settings':
-      return <SettingsPage section={route.section} person={route.person} />;
+      return (
+        <SettingsPage
+          section={route.section}
+          person={route.person}
+          org={route.org}
+        />
+      );
     case 'devComponents':
       return (
         <Suspense fallback={null}>

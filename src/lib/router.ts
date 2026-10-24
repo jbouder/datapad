@@ -20,8 +20,16 @@ export type Route =
   | { name: 'notes' }
   | { name: 'events' }
   | { name: 'decisions' }
-  /** `person` is the one selected in People (`/settings/people/:id`). */
-  | { name: 'settings'; section: SettingsSection; person?: string }
+  /**
+   * `person` is the one selected in People (`/settings/people/:id`), `org`
+   * the one open in Orgs (`/settings/orgs/:id`).
+   */
+  | {
+      name: 'settings';
+      section: SettingsSection;
+      person?: string;
+      org?: string;
+    }
   | { name: 'help'; section?: string }
   /** Every shared input, for eyeballing (dev and e2e builds only). */
   | { name: 'devComponents' }
@@ -69,6 +77,18 @@ export function parse(pathname: string, hash = ''): Route {
       person: decodeURIComponent(person[1]),
     };
   }
+  // Orgs live under Settings too (#93 may move them); /orgs gets there.
+  if (clean === '/orgs') {
+    return { name: 'settings', section: 'orgs' };
+  }
+  const org = /^\/(?:settings\/)?orgs\/([^/]+)$/.exec(clean);
+  if (org?.[1]) {
+    return {
+      name: 'settings',
+      section: 'orgs',
+      org: decodeURIComponent(org[1]),
+    };
+  }
   const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
   if (settings) {
     const section = (settings[1] ?? 'appearance') as SettingsSection;
@@ -101,6 +121,9 @@ export function pathFor(route: Route): string {
     case 'settings':
       if (route.person) {
         return `/settings/people/${encodeURIComponent(route.person)}`;
+      }
+      if (route.org) {
+        return `/settings/orgs/${encodeURIComponent(route.org)}`;
       }
       return route.section === 'appearance'
         ? '/settings'
