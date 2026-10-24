@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_PROJECT_FILTERS, selectProjects } from '#shared/projects';
 import { ExportSchema } from '#shared/protocol';
 import { reduce } from '#shared/reducer';
 import {
@@ -189,6 +190,82 @@ describe('other selectors', () => {
     expect(activeProjects(s.projects).map((p) => p.id)).toEqual([
       'p-echo',
       'p-falcon',
+    ]);
+  });
+});
+
+describe('project filters and sorts', () => {
+  const s = seeded();
+  const ids = (list: { id: string }[]) => list.map((p) => p.id);
+
+  it('defaults to active, unarchived projects, recently updated first', () => {
+    expect(ids(selectProjects(s.projects, DEFAULT_PROJECT_FILTERS))).toEqual([
+      'p-echo',
+    ]);
+    expect(
+      ids(
+        selectProjects(s.projects, {
+          ...DEFAULT_PROJECT_FILTERS,
+          status: 'all',
+        }),
+      ),
+    ).toEqual(['p-echo', 'p-falcon']);
+  });
+
+  it('filters by org and lists the archive separately', () => {
+    const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
+    expect(
+      ids(selectProjects(s.projects, { ...all, org: 'Corellian Engineering' })),
+    ).toEqual(['p-falcon']);
+    expect(ids(selectProjects(s.projects, all, true))).toEqual(['p-yavin']);
+  });
+
+  it('sorts by priority then name, by name, and by target date', () => {
+    const projects = {
+      a: {
+        ...s.projects['p-echo'],
+        id: 'a',
+        name: 'Bravo',
+        priority: 'low',
+        targetDate: '',
+      },
+      b: {
+        ...s.projects['p-echo'],
+        id: 'b',
+        name: 'Alpha',
+        priority: 'low',
+        targetDate: '2026-12-01',
+      },
+      c: {
+        ...s.projects['p-echo'],
+        id: 'c',
+        name: 'Charlie',
+        priority: 'high',
+        targetDate: '2026-11-01',
+      },
+      d: {
+        ...s.projects['p-echo'],
+        id: 'd',
+        name: 'Delta',
+        priority: 'none',
+        targetDate: '2026-11-01',
+      },
+    } as typeof s.projects;
+    const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
+    expect(ids(selectProjects(projects, { ...all, sort: 'priority' }))).toEqual(
+      ['c', 'b', 'a', 'd'],
+    );
+    expect(ids(selectProjects(projects, { ...all, sort: 'name' }))).toEqual([
+      'b',
+      'a',
+      'c',
+      'd',
+    ]);
+    expect(ids(selectProjects(projects, { ...all, sort: 'target' }))).toEqual([
+      'c',
+      'd',
+      'b',
+      'a',
     ]);
   });
 });
