@@ -89,6 +89,7 @@ export function NoteComposer({
   className,
   'aria-describedby': describedBy,
   'aria-invalid': invalid,
+  data,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -109,6 +110,8 @@ export function NoteComposer({
   className?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
+  /** `data-*` attributes for the textarea (a linked event, its phase). */
+  data?: Record<`data-${string}`, string | undefined>;
 }) {
   const listId = useId();
   const area = useRef<HTMLTextAreaElement>(null);
@@ -422,6 +425,7 @@ export function NoteComposer({
         ))}
       </fieldset>
       <Textarea
+        {...data}
         ref={area}
         id={id}
         value={value}

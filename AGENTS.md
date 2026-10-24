@@ -20,7 +20,8 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   collections), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoisable selectors), `dates.ts`. Later: `markdown.ts`, `summaries.ts`.
+  (memoisable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
+  `summaries.ts` (what Summarize sends; events so far).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object), `env.ts` (bindings).

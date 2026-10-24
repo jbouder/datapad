@@ -1,6 +1,8 @@
 import {
   ArrowSquareOutIcon,
+  ClipboardTextIcon,
   DotsThreeIcon,
+  NotePencilIcon,
   PencilSimpleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
@@ -10,6 +12,8 @@ import { timeRange } from '#shared/events';
 import type { Event, Person, Snapshot } from '#shared/types';
 import { deleteEventQuestion } from '@/components/events/EventForm';
 import { useEventForm } from '@/components/events/EventFormProvider';
+import { useEventNotes } from '@/components/events/EventNotesProvider';
+import { LinkedNotes } from '@/components/events/LinkedNotes';
 import { TypePill } from '@/components/events/TypePill';
 import { Initials } from '@/components/Initials';
 import { Button } from '@/components/ui/button';
@@ -29,8 +33,10 @@ const MENU_TRIGGER =
 
 /**
  * One event: its day and times, type pill, title (opens the form),
- * project chip, attendees, link, and the actions. Delete asks in the row
- * first; the event's notes are kept.
+ * project chip, attendees, link, and the actions: Prep note and Debrief
+ * note (beside the row on desktop, in its menu everywhere), Edit, Delete.
+ * Delete asks in the row first; the event's notes are kept. Its linked
+ * notes follow underneath.
  */
 export function EventRow({
   event,
@@ -49,6 +55,7 @@ export function EventRow({
 }) {
   const { actions } = useDatapad();
   const { openEvent } = useEventForm();
+  const { startNote } = useEventNotes();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
   const project = event.projectId ? state.projects[event.projectId] : null;
@@ -132,6 +139,28 @@ export function EventRow({
             </span>
           </a>
         )}
+        <span className="hidden shrink-0 desk:flex">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="press h-8 px-2 text-xs"
+            onClick={() => startNote(event, 'pre')}
+          >
+            Prep
+            <span className="sr-only"> note for “{event.title}”</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="press h-8 px-2 text-xs"
+            onClick={() => startNote(event, 'post')}
+          >
+            Debrief
+            <span className="sr-only"> note for “{event.title}”</span>
+          </Button>
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger
             className={MENU_TRIGGER}
@@ -141,6 +170,14 @@ export function EventRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             {/* Summarize joins these with on-device summaries (M6). */}
+            <DropdownMenuItem onClick={() => startNote(event, 'pre')}>
+              <ClipboardTextIcon />
+              Prep note
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startNote(event, 'post')}>
+              <NotePencilIcon />
+              Debrief note
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEvent(event.id)}>
               <PencilSimpleIcon />
               Edit
@@ -160,6 +197,7 @@ export function EventRow({
           {event.note}
         </p>
       )}
+      <LinkedNotes event={event} state={state} />
       {confirming && (
         <div
           role="alertdialog"

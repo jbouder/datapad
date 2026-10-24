@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { localDate } from '#shared/dates';
-import { activeProjects, focusBuckets } from '#shared/select';
+import { activeProjects, agenda, focusBuckets } from '#shared/select';
+import { EventRow } from '@/components/events/EventRow';
 import { TaskList } from '@/components/tasks/TaskList';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -8,9 +9,10 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 const ANYONE = { kind: 'anyone' } as const;
 
 /**
- * Focus: what needs attention today. Until the buckets arrive (M5) this is
- * every open task outside the archive, soonest due first, with a quick-add
- * and its project picker.
+ * Focus: what needs attention today. The agenda (events in the next seven
+ * days, outside the archive), then, until the buckets arrive (M5), every
+ * open task outside the archive, soonest due first, with a quick-add and
+ * its project picker.
  */
 export function FocusPage() {
   usePageTitle('Focus');
@@ -24,6 +26,7 @@ export function FocusPage() {
     return [...b.overdue, ...b.today, ...b.thisWeek, ...b.later, ...b.noDate];
   }, [state, today]);
   const projects = state ? activeProjects(state.projects).length : 0;
+  const week = state ? agenda(state.events, state.projects, today) : [];
 
   return (
     <section
@@ -41,6 +44,20 @@ export function FocusPage() {
           </p>
         )}
       </div>
+
+      {state && week.length > 0 && (
+        <section aria-labelledby="agenda-title" className="flex flex-col">
+          <h2
+            id="agenda-title"
+            className="border-b pb-1 font-heading text-sm font-semibold"
+          >
+            Next 7 days
+          </h2>
+          {week.map((e) => (
+            <EventRow key={e.id} event={e} state={state} today={today} />
+          ))}
+        </section>
+      )}
 
       {!state ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
