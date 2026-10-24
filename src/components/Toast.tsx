@@ -5,6 +5,13 @@ export interface ToastMessage {
   id: string;
   text: string;
   undo?: () => void;
+  /** Another follow-up, such as Open. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
 }
 
 interface ToastProps {
@@ -40,6 +47,19 @@ export function Toast({ message, onDismiss }: ToastProps) {
           }}
         >
           Undo
+        </Button>
+      )}
+      {message?.action && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="press"
+          onClick={() => {
+            message.action?.run();
+            onDismiss();
+          }}
+        >
+          {message.action.label}
         </Button>
       )}
     </output>

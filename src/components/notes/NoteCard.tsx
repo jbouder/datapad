@@ -1,20 +1,24 @@
 import {
+  CheckSquareOffsetIcon,
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { formatTimestamp, relativeTime } from '#shared/dates';
 import { toggleCheck } from '#shared/markdown';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
+import { taskTitleFrom } from '#shared/notes';
 import type { Note, Snapshot } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
+import { useMakeTask } from '@/components/notes/useMakeTask';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
-import { linkProps } from '@/lib/router';
+import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 const PHASE = { pre: 'Prep', post: 'Debrief' } as const;
@@ -24,6 +28,11 @@ const PHASE = { pre: 'Prep', post: 'Debrief' } as const;
  * the rendered body (checkboxes save the note), and Edit, Pin, Delete.
  * Long notes clamp at 12 lines behind "Show more". Edit swaps the body
  * for the composer, with mentions as names.
+ *
+ * Make task: select text in the body (mouse, touch or Shift+arrows) and
+ * a Make task button appears by it; or use the footer's, which asks for
+ * the title starting from the first line. `?note=<id>` in the URL scrolls
+ * to the card and highlights it (the task panel's "From note" link).
  */
 export function NoteCard({
   note,
@@ -49,6 +58,94 @@ export function NoteCard({
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const body = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLElement>(null);
+  const makeTask = useMakeTask();
+  const [asking, setAsking] = useState<string | null>(null);
+  const [picked, setPicked] = useState<{
+    title: string;
+    top: number;
+    left: number;
+  } | null>(null);
+  const target = useQuery().get('note');
+  const [flash, setFlash] = useState(false);
+
+  // Arriving from a task's "From note": bring the card into view.
+  useEffect(() => {
+    if (target !== note.id || !card.current) return;
+    card.current.scrollIntoView({ block: 'center' });
+    card.current.focus({ preventScroll: true });
+    setFlash(true);
+    const timer = window.setTimeout(() => setFlash(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [target, note.id]);
+
+  // A selection inside the body offers Make task beside it.
+  useEffect(() => {
+    const onChange = () => {
+      const selection = document.getSelection();
+      const el = body.current;
+      const box = card.current;
+      if (
+        !selection ||
+        selection.isCollapsed ||
+        selection.rangeCount === 0 ||
+        !el ||
+        !box
+      ) {
+        setPicked(null);
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      if (!el.contains(range.commonAncestorContainer)) {
+        setPicked(null);
+        return;
+      }
+      const title = taskTitleFrom(selection.toString(), {});
+      if (!title) {
+        setPicked(null);
+        return;
+      }
+      const r = range.getBoundingClientRect();
+      const c = box.getBoundingClientRect();
+      // Below the selection on touch, where the system's own menu is above.
+      const below = window.matchMedia('(hover: none)').matches;
+      setPicked({
+        title,
+        top: below ? r.bottom - c.top + 8 : r.top - c.top - 44,
+        left: Math.min(
+          Math.max(r.left - c.left + r.width / 2, 64),
+          c.width - 64,
+        ),
+      });
+    };
+    document.addEventListener('selectionchange', onChange);
+    return () => document.removeEventListener('selectionchange', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!picked) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        document.getSelection()?.removeAllRanges();
+        setPicked(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picked]);
+
+  const fromSelection = () => {
+    if (!picked) return;
+    if (makeTask(note, picked.title)) {
+      document.getSelection()?.removeAllRanges();
+      setPicked(null);
+    }
+  };
+
+  const ask = () => {
+    if (asking === null) return;
+    if (makeTask(note, asking)) setAsking(null);
+  };
   const bodyId = useId();
   const editId = useId();
 
@@ -81,10 +178,16 @@ export function NoteCard({
 
   return (
     <article
+      ref={card}
+      tabIndex={-1}
+      data-highlighted={flash || undefined}
       data-flip-id={note.id}
       data-note-id={note.id}
       aria-label={`Note, ${formatTimestamp(note.createdAt)}`}
-      className={cn('enter flex flex-col gap-2 border bg-card p-3', className)}
+      className={cn(
+        'enter note-card relative flex flex-col gap-2 border bg-card p-3 outline-none',
+        className,
+      )}
       style={style}
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -136,6 +239,7 @@ export function NoteCard({
             onChange={setEditing}
             people={state.people}
             onSubmit={save}
+            onTask={(title) => makeTask(note, title)}
             autoFocus
             rows={4}
           />
@@ -190,7 +294,66 @@ export function NoteCard({
         </>
       )}
 
-      {editing === null && (
+      {picked && editing === null && (
+        <Button
+          size="sm"
+          className="press absolute z-10 h-11 -translate-x-1/2 shadow-md desk:h-8"
+          style={{ top: picked.top, left: picked.left }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={fromSelection}
+          aria-label={`Make task “${picked.title}”`}
+        >
+          <CheckSquareOffsetIcon />
+          Make task
+        </Button>
+      )}
+
+      {editing === null && asking !== null && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask();
+          }}
+        >
+          <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+            <label htmlFor={`${bodyId}-task`} className="text-xs font-medium">
+              Task title
+            </label>
+            <Input
+              id={`${bodyId}-task`}
+              value={asking}
+              maxLength={200}
+              autoFocus
+              onChange={(e) => setAsking(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setAsking(null);
+                }
+              }}
+              className="h-11 text-base desk:h-8 desk:text-xs"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="press h-11 desk:h-8"
+            onClick={() => setAsking(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="press h-11 desk:h-8"
+            disabled={!asking.trim()}
+          >
+            Make task
+          </Button>
+        </form>
+      )}
+
+      {editing === null && asking === null && (
         <footer className="-mx-1.5 -mb-1.5 flex flex-wrap gap-0.5">
           <Button
             variant="ghost"
@@ -213,6 +376,16 @@ export function NoteCard({
           >
             {note.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
             {note.pinned ? 'Unpin' : 'Pin'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="press h-11 desk:h-7"
+            aria-label="Make task from note"
+            onClick={() => setAsking(taskTitleFrom(note.body, state.people))}
+          >
+            <CheckSquareOffsetIcon />
+            Make task
           </Button>
           <Button
             variant="ghost"

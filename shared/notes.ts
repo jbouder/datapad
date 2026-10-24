@@ -88,3 +88,28 @@ export function projectNotes(
         b.createdAt.localeCompare(a.createdAt),
     );
 }
+
+/**
+ * A task title from note text: its first non-empty line without list,
+ * heading or quote markers or inline marks, mentions as names, at most
+ * 200 characters.
+ */
+export function taskTitleFrom(
+  text: string,
+  people: Snapshot['people'],
+): string {
+  const line =
+    tokensToNames(text, people)
+      .split('\n')
+      .map((l) => l.trim())
+      .find(Boolean) ?? '';
+  return line
+    .replace(
+      /^(#{1,6}\s+|>\s?|[-*•]\s+\[[ xX]\]\s+|[-*•]\s+|\d{1,9}[.)]\s+)/,
+      '',
+    )
+    .replace(/\*\*|~~|`/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .trim()
+    .slice(0, 200);
+}

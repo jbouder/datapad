@@ -6,10 +6,10 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Toast, type ToastMessage } from '@/components/Toast';
+import { Toast, type ToastAction, type ToastMessage } from '@/components/Toast';
 
 interface ToastContextValue {
-  show: (text: string, undo?: () => void) => void;
+  show: (text: string, undo?: () => void, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -17,9 +17,12 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<ToastMessage | null>(null);
 
-  const show = useCallback((text: string, undo?: () => void) => {
-    setMessage({ id: crypto.randomUUID(), text, undo });
-  }, []);
+  const show = useCallback(
+    (text: string, undo?: () => void, action?: ToastAction) => {
+      setMessage({ id: crypto.randomUUID(), text, undo, action });
+    },
+    [],
+  );
   const dismiss = useCallback(() => setMessage(null), []);
 
   const value = useMemo(() => ({ show }), [show]);

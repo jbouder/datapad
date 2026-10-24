@@ -270,6 +270,11 @@
 
 /* ---- Note cards --------------------------------------------------------- */
 
+/* Arrived at from a task's "From note" link. */
+.note-card[data-highlighted] {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
 /* Long notes stop at 12 lines (body size) until "Show more". */
 .note-clamp {
   max-height: calc(12 * 1.45 * 15px);

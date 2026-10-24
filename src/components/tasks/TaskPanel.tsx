@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
-import type { Link, Priority, Task } from '#shared/types';
+import type { Link, Note, Priority, Task } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
@@ -12,12 +12,14 @@ import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
 import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
+import { noteLocation } from '@/components/notes/useMakeTask';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
+import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
 interface Values {
@@ -85,6 +87,19 @@ export function TaskPanel({
   const sourceNote = task.sourceNoteId
     ? state?.notes[task.sourceNoteId]
     : undefined;
+
+  /** The note's place; following it closes the panel unless it has edits. */
+  const noteLink = (note: Note) => {
+    const { route, query } = noteLocation(note, state ?? { projects: {} });
+    const props = linkProps(route, query);
+    return {
+      href: props.href,
+      onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+        props.onClick(e);
+        if (e.defaultPrevented && !dirty) onClose();
+      },
+    };
+  };
 
   const save = () => {
     const title = values.title.trim();
@@ -254,14 +269,26 @@ export function TaskPanel({
         value={values.links}
         onChange={(links) => set('links', links)}
       />
-      {sourceNote && (
+      {task.sourceNoteId && (
         <section aria-labelledby="source-note" className="flex flex-col gap-1">
           <h3 id="source-note" className="text-xs font-medium">
-            From a note
+            From note
           </h3>
-          <blockquote className="line-clamp-6 border-l-2 pl-3">
-            <Markdown text={sourceNote.body} people={people} />
-          </blockquote>
+          {sourceNote ? (
+            <>
+              <blockquote className="line-clamp-6 border-l-2 pl-3">
+                <Markdown text={sourceNote.body} people={people} />
+              </blockquote>
+              <a
+                {...noteLink(sourceNote)}
+                className="self-start text-sm underline underline-offset-4 hover:text-foreground"
+              >
+                Show the note
+              </a>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Note deleted</p>
+          )}
         </section>
       )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
