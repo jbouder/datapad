@@ -53,6 +53,7 @@ export type ImportOutcome =
   | { ok: false; error: string };
 
 const SEQ = 'seq';
+/** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
 /** When the last backup ran, in ms. */
@@ -62,8 +63,12 @@ const BACKUP_PREFIX = 'datapad-';
 export class DatapadObject extends DurableObject<Bindings> {
   private state: Snapshot = emptySnapshot();
   private seq = 0;
-  /** The latest applied op ids, newest last (see `ServerMessage`). */
-  private recentOps: string[] = [];
+  /**
+   * The last `LIMITS.opIdsKept` applied op ids, oldest first: the
+   * idempotency table, mirrored from `op_ids`.
+   */
+  private opIds: string[] = [];
+  private seenOps = new Set<string>();
   /** Recent op times per socket, for the flood limit. */
   private readonly recent = new Map<WebSocket, number[]>();
 
@@ -215,6 +220,10 @@ export class DatapadObject extends DurableObject<Bindings> {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS op_ids (
+        op_id TEXT PRIMARY KEY,
+        seq INTEGER NOT NULL
+      );
     `);
   }
 
@@ -233,7 +242,31 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
     this.state = state;
     this.seq = Number(this.meta(SEQ) ?? 0);
-    this.recentOps = JSON.parse(this.meta(RECENT) ?? '[]') as string[];
+    const legacy = this.meta(RECENT);
+    if (legacy) {
+      // One-time move from the meta row to the table.
+      const ids = JSON.parse(legacy) as string[];
+      this.ctx.storage.transactionSync(() => {
+        for (const id of ids) {
+          this.ctx.storage.sql.exec(
+            'INSERT OR IGNORE INTO op_ids (op_id, seq) VALUES (?, ?)',
+            id,
+            this.seq,
+          );
+        }
+        this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', RECENT);
+      });
+    }
+    this.opIds = this.ctx.storage.sql
+      .exec<{ op_id: string }>('SELECT op_id FROM op_ids ORDER BY seq, rowid')
+      .toArray()
+      .map((r) => r.op_id);
+    this.seenOps = new Set(this.opIds);
+  }
+
+  /** The latest applied op ids, newest last (see `ServerMessage`). */
+  private recentOps(): string[] {
+    return this.opIds.slice(-LIMITS.recentOps);
   }
 
   private meta(key: string): string | undefined {
@@ -261,9 +294,11 @@ export class DatapadObject extends DurableObject<Bindings> {
     opId?: string,
   ) {
     const seq = this.seq + 1;
-    const recentOps = opId
-      ? [...this.recentOps, opId].slice(-LIMITS.recentOps)
-      : this.recentOps;
+    const opIds = opId ? [...this.opIds, opId] : this.opIds;
+    const dropped = opIds.splice(
+      0,
+      Math.max(0, opIds.length - LIMITS.opIdsKept),
+    );
     this.ctx.storage.transactionSync(() => {
       for (const c of changed) {
         if ('deleted' in c) {
@@ -284,11 +319,22 @@ export class DatapadObject extends DurableObject<Bindings> {
         }
       }
       this.setMeta(SEQ, String(seq));
-      if (opId) this.setMeta(RECENT, JSON.stringify(recentOps));
+      if (opId) {
+        this.ctx.storage.sql.exec(
+          'INSERT OR IGNORE INTO op_ids (op_id, seq) VALUES (?, ?)',
+          opId,
+          seq,
+        );
+      }
+      for (const id of dropped) {
+        this.ctx.storage.sql.exec('DELETE FROM op_ids WHERE op_id = ?', id);
+      }
     });
     this.state = next;
     this.seq = seq;
-    this.recentOps = recentOps;
+    this.opIds = opIds;
+    if (opId) this.seenOps.add(opId);
+    for (const id of dropped) this.seenOps.delete(id);
   }
 
   /* ---------- RPC (called by the Worker) ---------- */
@@ -453,6 +499,13 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   private applyOp(ws: WebSocket, opId: string, op: Op) {
+    if (this.seenOps.has(opId)) {
+      // A replay (an offline queue resent after its echo was lost): it
+      // is already in the state, so say so and change nothing.
+      const message: ServerMessage = { type: 'ack', opId };
+      trySend(ws, JSON.stringify(message));
+      return;
+    }
     const at = new Date().toISOString();
     let result: ReturnType<typeof reduce>;
     try {
@@ -498,7 +551,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       type: 'snapshot',
       seq: this.seq,
       state: this.state,
-      recent: this.recentOps,
+      recent: this.recentOps(),
     };
     return JSON.stringify(message);
   }

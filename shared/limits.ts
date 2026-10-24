@@ -38,6 +38,11 @@ export const LIMITS = {
   importBytes: 16 * 1024 * 1024,
   /** Applied op ids a snapshot lists, for replay after a reconnect. */
   recentOps: 200,
+  /**
+   * Applied op ids the object remembers, so an op replayed from a
+   * client's offline queue is acknowledged, not applied twice.
+   */
+  opIdsKept: 1_000,
   /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
   /** Nightly backups kept per user; older ones are deleted. */

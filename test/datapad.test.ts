@@ -338,6 +338,51 @@ describe('live sync', () => {
     inbox.ws.close(1000);
   });
 
+  it('acknowledges a replayed op id without applying it twice', async () => {
+    const email = 'replay@example.com';
+    const inbox = await openSocket(as(email));
+    await inbox.snapshot();
+    const opId = inbox.send(addTask('t1'));
+    expect(await inbox.next()).toMatchObject({ type: 'op', seq: 1, opId });
+    // The same op again, as an offline queue would resend it after a lost
+    // echo, from this socket and from a new one.
+    inbox.send(addTask('t1'), opId);
+    expect(await inbox.next()).toEqual({ type: 'ack', opId });
+    const other = await openSocket(as(email));
+    await other.snapshot();
+    other.send(addTask('t1'), opId);
+    expect(await other.next()).toEqual({ type: 'ack', opId });
+    expect(await inbox.quiet()).toBe(true);
+    const stub = bindings.DATAPAD.getByName(email);
+    expect((await stub.stats()).seq).toBe(1);
+    expect(Object.keys((await stub.export()).tasks)).toEqual(['t1']);
+    inbox.ws.close(1000);
+    other.ws.close(1000);
+  });
+
+  it('remembers the last 1 000 op ids across a restart', async () => {
+    const email = 'kept@example.com';
+    const stub = bindings.DATAPAD.getByName(email);
+    const ids = await runInDurableObject(stub, async (o, state) => {
+      const commit = (
+        o as unknown as {
+          commit: (n: Snapshot, c: [], at: string, opId: string) => void;
+        }
+      ).commit.bind(o);
+      const now = new Date().toISOString();
+      for (let i = 0; i < LIMITS.opIdsKept + 5; i += 1) {
+        commit((await o.export()) as unknown as Snapshot, [], now, `op-${i}`);
+      }
+      return state.storage.sql
+        .exec<{ op_id: string }>('SELECT op_id FROM op_ids ORDER BY seq')
+        .toArray()
+        .map((r) => r.op_id);
+    });
+    expect(ids).toHaveLength(LIMITS.opIdsKept);
+    expect(ids[0]).toBe('op-5');
+    expect(ids.at(-1)).toBe(`op-${LIMITS.opIdsKept + 4}`);
+  });
+
   it('refuses a flood and does not persist it', async () => {
     const email = 'flood@example.com';
     const inbox = await openSocket(as(email));

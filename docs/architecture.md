@@ -71,6 +71,7 @@ alive (answered by the runtime without waking the object).
 | client → server | `{ type: 'op', opId, op }`                 | Every change; `opId` is the client's, to match the echo                        |
 | server → client | `{ type: 'op', seq, opId, op, at }`        | To **every** socket, the sender's included, once the op is stored              |
 | server → client | `{ type: 'rejected', opId, reason }`       | Only to the sender: invalid, impossible, too large, or over the flood limit    |
+| server → client | `{ type: 'ack', opId }`                    | Only to the sender: that op id was already applied (a replay); nothing changed |
 | client → server | `{ type: 'sync' }`                         | After a sequence gap, or when the client's reducer disagrees with an echoed op |
 - `seq` goes up by one per stored op (a no-op too, so its sender gets an
   echo). A client at `seq` n that receives n + 2 has missed one and asks
@@ -78,6 +79,9 @@ alive (answered by the runtime without waking the object).
 - `recent` lists the last `LIMITS.recentOps` op ids the object applied.
   A client that reconnects drops pending ops listed there (their echo went
   to the socket that closed) and resends the rest once per socket.
+- The object also remembers the last `LIMITS.opIdsKept` (1 000) op ids in
+  its `op_ids` table. An op whose id is there is answered with `ack` and
+  not applied again, so replaying an offline queue is always safe.
 - `at` is the object's clock when it applied the op. Clients pass it to
   `reduce()` so their confirmed state matches the object's byte for byte.
 - Each socket may send `LIMITS.opsPerSecond` ops per second; more are
@@ -88,14 +92,24 @@ alive (answered by the runtime without waking the object).
 ### Storage
 
 `docs(col, id, json, updated_at)` holds one row per document; `meta` holds
-`seq` and a pending erase token. The object loads every row into memory
+`seq`, the last backup time and a pending erase token; `op_ids(op_id,
+seq)` is the idempotency table. The object loads every row into memory
 when it starts (again after hibernation), and writes only the rows in
 `changed`, with the new `seq`, in one `transactionSync`.
 
 ## Client
 
 React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending
-ops and caches the last snapshot in IndexedDB for instant first paint. The
+ops and caches the last snapshot in IndexedDB for instant first paint.
+The pending ops are in IndexedDB too (`datapad:pending`), written on every
+change, so writes made offline, or in a tab closed before their echo,
+come back on the next load and are sent, in order and with their original
+op ids, on the next connection. Tabs share that store and merge into it
+atomically, keeping each other's ops until some tab sees them settle. A
+change the object refuses on replay is dropped and toasted by name
+("Not saved: add task “…”. reason"). The sync status (rail footer, and the
+top bar on phones) says Saved, Saving… or "Offline, N changes waiting" in
+a polite live region; it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition.
 
