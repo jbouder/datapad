@@ -1,3 +1,4 @@
+import { ShortcutList } from '@/components/ShortcutList';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { linkProps } from '@/lib/router';
 
@@ -25,6 +26,12 @@ export function HelpPage() {
         Account. Theme, Motion and Sign out are in the menu itself too. When
         your device asks for reduced motion, Datapad never animates.
       </p>
+      <h2 className="font-heading text-lg font-semibold">Keyboard</h2>
+      <p>
+        Press <kbd className="border bg-muted px-1.5 font-mono text-xs">?</kbd>{' '}
+        anywhere for this list.
+      </p>
+      <ShortcutList />
       <p>
         <a
           {...linkProps({ name: 'focus' })}

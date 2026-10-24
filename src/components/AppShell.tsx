@@ -1,5 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Rail } from '@/components/Rail';
+import { ShortcutSheet } from '@/components/ShortcutSheet';
 import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -8,7 +9,7 @@ import { withViewTransition } from '@/lib/motion';
 import { titleOf } from '@/lib/nav';
 import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import { type Route, setRouteTransition, useRoute } from '@/lib/router';
-import { shortcutAllowed } from '@/lib/shortcuts';
+import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
@@ -48,14 +49,40 @@ export function AppShell() {
     newTask(currentProject);
   }, [newTask, currentProject]);
 
-  // `n`: the nearest quick-add, or the panel where there is none (#24
-  // centralises every binding).
+  // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds,
+  // `?` shows the sheet, and the row keys work on whatever list or table
+  // the page shows, starting from its first row when none is focused.
+  const [sheet, setSheet] = useState(false);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'n' && shortcutAllowed(event)) {
+      if (!shortcutAllowed(event)) return;
+      if (event.key === 'n') {
         event.preventDefault();
         if (!document.getElementById(QUICK_ADD_ID)) newTask(currentProject);
         else focusQuickAdd();
+        return;
+      }
+      if (event.key === '?') {
+        event.preventDefault();
+        setSheet(true);
+        return;
+      }
+      const main = document.getElementById('main');
+      if (!main) return;
+      if (handleRowKey(event, main)) {
+        event.preventDefault();
+        return;
+      }
+      // A table's rows are their own focus targets (DataTable handles the
+      // rest once one is focused).
+      if (event.key === 'j' || event.key === 'k') {
+        const row = [
+          ...main.querySelectorAll<HTMLElement>('tr[data-row-id]'),
+        ].find((r) => r.getClientRects().length > 0);
+        if (row) {
+          event.preventDefault();
+          row.focus();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -88,6 +115,7 @@ export function AppShell() {
         </main>
       </div>
       <TabBar route={route} />
+      <ShortcutSheet open={sheet} onOpenChange={setSheet} />
     </div>
   );
 }
