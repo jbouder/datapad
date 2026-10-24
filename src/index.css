@@ -268,6 +268,172 @@
   }
 }
 
+/* ---- Text styles (docs/design.md § Text styles) ------------------------- */
+
+/* Rendered Markdown: notes, project descriptions, event-linked notes and
+   summaries. Three headings, body, mono and quote, defined once here.
+   `.prose-compact` scales the whole set down (grid cards). */
+@layer components {
+  .prose-note {
+    --note-scale: 1;
+    font-size: calc(15px * var(--note-scale));
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .prose-note.prose-compact {
+    --note-scale: 0.88;
+  }
+  .prose-note > * + * {
+    margin-top: 0.6em;
+  }
+  .prose-note :is(h3, h4, h5) {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  .prose-note > :is(h3, h4, h5):not(:first-child) {
+    margin-top: 1em;
+  }
+  .prose-note .note-h1 {
+    font-size: calc(22px * var(--note-scale));
+    line-height: 1.25;
+  }
+  .prose-note .note-h2 {
+    font-size: calc(18px * var(--note-scale));
+    line-height: 1.3;
+  }
+  .prose-note .note-h3 {
+    font-size: calc(16px * var(--note-scale));
+    line-height: 1.35;
+  }
+  .prose-note ul:not(.note-checklist) {
+    list-style: disc;
+    padding-inline-start: 1.25em;
+  }
+  .prose-note ol {
+    list-style: decimal;
+    padding-inline-start: 1.5em;
+  }
+  .prose-note li + li {
+    margin-top: 0.15em;
+  }
+  .prose-note .note-checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .prose-note .note-checklist li[data-checked] > span:last-child {
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+  }
+  /* 44px to touch, the box's own size to a mouse. */
+  .prose-note .note-check {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -12px -6px -12px -14px;
+  }
+  @media (min-width: 820px) and (hover: hover) {
+    .prose-note .note-check {
+      width: 1.45em;
+      height: 1.45em;
+      margin: 0;
+    }
+  }
+  .prose-note .note-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    border: 1px solid var(--muted-foreground);
+    font-size: calc(15px * var(--note-scale));
+  }
+  .prose-note [data-checked] .note-box {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .prose-note .note-box svg {
+    width: 0.75em;
+    height: 0.75em;
+  }
+  /* The real checkbox covers the target; the box under it is drawn. */
+  .prose-note .note-input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .prose-note .note-check:has(.note-input:focus-visible) .note-box {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .prose-note blockquote {
+    border-inline-start: 2px solid var(--border);
+    padding-inline-start: 0.75em;
+    color: var(--muted-foreground);
+  }
+  .prose-note hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin-block: 1em;
+  }
+  .prose-note a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .prose-note a:hover {
+    color: var(--foreground);
+    text-decoration-thickness: 2px;
+  }
+  .prose-note :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--muted);
+    padding: 0.05em 0.3em;
+  }
+  .prose-note .mention {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-weight: 500;
+    padding: 0 0.2em;
+    white-space: nowrap;
+  }
+  .prose-note .note-code {
+    border: 1px solid var(--border);
+    background: var(--muted);
+  }
+  .prose-note .note-code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline-start: 0.75em;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .prose-note pre {
+    font-family: var(--font-mono);
+    font-size: calc(13px * var(--note-scale));
+    line-height: 1.5;
+    padding: 0.75em;
+    overflow: auto;
+    max-height: 24rem;
+    white-space: pre;
+  }
+  .prose-note pre:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Motion                                                              */
 /* ------------------------------------------------------------------ */

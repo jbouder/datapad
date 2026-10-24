@@ -70,6 +70,13 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (M6, in-browser).
 - **Mobile is first class.** Every view is built and tested at phone width:
   e2e runs desktop _and_ phone; 44px touch targets on touch; no hover-only
   affordances; tables collapse to rows; nothing scrolls the page sideways.
+- **Every PR that changes the UI shows it.** Embed screenshots in the PR
+  body, desktop _and_ phone (Pixel 7 width), as a "### Screenshots" table
+  of GitHub attachments (`https://github.com/user-attachments/assets/…`)
+  with descriptive alt text. Never commit screenshots or push them to a
+  branch. Take them with seeded, fictional data (`e2e/seed.ts`); `gh`
+  cannot upload images, so attach them through the PR's comment box in a
+  browser, copy the asset URLs into the body and discard the comment.
 - **No animation libraries for app motion.** View Transitions, WAAPI,
   `@starting-style`, CSS `linear()` springs. Helpers in `src/lib/motion.ts`,
   `src/hooks/useFlip.ts`. (`tw-animate-css` is imported only because the

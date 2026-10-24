@@ -11,6 +11,7 @@ import { MentionTextarea } from '@/components/inputs/MentionTextarea';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
+import { Markdown } from '@/components/Markdown';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
@@ -258,8 +259,8 @@ export function TaskPanel({
           <h3 id="source-note" className="text-xs font-medium">
             From a note
           </h3>
-          <blockquote className="line-clamp-4 border-l-2 pl-3 text-sm whitespace-pre-wrap text-muted-foreground">
-            {tokensToNames(sourceNote.body, people)}
+          <blockquote className="line-clamp-6 border-l-2 pl-3">
+            <Markdown text={sourceNote.body} people={people} />
           </blockquote>
         </section>
       )}

@@ -56,6 +56,28 @@ stock components keep their sizes).
 | Current state line, project header | 22px                             | `text-state-lg`   |
 | Code                               | JetBrains Mono                   | `font-mono`       |
 
+## Text styles
+
+Rendered Markdown (notes, project descriptions, event-linked notes,
+summaries) uses one set of styles, `.prose-note` in `src/index.css`, through
+`src/components/Markdown.tsx`. The parser is `shared/markdown.ts`; storage
+stays plain Markdown.
+
+| Markdown                    | Style                                                         | Size                       |
+| --------------------------- | ------------------------------------------------------------- | -------------------------- |
+| `# `                        | Heading 1, Oxanium 600                                        | 22px / 1.25                |
+| `## `                       | Heading 2, Oxanium 600                                        | 18px / 1.3                 |
+| `### ` (and deeper)         | Heading 3, Oxanium 600                                        | 16px / 1.35                |
+| plain lines                 | Body                                                          | 15px / 1.45                |
+| `` `code` ``, fenced blocks | Mono (JetBrains Mono) on `muted`; blocks scroll and have Copy | 0.88em inline, 13px blocks |
+| `> `                        | Quote: 2px `border` rule, `muted-foreground`                  | body                       |
+| `- [ ]` / `- [x]`           | Checkbox; done items struck through and muted                 | body                       |
+| `@{id}`                     | Mention chip on `accent`                                      | body, 500                  |
+
+Headings render as `h3`–`h5` so they sit under the page's own `h1` and
+section `h2`s. `.prose-compact` scales the whole set by 0.88 (grid
+cards).
+
 ## Density and layout
 
 | Rule              | Value                                                                       |
