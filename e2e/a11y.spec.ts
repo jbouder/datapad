@@ -78,6 +78,26 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
+    test('the Tasks view with data and a selection', async ({
+      page,
+      request,
+    }) => {
+      await request.post('/api/import', { data: SEED });
+      await page.goto('/tasks');
+      await expect(
+        page.locator('[data-task-title]').filter({ visible: true }).first(),
+      ).toBeVisible();
+      if ((page.viewportSize()?.width ?? 0) >= 820) {
+        await page
+          .getByRole('checkbox', { name: 'Select “Renew the docking permit”' })
+          .click();
+        await expect(
+          page.getByRole('toolbar', { name: 'Selected tasks' }),
+        ).toBeVisible();
+      }
+      await expectAccessible(page);
+    });
+
     test('with the task panel open', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
       await page.goto('/projects/p-echo');

@@ -33,6 +33,8 @@ export interface Selection {
   /** Shift extends from the last toggled row. */
   toggle: (id: string, range: boolean) => void;
   toggleGroup: (ids: string[]) => void;
+  /** ⌘/Ctrl+A within a group: select every row in it. */
+  selectGroup?: (ids: string[]) => void;
 }
 
 /**
@@ -79,7 +81,20 @@ export function DataTable<T>({
       ?.focus();
   }, []);
 
-  const onRowKey = (event: KeyboardEvent<HTMLTableRowElement>, row: T) => {
+  const onRowKey = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    row: T,
+    groupIds: string[],
+  ) => {
+    if (
+      selection?.selectGroup &&
+      (event.metaKey || event.ctrlKey) &&
+      event.key.toLowerCase() === 'a'
+    ) {
+      event.preventDefault();
+      selection.selectGroup(groupIds);
+      return;
+    }
     if (event.target !== event.currentTarget) return;
     const i = flat.findIndex((r) => getId(r) === getId(row));
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -99,13 +114,14 @@ export function DataTable<T>({
 
   return (
     <>
-      <div className="vt-list hidden overflow-x-auto desk:block">
+      <div className="vt-list hidden overflow-x-clip desk:block">
         <table
           ref={body}
           aria-label={label}
           className="w-full border-collapse text-sm"
         >
-          <thead className="sticky top-14 z-10 bg-background">
+          {/* Sticks under the top bar: the wrapper clips, it does not scroll. */}
+          <thead className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 bg-background">
             <tr className="border-b">
               {selection && (
                 <th scope="col" className="w-9">
@@ -203,7 +219,7 @@ export function DataTable<T>({
                       onFocus={(e) => {
                         if (e.target === e.currentTarget) setFocusId(id);
                       }}
-                      onKeyDown={(e) => onRowKey(e, row)}
+                      onKeyDown={(e) => onRowKey(e, row, ids)}
                       className={cn(
                         'h-9 border-b outline-ring/50 hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2',
                         selected && 'bg-accent/60',
@@ -215,10 +231,9 @@ export function DataTable<T>({
                             type="checkbox"
                             aria-label={`Select “${rowLabel(row)}”`}
                             checked={selected}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              selection.toggle(id, e.shiftKey);
-                            }}
+                            // Not preventDefault: on a controlled checkbox the
+                            // browser would undo the tick after React set it.
+                            onClick={(e) => selection.toggle(id, e.shiftKey)}
                             onChange={() => {}}
                             className="size-4 accent-foreground"
                           />

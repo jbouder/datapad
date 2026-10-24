@@ -60,6 +60,10 @@ test('the choice survives reload and navigation; the URL wins', async ({
 
 test('v cycles layouts, but not while typing', async ({ page }) => {
   await openLive(page, '/dev/components?view=table');
+  // The switcher (and its `v` listener) is on screen before the key goes.
+  await expect(
+    layout(page).getByRole('radio', { name: 'Table' }),
+  ).toBeChecked();
   await page.locator('body').press('v');
   await expect(
     layout(page).getByRole('radio', { name: 'Cards' }),

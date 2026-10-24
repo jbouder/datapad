@@ -643,6 +643,48 @@ describe('generic ops and the log', () => {
   });
 });
 
+describe('batch', () => {
+  it('applies every op as one change, logging each', () => {
+    const { state, changed } = at(base(), {
+      type: 'batch',
+      ops: [
+        { type: 'toggleTask', id: 't1', done: true },
+        { type: 'toggleTask', id: 't2', done: true },
+      ],
+    });
+    expect(state.tasks.t1?.status).toBe('done');
+    expect(state.tasks.t2?.status).toBe('done');
+    expect(state.activity.p1?.events.slice(0, 2).map((e) => e.text)).toEqual([
+      'Closed "Doors"',
+      'Closed "Heaters"',
+    ]);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'tasks', id: 't1' },
+      { col: 'tasks', id: 't2' },
+    ]);
+  });
+
+  it('is all or nothing', () => {
+    const state = freeze(base());
+    expect(() =>
+      reduce(
+        state,
+        {
+          type: 'batch',
+          ops: [
+            { type: 'toggleTask', id: 't1', done: true },
+            { type: 'deleteTask', id: 'ghost' },
+          ],
+        },
+        T1,
+      ),
+    ).toThrow('That task no longer exists');
+    expect(state.tasks.t1?.status).toBe('open');
+  });
+});
+
 describe('settings', () => {
   it('starts from the defaults and stores a patch, unlogged', () => {
     const state = base();
