@@ -2,11 +2,15 @@ import {
   ArchiveIcon,
   ArrowSquareOutIcon,
   PencilSimpleIcon,
+  PlusIcon,
 } from '@phosphor-icons/react';
 import { useMemo, useRef } from 'react';
 import { formatDay, localDate } from '#shared/dates';
+import { projectEvents } from '#shared/events';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, type Person } from '#shared/types';
+import { useEventForm } from '@/components/events/EventFormProvider';
+import { EventList } from '@/components/events/EventList';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
@@ -35,13 +39,14 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One project, where most entry happens: the header with its facts and
  * actions, the description, the current state line, then Tasks on the
- * left, Notes and Activity on the right (3:2 above 820px, one column
- * below). Events (M4) join the columns when they land. Sections
- * remember open or closed per project.
+ * left with Events under them, Notes and Activity on the right (3:2
+ * above 820px, one column below). Sections remember open or closed per
+ * project.
  */
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
   const { openProjectForm } = useProjectForm();
+  const { newEvent } = useEventForm();
   const { show } = useToast();
   const project = state?.projects[id];
   const [taskView, setTaskView] = useView(
@@ -57,6 +62,11 @@ export function ProjectPage({ id }: { id: string }) {
   const notes = useMemo(
     () => projectNotes(state?.notes ?? {}, id, hidden),
     [state?.notes, id, hidden],
+  );
+
+  const events = useMemo(
+    () => projectEvents(state?.events ?? {}, id),
+    [state?.events, id],
   );
 
   const tasks = useMemo(() => {
@@ -228,6 +238,32 @@ export function ProjectPage({ id }: { id: string }) {
                   }}
                 />
               )}
+            </div>
+          </Section>
+          <Section
+            title="Events"
+            count={events.filter((e) => e.date >= today).length}
+            storageKey={key('events')}
+            actions={
+              <Button
+                variant="outline"
+                className="press h-11 desk:h-8"
+                onClick={() => newEvent({ projectId: id, fixedProject: true })}
+              >
+                <PlusIcon />
+                Add event
+              </Button>
+            }
+          >
+            <div className="pt-2">
+              <EventList
+                events={events}
+                state={state}
+                today={today}
+                showProject={false}
+                headingLevel={3}
+                empty="Nothing coming up on this project."
+              />
             </div>
           </Section>
         </div>

@@ -18,6 +18,7 @@ export function Segmented<T extends string>({
   onChange,
   legend,
   legendHidden = false,
+  wrap = false,
   className,
 }: {
   options: SegmentedOption<T>[];
@@ -25,6 +26,8 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   legend: string;
   legendHidden?: boolean;
+  /** Three to a row on phones, for options too long to share one. */
+  wrap?: boolean;
   className?: string;
 }) {
   const name = useId();
@@ -36,15 +39,34 @@ export function Segmented<T extends string>({
         {legend}
       </legend>
       <div
-        className="grid border border-input"
-        style={{
-          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
-        }}
+        className={cn(
+          'grid border border-input',
+          wrap &&
+            'grid-cols-3 gap-px bg-input sm:grid-cols-(--cols) sm:gap-0 sm:bg-transparent',
+        )}
+        style={
+          {
+            [wrap ? '--cols' : 'gridTemplateColumns']:
+              `repeat(${options.length}, minmax(0, 1fr))`,
+          } as React.CSSProperties
+        }
       >
-        {options.map((o) => (
+        {options.map((o, i) => (
           <label
             key={o.value}
-            className="press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-2 text-xs not-last:border-r has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-8"
+            style={
+              wrap && i === options.length - 1
+                ? ({
+                    '--span': 3 - ((options.length - 1) % 3),
+                  } as React.CSSProperties)
+                : undefined
+            }
+            className={cn(
+              'press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-2 text-xs has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-8',
+              wrap
+                ? 'bg-background last:max-sm:col-span-(--span) sm:not-last:border-r'
+                : 'not-last:border-r',
+            )}
           >
             <input
               type="radio"
