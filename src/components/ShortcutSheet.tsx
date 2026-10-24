@@ -6,8 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { linkProps } from '@/lib/router';
 
-/** `?`: every shortcut, from the one list in `src/lib/shortcuts.ts`. */
+/**
+ * `?`: every shortcut, from the one list in `src/lib/shortcuts.ts`, and
+ * the way to the Help page.
+ */
 export function ShortcutSheet({
   open,
   onOpenChange,
@@ -25,6 +29,17 @@ export function ShortcutSheet({
           </DialogDescription>
         </DialogHeader>
         <ShortcutList />
+        <p className="text-sm">
+          The rest, from Markdown to backups, is in{' '}
+          <a
+            {...linkProps({ name: 'help', section: 'keyboard' })}
+            onClickCapture={() => onOpenChange(false)}
+            className="underline underline-offset-4"
+          >
+            Help
+          </a>
+          .
+        </p>
       </DialogContent>
     </Dialog>
   );
