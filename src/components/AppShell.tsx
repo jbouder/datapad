@@ -13,6 +13,7 @@ import {
   useRoute,
 } from '@/lib/router';
 import { shortcutAllowed } from '@/lib/shortcuts';
+import { ArchivePage } from '@/pages/ArchivePage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -109,11 +110,7 @@ function Page({ route }: { route: Route }) {
     case 'projects':
       return <ProjectsPage />;
     case 'archive':
-      return (
-        <PlaceholderPage title="Archived">
-          Archived projects will be listed here.
-        </PlaceholderPage>
-      );
+      return <ArchivePage />;
     case 'tasks':
       return (
         <PlaceholderPage title="Tasks">
