@@ -53,6 +53,42 @@ test('Save never disables: it focuses the first problem', async ({ page }) => {
   await expect(panel(page)).toBeHidden();
 });
 
+test('a start date shows on the page and cannot come after the target', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/projects');
+  await page.getByRole('button', { name: 'New project' }).click();
+  await panel(page).getByRole('textbox', { name: 'Name' }).fill('Hoth');
+  const start = panel(page).getByRole('textbox', { name: 'Start date' });
+  const target = panel(page).getByRole('textbox', { name: 'Target date' });
+  await start.fill('2030-03-10');
+  await start.press('Tab');
+  await target.fill('2030-03-01');
+  await target.press('Tab');
+  const create = panel(page).getByRole('button', { name: 'Create project' });
+  await create.click();
+  await expect(target).toBeFocused();
+  await expect(
+    panel(page).getByText('Starts after the target date'),
+  ).toBeVisible();
+
+  await target.fill('2030-04-01');
+  await target.press('Tab');
+  await create.click();
+  await expect(panel(page)).toBeHidden();
+  await expect(page.getByText(/^Starts .*2030/)).toBeVisible();
+  await expectSaved(page);
+  const data = await (await request.get('/api/export.json')).json();
+  const hoth = Object.values(data.projects).find(
+    (p) => (p as { name: string }).name === 'Hoth',
+  );
+  expect(hoth).toMatchObject({
+    startDate: '2030-03-10',
+    targetDate: '2030-04-01',
+  });
+});
+
 test('edit logs details and status separately; a new org is offered', async ({
   page,
   request,

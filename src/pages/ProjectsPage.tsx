@@ -43,6 +43,7 @@ const SORT_LABELS: Record<ProjectSort, string> = {
   updated: 'Recently updated',
   priority: 'Priority',
   name: 'Name',
+  start: 'Start date',
   target: 'Target date',
 };
 

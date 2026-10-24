@@ -100,6 +100,8 @@ export const ProjectSchema = z.object({
   /** Absent in older exports; `healthOf()` reads that as `none`. */
   health: projectHealth.optional(),
   priority: priority.default('none'),
+  /** Absent in older exports: not set. */
+  startDate: dateOrEmpty.optional(),
   targetDate: dateOrEmpty.default(''),
   tags: tags.default([]),
   desc: text(LIMITS.bodyMax).default(''),
@@ -390,6 +392,7 @@ const projectFields = {
   org: z.string().trim().max(LIMITS.nameMax),
   orgId: nullableId,
   priority,
+  startDate: dateOrEmpty,
   targetDate: dateOrEmpty,
   tags,
   desc: text(LIMITS.bodyMax),
@@ -772,6 +775,7 @@ export type ServerMessage =
 /* ---------- readable errors ---------- */
 
 const LABELS: Record<string, string> = {
+  startDate: 'Start date',
   targetDate: 'Target date',
   projectId: 'Project',
   eventId: 'Event',

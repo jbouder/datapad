@@ -264,6 +264,7 @@ describe('project filters and sorts', () => {
         id: 'a',
         name: 'Bravo',
         priority: 'low',
+        startDate: '2026-10-01',
         targetDate: '',
       },
       b: {
@@ -271,6 +272,7 @@ describe('project filters and sorts', () => {
         id: 'b',
         name: 'Alpha',
         priority: 'low',
+        startDate: '',
         targetDate: '2026-12-01',
       },
       c: {
@@ -278,6 +280,7 @@ describe('project filters and sorts', () => {
         id: 'c',
         name: 'Charlie',
         priority: 'high',
+        startDate: '2026-10-15',
         targetDate: '2026-11-01',
       },
       d: {
@@ -285,6 +288,7 @@ describe('project filters and sorts', () => {
         id: 'd',
         name: 'Delta',
         priority: 'none',
+        startDate: '',
         targetDate: '2026-11-01',
       },
     } as typeof s.projects;
@@ -296,6 +300,12 @@ describe('project filters and sorts', () => {
       'b',
       'a',
       'c',
+      'd',
+    ]);
+    expect(ids(selectProjects(projects, { ...all, sort: 'start' }))).toEqual([
+      'a',
+      'c',
+      'b',
       'd',
     ]);
     expect(ids(selectProjects(projects, { ...all, sort: 'target' }))).toEqual([

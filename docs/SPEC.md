@@ -30,6 +30,7 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 | org                  | string                             | client or org; free text with autocomplete from existing values |
 | status               | `active` \| `paused` \| `done`     |                                                                 |
 | priority             | `none` \| `low` \| `med` \| `high` |                                                                 |
+| startDate            | date or empty                      | optional; not after targetDate; timeline falls back to created  |
 | targetDate           | date or empty                      |                                                                 |
 | tags                 | string[]                           |                                                                 |
 | desc                 | string                             | markdown                                                        |

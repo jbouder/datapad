@@ -41,6 +41,7 @@ interface Values {
   status: ProjectStatus;
   health: ProjectHealth;
   priority: Priority;
+  startDate: string;
   targetDate: string;
   tags: string[];
   members: string[];
@@ -55,6 +56,7 @@ function valuesOf(project: Project | undefined, defaultOrg = ''): Values {
     status: project?.status ?? 'active',
     health: project ? healthOf(project) : 'none',
     priority: project?.priority ?? 'none',
+    startDate: project?.startDate ?? '',
     targetDate: project?.targetDate ?? '',
     tags: project?.tags ?? [],
     members: project?.members ?? [],
@@ -111,7 +113,9 @@ export function ProjectForm({
     [state?.templates],
   );
   const [nameError, setNameError] = useState<string | null>(null);
+  const [startInvalid, setStartInvalid] = useState(false);
   const [dateInvalid, setDateInvalid] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const dirty = useDirty(values, initial);
@@ -154,7 +158,20 @@ export function ProjectForm({
       nameRef.current?.focus();
       return;
     }
+    if (startInvalid) {
+      document.getElementById('project-start')?.focus();
+      return;
+    }
     if (dateInvalid) {
+      document.getElementById('project-target')?.focus();
+      return;
+    }
+    if (
+      values.startDate &&
+      values.targetDate &&
+      values.startDate > values.targetDate
+    ) {
+      setDateError('Starts after the target date');
       document.getElementById('project-target')?.focus();
       return;
     }
@@ -162,6 +179,7 @@ export function ProjectForm({
       name,
       org: values.org.trim(),
       priority: values.priority,
+      startDate: values.startDate,
       targetDate: values.targetDate,
       tags: values.tags,
       members: values.members,
@@ -323,14 +341,30 @@ export function ProjectForm({
         value={values.priority}
         onChange={(priority) => set('priority', priority)}
       />
-      <Field label="Target date">
-        <DatePicker
-          id="project-target"
-          value={values.targetDate}
-          onChange={(date) => set('targetDate', date)}
-          onInvalidChange={setDateInvalid}
-        />
-      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Start date">
+          <DatePicker
+            id="project-start"
+            value={values.startDate}
+            onChange={(date) => {
+              set('startDate', date);
+              setDateError(null);
+            }}
+            onInvalidChange={setStartInvalid}
+          />
+        </Field>
+        <Field label="Target date" error={dateError}>
+          <DatePicker
+            id="project-target"
+            value={values.targetDate}
+            onChange={(date) => {
+              set('targetDate', date);
+              setDateError(null);
+            }}
+            onInvalidChange={setDateInvalid}
+          />
+        </Field>
+      </div>
       <Field label="Tags">
         <TagInput
           value={values.tags}

@@ -7,7 +7,13 @@ import {
 } from './types';
 
 /** How the Projects page orders its cards. */
-export const PROJECT_SORTS = ['updated', 'priority', 'name', 'target'] as const;
+export const PROJECT_SORTS = [
+  'updated',
+  'priority',
+  'name',
+  'start',
+  'target',
+] as const;
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
 
 export type StatusFilter = ProjectStatus | 'all';
@@ -33,7 +39,8 @@ const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
 
 /**
  * Recently updated (newest first); priority high → med → low → none, then
- * name; name; target date (soonest first, undated last, then name).
+ * name; name; start or target date (soonest first, undated last, then
+ * name).
  */
 export function compareProjects(sort: ProjectSort) {
   switch (sort) {
@@ -45,14 +52,22 @@ export function compareProjects(sort: ProjectSort) {
         PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || byName(a, b);
     case 'name':
       return byName;
+    case 'start':
+      return byDate((p) => p.startDate ?? '');
     case 'target':
-      return (a: Project, b: Project) => {
-        if (a.targetDate === b.targetDate) return byName(a, b);
-        if (!a.targetDate) return 1;
-        if (!b.targetDate) return -1;
-        return a.targetDate.localeCompare(b.targetDate);
-      };
+      return byDate((p) => p.targetDate);
   }
+}
+
+function byDate(dateOf: (p: Project) => string) {
+  return (a: Project, b: Project) => {
+    const x = dateOf(a);
+    const y = dateOf(b);
+    if (x === y) return byName(a, b);
+    if (!x) return 1;
+    if (!y) return -1;
+    return x.localeCompare(y);
+  };
 }
 
 /** The cards a page shows, archived or not, filtered and sorted. */

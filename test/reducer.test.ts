@@ -358,6 +358,40 @@ describe('projects', () => {
     ).toBe('Health set to green');
   });
 
+  it('a start date is optional and cannot fall after the target', () => {
+    let state = run(base(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Falcon',
+      startDate: '2026-11-02',
+      targetDate: '2026-12-01',
+    });
+    expect(state.projects.p2?.startDate).toBe('2026-11-02');
+    expect(state.projects.p1).not.toHaveProperty('startDate');
+    expect(() =>
+      run(state, {
+        type: 'editProject',
+        id: 'p2',
+        patch: { targetDate: '2026-11-01' },
+      }),
+    ).toThrow('The start date is after the target date');
+    expect(() =>
+      run(state, {
+        type: 'createProject',
+        id: 'p3',
+        name: 'Late',
+        startDate: '2026-12-02',
+        targetDate: '2026-12-01',
+      }),
+    ).toThrow(OpError);
+    state = run(state, {
+      type: 'editProject',
+      id: 'p2',
+      patch: { startDate: '' },
+    });
+    expect(state.projects.p2?.startDate).toBe('');
+  });
+
   it('setState, setStatus and archive do nothing when nothing changes', () => {
     const state = run(base(), { type: 'setState', id: 'p1', state: 'Fine' });
     for (const op of [
