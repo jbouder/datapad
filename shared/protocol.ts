@@ -557,7 +557,9 @@ export type ServerMessage =
       /** Server clock when the op was applied; pass to `reduce`. */
       at: string;
     }
-  | { type: 'rejected'; opId: string; reason: string };
+  | { type: 'rejected'; opId: string; reason: string }
+  /** An op the object had already applied (a replay): nothing changed. */
+  | { type: 'ack'; opId: string };
 
 /* ---------- readable errors ---------- */
 

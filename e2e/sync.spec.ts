@@ -103,6 +103,66 @@ test('offline: reads keep working, writes queue and replay on reconnect', async 
   await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(2);
 });
 
+test('offline changes survive a reload and replay once, in order', async ({
+  page,
+  context,
+}) => {
+  let blocked = false;
+  let live: WebSocketRoute | null = null;
+  await page.routeWebSocket('**/ws', (ws) => {
+    if (blocked) {
+      ws.close();
+      return;
+    }
+    live = ws;
+    ws.connectToServer();
+  });
+
+  await openLive(page);
+  await addTask(page, 'Feed the tauntauns');
+  await expect(status(page)).toContainText('Saved');
+  await cached(page, 'Feed the tauntauns');
+
+  // Offline: two tasks on Focus, then a note on another page load.
+  blocked = true;
+  await (live as WebSocketRoute | null)?.close();
+  await expect(status(page)).toContainText('Offline');
+  await addTask(page, 'Patch the hangar roof');
+  await addTask(page, 'Brief the pilots');
+  await expect(status(page)).toContainText('Offline, 2 changes waiting');
+
+  await page.goto('/notes');
+  await expect(status(page)).toHaveAttribute('data-status', 'offline');
+  await expect(status(page)).toContainText('Offline, 2 changes waiting');
+  const box = page.getByRole('combobox', { name: 'New note' });
+  await box.fill('Shield numbers look low');
+  await box.press('ControlOrMeta+Enter');
+  await expect(page.getByText('Shield numbers look low')).toBeVisible();
+  await expect(status(page)).toContainText('Offline, 3 changes waiting');
+
+  // Close and reopen: everything is still there, still waiting.
+  await page.reload();
+  await expect(status(page)).toContainText('Offline, 3 changes waiting');
+  await expect(page.getByText('Shield numbers look low')).toBeVisible();
+
+  // Online again: all three land, each once.
+  blocked = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(status(page)).toHaveAttribute('data-status', 'live');
+  await expect(status(page)).toContainText('Saved');
+
+  const other = await context.newPage();
+  await openLive(other);
+  await expect(openTasks(other)).toContainText('Patch the hangar roof');
+  await expect(openTasks(other)).toContainText('Brief the pilots');
+  await expect(openTasks(other).locator('[data-task-id]')).toHaveCount(3);
+  const exported = await (await other.request.get('/api/export.json')).json();
+  const notes = Object.values(
+    exported.notes as Record<string, { body: string }>,
+  );
+  expect(notes.map((n) => n.body)).toEqual(['Shield numbers look low']);
+});
+
 test('first paint on a warm cache shows data before the socket connects', async ({
   page,
 }) => {

@@ -1,4 +1,4 @@
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get as idbGet, set as idbSet, update as idbUpdate } from 'idb-keyval';
 import {
   createContext,
   useCallback,
@@ -30,6 +30,12 @@ import { newId } from '@/lib/ids';
  * change shows at once and settles when the echo (or a rejection) comes.
  * Until the socket's first snapshot, the last one cached in IndexedDB
  * renders instead, marked `stale`.
+ *
+ * `pending` is kept in IndexedDB too (`datapad:pending`), so changes made
+ * offline, or in a tab closed before their echo, survive a reload and are
+ * sent on the next connection, in order, with their original op ids. The
+ * object acknowledges an id it has already applied instead of applying
+ * it twice.
  *
  * Components never touch the socket: they call the actions, one per op.
  */
@@ -115,6 +121,12 @@ export interface Datapad {
 }
 
 export const CACHE_KEY = 'datapad:snapshot';
+export const PENDING_KEY = 'datapad:pending';
+
+interface StoredPending {
+  email: string;
+  ops: Pending[];
+}
 
 interface Cached {
   email: string;
@@ -149,6 +161,14 @@ export function useDatapadConnection(
   refusedRef.current = onRefused;
   /** Which socket each pending op went out on. */
   const sentOn = useRef(new Map<string, WebSocket>());
+  /** The stored queue has been read; until then, never overwrite it. */
+  const [restored, setRestored] = useState(false);
+  /**
+   * Op ids known to be settled, from any tab: every socket gets every
+   * echo. Lets this tab drop another tab's queued op from the shared
+   * store once it has landed, and keep it while it has not.
+   */
+  const settledIds = useRef(new Set<string>());
 
   /* the socket */
   useEffect(() => {
@@ -167,6 +187,7 @@ export function useDatapadConnection(
 
     /** The server has answered this op, one way or the other. */
     const settle = (opId: string) => {
+      remember(settledIds.current, opId);
       sentOn.current.delete(opId);
       if (pendingRef.current.some((p) => p.opId === opId)) {
         pendingRef.current = pendingRef.current.filter((p) => p.opId !== opId);
@@ -212,6 +233,7 @@ export function useDatapadConnection(
             // that closed) are in this state; drop them. Send the rest,
             // unless they already went out on this socket.
             const applied = new Set(message.recent);
+            for (const id of applied) remember(settledIds.current, id);
             const left = pendingRef.current.filter((p) => !applied.has(p.opId));
             pendingRef.current = left;
             setPending(left);
@@ -252,14 +274,23 @@ export function useDatapadConnection(
             return;
           }
           case 'rejected': {
-            const mine = pendingRef.current.some(
+            const mine = pendingRef.current.find(
               (p) => p.opId === message.opId,
             );
             settle(message.opId);
-            // Say so once, for an op this tab is still waiting on.
-            if (mine) refusedRef.current(message.reason);
+            // Say so once, for an op this tab is still waiting on, naming
+            // it: after a reconnect it may be a change from a while ago.
+            if (mine) {
+              refusedRef.current(
+                `Not saved: ${describeOp(mine.op)}. ${message.reason}`,
+              );
+            }
             return;
           }
+          case 'ack':
+            // Already applied (a replay whose echo we missed).
+            settle(message.opId);
+            return;
         }
       });
 
@@ -315,10 +346,47 @@ export function useDatapadConnection(
       .catch(() => {
         // No IndexedDB (private mode, blocked storage): live data only.
       });
+    idbGet<StoredPending>(PENDING_KEY)
+      .catch(() => undefined)
+      .then((value) => {
+        if (cancelled) return;
+        const stored = value?.email === email ? value.ops : [];
+        const known = new Set(pendingRef.current.map((p) => p.opId));
+        const older = stored.filter((p) => !known.has(p.opId));
+        if (older.length > 0) {
+          // Queued before this page loaded, so ahead of anything since.
+          pendingRef.current = [...older, ...pendingRef.current];
+          setPending(pendingRef.current);
+          // Already live: a fresh snapshot sends them (minus any the
+          // object already has). Otherwise the first snapshot will.
+          const ws = socket.current;
+          if (ws?.readyState === WebSocket.OPEN && confirmedRef.current) {
+            ws.send(JSON.stringify({ type: 'sync' }));
+          }
+        }
+        setRestored(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [email]);
+
+  // Every change to the queue, at once: a tab can close any moment. Other
+  // tabs share the store, so merge (atomically) rather than overwrite:
+  // keep their ops until some tab has seen them settle.
+  useEffect(() => {
+    if (!email || !restored) return;
+    idbUpdate<StoredPending>(PENDING_KEY, (stored) => {
+      const mine = new Set(pending.map((p) => p.opId));
+      const theirs = (stored?.email === email ? stored.ops : []).filter(
+        (p) => !mine.has(p.opId) && !settledIds.current.has(p.opId),
+      );
+      const ops = [...theirs, ...pending].sort((a, b) =>
+        a.at.localeCompare(b.at),
+      );
+      return { email, ops };
+    }).catch(() => {});
+  }, [email, restored, pending]);
 
   useEffect(() => {
     if (!email || !confirmed) return;
@@ -395,6 +463,29 @@ export function useDatapadConnection(
     () => ({ state, status, stale, pendingCount, actions }),
     [state, status, stale, pendingCount, actions],
   );
+}
+
+const SETTLED_KEPT = 2_000;
+
+function remember(ids: Set<string>, id: string) {
+  ids.add(id);
+  if (ids.size > SETTLED_KEPT) {
+    // Sets iterate oldest first.
+    const oldest = ids.values().next().value;
+    if (oldest !== undefined) ids.delete(oldest);
+  }
+}
+
+/** A refused change in a few words: "add task “Order parts”". */
+export function describeOp(op: Op): string {
+  const words = op.type.replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`);
+  const name =
+    'title' in op && typeof op.title === 'string'
+      ? op.title
+      : 'name' in op && typeof op.name === 'string'
+        ? op.name
+        : '';
+  return name ? `${words} “${name}”` : words;
 }
 
 function replay(state: Snapshot, pending: Pending[]): Snapshot {
