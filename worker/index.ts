@@ -1,5 +1,7 @@
-import type { AppConfig } from '#shared/protocol';
+import { LIMITS } from '#shared/limits';
+import type { AppConfig, ImportResult } from '#shared/protocol';
 import { type AccessVerifier, verifyAccess } from './access';
+import type { DatapadObject } from './datapad';
 import type { Bindings } from './env';
 
 export { DatapadObject } from './datapad';
@@ -47,6 +49,21 @@ export function createHandler(verify: AccessVerifier) {
         return json(config);
       }
 
+      if (pathname.startsWith('/api/')) {
+        const route = API_ROUTES[pathname];
+        if (route) {
+          if (request.method !== route.method) {
+            return json({ error: 'Method not allowed' }, 405);
+          }
+          if (route.method === 'POST') {
+            const refused = refuseCrossSite(request);
+            if (refused) return refused;
+          }
+          // The name comes from the verified email and nowhere else.
+          return route.handle(request, env.DATAPAD.getByName(email));
+        }
+      }
+
       if (pathname === '/api' || pathname.startsWith('/api/')) {
         return json({ error: 'Not found' }, 404);
       }
@@ -75,6 +92,105 @@ export function createHandler(verify: AccessVerifier) {
       return json({ error: 'Something went wrong' }, 500);
     }
   };
+}
+
+type Datapad = DurableObjectStub<DatapadObject>;
+
+interface ApiRoute {
+  method: 'GET' | 'POST';
+  handle: (request: Request, datapad: Datapad) => Promise<Response>;
+}
+
+/** The data routes. Each runs on the signed-in user's object over RPC. */
+const API_ROUTES: Record<string, ApiRoute> = {
+  '/api/export.json': {
+    method: 'GET',
+    handle: async (_request, datapad) => {
+      const file = await datapad.export();
+      const day = file.exportedAt.slice(0, 10);
+      return new Response(JSON.stringify(file, null, 2), {
+        headers: {
+          ...API_HEADERS,
+          'content-type': 'application/json; charset=utf-8',
+          'content-disposition': `attachment; filename="datapad-${day}.json"`,
+        },
+      });
+    },
+  },
+  '/api/import': {
+    method: 'POST',
+    handle: async (request, datapad) => {
+      const body = await readJson(request);
+      if (!body.ok) {
+        return json({ error: body.error }, body.status);
+      }
+      const outcome = await datapad.import(body.value);
+      if (!outcome.ok) {
+        return json({ error: outcome.error }, 400);
+      }
+      const result: ImportResult = { imported: outcome.imported };
+      return json(result);
+    },
+  },
+  '/api/erase-token': {
+    method: 'GET',
+    handle: async (_request, datapad) => json(await datapad.eraseToken()),
+  },
+  '/api/erase': {
+    method: 'POST',
+    handle: async (request, datapad) => {
+      const body = await readJson(request);
+      const token =
+        body.ok && typeof body.value === 'object' && body.value !== null
+          ? (body.value as { token?: unknown }).token
+          : undefined;
+      if (typeof token !== 'string' || !(await datapad.erase(token))) {
+        return json(
+          { error: 'That confirmation has expired. Ask for a new one.' },
+          403,
+        );
+      }
+      return json({ erased: true });
+    },
+  },
+};
+
+/**
+ * Writes must come from this origin as JSON. A cross-site form can send
+ * neither `application/json` nor a matching `Origin`, so the Access cookie
+ * alone can never import into or erase someone's data (CSRF).
+ */
+function refuseCrossSite(request: Request): Response | null {
+  const origin = request.headers.get('Origin');
+  if (origin !== null && origin !== new URL(request.url).origin) {
+    return json({ error: 'Cross-site request refused' }, 403);
+  }
+  const type = request.headers.get('content-type') ?? '';
+  if (!type.toLowerCase().startsWith('application/json')) {
+    return json({ error: 'Send JSON' }, 415);
+  }
+  return null;
+}
+
+type JsonBody =
+  | { ok: true; value: unknown }
+  | { ok: false; status: number; error: string };
+
+/** The body as JSON, refused when larger than an import may be. */
+async function readJson(request: Request): Promise<JsonBody> {
+  const declared = Number(request.headers.get('content-length') ?? 0);
+  if (declared > LIMITS.importBytes) {
+    return { ok: false, status: 413, error: 'That file is too large' };
+  }
+  const text = await request.text();
+  if (text.length > LIMITS.importBytes) {
+    return { ok: false, status: 413, error: 'That file is too large' };
+  }
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {
+    return { ok: false, status: 400, error: 'That file is not JSON' };
+  }
 }
 
 const handle = createHandler(verifyAccess);

@@ -1,4 +1,4 @@
-import { expect, openPreferences, test } from './fixtures';
+import { expect, openPreferences, SEED, SEED_COUNTS, test } from './fixtures';
 
 test('signs in through the dev bypass as this test’s own address', async ({
   page,
@@ -16,17 +16,32 @@ test('signs in through the dev bypass as this test’s own address', async ({
 });
 
 // Isolation, two ways: the Worker sees a different address per test, and so
-// a different Durable Object (the name is the address). M1 adds a check
-// that data written in one test is absent from the next.
-const seen: string[] = [];
-for (const n of [1, 2]) {
-  test(`test ${n} gets its own identity`, async ({ request, email }) => {
-    const config = await (await request.get('/api/config')).json();
-    expect(config).toEqual({ email });
-    expect(seen).not.toContain(email);
-    seen.push(email);
+// a different Durable Object (the name is the address). Serial, so test 2
+// runs after test 1 has written the seed into its own object.
+test.describe
+  .serial('isolation', () => {
+    const seen: string[] = [];
+    for (const n of [1, 2]) {
+      test(`test ${n} gets its own identity and an empty object`, async ({
+        request,
+        email,
+      }) => {
+        const config = await (await request.get('/api/config')).json();
+        expect(config).toEqual({ email });
+        expect(seen).not.toContain(email);
+        seen.push(email);
+
+        // Whatever test 1 wrote is absent here.
+        const before = await (await request.get('/api/export.json')).json();
+        expect(Object.keys(before.projects)).toEqual([]);
+        expect(Object.keys(before.tasks)).toEqual([]);
+
+        const imported = await request.post('/api/import', { data: SEED });
+        expect(imported.status()).toBe(200);
+        expect(await imported.json()).toEqual({ imported: SEED_COUNTS });
+      });
+    }
   });
-}
 
 test('deep links load the app, not a 404', async ({ page }) => {
   const response = await page.goto('/projects/does-not-exist-yet');

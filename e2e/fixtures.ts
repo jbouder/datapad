@@ -7,9 +7,9 @@ import {
   type Page,
 } from '@playwright/test';
 import type { ThemeId } from '../src/lib/themes';
-import { SEED } from './seed';
+import { SEED, SEED_COUNTS } from './seed';
 
-export { expect, SEED };
+export { expect, SEED, SEED_COUNTS };
 
 /**
  * Nothing leaves localhost: fonts are bundled and Datapad talks only to its
