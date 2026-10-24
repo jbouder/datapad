@@ -469,6 +469,7 @@ describe('export and import', () => {
         settings: 0,
         decisions: 0,
         orgs: 0,
+        templates: 0,
       },
     });
     const exported = await get(email, '/api/export.json');
@@ -488,6 +489,7 @@ describe('export and import', () => {
       'settings',
       'decisions',
       'orgs',
+      'templates',
     ]);
     const { exportedAt, ...back } = file;
     expect(Date.parse(exportedAt)).not.toBeNaN();
@@ -497,6 +499,7 @@ describe('export and import', () => {
       settings: {},
       decisions: {},
       orgs: {},
+      templates: {},
     });
   });
 

@@ -1,4 +1,4 @@
-import { ArchiveIcon, GavelIcon } from '@phosphor-icons/react';
+import { ArchiveIcon, GavelIcon, NewspaperIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SyncStatus } from '@/components/SyncStatus';
@@ -55,6 +55,7 @@ export function Rail({ route }: { route: Route }) {
     ? Object.values(state.projects).filter((p) => p.archived).length
     : 0;
   const decisions = state ? Object.keys(state.decisions).length : 0;
+  const anyProjects = state ? Object.keys(state.projects).length > 0 : false;
 
   const countFor = (name: string): number | undefined =>
     name === 'focus' || name === 'tasks' || name === 'events'
@@ -148,6 +149,20 @@ export function Rail({ route }: { route: Route }) {
           </section>
         )}
 
+        {(anyProjects || route.name === 'digest') && (
+          <a
+            {...linkProps({ name: 'digest' })}
+            aria-current={route.name === 'digest' ? 'page' : undefined}
+            className={cn(
+              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
+              route.name === 'digest' &&
+                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
+            )}
+          >
+            <NewspaperIcon aria-hidden />
+            <span className="flex-1">Weekly digest</span>
+          </a>
+        )}
         {(decisions > 0 || route.name === 'decisions') && (
           <a
             {...linkProps({ name: 'decisions' })}

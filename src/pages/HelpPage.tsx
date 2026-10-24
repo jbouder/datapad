@@ -97,6 +97,11 @@ export function HelpPage({ section }: { section?: string }) {
             Every note, newest first, as a feed or a grid. Pinned notes stay on
             top.
           </Term>
+          <Term name="Digest">
+            Your own status report: what happened in each project over a week,
+            from tasks, notes, events, decisions and the activity logs. Copy it
+            as Markdown, keep it as a note, or Summarize it.
+          </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note, event,
             decision or person.
@@ -235,10 +240,11 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           The account button at the top right opens the menu: Motion, Theme,
           Settings and Sign out. Settings has Appearance, People, Orgs (each org
-          with its projects, contacts, events and notes), Summaries, Data and
-          Account. Signing out ends your Cloudflare Access session on this
-          browser; sign in again to come back. When your device asks for reduced
-          motion, Datapad never animates.
+          with its projects, contacts, events and notes), Templates (the tasks a
+          new project can start with; Save as template on a project makes one),
+          Summaries, Data and Account. Signing out ends your Cloudflare Access
+          session on this browser; sign in again to come back. When your device
+          asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 

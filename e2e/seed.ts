@@ -19,4 +19,5 @@ export const SEED_COUNTS = {
   settings: 0,
   decisions: 0,
   orgs: 0,
+  templates: 0,
 };

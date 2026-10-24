@@ -24,6 +24,7 @@ import {
   type Snapshot,
   TASK_STATUSES,
   type Task,
+  type Template,
 } from './types';
 
 /**
@@ -161,6 +162,21 @@ export const EventSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Event, unknown>;
 
+const templateTask = z.object({
+  title: required(LIMITS.titleMax),
+  priority: priority.default('none'),
+  tags: tags.default([]),
+});
+
+export const TemplateSchema = z.object({
+  id,
+  name: z.string().min(1).max(LIMITS.nameMax),
+  tasks: z.array(templateTask).max(LIMITS.templateTasksMax).default([]),
+  defaultTags: tags.default([]),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}) satisfies z.ZodType<Template, unknown>;
+
 const orgKind = z.enum(ORG_KINDS);
 
 export const OrgSchema = z.object({
@@ -220,6 +236,7 @@ export const DocumentSchemas = {
   people: PersonSchema,
   decisions: DecisionSchema,
   orgs: OrgSchema,
+  templates: TemplateSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -300,6 +317,8 @@ export const ExportSchema = z.object({
   decisions: collectionOf(DecisionSchema),
   /** Datapad only (M7); older files carry orgs as project text. */
   orgs: collectionOf(OrgSchema),
+  /** Datapad only (M7). */
+  templates: collectionOf(TemplateSchema),
   activity: keyedCollection(ActivitySchema),
   settings: keyedCollection(SettingsSchema),
 });
@@ -335,6 +354,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     people: Object.keys(snapshot.people).length,
     decisions: Object.keys(snapshot.decisions).length,
     orgs: Object.keys(snapshot.orgs).length,
+    templates: Object.keys(snapshot.templates).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -459,6 +479,11 @@ const PutSchema = z.discriminatedUnion('col', [
     col: z.literal('orgs'),
     doc: OrgSchema,
   }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('templates'),
+    doc: TemplateSchema,
+  }),
 ]);
 
 /**
@@ -517,6 +542,16 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     status: projectStatus.optional(),
     health: projectHealth.optional(),
     state: z.string().trim().max(LIMITS.stateMax).optional(),
+    /**
+     * Start from a template: its tasks, in order, with these ids (one per
+     * template task), and its default tags.
+     */
+    template: z
+      .object({
+        id,
+        taskIds: z.array(id).max(LIMITS.templateTasksMax),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('editProject'),
@@ -569,6 +604,25 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editEvent'), id, patch: patch(eventFields) }),
   /** Keeps the event's notes. */
   z.object({ type: z.literal('deleteEvent'), id }),
+
+  /* templates (not logged: they are not project work) */
+  z.object({
+    type: z.literal('addTemplate'),
+    id,
+    name: required(LIMITS.nameMax),
+    tasks: z.array(templateTask).max(LIMITS.templateTasksMax).optional(),
+    defaultTags: tags.optional(),
+  }),
+  z.object({
+    type: z.literal('editTemplate'),
+    id,
+    patch: patch({
+      name: required(LIMITS.nameMax),
+      tasks: z.array(templateTask).max(LIMITS.templateTasksMax),
+      defaultTags: tags,
+    }),
+  }),
+  z.object({ type: z.literal('deleteTemplate'), id }),
 
   /* orgs */
   z.object({

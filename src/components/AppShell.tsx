@@ -13,6 +13,7 @@ import { type Route, setRouteTransition, useRoute } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { DecisionsPage } from '@/pages/DecisionsPage';
+import { DigestPage } from '@/pages/DigestPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
@@ -175,6 +176,8 @@ function Page({ route }: { route: Route }) {
       return <EventsPage />;
     case 'decisions':
       return <DecisionsPage />;
+    case 'digest':
+      return <DigestPage />;
     case 'settings':
       return (
         <SettingsPage

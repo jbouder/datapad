@@ -32,6 +32,7 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notes: 'Notes',
   events: 'Events',
   decisions: 'Decisions',
+  digest: 'Weekly digest',
   settings: 'Settings',
   help: 'Help',
   devComponents: 'Components',

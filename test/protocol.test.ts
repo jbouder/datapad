@@ -105,6 +105,23 @@ const cases = {
     valid: { defaultOrg: 'OpenTeams Internal' },
     invalid: { defaultOrg: 'x'.repeat(LIMITS.nameMax + 1) },
   },
+  templates: {
+    valid: {
+      id: 'tp-1',
+      name: 'Kickoff',
+      tasks: [{ title: 'Kickoff call', priority: 'high', tags: ['setup'] }],
+      defaultTags: ['client'],
+      createdAt: at,
+      updatedAt: at,
+    },
+    invalid: {
+      id: 'tp-1',
+      name: 'Kickoff',
+      tasks: [{ title: '' }],
+      createdAt: at,
+      updatedAt: at,
+    },
+  },
   orgs: {
     valid: {
       id: 'o-1',
@@ -160,7 +177,11 @@ describe('document schemas', () => {
   it('parses every document of a real export with zero errors', () => {
     // The artifact has no settings or decisions; Datapad adds those.
     for (const col of COLLECTIONS.filter(
-      (c) => c !== 'settings' && c !== 'decisions' && c !== 'orgs',
+      (c) =>
+        c !== 'settings' &&
+        c !== 'decisions' &&
+        c !== 'orgs' &&
+        c !== 'templates',
     )) {
       const docs = fixture[col] as Record<string, unknown>;
       expect(Object.keys(docs).length).toBeGreaterThan(0);

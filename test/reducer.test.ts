@@ -769,6 +769,62 @@ describe('people', () => {
     ).toThrow('That org no longer exists');
   });
 
+  it('a template starts a project with its tasks in order and its tags', () => {
+    let state = run(emptySnapshot(), {
+      type: 'addTemplate',
+      id: 'tp',
+      name: 'Kickoff',
+      tasks: [
+        { title: 'Kickoff call', priority: 'high', tags: ['setup'] },
+        { title: 'Access requests', priority: 'none', tags: [] },
+      ],
+      defaultTags: ['client', 'new'],
+    });
+    state = at(state, {
+      type: 'createProject',
+      id: 'p1',
+      name: 'Echo Base',
+      tags: ['new'],
+      template: { id: 'tp', taskIds: ['k1', 'k2'] },
+    }).state;
+    expect(state.projects.p1?.tags).toEqual(['new', 'client']);
+    expect(state.tasks.k1).toMatchObject({
+      title: 'Kickoff call',
+      projectId: 'p1',
+      priority: 'high',
+      tags: ['setup'],
+      order: 1,
+      status: 'open',
+    });
+    expect(state.tasks.k2?.order).toBe(2);
+    expect(lastLog(state, 'p1')).toBe(
+      'Created project from template "Kickoff"',
+    );
+    // Ids must match the template's tasks one for one.
+    expect(() =>
+      at(state, {
+        type: 'createProject',
+        id: 'p2',
+        name: 'Hoth',
+        template: { id: 'tp', taskIds: ['x1'] },
+      }),
+    ).toThrow('That template changed. Try again.');
+    expect(() =>
+      at(state, {
+        type: 'createProject',
+        id: 'p3',
+        name: 'Hoth',
+        template: { id: 'gone', taskIds: [] },
+      }),
+    ).toThrow('That template no longer exists');
+    state = run(
+      state,
+      { type: 'editTemplate', id: 'tp', patch: { name: 'Client kickoff' } },
+      { type: 'deleteTemplate', id: 'tp' },
+    );
+    expect(state.templates.tp).toBeUndefined();
+  });
+
   it('removePerson keeps a task blocked but on no one listed', () => {
     const state = run(base(), {
       type: 'setBlocked',

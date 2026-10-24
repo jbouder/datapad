@@ -20,6 +20,7 @@ export type Route =
   | { name: 'notes' }
   | { name: 'events' }
   | { name: 'decisions' }
+  | { name: 'digest' }
   /**
    * `person` is the one selected in People (`/settings/people/:id`), `org`
    * the one open in Orgs (`/settings/orgs/:id`).
@@ -45,6 +46,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'people',
   'orgs',
+  'templates',
   'summaries',
   'data',
   'account',
@@ -58,6 +60,7 @@ const SIMPLE = new Set<RouteName>([
   'notes',
   'events',
   'decisions',
+  'digest',
 ]);
 
 export function parse(pathname: string, hash = ''): Route {

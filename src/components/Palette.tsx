@@ -9,6 +9,7 @@ import {
   GavelIcon,
   type Icon,
   MagnifyingGlassIcon,
+  NewspaperIcon,
   NoteIcon,
   PlusIcon,
   UserIcon,
@@ -116,6 +117,12 @@ export function Palette({
         icon: n.icon,
         run: go(n.route),
       })),
+      {
+        id: 'go-digest',
+        label: 'Go to Weekly digest',
+        icon: NewspaperIcon,
+        run: go({ name: 'digest' }),
+      },
       {
         id: 'go-decisions',
         label: 'Go to Decisions',

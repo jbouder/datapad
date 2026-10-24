@@ -67,15 +67,16 @@ as it is:
   "events": { … },
   "settings": { "user": { "defaultOrg": "OpenTeams Internal" } },
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
-  "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } }
+  "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
+  "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } }
 }
 ```
 
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, today only the
   default org for new projects.
-- `decisions` and `orgs` are Datapad's own too (M7): the decision log and
-  org records. A file without them imports fine; its projects' `org` text
+- `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
+  decision log, org records and project templates. A file without them imports fine; its projects' `org` text
   is kept, and Settings → Orgs offers to organise it into records
   (`project.orgId` links one). Deleting an org leaves the text. Projects may carry `health` and tasks `blocked`; both
   are optional and absent in older files.
