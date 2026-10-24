@@ -10,6 +10,7 @@ import { Segmented } from '@/components/inputs/Segmented';
 import { OrgsSettings } from '@/components/orgs/OrgsSettings';
 import { PeopleView } from '@/components/people/PeopleView';
 import { SummarySettings } from '@/components/summary/SummarySettings';
+import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -30,6 +31,7 @@ const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
   people: 'People',
   orgs: 'Orgs',
+  templates: 'Templates',
   summaries: 'Summaries',
   data: 'Data',
   account: 'Account',
@@ -95,6 +97,7 @@ export function SettingsPage({
           {section === 'appearance' && <Appearance />}
           {section === 'people' && <PeopleView selected={person} />}
           {section === 'orgs' && <OrgsSettings selected={org} />}
+          {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}

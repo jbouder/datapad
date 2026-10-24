@@ -8,6 +8,7 @@ import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
 import { SummaryProvider } from '@/components/summary/SummaryProvider';
 import { BlockedProvider } from '@/components/tasks/BlockedProvider';
 import { TaskPanelProvider } from '@/components/tasks/TaskPanelProvider';
+import { TemplateFormProvider } from '@/components/templates/TemplateFormProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DatapadProvider } from '@/providers/DatapadProvider';
 import { MotionProvider } from '@/providers/MotionProvider';
@@ -25,17 +26,19 @@ export default function App() {
                 <SummaryProvider>
                   <BlockedProvider>
                     <DecisionPanelProvider>
-                      <ProjectFormProvider>
-                        <TaskPanelProvider>
-                          <EventFormProvider>
-                            <EventNotesProvider>
-                              <NotesProvider>
-                                <AppShell />
-                              </NotesProvider>
-                            </EventNotesProvider>
-                          </EventFormProvider>
-                        </TaskPanelProvider>
-                      </ProjectFormProvider>
+                      <TemplateFormProvider>
+                        <ProjectFormProvider>
+                          <TaskPanelProvider>
+                            <EventFormProvider>
+                              <EventNotesProvider>
+                                <NotesProvider>
+                                  <AppShell />
+                                </NotesProvider>
+                              </EventNotesProvider>
+                            </EventFormProvider>
+                          </TaskPanelProvider>
+                        </ProjectFormProvider>
+                      </TemplateFormProvider>
                     </DecisionPanelProvider>
                   </BlockedProvider>
                 </SummaryProvider>

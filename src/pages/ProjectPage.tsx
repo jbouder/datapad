@@ -1,6 +1,7 @@
 import {
   ArchiveIcon,
   ArrowSquareOutIcon,
+  CopySimpleIcon,
   PencilSimpleIcon,
   PlusIcon,
   SparkleIcon,
@@ -34,6 +35,7 @@ import {
   ProjectTaskBoard,
 } from '@/components/tasks/ProjectTaskBoard';
 import { TaskList } from '@/components/tasks/TaskList';
+import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
@@ -54,6 +56,7 @@ export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
   const { openProjectForm } = useProjectForm();
   const { summarize } = useSummaries();
+  const { newTemplate } = useTemplateForm();
   const { newEvent } = useEventForm();
   const { show } = useToast();
   const project = state?.projects[id];
@@ -266,6 +269,27 @@ export function ProjectPage({ id }: { id: string }) {
                       actions.addTask({ projectId: id, title }) !== null,
                   }}
                 />
+              )}
+              {tasks.open.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="press mt-1 h-11 text-xs desk:h-8"
+                  onClick={() =>
+                    newTemplate({
+                      name: `${project.name} kickoff`,
+                      defaultTags: project.tags,
+                      tasks: tasks.open.map((t) => ({
+                        title: t.title,
+                        priority: t.priority,
+                        tags: t.tags,
+                      })),
+                    })
+                  }
+                >
+                  <CopySimpleIcon />
+                  Save as template
+                </Button>
               )}
             </div>
           </Section>

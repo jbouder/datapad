@@ -190,6 +190,25 @@ export interface Org {
   updatedAt: Timestamp;
 }
 
+/** One task a template starts a project with. */
+export interface TemplateTask {
+  title: string;
+  priority: Priority;
+  tags: string[];
+}
+
+/** A saved kickoff checklist, applied when a project is created. */
+export interface Template {
+  id: string;
+  name: string;
+  /** In order. */
+  tasks: TemplateTask[];
+  /** Added to the new project's tags. */
+  defaultTags: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 export interface Person {
   id: string;
   /** Mention matching is by name. */
@@ -254,6 +273,7 @@ export interface Collections {
   people: Person;
   decisions: Decision;
   orgs: Org;
+  templates: Template;
   activity: Activity;
   settings: Settings;
 }
@@ -268,6 +288,7 @@ export const COLLECTIONS = [
   'people',
   'decisions',
   'orgs',
+  'templates',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -283,6 +304,7 @@ export const DOC_COLLECTIONS = [
   'people',
   'decisions',
   'orgs',
+  'templates',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -299,6 +321,7 @@ export function emptySnapshot(): Snapshot {
     people: {},
     decisions: {},
     orgs: {},
+    templates: {},
     activity: {},
     settings: {},
   };

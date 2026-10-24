@@ -348,6 +348,13 @@ function apply(d: Draft, op: Op, now: string) {
     /* projects */
     case 'createProject': {
       fresh(d, 'projects', op.id, 'project');
+      const template = op.template
+        ? (d.get('templates', op.template.id) ??
+          fail('That template no longer exists'))
+        : null;
+      if (template && op.template?.taskIds.length !== template.tasks.length) {
+        fail('That template changed. Try again.');
+      }
       d.set('projects', op.id, {
         id: op.id,
         name: op.name,
@@ -357,7 +364,9 @@ function apply(d: Draft, op: Op, now: string) {
         health: op.health ?? 'none',
         priority: op.priority ?? 'none',
         targetDate: op.targetDate ?? '',
-        tags: op.tags ?? [],
+        tags: [
+          ...new Set([...(op.tags ?? []), ...(template?.defaultTags ?? [])]),
+        ].slice(0, LIMITS.tagsMax),
         desc: op.desc ?? '',
         state: op.state ?? '',
         members: op.members ?? [],
@@ -366,7 +375,57 @@ function apply(d: Draft, op: Op, now: string) {
         createdAt: now,
         updatedAt: now,
       });
-      log(d, op.id, 'Created project', now);
+      log(
+        d,
+        op.id,
+        template
+          ? `Created project from template "${template.name}"`
+          : 'Created project',
+        now,
+      );
+      template?.tasks.forEach((t, i) => {
+        const id = op.template?.taskIds[i] as string;
+        fresh(d, 'tasks', id, 'task');
+        d.set('tasks', id, {
+          id,
+          title: t.title,
+          projectId: op.id,
+          status: 'open',
+          priority: t.priority,
+          due: '',
+          desc: '',
+          tags: t.tags,
+          assignee: '',
+          links: [],
+          order: i + 1,
+          createdAt: now,
+          updatedAt: now,
+          completedAt: null,
+        });
+      });
+      return;
+    }
+    case 'addTemplate': {
+      fresh(d, 'templates', op.id, 'template');
+      d.set('templates', op.id, {
+        id: op.id,
+        name: op.name,
+        tasks: op.tasks ?? [],
+        defaultTags: op.defaultTags ?? [],
+        createdAt: now,
+        updatedAt: now,
+      });
+      return;
+    }
+    case 'editTemplate': {
+      const x =
+        d.get('templates', op.id) ?? fail('That template no longer exists');
+      d.set('templates', x.id, { ...x, ...op.patch, updatedAt: now });
+      return;
+    }
+    case 'deleteTemplate': {
+      d.get('templates', op.id) ?? fail('That template no longer exists');
+      d.delete('templates', op.id);
       return;
     }
     case 'editProject': {

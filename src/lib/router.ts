@@ -45,6 +45,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'people',
   'orgs',
+  'templates',
   'summaries',
   'data',
   'account',

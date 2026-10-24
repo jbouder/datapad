@@ -235,10 +235,11 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           The account button at the top right opens the menu: Motion, Theme,
           Settings and Sign out. Settings has Appearance, People, Orgs (each org
-          with its projects, contacts, events and notes), Summaries, Data and
-          Account. Signing out ends your Cloudflare Access session on this
-          browser; sign in again to come back. When your device asks for reduced
-          motion, Datapad never animates.
+          with its projects, contacts, events and notes), Templates (the tasks a
+          new project can start with; Save as template on a project makes one),
+          Summaries, Data and Account. Signing out ends your Cloudflare Access
+          session on this browser; sign in again to come back. When your device
+          asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 

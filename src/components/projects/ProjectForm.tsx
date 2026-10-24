@@ -16,6 +16,7 @@ import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
 import { MemberChips } from '@/components/inputs/MemberChips';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
+import { SelectField } from '@/components/inputs/SelectField';
 import { TagInput } from '@/components/inputs/TagInput';
 import { NoteComposer } from '@/components/NoteComposer';
 import { OrgPicker } from '@/components/pickers/OrgPicker';
@@ -24,6 +25,7 @@ import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
+import { newId } from '@/lib/ids';
 import { navigate } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -95,6 +97,19 @@ export function ProjectForm({
     valuesOf(project, state ? settingsOf(state).defaultOrg : ''),
   );
   const [values, setValues] = useState(initial);
+  const [templateId, setTemplateId] = useState('');
+  const templateOptions = useMemo(
+    () => [
+      { value: '', label: 'No template' },
+      ...Object.values(state?.templates ?? {})
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((t) => ({
+          value: t.id,
+          label: `${t.name} (${t.tasks.length === 1 ? '1 task' : `${t.tasks.length} tasks`})`,
+        })),
+    ],
+    [state?.templates],
+  );
   const [nameError, setNameError] = useState<string | null>(null);
   const [dateInvalid, setDateInvalid] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -154,11 +169,20 @@ export function ProjectForm({
       links: cleanLinks(values.links),
     };
     if (!project) {
+      const template = templateId ? state?.templates[templateId] : undefined;
       const id = actions.createProject({
         ...fields,
         status: values.status,
         health: values.health,
         orgId: orgIdFor(values.org) ?? undefined,
+        ...(template
+          ? {
+              template: {
+                id: template.id,
+                taskIds: template.tasks.map(() => newId()),
+              },
+            }
+          : {}),
       });
       if (!id) return;
       onClose();
@@ -271,6 +295,14 @@ export function ProjectForm({
           }}
         />
       </Field>
+      {!project && templateOptions.length > 1 && (
+        <SelectField
+          label="Start from template"
+          value={templateId}
+          options={templateOptions}
+          onChange={setTemplateId}
+        />
+      )}
       <Field label="Org">
         <OrgPicker value={values.org} onChange={(org) => set('org', org)} />
       </Field>
