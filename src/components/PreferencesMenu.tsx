@@ -1,4 +1,10 @@
-import { GearSixIcon, SignOutIcon } from '@phosphor-icons/react';
+import {
+  DownloadSimpleIcon,
+  GearSixIcon,
+  SignOutIcon,
+  UploadSimpleIcon,
+} from '@phosphor-icons/react';
+import { useImportExport } from '@/components/ImportExport';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,71 +23,90 @@ import { isThemeId, THEMES } from '@/lib/themes';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
-/** Motion and theme (per device), and the signed-in account. */
+/**
+ * Motion and theme (per device), your data (export and import), and the
+ * signed-in account.
+ */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
+  const data = useImportExport();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="press size-11 sm:size-9"
-            aria-label="Preferences"
-          />
-        }
-      >
-        <GearSixIcon weight="bold" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Preferences</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            closeOnClick={false}
-            checked={motion.preference}
-            disabled={motion.reduced}
-            onCheckedChange={(on) => motion.setPreference(on)}
-          >
-            <span className="flex-1">Motion</span>
-            {motion.reduced && (
-              <span className="text-muted-foreground">off by your OS</span>
-            )}
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Theme</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={theme}
-            onValueChange={(value) => {
-              if (isThemeId(value)) setTheme(value);
-            }}
-          >
-            {THEMES.map((t) => (
-              <DropdownMenuRadioItem
-                key={t.id}
-                value={t.id}
-                closeOnClick={false}
-              >
-                {t.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="truncate">
-            {email ? `Signed in as ${email}` : 'Signed in'}
-          </DropdownMenuLabel>
-          <DropdownMenuItem render={<a href={SIGN_OUT_URL} />}>
-            <SignOutIcon />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="press size-11 sm:size-9"
+              aria-label="Preferences"
+            />
+          }
+        >
+          <GearSixIcon weight="bold" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Preferences</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              closeOnClick={false}
+              checked={motion.preference}
+              disabled={motion.reduced}
+              onCheckedChange={(on) => motion.setPreference(on)}
+            >
+              <span className="flex-1">Motion</span>
+              {motion.reduced && (
+                <span className="text-muted-foreground">off by your OS</span>
+              )}
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Theme</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={theme}
+              onValueChange={(value) => {
+                if (isThemeId(value)) setTheme(value);
+              }}
+            >
+              {THEMES.map((t) => (
+                <DropdownMenuRadioItem
+                  key={t.id}
+                  value={t.id}
+                  closeOnClick={false}
+                >
+                  {t.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Your data</DropdownMenuLabel>
+            <DropdownMenuItem onClick={data.exportNow}>
+              <DownloadSimpleIcon />
+              Export
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={data.chooseImport}>
+              <UploadSimpleIcon />
+              Import…
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="truncate">
+              {email ? `Signed in as ${email}` : 'Signed in'}
+            </DropdownMenuLabel>
+            <DropdownMenuItem render={<a href={SIGN_OUT_URL} />}>
+              <SignOutIcon />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {data.element}
+    </>
   );
 }
