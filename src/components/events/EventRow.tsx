@@ -4,6 +4,7 @@ import {
   DotsThreeIcon,
   NotePencilIcon,
   PencilSimpleIcon,
+  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import { useEventNotes } from '@/components/events/EventNotesProvider';
 import { LinkedNotes } from '@/components/events/LinkedNotes';
 import { TypePill } from '@/components/events/TypePill';
 import { Initials } from '@/components/Initials';
+import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -57,6 +59,7 @@ export function EventRow({
   const { actions } = useDatapad();
   const { openEvent } = useEventForm();
   const { startNote } = useEventNotes();
+  const { summarize } = useSummaries();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
   const row = useRef<HTMLDivElement>(null);
@@ -189,7 +192,12 @@ export function EventRow({
             <DotsThreeIcon weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            {/* Summarize joins these with on-device summaries (M6). */}
+            <DropdownMenuItem
+              onClick={() => summarize({ kind: 'event', id: event.id })}
+            >
+              <SparkleIcon />
+              Summarize
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => startNote(event, 'pre')}>
               <ClipboardTextIcon />
               Prep note

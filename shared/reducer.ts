@@ -370,7 +370,7 @@ function apply(d: Draft, op: Op, now: string) {
       log(
         d,
         op.projectId,
-        op.summary ? 'Saved a Claude summary as a note' : 'Added a note',
+        op.summary ? 'Saved a summary as a note' : 'Added a note',
         now,
       );
       touch(d, op.projectId, now);

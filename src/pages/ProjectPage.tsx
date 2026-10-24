@@ -3,6 +3,7 @@ import {
   ArrowSquareOutIcon,
   PencilSimpleIcon,
   PlusIcon,
+  SparkleIcon,
 } from '@phosphor-icons/react';
 import { useMemo, useRef } from 'react';
 import { formatDay, localDate } from '#shared/dates';
@@ -23,6 +24,7 @@ import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { StateLine } from '@/components/projects/StateLine';
 import { StatusPill } from '@/components/projects/StatusPill';
 import { Section } from '@/components/Section';
+import { useSummaries } from '@/components/summary/SummaryProvider';
 import {
   PROJECT_TASK_VIEWS,
   ProjectTaskBoard,
@@ -46,6 +48,7 @@ import { useToast } from '@/providers/ToastProvider';
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
   const { openProjectForm } = useProjectForm();
+  const { summarize } = useSummaries();
   const { newEvent } = useEventForm();
   const { show } = useToast();
   const project = state?.projects[id];
@@ -132,7 +135,14 @@ export function ProjectPage({ id }: { id: string }) {
             {project.name}
           </h1>
           <div className="flex gap-1">
-            {/* Summarize joins these with on-device summaries (M6). */}
+            <Button
+              variant="outline"
+              className="press"
+              onClick={() => summarize({ kind: 'project', id: project.id })}
+            >
+              <SparkleIcon />
+              Summarize
+            </Button>
             <Button
               variant="outline"
               className="press"

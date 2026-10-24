@@ -16,7 +16,7 @@ and a configuration mistake fails closed.
 | Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and (from M3) a Markdown renderer that emits no raw HTML.                                                                                                           |
 | Clickjacking, MIME sniffing, referrer leaks                                                               | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`.                                                                                                                                                          |
 | Cross-site requests                                                                                       | In the Access application's cookie settings, HttpOnly is on and SameSite is Lax. Writes (`POST /api/import`, `POST /api/erase`) accept `application/json` bodies only, which a cross-site form cannot send, and refuse any `Origin` but the app's own. |
-| Data leaving the account                                                                                  | Summaries run on-device. The CSP's `connect-src 'self'` blocks any other destination until M6 widens it for the model weights only.                                                                                                                    |
+| Data leaving the account                                                                                  | Summaries run on-device; the item's text never leaves the tab. The CSP's `connect-src` allows only this origin plus the model's download hosts (Hugging Face, `raw.githubusercontent.com`), which receive no data and no referrer.                     |
 | Loss of data                                                                                              | Nightly R2 backups (M6), JSON export; deleting everything takes a fresh, single-use token (`/api/erase-token`).                                                                                                                                        |
 
 ## What Access protects, and what the Worker adds
@@ -45,11 +45,25 @@ All traffic is HTTPS (workers.dev and custom domains on Cloudflare).
 
 Static assets get `public/_headers`:
 - `Content-Security-Policy`: `default-src 'self'`; `script-src 'self'`
-  plus the SHA-256 of the inline theme script in `index.html`;
-  `style-src 'self' 'unsafe-inline'` (style attributes from the UI
-  library); `connect-src 'self'` (API and WebSocket); `img-src 'self' data:
-  blob:`; `font-src 'self' data:`; `object-src 'none'`; `base-uri 'none'`;
-  `form-action 'self'`; `frame-ancestors 'none'`.
+  plus the SHA-256 of the inline theme script in `index.html` and
+  `'wasm-unsafe-eval'` (WebAssembly for the summary model; no JavaScript
+  eval); `style-src 'self' 'unsafe-inline'` (style attributes from the UI
+  library); `connect-src 'self'` (API and WebSocket) plus the summary
+  model's download hosts, `https://huggingface.co`,
+  `https://*.huggingface.co`, `https://*.hf.co` and
+  `https://raw.githubusercontent.com`, exactly as holocron allows for the
+  same model; `worker-src 'self'` (the model's Web Worker); `img-src 'self'
+  data: blob:`; `font-src 'self' data:`; `object-src 'none'`; `base-uri
+  'none'`; `form-action 'self'`; `frame-ancestors 'none'`.
+
+## Summaries run on-device
+
+Summarize never sends an item anywhere. The model (Qwen3, 4-bit, via
+WebLLM) runs in a Web Worker on the device's GPU. The first Summarize asks
+before downloading anything; until the owner agrees, no request leaves for
+Hugging Face (`e2e/summaries.spec.ts` checks with the network watched).
+`Referrer-Policy: same-origin` keeps the app's URL out of those downloads,
+and the worker sends them with no referrer at all.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: same-origin`, and a `Permissions-Policy` that turns off
   camera, microphone, geolocation, payment, USB, serial, Bluetooth, HID and

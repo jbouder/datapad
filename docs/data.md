@@ -14,7 +14,8 @@ commit `.dev.vars`.
 | Nightly backups (M6)               | The `BACKUPS` R2 bucket in your account, latest 30 kept                                   | You, through the Cloudflare dashboard or API         |
 | Last snapshot (unsent changes: M6) | IndexedDB in each browser you use                                                         | That browser profile                                 |
 | Theme and motion preferences       | `localStorage` in each browser                                                            | That browser profile                                 |
-| Summary model weights (M6)         | The browser's cache, downloaded from Hugging Face after you agree                         | That browser profile                                 |
+| Summary model weights              | The browser's cache, downloaded from Hugging Face after you agree                         | That browser profile                                 |
+| Summary model choice               | `localStorage` (`datapad:summary-model`) in each browser                                  | That browser profile                                 |
 
 Cloudflare Access logs record your email and sign-ins, by design. Worker
 logs follow your account's Workers observability settings; the Worker logs
@@ -22,8 +23,19 @@ errors with the path only, never document content.
 
 ## What leaves your account
 
-Nothing about your projects, tasks, notes, events or people. Summaries run
-in your browser on a local model; the only download is the model itself.
+Nothing about your projects, tasks, notes, events or people.
+
+**Summaries run on your device.** Summarize builds a plain-text context of
+the one item (`shared/summaries.ts`) and hands it to a small language model
+running in a Web Worker in your browser (WebLLM, on WebGPU). The context
+and the summary never leave the tab; a summary is stored only if you press
+Save as note, and then like any other note.
+
+The only thing downloaded is the model itself: its weights from Hugging
+Face (about 1 GB for the default Qwen3 1.7B) and its WebGPU library from
+`raw.githubusercontent.com`, once, after you agree in the summary panel.
+Those requests carry no referrer and nothing of yours. Settings →
+Summaries picks the model and removes the downloaded weights again.
 
 ## Export and import
 

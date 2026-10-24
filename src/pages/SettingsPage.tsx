@@ -11,6 +11,7 @@ import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
 import { PeopleView } from '@/components/people/PeopleView';
 import { OrgPicker } from '@/components/pickers/OrgPicker';
+import { SummarySettings } from '@/components/summary/SummarySettings';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -32,6 +33,7 @@ const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
   people: 'People',
   orgs: 'Orgs',
+  summaries: 'Summaries',
   data: 'Data',
   account: 'Account',
 };
@@ -93,6 +95,7 @@ export function SettingsPage({
           {section === 'appearance' && <Appearance />}
           {section === 'people' && <PeopleView selected={person} />}
           {section === 'orgs' && <Orgs />}
+          {section === 'summaries' && <SummarySettings />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}
         </section>

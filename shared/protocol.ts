@@ -434,7 +434,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     body: required(LIMITS.bodyMax),
     eventId: nullableId.optional(),
     phase: phase.optional(),
-    /** A saved summary: logs "Saved a Claude summary as a note". */
+    /** A saved summary: logs "Saved a summary as a note". */
     summary: z.boolean().optional(),
   }),
   z.object({ type: z.literal('editNote'), id, body: required(LIMITS.bodyMax) }),

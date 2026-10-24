@@ -432,7 +432,7 @@ describe('notes', () => {
       body: 'Summary of Echo Base',
       summary: true,
     });
-    expect(lastLog(state, 'p1')).toBe('Saved a Claude summary as a note');
+    expect(lastLog(state, 'p1')).toBe('Saved a summary as a note');
   });
 
   it('links a note to an event with its phase', () => {

@@ -99,11 +99,17 @@ ops and caches the last snapshot in IndexedDB for instant first paint. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition.
 
-## Summaries (M6)
+## Summaries
 
-In the browser: `@mlc-ai/web-llm` in a Web Worker with holocron's model list
-and settings. The context builders in `shared/summaries.ts` run on the
-client. No Worker route and no API key are involved.
+In the browser: `@mlc-ai/web-llm` in a Web Worker
+(`src/lib/summary.worker.ts`) with holocron's model list and request
+settings, streamed. `shared/summaries.ts` holds the models, the prompt and
+the context builders; `src/lib/summary-engine.ts` wraps one loaded model
+(unit-tested with a fake); `src/lib/summary-runtime.ts` loads WebLLM lazily,
+so the library is not in the main bundle and nothing downloads until the
+owner agrees. `SummaryProvider` keeps the model loaded between summaries and
+owns the `Summary · <item>` panel. No Worker route and no API key are
+involved.
 
 ## Backups (M6)
 
