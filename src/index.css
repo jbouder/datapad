@@ -414,6 +414,25 @@ html[data-vt="theme"]::view-transition-new(root) {
   scale: 0.96;
 }
 
+/* The task checkbox: the mark grows in when a task closes. Short (the row
+   then FLIPs into Done), and only scale and opacity. */
+.task-check {
+  transition-property: background-color, border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.task-check-mark {
+  opacity: 0;
+  scale: 0.4;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    scale var(--duration-base) var(--ease-spring-snappy, var(--ease-emphasized));
+}
+.task-check.is-done .task-check-mark {
+  opacity: 1;
+  scale: 1;
+}
+
 /* Counts just change. A number ticking over is not an event worth motion. */
 .count {
   display: inline-block;
