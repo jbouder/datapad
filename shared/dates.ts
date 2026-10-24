@@ -192,3 +192,30 @@ export function describeDay(day: DateString, today: DateString): string {
   if (day === addDays(today, -1)) return 'Yesterday';
   return formatDay(day, today);
 }
+
+/**
+ * How long ago `timestamp` was, from `now`, in the user's calendar:
+ * "just now", "5 min ago", "3 h ago", "yesterday", then the day
+ * ("Tue 20 Oct", with the year if it differs).
+ */
+export function relativeTime(timestamp: string, now: Date): string {
+  const then = new Date(timestamp);
+  const seconds = Math.round((now.getTime() - then.getTime()) / 1000);
+  if (seconds < 45) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const today = localDate(now);
+  const day = localDate(then);
+  if (day === today) return `${Math.round(minutes / 60)} h ago`;
+  if (day === addDays(today, -1)) return 'yesterday';
+  return formatDay(day, today);
+}
+
+/** "Fri 23 Oct 2026, 14:05", for a title or tooltip. */
+export function formatTimestamp(timestamp: string): string {
+  const when = new Date(timestamp);
+  const day = localDate(when);
+  const hh = String(when.getHours()).padStart(2, '0');
+  const mm = String(when.getMinutes()).padStart(2, '0');
+  return `${formatDay(day, '0000-01-01')}, ${hh}:${mm}`;
+}

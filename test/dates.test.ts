@@ -4,8 +4,10 @@ import {
   describeDay,
   endOfWeek,
   formatDay,
+  formatTimestamp,
   localDate,
   parseDate,
+  relativeTime,
   weekday,
 } from '#shared/dates';
 
@@ -116,5 +118,35 @@ describe('formatting days', () => {
     expect(describeDay('2026-10-24', today)).toBe('Tomorrow');
     expect(describeDay('2026-10-22', today)).toBe('Yesterday');
     expect(describeDay('2026-10-27', today)).toBe('Tue 27 Oct');
+  });
+});
+
+describe('relativeTime', () => {
+  const now = new Date(2026, 9, 23, 15, 0, 0);
+  const at = (d: Date) => d.toISOString();
+  it('counts recent minutes and hours', () => {
+    expect(relativeTime(at(new Date(2026, 9, 23, 14, 59, 40)), now)).toBe(
+      'just now',
+    );
+    expect(relativeTime(at(new Date(2026, 9, 23, 14, 55)), now)).toBe(
+      '5 min ago',
+    );
+    expect(relativeTime(at(new Date(2026, 9, 23, 12, 0)), now)).toBe('3 h ago');
+  });
+  it('names yesterday and earlier days', () => {
+    expect(relativeTime(at(new Date(2026, 9, 22, 23, 0)), now)).toBe(
+      'yesterday',
+    );
+    expect(relativeTime(at(new Date(2026, 9, 20, 9, 0)), now)).toBe(
+      'Tue 20 Oct',
+    );
+    expect(relativeTime(at(new Date(2025, 9, 20, 9, 0)), now)).toBe(
+      'Mon 20 Oct 2025',
+    );
+  });
+  it('formats an absolute time with the year', () => {
+    expect(formatTimestamp(at(new Date(2026, 9, 23, 14, 5)))).toBe(
+      'Fri 23 Oct 2026, 14:05',
+    );
   });
 });
