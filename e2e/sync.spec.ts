@@ -136,11 +136,16 @@ test('offline changes survive a reload and replay once, in order', async ({
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
   const box = page.getByRole('combobox', { name: 'New note' });
   await box.fill('Shield numbers look low');
+  await expect(box).toHaveValue('Shield numbers look low');
   await box.press('ControlOrMeta+Enter');
-  await expect(page.getByText('Shield numbers look low')).toBeVisible();
+  await expect(box).toHaveValue('');
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Shield numbers look low' }),
+  ).toBeVisible();
   await expect(status(page)).toContainText('Offline, 3 changes waiting');
 
-  // Close and reopen: everything is still there, still waiting.
+  // Close and reopen at once: everything is still there, still waiting
+  // (the queue's synchronous copy beats IndexedDB's write).
   await page.reload();
   await expect(status(page)).toContainText('Offline, 3 changes waiting');
   await expect(page.getByText('Shield numbers look low')).toBeVisible();

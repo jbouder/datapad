@@ -35,7 +35,9 @@ import { newId } from '@/lib/ids';
  * offline, or in a tab closed before their echo, survive a reload and are
  * sent on the next connection, in order, with their original op ids. The
  * object acknowledges an id it has already applied instead of applying
- * it twice.
+ * it twice. IndexedDB writes are asynchronous, so the queue is also copied
+ * to localStorage synchronously on every change (`datapad:pending-now`):
+ * a tab closed or reloaded a moment after a change still has it.
  *
  * Components never touch the socket: they call the actions, one per op.
  */
@@ -124,6 +126,30 @@ export interface Datapad {
 
 export const CACHE_KEY = 'datapad:snapshot';
 export const PENDING_KEY = 'datapad:pending';
+/** The same queue, written synchronously, for a reload that beats IndexedDB. */
+export const PENDING_NOW_KEY = 'datapad:pending-now';
+
+function readPendingNow(email: string): Pending[] {
+  try {
+    const raw = localStorage.getItem(PENDING_NOW_KEY);
+    const value = raw ? (JSON.parse(raw) as StoredPending) : null;
+    return value?.email === email ? value.ops : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingNow(email: string | null, ops: Pending[]) {
+  if (!email) return;
+  try {
+    localStorage.setItem(
+      PENDING_NOW_KEY,
+      JSON.stringify({ email, ops } satisfies StoredPending),
+    );
+  } catch {
+    // Full or blocked storage: IndexedDB still has it, a moment later.
+  }
+}
 
 interface StoredPending {
   email: string;
@@ -161,10 +187,13 @@ export function useDatapadConnection(
   pendingRef.current = pending;
   const refusedRef = useRef(onRefused);
   refusedRef.current = onRefused;
+  const emailRef = useRef(email);
+  emailRef.current = email;
   /** Which socket each pending op went out on. */
   const sentOn = useRef(new Map<string, WebSocket>());
   /** The stored queue has been read; until then, never overwrite it. */
   const [restored, setRestored] = useState(false);
+  const restoredRef = useRef(false);
   /**
    * Op ids known to be settled, from any tab: every socket gets every
    * echo. Lets this tab drop another tab's queued op from the shared
@@ -352,9 +381,19 @@ export function useDatapadConnection(
       .catch(() => undefined)
       .then((value) => {
         if (cancelled) return;
-        const stored = value?.email === email ? value.ops : [];
+        // Both copies: IndexedDB (every tab's) and the synchronous one
+        // (this browser's last tab), once each, oldest first.
+        const byId = new Map<string, Pending>();
+        for (const p of [
+          ...(value?.email === email ? value.ops : []),
+          ...readPendingNow(email),
+        ]) {
+          byId.set(p.opId, p);
+        }
         const known = new Set(pendingRef.current.map((p) => p.opId));
-        const older = stored.filter((p) => !known.has(p.opId));
+        const older = [...byId.values()]
+          .filter((p) => !known.has(p.opId))
+          .sort((a, b) => a.at.localeCompare(b.at));
         if (older.length > 0) {
           // Queued before this page loaded, so ahead of anything since.
           pendingRef.current = [...older, ...pendingRef.current];
@@ -366,6 +405,7 @@ export function useDatapadConnection(
             ws.send(JSON.stringify({ type: 'sync' }));
           }
         }
+        restoredRef.current = true;
         setRestored(true);
       });
     return () => {
@@ -378,6 +418,7 @@ export function useDatapadConnection(
   // keep their ops until some tab has seen them settle.
   useEffect(() => {
     if (!email || !restored) return;
+    writePendingNow(email, pending);
     idbUpdate<StoredPending>(PENDING_KEY, (stored) => {
       const mine = new Set(pending.map((p) => p.opId));
       const theirs = (stored?.email === email ? stored.ops : []).filter(
@@ -436,6 +477,9 @@ export function useDatapadConnection(
     const entry: Pending = { opId: newId(), op, at };
     pendingRef.current = [...pendingRef.current, entry];
     setPending(pendingRef.current);
+    // Until the stored queue is read, writing would overwrite it.
+    if (restoredRef.current)
+      writePendingNow(emailRef.current, pendingRef.current);
     // Before the first snapshot it waits; the snapshot handler sends it.
     const ws = socket.current;
     if (ws && ws.readyState === WebSocket.OPEN && confirmedRef.current) {
