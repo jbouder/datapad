@@ -24,24 +24,25 @@ text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 
 ## Mapping the spec onto tokens
 
-| Spec element    | Value     | Token                                    |
-| --------------- | --------- | ---------------------------------------- |
-| Priority dot    | high      | `destructive`                            |
-|                 | med       | `warn`                                   |
-|                 | low       | `muted-foreground`                       |
-|                 | none      | `border`                                 |
-| Status pill     | active    | `accent` fill, `accent-foreground` text  |
-|                 | paused    | dashed `border`, `muted-foreground` text |
-|                 | done      | `ok` tint (`bg-ok/15`), `ok` text        |
-| Project health  | green     | `ok` left edge and dot, the word "Green" |
-|                 | yellow    | `warn` left edge and dot, "Yellow"       |
-|                 | red       | `destructive` left edge and dot, "Red"   |
-|                 | none      | no edge, nothing shown on cards          |
-| Event type pill | milestone | `accent` fill                            |
-|                 | deadline  | `destructive` outline and text           |
-|                 | demo      | `ok` outline and text                    |
-| Due date        | overdue   | `destructive`, with the word "Overdue"   |
-|                 | today     | `warn`, with the word "Today"            |
+| Spec element    | Value     | Token                                                                               |
+| --------------- | --------- | ----------------------------------------------------------------------------------- |
+| Priority dot    | high      | `destructive`                                                                       |
+|                 | med       | `warn`                                                                              |
+|                 | low       | `muted-foreground`                                                                  |
+|                 | none      | `border`                                                                            |
+| Status pill     | active    | `accent` fill, `accent-foreground` text                                             |
+|                 | paused    | dashed `border`, `muted-foreground` text                                            |
+|                 | done      | `ok` tint (`bg-ok/15`), `ok` text                                                   |
+| Project health  | green     | `ok` left edge and dot, the word "Green"                                            |
+|                 | yellow    | `warn` left edge and dot, "Yellow"                                                  |
+|                 | red       | `destructive` left edge and dot, "Red"                                              |
+|                 | none      | no edge, nothing shown on cards                                                     |
+| Event type pill | milestone | `accent` fill                                                                       |
+|                 | deadline  | `destructive` outline and text                                                      |
+|                 | demo      | `ok` outline and text                                                               |
+| Blocked task    | blocked   | `warn` lock glyph, waiting-on initials, the words "Blocked on …" for screen readers |
+| Due date        | overdue   | `destructive`, with the word "Overdue"                                              |
+|                 | today     | `warn`, with the word "Today"                                                       |
 
 State is never shown by colour alone: dots have a text label for screen
 readers and a tooltip, and dates carry words.

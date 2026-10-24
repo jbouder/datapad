@@ -265,6 +265,7 @@ describe('taskContext', () => {
         desc: 'Details here',
         links: [{ type: 'doc', url: 'https://example.test', label: 'Spec' }],
         sourceNoteId: 'src',
+        blocked: { on: 'han', note: 'needs the parts' },
       }),
       state,
     );
@@ -276,6 +277,7 @@ describe('taskContext', () => {
         'Priority: medium',
         'Due: none',
         'Assignee: Leia Organa',
+        'Waiting: blocked on Han Solo: needs the parts',
         'Tags: power',
         'Details:',
         'Details here',

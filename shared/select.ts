@@ -1,12 +1,13 @@
 import { addDays, endOfWeek } from './dates';
-import type {
-  DateString,
-  Event,
-  Note,
-  Person,
-  Project,
-  Snapshot,
-  Task,
+import {
+  blockedOf,
+  type DateString,
+  type Event,
+  type Note,
+  type Person,
+  type Project,
+  type Snapshot,
+  type Task,
 } from './types';
 
 /**
@@ -113,6 +114,8 @@ export function matchesAssignee(
 }
 
 export interface FocusBuckets {
+  /** Waiting on someone, whatever the date: first, so 1:1s can unblock them. */
+  blocked: Task[];
   /** Due before today. */
   overdue: Task[];
   today: Task[];
@@ -148,6 +151,7 @@ export const focusBuckets = lastCall(
   ): FocusBuckets => {
     const sunday = endOfWeek(today);
     const buckets: FocusBuckets = {
+      blocked: [],
       overdue: [],
       today: [],
       thisWeek: [],
@@ -158,7 +162,8 @@ export const focusBuckets = lastCall(
       if (t.status !== 'open') continue;
       if (t.projectId !== null && projects[t.projectId]?.archived) continue;
       if (!matchesAssignee(t, filter, me)) continue;
-      if (t.due === '') buckets.noDate.push(t);
+      if (blockedOf(t)) buckets.blocked.push(t);
+      else if (t.due === '') buckets.noDate.push(t);
       else if (t.due < today) buckets.overdue.push(t);
       else if (t.due === today) buckets.today.push(t);
       else if (t.due <= sunday) buckets.thisWeek.push(t);
@@ -247,9 +252,11 @@ export interface PersonStats {
   projects: Project[];
   /** Open tasks assigned to them, outside archived projects. */
   open: Task[];
+  /** Open tasks blocked on them: what to raise in a 1:1. */
+  waiting: Task[];
 }
 
-const NO_STATS: PersonStats = { projects: [], open: [] };
+const NO_STATS: PersonStats = { projects: [], open: [], waiting: [] };
 
 /** Per person: their projects and open tasks (People list, detail, cards). */
 export const peopleStats = lastCall(
@@ -258,7 +265,7 @@ export const peopleStats = lastCall(
     const entry = (id: string) => {
       let s = stats.get(id);
       if (!s) {
-        s = { projects: [], open: [] };
+        s = { projects: [], open: [], waiting: [] };
         stats.set(id, s);
       }
       return s;
@@ -267,9 +274,11 @@ export const peopleStats = lastCall(
       for (const id of p.members) entry(id).projects.push(p);
     }
     for (const t of Object.values(tasks)) {
-      if (!t.assignee || t.status !== 'open') continue;
+      if (t.status !== 'open') continue;
       if (t.projectId !== null && projects[t.projectId]?.archived) continue;
-      entry(t.assignee).open.push(t);
+      if (t.assignee) entry(t.assignee).open.push(t);
+      const on = blockedOf(t)?.on;
+      if (on) entry(on).waiting.push(t);
     }
     for (const s of stats.values()) {
       s.projects.sort(
@@ -277,11 +286,13 @@ export const peopleStats = lastCall(
           Number(a.archived) - Number(b.archived) ||
           a.name.localeCompare(b.name),
       );
-      s.open.sort(
-        (a, b) =>
-          Number(a.due === '') - Number(b.due === '') ||
-          byDueThenPriority(a, b),
-      );
+      for (const list of [s.open, s.waiting]) {
+        list.sort(
+          (a, b) =>
+            Number(a.due === '') - Number(b.due === '') ||
+            byDueThenPriority(a, b),
+        );
+      }
     }
     return stats;
   },

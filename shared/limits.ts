@@ -11,6 +11,8 @@ export const LIMITS = {
   titleMax: 200,
   /** Note bodies and markdown descriptions. */
   bodyMax: 20_000,
+  /** A blocked task's one-line reason. */
+  blockedNoteMax: 200,
   /** The project's one-line current state. */
   stateMax: 300,
   /** An event's short agenda or context note. */

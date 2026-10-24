@@ -132,6 +132,22 @@ export function PersonDetail({
         />
       </div>
 
+      {stats.waiting.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h4 className="font-heading text-sm font-semibold">
+            Waiting on them{' '}
+            <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
+              {stats.waiting.length}
+            </span>
+          </h4>
+          <TaskList
+            label={`Tasks waiting on ${person.name}`}
+            open={stats.waiting}
+            empty="Nothing is waiting on them."
+          />
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <h4 className="font-heading text-sm font-semibold">
           Mentions{' '}

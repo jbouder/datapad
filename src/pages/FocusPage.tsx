@@ -30,6 +30,7 @@ import { useToast } from '@/providers/ToastProvider';
 type BucketKey = keyof FocusBuckets;
 
 const BUCKETS: { key: BucketKey; title: string; collapsed?: boolean }[] = [
+  { key: 'blocked', title: 'Blocked' },
   { key: 'overdue', title: 'Overdue' },
   { key: 'today', title: 'Today' },
   { key: 'thisWeek', title: 'This week' },

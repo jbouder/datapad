@@ -4,9 +4,11 @@ import {
   CheckIcon,
   DotsSixVerticalIcon,
   DotsThreeIcon,
+  LockSimpleIcon,
 } from '@phosphor-icons/react';
 import { memo, useState } from 'react';
 import {
+  blockedOf,
   PRIORITIES,
   type Priority,
   type Snapshot,
@@ -16,6 +18,7 @@ import { Initials } from '@/components/Initials';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
+import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
 import { Button } from '@/components/ui/button';
 import {
@@ -136,6 +139,9 @@ export const TaskRow = memo(function TaskRow({
 }: TaskRowProps) {
   const project = task.projectId ? projects[task.projectId] : undefined;
   const assignee = task.assignee ? people[task.assignee] : undefined;
+  const blocked = done ? null : blockedOf(task);
+  const waitingOn = blocked?.on ? people[blocked.on] : undefined;
+  const blocking = useBlocked();
   const [dueOpen, setDueOpen] = useState(false);
   const [whoOpen, setWhoOpen] = useState(false);
 
@@ -225,6 +231,38 @@ export const TaskRow = memo(function TaskRow({
           task.title
         )}
       </span>
+
+      {blocked && (
+        <button
+          type="button"
+          onClick={() => blocking.editBlocked(task)}
+          title={blocked.note || undefined}
+          className={cn(POPOVER_TRIGGER, 'shrink-0 gap-1 text-warn')}
+        >
+          <LockSimpleIcon weight="bold" aria-hidden />
+          {waitingOn && (
+            <span aria-hidden>
+              <Initials person={waitingOn} />
+            </span>
+          )}
+          <span className="sr-only">
+            Blocked{waitingOn ? ` on ${waitingOn.name}` : ''}
+            {blocked.note ? `: ${blocked.note}` : ''}. Change
+          </span>
+        </button>
+      )}
+      {!done && (
+        // `b` presses this (src/lib/shortcuts.ts); the ⋯ menu is the
+        // pointer and screen-reader way.
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden
+          data-row-action="blocked"
+          onClick={() => blocking.toggleBlocked(task)}
+          className="sr-only"
+        />
+      )}
 
       {showProject && (
         <span className="hidden max-w-40 shrink-0 truncate border px-1.5 py-0.5 text-xs text-muted-foreground desk:inline">
@@ -335,7 +373,7 @@ export const TaskRow = memo(function TaskRow({
         </span>
       )}
 
-      {reorder && (
+      {(reorder || !done) && (
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(POPOVER_TRIGGER, 'size-11 desk:size-8')}
@@ -349,24 +387,38 @@ export const TaskRow = memo(function TaskRow({
                 Open
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem
-              disabled={reorder.index === 0}
-              onClick={() => reorder.move(reorder.index - 1)}
-            >
-              Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={reorder.index === reorder.count - 1}
-              onClick={() => reorder.move(reorder.index + 1)}
-            >
-              Move down
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={reorder.index === 0}
-              onClick={() => reorder.move(0)}
-            >
-              Move to top
-            </DropdownMenuItem>
+            {!done && (
+              <DropdownMenuItem onClick={() => blocking.editBlocked(task)}>
+                {blocked ? 'Edit blocked…' : 'Mark blocked…'}
+              </DropdownMenuItem>
+            )}
+            {blocked && (
+              <DropdownMenuItem onClick={() => blocking.unblock(task)}>
+                Unblock
+              </DropdownMenuItem>
+            )}
+            {reorder && (
+              <>
+                <DropdownMenuItem
+                  disabled={reorder.index === 0}
+                  onClick={() => reorder.move(reorder.index - 1)}
+                >
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={reorder.index === reorder.count - 1}
+                  onClick={() => reorder.move(reorder.index + 1)}
+                >
+                  Move down
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={reorder.index === 0}
+                  onClick={() => reorder.move(0)}
+                >
+                  Move to top
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}

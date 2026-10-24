@@ -3,7 +3,13 @@ import { useMemo, useRef, useState } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
-import type { Link, Note, Priority, Task } from '#shared/types';
+import {
+  blockedOf,
+  type Link,
+  type Note,
+  type Priority,
+  type Task,
+} from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
@@ -19,6 +25,7 @@ import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
@@ -33,6 +40,10 @@ interface Values {
   tags: string[];
   desc: string;
   links: Link[];
+  /** Blocked, and on whom and why. */
+  blocked: boolean;
+  blockedOn: string;
+  blockedNote: string;
 }
 
 /**
@@ -68,6 +79,9 @@ export function TaskPanel({
     tags: t.tags,
     desc: tokensToNames(t.desc, people),
     links: t.links,
+    blocked: blockedOf(t) !== null,
+    blockedOn: blockedOf(t)?.on ?? '',
+    blockedNote: blockedOf(t)?.note ?? '',
   });
   const [base, setBase] = useState(() => ({ task, values: read(task) }));
   const [values, setValues] = useState(base.values);
@@ -137,6 +151,12 @@ export function TaskPanel({
     }
     if (values.done !== (task.status === 'done')) {
       actions.toggleTask({ id: task.id, done: values.done });
+    }
+    const blocked = values.blocked
+      ? { on: values.blockedOn || null, note: values.blockedNote.trim() }
+      : null;
+    if (JSON.stringify(blocked) !== JSON.stringify(blockedOf(task))) {
+      actions.setBlocked({ id: task.id, blocked });
     }
     onClose();
     if (dirty) show(`Saved “${title}”`);
@@ -259,6 +279,46 @@ export function TaskPanel({
           />
         </Field>
       </div>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="sr-only">Blocked</legend>
+        <label
+          htmlFor="task-blocked"
+          className="flex min-h-11 items-center justify-between gap-4 text-sm desk:min-h-8"
+        >
+          <span className="flex flex-col">
+            <span className="font-medium">Blocked</span>
+            <span className="text-xs text-muted-foreground">
+              Waiting on someone or something.
+            </span>
+          </span>
+          <Switch
+            id="task-blocked"
+            checked={values.blocked}
+            onCheckedChange={(on) => set('blocked', on)}
+          />
+        </label>
+        {values.blocked && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Waiting on">
+              <PersonPicker
+                value={values.blockedOn}
+                onChange={(id) => set('blockedOn', id)}
+                noneLabel="No one listed"
+                allowCreate
+              />
+            </Field>
+            <Field label="What for">
+              <Input
+                value={values.blockedNote}
+                maxLength={LIMITS.blockedNoteMax}
+                autoComplete="off"
+                onChange={(e) => set('blockedNote', e.target.value)}
+                className="h-11 text-base desk:h-8 desk:text-sm"
+              />
+            </Field>
+          </div>
+        )}
+      </fieldset>
       <Field label="Tags">
         <TagInput
           value={values.tags}

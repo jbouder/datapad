@@ -2,6 +2,7 @@ import { formatDay } from './dates';
 import { byWhen, EVENT_TYPE_LABELS, timeRange } from './events';
 import { tokensToNames } from './mentions';
 import {
+  blockedOf,
   type Event,
   healthOf,
   type Note,
@@ -170,7 +171,17 @@ function taskLine(task: Task, state: Lookup): string {
   if (assignee) bits.push(`assigned to ${assignee}`);
   if (task.completedAt)
     bits.push(`closed ${day(task.completedAt.slice(0, 10))}`);
+  const waiting = blockedLine(task, state);
+  if (waiting) bits.push(waiting);
   return bits.join(', ');
+}
+
+/** "blocked on Han Solo: needs the parts" */
+function blockedLine(task: Task, state: Lookup): string {
+  const b = blockedOf(task);
+  if (!b) return '';
+  const who = b.on ? personName(state, b.on) : undefined;
+  return `blocked${who ? ` on ${who}` : ''}${b.note ? `: ${b.note}` : ''}`;
 }
 
 function indent(text: string): string {
@@ -285,6 +296,8 @@ export function taskContext(
     `Due: ${task.due ? day(task.due) : 'none'}`,
     `Assignee: ${personName(state, task.assignee) ?? 'unassigned'}`,
   ];
+  const waiting = blockedLine(task, state);
+  if (waiting) lines.push(`Waiting: ${waiting}`);
   if (task.tags.length > 0) lines.push(`Tags: ${task.tags.join(', ')}`);
   if (task.desc.trim()) {
     lines.push('Details:', tokensToNames(task.desc, state.people).trim());
