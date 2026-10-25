@@ -16,7 +16,6 @@ import {
   ExportSchema,
   issuePath,
 } from '#shared/protocol';
-import { MAIN_SPACE } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -35,6 +34,7 @@ import {
   SignedOutError,
 } from '@/lib/api';
 import { navigate } from '@/lib/router';
+import { useSpaces } from '@/providers/DatapadProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -83,6 +83,8 @@ interface Proposal {
 
 function useImportExportState() {
   const { show } = useToast();
+  // Everything here reads or writes the open space.
+  const space = useSpaces().current.id;
   const input = useRef<HTMLInputElement>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,7 +103,7 @@ function useImportExportState() {
   const exportNow = useCallback(async () => {
     let text: string;
     try {
-      text = await fetchExport(MAIN_SPACE);
+      text = await fetchExport(space);
     } catch (error) {
       failed(error, 'Export failed. Try again.');
       return;
@@ -118,7 +120,7 @@ function useImportExportState() {
         show('Export failed: no download and no clipboard here');
       }
     }
-  }, [failed, show]);
+  }, [space, failed, show]);
 
   const chooseImport = useCallback(() => {
     input.current?.click();
@@ -163,7 +165,7 @@ function useImportExportState() {
     async (day: string, label: string) => {
       let file: unknown;
       try {
-        file = await fetchBackup(MAIN_SPACE, day);
+        file = await fetchBackup(space, day);
       } catch (error) {
         failed(error, 'Could not read that backup. Try again.');
         return;
@@ -181,7 +183,7 @@ function useImportExportState() {
         restore: day,
       });
     },
-    [failed, show],
+    [space, failed, show],
   );
 
   const confirm = useCallback(async () => {
@@ -189,8 +191,8 @@ function useImportExportState() {
     setBusy(true);
     try {
       const result = proposal.restore
-        ? await postRestore(MAIN_SPACE, proposal.restore)
-        : await postImport(MAIN_SPACE, proposal.file);
+        ? await postRestore(space, proposal.restore)
+        : await postImport(space, proposal.file);
       setProposal(null);
       show(
         `${proposal.restore ? 'Restored' : 'Imported'} ${describeCounts(result.imported)}`,
@@ -210,7 +212,7 @@ function useImportExportState() {
     } finally {
       setBusy(false);
     }
-  }, [proposal, failed, show]);
+  }, [space, proposal, failed, show]);
 
   const element = (
     <>

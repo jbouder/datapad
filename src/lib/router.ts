@@ -179,23 +179,32 @@ function notify() {
   }
 }
 
-function commit(next: Route, nextSearch: string) {
+function commit(next: Route, nextSearch: string, instant = false) {
   const update = () => {
     current = next;
     search = nextSearch;
     notify();
   };
   // Same page (a help section, a query change): no page transition.
-  if (samePage(next, current)) {
+  if (instant || samePage(next, current)) {
     update();
     return;
   }
   runTransition(update);
 }
 
+/** The route right now, outside React (`useRoute` inside it). */
+export function currentRoute(): Route {
+  return current;
+}
+
+/**
+ * Go to `route`. `instant` skips the page transition, for a change that
+ * already runs inside another one (switching spaces).
+ */
 export function navigate(
   route: Route,
-  options: { replace?: boolean; query?: string } = {},
+  options: { replace?: boolean; query?: string; instant?: boolean } = {},
 ) {
   const query = options.query ? `?${options.query.replace(/^\?/, '')}` : '';
   const path = pathFor(route) + query;
@@ -204,7 +213,7 @@ export function navigate(
   } else if (path !== here()) {
     window.history.pushState(null, '', path);
   }
-  commit(route, query);
+  commit(route, query, options.instant);
 }
 
 window.addEventListener('popstate', () => {

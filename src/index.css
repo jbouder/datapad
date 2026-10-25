@@ -538,7 +538,7 @@ html[data-motion="off"] {
 
 /* `withViewTransition()` puts its type on <html data-vt> for the life of the
    transition, so each element is only snapshotted separately when its own
-   transition is running. Types: page, theme, filter, layout. Panels are not a view
+   transition is running. Types: page, theme, filter, layout, space. Panels are not a view
    transition; they use @starting-style (below). The root snapshot never
    animates: everything that should move has a name. */
 ::view-transition-old(root),
@@ -600,6 +600,28 @@ html[data-vt="theme"]::view-transition-new(root) {
 }
 @keyframes theme-fade {
   from {
+    opacity: 0;
+  }
+}
+
+/* Space switches: the page and the rail crossfade (opacity only) while
+   the top bar holds; the next space's data settles in under them. */
+html[data-vt="space"] .page {
+  view-transition-name: page;
+}
+html[data-vt="space"] .vt-rail {
+  view-transition-name: rail;
+}
+html[data-vt="space"]::view-transition-old(page),
+html[data-vt="space"]::view-transition-old(rail) {
+  animation: space-out var(--duration-fast) var(--ease-standard) both;
+}
+html[data-vt="space"]::view-transition-new(page),
+html[data-vt="space"]::view-transition-new(rail) {
+  animation: theme-fade var(--duration-base) var(--ease-standard) both;
+}
+@keyframes space-out {
+  to {
     opacity: 0;
   }
 }

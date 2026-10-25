@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import { nextPosition, orderedSpaces, validSpaceName } from '#shared/spaces';
 import { MAIN_SPACE, type SpaceInfo } from '#shared/types';
+import { documentTitle, keyFor, routeAfterSwitch } from '../src/lib/spaces';
 
 const at = '2026-10-01T09:00:00.000Z';
 const later = '2026-10-02T09:00:00.000Z';
@@ -98,5 +99,55 @@ describe('nextPosition', () => {
   it('goes after the last one, even with gaps', () => {
     expect(nextPosition(spaces)).toBe(3);
     expect(nextPosition([space('s-a', 'A', 0), space('s-b', 'B', 7)])).toBe(8);
+  });
+});
+
+describe('keyFor', () => {
+  it('keeps the keys from before spaces for main', () => {
+    expect(keyFor('datapad:snapshot', MAIN_SPACE)).toBe('datapad:snapshot');
+    expect(keyFor('datapad:pending', MAIN_SPACE)).toBe('datapad:pending');
+    expect(keyFor('datapad:pending-now', MAIN_SPACE)).toBe(
+      'datapad:pending-now',
+    );
+  });
+
+  it('appends any other space', () => {
+    expect(keyFor('datapad:snapshot', 's-hoth')).toBe(
+      'datapad:snapshot:s-hoth',
+    );
+    expect(keyFor('datapad:pending-now', 's-hoth')).toBe(
+      'datapad:pending-now:s-hoth',
+    );
+  });
+});
+
+describe('routeAfterSwitch', () => {
+  it('leaves a project, person or org for Focus', () => {
+    const focus = { name: 'focus' };
+    expect(routeAfterSwitch({ name: 'project', id: 'p-echo' })).toEqual(focus);
+    expect(routeAfterSwitch({ name: 'people', person: 'pe-leia' })).toEqual(
+      focus,
+    );
+    expect(routeAfterSwitch({ name: 'orgs', org: 'o-rebels' })).toEqual(focus);
+  });
+
+  it('keeps section pages', () => {
+    expect(routeAfterSwitch({ name: 'tasks' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'people' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'orgs' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'settings', section: 'data' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'focus' })).toBeNull();
+  });
+});
+
+describe('documentTitle', () => {
+  it('names the space only when given one', () => {
+    expect(documentTitle('Tasks')).toBe('Tasks · Datapad');
+    expect(documentTitle('Tasks', null)).toBe('Tasks · Datapad');
+    expect(documentTitle('Tasks', 'Personal')).toBe(
+      'Tasks · Personal · Datapad',
+    );
+    expect(documentTitle()).toBe('Datapad');
+    expect(documentTitle(undefined, 'Personal')).toBe('Personal · Datapad');
   });
 });

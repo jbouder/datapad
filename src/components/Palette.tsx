@@ -12,6 +12,7 @@ import {
   NewspaperIcon,
   NoteIcon,
   PlusIcon,
+  SquaresFourIcon,
   UserIcon,
 } from '@phosphor-icons/react';
 import { Command } from 'cmdk';
@@ -26,10 +27,12 @@ import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useImportExport } from '@/components/ImportExport';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
+import { useNewSpace } from '@/components/SpaceSwitcher';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { NAV } from '@/lib/nav';
 import { navigate, type Route } from '@/lib/router';
+import { useSpaces } from '@/providers/DatapadProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
@@ -77,6 +80,8 @@ export function Palette({
   const { openProjectForm } = useProjectForm();
   const { exportNow } = useImportExport();
   const { mode, setTheme } = useTheme();
+  const { spaces, current, switchSpace } = useSpaces();
+  const { openNewSpace } = useNewSpace();
   const [query, setQuery] = useState('');
   const [overPanel, setOverPanel] = useState(false);
   /** What to do once the palette has closed. */
@@ -150,6 +155,20 @@ export function Palette({
         icon: CircleHalfIcon,
         run: () => setTheme(mode === 'dark' ? 'light' : 'dark'),
       },
+      ...spaces
+        .filter((s) => s.id !== current.id)
+        .map((s) => ({
+          id: `space-${s.id}`,
+          label: `Switch to ${s.name}`,
+          icon: SquaresFourIcon,
+          run: () => switchSpace(s.id),
+        })),
+      {
+        id: 'new-space',
+        label: 'New space…',
+        icon: PlusIcon,
+        run: openNewSpace,
+      },
       {
         id: 'export',
         label: 'Export',
@@ -158,6 +177,10 @@ export function Palette({
       },
     ];
   }, [
+    spaces,
+    current,
+    switchSpace,
+    openNewSpace,
     newTask,
     newNote,
     currentProject,

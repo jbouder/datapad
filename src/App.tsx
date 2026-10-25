@@ -5,6 +5,7 @@ import { EventNotesProvider } from '@/components/events/EventNotesProvider';
 import { ImportExportProvider } from '@/components/ImportExport';
 import { NotesProvider } from '@/components/notes/NotesProvider';
 import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
+import { NewSpaceProvider } from '@/components/SpaceSwitcher';
 import { SummaryProvider } from '@/components/summary/SummaryProvider';
 import { BlockedProvider } from '@/components/tasks/BlockedProvider';
 import { TaskPanelProvider } from '@/components/tasks/TaskPanelProvider';
@@ -22,27 +23,29 @@ export default function App() {
         <TooltipProvider>
           <ToastProvider>
             <DatapadProvider>
-              <ImportExportProvider>
-                <SummaryProvider>
-                  <BlockedProvider>
-                    <DecisionPanelProvider>
-                      <TemplateFormProvider>
-                        <ProjectFormProvider>
-                          <TaskPanelProvider>
-                            <EventFormProvider>
-                              <EventNotesProvider>
-                                <NotesProvider>
-                                  <AppShell />
-                                </NotesProvider>
-                              </EventNotesProvider>
-                            </EventFormProvider>
-                          </TaskPanelProvider>
-                        </ProjectFormProvider>
-                      </TemplateFormProvider>
-                    </DecisionPanelProvider>
-                  </BlockedProvider>
-                </SummaryProvider>
-              </ImportExportProvider>
+              <NewSpaceProvider>
+                <ImportExportProvider>
+                  <SummaryProvider>
+                    <BlockedProvider>
+                      <DecisionPanelProvider>
+                        <TemplateFormProvider>
+                          <ProjectFormProvider>
+                            <TaskPanelProvider>
+                              <EventFormProvider>
+                                <EventNotesProvider>
+                                  <NotesProvider>
+                                    <AppShell />
+                                  </NotesProvider>
+                                </EventNotesProvider>
+                              </EventFormProvider>
+                            </TaskPanelProvider>
+                          </ProjectFormProvider>
+                        </TemplateFormProvider>
+                      </DecisionPanelProvider>
+                    </BlockedProvider>
+                  </SummaryProvider>
+                </ImportExportProvider>
+              </NewSpaceProvider>
             </DatapadProvider>
           </ToastProvider>
         </TooltipProvider>
