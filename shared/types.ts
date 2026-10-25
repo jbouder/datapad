@@ -250,6 +250,25 @@ export function blockedOf(task: Pick<Task, 'blocked'>): Blocked | null {
 export const GENERAL = 'general';
 
 /**
+ * A space: a complete, separate Datapad (its own projects, tasks, notes,
+ * events, decisions, people, orgs, templates, settings and activity) under
+ * the one signed-in email. The Durable Object keeps the list; `position`
+ * is its order in the switcher, so a reorder never touches `createdAt`.
+ */
+export interface SpaceInfo {
+  id: string;
+  name: string;
+  position: number;
+  createdAt: Timestamp;
+}
+
+/**
+ * The first space's fixed id. Every user has it, it cannot be deleted, and
+ * the data that predates spaces moves into it.
+ */
+export const MAIN_SPACE = 'main';
+
+/**
  * Your preferences that belong with your data (and so follow you to every
  * device), as one document keyed `SETTINGS_ID`. Theme and motion stay per
  * device, in localStorage.

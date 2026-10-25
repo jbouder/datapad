@@ -20,7 +20,9 @@ import {
   COLLECTIONS,
   type Collection,
   emptySnapshot,
+  MAIN_SPACE,
   type Snapshot,
+  type SpaceInfo,
 } from '#shared/types';
 import type { Bindings } from './env';
 
@@ -58,6 +60,20 @@ const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
 /** When the last backup ran, in ms. */
 const LAST_BACKUP = 'last_backup';
+
+/**
+ * Placeholder until the object keeps spaces (#114): everything here is
+ * Main, so every snapshot names it and lists only it. The date is fixed,
+ * not real; nothing reads it yet.
+ */
+const PLACEHOLDER_SPACES: SpaceInfo[] = [
+  {
+    id: MAIN_SPACE,
+    name: 'Main',
+    position: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+];
 const BACKUP_PREFIX = 'datapad-';
 
 export class DatapadObject extends DurableObject<Bindings> {
@@ -564,6 +580,8 @@ export class DatapadObject extends DurableObject<Bindings> {
       type: 'snapshot',
       seq: this.seq,
       state: this.state,
+      space: MAIN_SPACE,
+      spaces: PLACEHOLDER_SPACES,
       recent: this.recentOps(),
     };
     return JSON.stringify(message);

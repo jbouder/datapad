@@ -336,6 +336,9 @@ export function useDatapadConnection(
             // Already applied (a replay whose echo we missed).
             settle(message.opId);
             return;
+          case 'spaces':
+            // Nothing shows the list of spaces yet.
+            return;
         }
       });
 

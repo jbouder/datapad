@@ -7,6 +7,10 @@ export const LIMITS = {
   idMax: 64,
   /** Project and person names, orgs, roles. */
   nameMax: 120,
+  /** Spaces one user may have, Main included. */
+  spacesMax: 12,
+  /** A space's name: short, it sits in the switcher. */
+  spaceNameMax: 40,
   /** Task and event titles. */
   titleMax: 200,
   /** Note bodies and markdown descriptions. */
