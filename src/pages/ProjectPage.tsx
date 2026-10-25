@@ -1,17 +1,18 @@
 import {
   ArchiveIcon,
   ArrowSquareOutIcon,
+  ArrowsLeftRightIcon,
   CopySimpleIcon,
   PencilSimpleIcon,
   PlusIcon,
   SparkleIcon,
 } from '@phosphor-icons/react';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { projectDecisions } from '#shared/decisions';
 import { projectEvents } from '#shared/events';
 import { projectNotes } from '#shared/notes';
-import { GENERAL, healthOf, type Person } from '#shared/types';
+import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { DecisionList } from '@/components/decisions/DecisionList';
 import { useEventForm } from '@/components/events/EventFormProvider';
 import { EventList } from '@/components/events/EventList';
@@ -25,6 +26,7 @@ import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { HealthPicker } from '@/components/projects/Health';
+import { MoveProjectDialog } from '@/components/projects/MoveProjectDialog';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { StateLine } from '@/components/projects/StateLine';
 import { StatusPill } from '@/components/projects/StatusPill';
@@ -40,8 +42,10 @@ import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { linkProps } from '@/lib/router';
+import { moveProject } from '@/lib/api';
+import { linkProps, navigate } from '@/lib/router';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -66,6 +70,14 @@ export function ProjectPage({ id }: { id: string }) {
     'list',
   );
   usePageTitle(project?.name ?? (state ? 'Not found' : 'Project'));
+  const { spaces, current, openInSpace } = useSpaces();
+  const elsewhere = useMemo(
+    () => spaces.filter((s) => s.id !== current.id),
+    [spaces, current.id],
+  );
+  const [moveOpen, setMoveOpen] = useState(false);
+  /** Moved away just now: on the way to Projects. */
+  const [leaving, setLeaving] = useState(false);
   const { hidden } = useNotes();
   const { active } = useMotion();
   const notesList = useRef<HTMLDivElement>(null);
@@ -103,6 +115,11 @@ export function ProjectPage({ id }: { id: string }) {
   if (!state) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
+  if (!project && leaving) {
+    // Moved to another space: the snapshot can beat the answer here, and
+    // the page is on its way to Projects, so no Not found in between.
+    return null;
+  }
   if (!project || id === GENERAL) {
     return (
       <NotFoundPage
@@ -132,6 +149,28 @@ export function ProjectPage({ id }: { id: string }) {
     );
   };
 
+  /**
+   * Move it to another space, on the server (it spans two spaces, so it
+   * is not an op). It is gone from this one after, so on to Projects;
+   * the toast's Open follows it there.
+   */
+  const move = async (to: SpaceInfo): Promise<boolean> => {
+    setLeaving(true);
+    try {
+      await moveProject(current.id, to.id, project.id);
+    } catch (error) {
+      setLeaving(false);
+      show(error instanceof Error ? error.message : 'Could not move it');
+      return false;
+    }
+    navigate({ name: 'projects' });
+    show(`Moved ${project.name} to ${to.name}`, undefined, {
+      label: 'Open',
+      run: () => openInSpace(to.id, { name: 'project', id }),
+    });
+    return true;
+  };
+
   return (
     <article
       aria-labelledby="project-title"
@@ -146,7 +185,7 @@ export function ProjectPage({ id }: { id: string }) {
           <h1 id="project-title" className="text-page-title min-w-0 flex-1">
             {project.name}
           </h1>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <Button
               variant="outline"
               className="press"
@@ -167,7 +206,24 @@ export function ProjectPage({ id }: { id: string }) {
               <ArchiveIcon />
               {project.archived ? 'Unarchive' : 'Archive'}
             </Button>
+            {elsewhere.length > 0 && (
+              <Button
+                variant="outline"
+                className="press"
+                onClick={() => setMoveOpen(true)}
+              >
+                <ArrowsLeftRightIcon />
+                Move to…
+              </Button>
+            )}
           </div>
+          <MoveProjectDialog
+            open={moveOpen}
+            onOpenChange={setMoveOpen}
+            projectName={project.name}
+            spaces={elsewhere}
+            onMove={move}
+          />
         </div>
         <ul
           aria-label="Details"

@@ -114,6 +114,23 @@ export async function deleteSpace(id: string, token: string): Promise<void> {
   await postSpaces<{ deleted: true }>('/api/spaces/delete', { id, token });
 }
 
+/**
+ * Move a project, with its tasks, notes, events, decisions and log, from
+ * one space to another; its people and org are copied. Both spaces'
+ * sockets get a fresh snapshot. The error carries the reason.
+ */
+export async function moveProject(
+  from: string,
+  to: string,
+  id: string,
+): Promise<void> {
+  await postSpaces<{ moved: true }>('/api/spaces/move-project', {
+    from,
+    to,
+    id,
+  });
+}
+
 async function postSpaces<T>(path: string, payload: unknown): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',

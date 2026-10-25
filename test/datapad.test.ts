@@ -1199,3 +1199,199 @@ describe('the list of spaces', () => {
     }
   });
 });
+
+describe('moving a project', () => {
+  it('carries everything in it and copies its people', async () => {
+    const email = 'move@example.com';
+    await post(email, '/api/import', fixture);
+    // Personal already has someone who is `me`.
+    const personal = await createSpace(email, 'Personal');
+    const op = await openSocket(
+      as(email),
+      `http://datapad.test/ws?space=${personal.id}`,
+    );
+    await op.snapshot();
+    op.send({ type: 'addPerson', id: 'u-luke', name: 'Luke', me: true });
+    expect(await op.next()).toMatchObject({ type: 'op', seq: 1 });
+
+    const onMain = await openSocket(as(email));
+    const mainBefore = await onMain.snapshot();
+    const response = await post(email, '/api/spaces/move-project', {
+      from: MAIN_SPACE,
+      to: personal.id,
+      id: 'p-echo',
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ moved: true });
+
+    // Both spaces' sockets get a fresh snapshot, one change each.
+    const main = await onMain.snapshot();
+    const there = await op.snapshot();
+    expect(main.seq).toBe(mainBefore.seq + 1);
+    expect(there.seq).toBe(2);
+    expect(there.space).toBe(personal.id);
+
+    // The target has the project and everything in it.
+    const moved = there.state;
+    expect(moved.projects['p-echo']?.name).toBe('Echo Base relocation');
+    expect(Object.keys(moved.tasks).sort()).toEqual([
+      't-1',
+      't-2',
+      't-3',
+      't-4',
+    ]);
+    expect(Object.keys(moved.notes).sort()).toEqual(['n-1', 'n-2']);
+    expect(Object.keys(moved.events).sort()).toEqual(['e-1', 'e-2']);
+    expect(moved.activity['p-echo']?.events[0]?.text).toBe('Moved from Main');
+    expect(moved.activity['p-echo']?.events.slice(1)).toEqual(
+      fixture.activity['p-echo'].events,
+    );
+    // Its people, copied; Luke stays the only `me`.
+    expect(Object.keys(moved.people).sort()).toEqual([
+      'u-chewie',
+      'u-han',
+      'u-leia',
+      'u-luke',
+    ]);
+    expect(
+      Object.values(moved.people)
+        .filter((p) => p.me)
+        .map((p) => p.id),
+    ).toEqual(['u-luke']);
+
+    // The source lost the project and kept its people.
+    expect(main.state.projects['p-echo']).toBeUndefined();
+    expect(Object.keys(main.state.tasks).sort()).toEqual(['t-5', 't-6', 't-7']);
+    expect(Object.keys(main.state.notes).sort()).toEqual(['n-3', 'n-4']);
+    expect(Object.keys(main.state.events).sort()).toEqual(['e-3', 'e-4']);
+    expect(main.state.activity['p-echo']).toBeUndefined();
+    expect(Object.keys(main.state.people)).toHaveLength(4);
+    expect(main.state.people['u-leia']?.me).toBe(true);
+
+    // And so does storage, after a wake.
+    const stub = bindings.DATAPAD.getByName(email);
+    await runInDurableObject(stub, async (o: DatapadObject) => {
+      (o as unknown as { load: () => void }).load();
+    });
+    expect((await stub.export(personal.id)).tasks['t-1']).toBeDefined();
+    expect((await stub.export(MAIN_SPACE)).projects['p-echo']).toBeUndefined();
+    op.ws.close(1000);
+    onMain.ws.close(1000);
+  });
+
+  it('carries decisions and copies the org and its contacts', async () => {
+    const email = 'move-org@example.com';
+    const personal = await createSpace(email, 'Personal');
+    await post(email, '/api/import', {
+      ...fixture,
+      people: {
+        ...fixture.people,
+        'u-ackbar': { id: 'u-ackbar', name: 'Ackbar', role: '', me: false },
+      },
+      orgs: {
+        'o-rebels': {
+          id: 'o-rebels',
+          name: 'Rebel Alliance',
+          kind: 'client',
+          links: [],
+          notes: '',
+          contacts: ['u-ackbar'],
+          archived: false,
+          createdAt: '2026-10-01T09:00:00.000Z',
+          updatedAt: '2026-10-01T09:00:00.000Z',
+        },
+      },
+      decisions: {
+        'd-1': {
+          id: 'd-1',
+          projectId: 'p-echo',
+          title: 'Hoth it is',
+          rationale: 'Remote.',
+          status: 'decided',
+          decidedAt: '2026-10-01',
+          deciders: ['u-mon'],
+          links: [],
+          createdAt: '2026-10-01T09:00:00.000Z',
+          updatedAt: '2026-10-01T09:00:00.000Z',
+        },
+      },
+    });
+    const response = await post(email, '/api/spaces/move-project', {
+      from: MAIN_SPACE,
+      to: personal.id,
+      id: 'p-echo',
+    });
+    expect(response.status).toBe(200);
+    const stub = bindings.DATAPAD.getByName(email);
+    const there = await stub.export(personal.id);
+    expect(Object.keys(there.decisions)).toEqual(['d-1']);
+    expect(Object.keys(there.orgs)).toEqual(['o-rebels']);
+    expect(there.projects['p-echo']?.orgId).toBe('o-rebels');
+    expect(there.people['u-ackbar']).toBeDefined();
+    expect(there.people['u-mon']).toBeDefined();
+    const main = await stub.export(MAIN_SPACE);
+    expect(main.decisions).toEqual({});
+    expect(Object.keys(main.orgs)).toEqual(['o-rebels']);
+  });
+
+  it('refuses an unknown space, a missing project, the same space and cross-site', async () => {
+    const email = 'move-refused@example.com';
+    await post(email, '/api/import', fixture);
+    const personal = await createSpace(email, 'Personal');
+    const stub = bindings.DATAPAD.getByName(email);
+    const before = await stub.stats();
+
+    for (const body of [
+      { from: MAIN_SPACE, to: 'nowhere', id: 'p-echo' },
+      { from: 'nowhere', to: personal.id, id: 'p-echo' },
+    ]) {
+      const response = await post(email, '/api/spaces/move-project', body);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: 'No such space' });
+    }
+
+    const missing = await post(email, '/api/spaces/move-project', {
+      from: MAIN_SPACE,
+      to: personal.id,
+      id: 'p-gone',
+    });
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toEqual({
+      error: 'That project no longer exists',
+    });
+
+    const same = await post(email, '/api/spaces/move-project', {
+      from: MAIN_SPACE,
+      to: MAIN_SPACE,
+      id: 'p-echo',
+    });
+    expect(same.status).toBe(400);
+    expect(await same.json()).toEqual({ error: 'To: Pick another space' });
+    // The object refuses it too, should anything call it directly.
+    expect(await stub.moveProject(MAIN_SPACE, MAIN_SPACE, 'p-echo')).toEqual({
+      ok: false,
+      error: 'Pick another space',
+    });
+
+    const body = { from: MAIN_SPACE, to: personal.id, id: 'p-echo' };
+    const foreign = await post(email, '/api/spaces/move-project', body, {
+      headers: {
+        'content-type': 'application/json',
+        origin: 'https://evil.example',
+      },
+    });
+    expect(foreign.status).toBe(403);
+    const form = await post(
+      email,
+      '/api/spaces/move-project',
+      JSON.stringify(body),
+      { headers: { 'content-type': 'text/plain' } },
+    );
+    expect(form.status).toBe(415);
+    expect((await get(email, '/api/spaces/move-project')).status).toBe(405);
+
+    // Nothing moved.
+    expect(await stub.stats()).toEqual(before);
+    expect((await stub.export(MAIN_SPACE)).projects['p-echo']).toBeDefined();
+  });
+});
