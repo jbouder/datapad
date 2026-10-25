@@ -263,8 +263,10 @@ export interface SpaceInfo {
 }
 
 /**
- * The first space's fixed id. Every user has it, it cannot be deleted, and
- * the data that predates spaces moves into it.
+ * The first space's fixed id: every user starts with it, and the data that
+ * predates spaces moves into it. Its backups and client cache keep the
+ * paths and keys from before spaces. Like any space, it can be deleted
+ * once another exists; only the last space is kept.
  */
 export const MAIN_SPACE = 'main';
 
