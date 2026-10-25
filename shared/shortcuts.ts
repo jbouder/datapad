@@ -26,6 +26,7 @@ export const SHORTCUTS: Shortcut[] = [
     action: 'Add a task (the nearest quick-add, or the new-task panel)',
     scope: 'Anywhere',
   },
+  { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
   {
     keys: ['⌘K', 'Ctrl+K', '/'],

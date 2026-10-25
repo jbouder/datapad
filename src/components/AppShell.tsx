@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
 import { Rail } from '@/components/Rail';
 import { ShortcutSheet } from '@/components/ShortcutSheet';
@@ -41,6 +42,7 @@ export function AppShell() {
   const email = useEmail();
   const { state } = useDatapad();
   const { newTask } = useTaskPanels();
+  const { newNote } = useNotes();
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -54,8 +56,12 @@ export function AppShell() {
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
+  const addNote = useCallback(() => {
+    newNote(currentProject);
+  }, [newNote, currentProject]);
 
-  // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds,
+  // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
+  // task, `N` a note,
   // `?` shows the sheet, and the row keys work on whatever list or table
   // the page shows, starting from its first row when none is focused.
   const [sheet, setSheet] = useState(false);
@@ -85,6 +91,11 @@ export function AppShell() {
         else focusQuickAdd();
         return;
       }
+      if (event.key === 'N') {
+        event.preventDefault();
+        newNote(currentProject);
+        return;
+      }
       if (event.key === '?') {
         event.preventDefault();
         setSheet(true);
@@ -110,7 +121,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, currentProject]);
+  }, [newTask, newNote, currentProject]);
 
   return (
     <div className="flex min-h-dvh">
@@ -128,6 +139,7 @@ export function AppShell() {
           pageKey={pageKey(route)}
           email={email}
           onAddTask={addTask}
+          onAddNote={addNote}
           onSearch={() => setPalette(true)}
         />
         {/* Keyed by page so each mounts fresh and its entrances replay. */}

@@ -28,10 +28,44 @@ export function seedLine(event: Event, phase: NotePhase, today: string) {
 }
 
 /**
+ * `/task` and `/decision` in a note composer: a task in the note's
+ * project, or a decision pointing back at the note about to be added.
+ */
+export function useNoteCommands(
+  projectId: string | null,
+  noteId: string,
+): {
+  onTask: (title: string) => boolean;
+  onDecision: (title: string) => boolean;
+} {
+  const { actions } = useDatapad();
+  const { show } = useToast();
+  return {
+    onTask: (title) => {
+      if (actions.addTask({ projectId, title }) === null) return false;
+      show(`Added “${title}”`);
+      return true;
+    },
+    onDecision: (title) => {
+      const made = actions.addDecision({
+        projectId,
+        title,
+        sourceNoteId: noteId,
+      });
+      if (made === null) return false;
+      show(`Proposed “${title}”`);
+      return true;
+    },
+  };
+}
+
+/**
  * Write a note: the composer, the project it goes to (a picker on the
- * Notes page, fixed on a project page) and Add note (or ⌘Enter). The
- * draft is kept per project; adding clears it and keeps the focus for
- * the next one. `/task` makes a task in the same project.
+ * Notes page, fixed on a project page) and Add note (or ⌘Enter). Until
+ * you use it, it is one line: the formatting buttons, the picker and Add
+ * note arrive with focus, and go again when it is left empty. The draft
+ * is kept per project; adding clears it and keeps the focus for the next
+ * one. `/task` makes a task in the same project.
  *
  * An event's Prep note / Debrief note lands here (EventNotesProvider):
  * the note is linked to the event, its project picked, and the seed line
@@ -101,6 +135,35 @@ export function NoteForm({
 
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
+  const commands = useNoteCommands(projectId, noteId.current);
+
+  // Open while it has focus or anything in it; a picker's popup (outside
+  // the form, in a portal) still counts as in it. Left with a press, it
+  // folds once the press is over, so what was pressed stays put for its
+  // click.
+  const [focused, setFocused] = useState(false);
+  const expanded = focused || text.trim() !== '' || linked !== undefined;
+  const form = useRef<HTMLFieldSetElement>(null);
+  const pressing = useRef(false);
+  useEffect(() => {
+    const down = () => {
+      pressing.current = true;
+    };
+    const up = () => {
+      pressing.current = false;
+    };
+    window.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+    return () => {
+      window.removeEventListener('pointerdown', down, true);
+      window.removeEventListener('pointerup', up, true);
+      window.removeEventListener('pointercancel', up, true);
+    };
+  }, []);
+  const fold = () => {
+    if (!form.current?.contains(document.activeElement)) setFocused(false);
+  };
 
   const add = () => {
     const body = namesToTokens(text, people).trim();
@@ -120,7 +183,30 @@ export function NoteForm({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <fieldset
+      ref={form}
+      className="flex min-w-0 flex-col gap-2"
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        const next = e.relatedTarget;
+        if (next instanceof Node && e.currentTarget.contains(next)) return;
+        if (
+          next instanceof Element &&
+          next.closest('[role="listbox"], [role="dialog"]')
+        ) {
+          return;
+        }
+        if (!pressing.current) {
+          fold();
+          return;
+        }
+        // After the click that pointerup leads to.
+        window.addEventListener('pointerup', () => window.setTimeout(fold), {
+          once: true,
+        });
+      }}
+    >
+      <legend className="sr-only">Write a note</legend>
       {linked && link && (
         <p className="flex min-h-11 items-center gap-2 text-xs desk:min-h-8">
           <span className="border bg-muted px-1.5 py-0.5">
@@ -144,49 +230,43 @@ export function NoteForm({
           value={text}
           onChange={setText}
           people={people}
-          placeholder="Write a note. / for styles, @ to mention"
+          placeholder={
+            expanded
+              ? 'Write a note. / for styles, @ to mention'
+              : 'Write a note…'
+          }
+          toolbar={expanded}
+          className={expanded ? undefined : 'min-h-11 desk:min-h-9'}
           draftKey={`datapad:draft:note:${fixed === undefined ? 'notes' : (fixed ?? 'general')}`}
           onSubmit={add}
           data={{
             'data-event': linked?.id,
             'data-phase': linked ? link?.phase : undefined,
           }}
-          onTask={(title) => {
-            if (actions.addTask({ projectId, title }) === null) return false;
-            show(`Added “${title}”`);
-            return true;
-          }}
-          onDecision={(title) => {
-            const made = actions.addDecision({
-              projectId,
-              title,
-              sourceNoteId: noteId.current,
-            });
-            if (made === null) return false;
-            show(`Proposed “${title}”`);
-            return true;
-          }}
+          {...commands}
         />
       </Field>
-      <div className="flex flex-wrap items-end gap-2">
-        {fixed === undefined && (
-          <div className="min-w-48 flex-1 desk:max-w-64">
-            <ProjectPicker
-              value={picked}
-              onChange={setPicked}
-              aria-label="Project for the note"
-            />
-          </div>
-        )}
-        <Button
-          className="press ml-auto h-11 desk:h-8"
-          disabled={!text.trim()}
-          onClick={add}
-        >
-          <PlusIcon />
-          Add note
-        </Button>
-      </div>
-    </div>
+      {expanded && (
+        <div className="enter flex flex-wrap items-end gap-2">
+          {fixed === undefined && (
+            <div className="min-w-48 flex-1 desk:max-w-64">
+              <ProjectPicker
+                value={picked}
+                onChange={setPicked}
+                aria-label="Project for the note"
+              />
+            </div>
+          )}
+          <Button
+            className="press ml-auto h-11 desk:h-8"
+            disabled={!text.trim()}
+            onClick={add}
+          >
+            <PlusIcon />
+            Add note
+          </Button>
+        </div>
+      )}
+    </fieldset>
   );
 }

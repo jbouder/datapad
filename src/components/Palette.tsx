@@ -24,6 +24,7 @@ import {
 } from '#shared/search';
 import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useImportExport } from '@/components/ImportExport';
+import { useNotes } from '@/components/notes/NotesProvider';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -66,12 +67,13 @@ export function Palette({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** New task starts here. */
+  /** New task and New note start here. */
   currentProject: string | null;
 }) {
   const { state } = useDatapad();
   const { openDecision } = useDecisionPanel();
   const { openTask, newTask } = useTaskPanels();
+  const { newNote } = useNotes();
   const { openProjectForm } = useProjectForm();
   const { exportNow } = useImportExport();
   const { mode, setTheme } = useTheme();
@@ -104,6 +106,12 @@ export function Palette({
         label: 'New task',
         icon: PlusIcon,
         run: () => newTask(currentProject),
+      },
+      {
+        id: 'new-note',
+        label: 'New note',
+        icon: PlusIcon,
+        run: () => newNote(currentProject),
       },
       {
         id: 'new-project',
@@ -149,7 +157,15 @@ export function Palette({
         run: () => void exportNow(),
       },
     ];
-  }, [newTask, currentProject, openProjectForm, mode, setTheme, exportNow]);
+  }, [
+    newTask,
+    newNote,
+    currentProject,
+    openProjectForm,
+    mode,
+    setTheme,
+    exportNow,
+  ]);
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shownActions = actions.filter((a) =>

@@ -113,7 +113,7 @@ task → project (optional), task → assignee, task → source note; note → p
 
 ## Views
 
-Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#notes`, `#events`, `#people`, `#project-<id>`. Desktop has a left rail (nav with counts, active project list, Archived if any, Export/Import and sync status). Mobile hides the rail and shows a bottom tab bar: Focus, Projects, Tasks, Notes, Events, People. A top bar carries the current title, a search button, and a + button that opens the new-task panel preset to the current project.
+Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#notes`, `#events`, `#people`, `#project-<id>`. Desktop has a left rail (nav with counts, active project list, Archived if any, Export/Import and sync status). Mobile hides the rail and shows a bottom tab bar: Focus, Projects, Tasks, Notes, Events, People. A top bar carries the current title, a search button, a + button that opens the new-task panel preset to the current project, and a Write a note button that opens the new-note panel, preset the same way.
 
 | View           | Shows                                                                                                                                                                                                                                                                                                                                          | Controls                                                                                                                                       | Empty state                                               |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
@@ -143,13 +143,15 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **New task panel** (the + button, or when no quick-add is visible): title, project, priority, due, assignee, details.
 
+**New note panel** (the top bar's Write a note button, Shift+N, or New note in ⌘K): the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
+
 **Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms and removes tasks, notes, and activity; Archive is the non-destructive alternative in the header.
 
 **Current state line.** A single input under the project header. Enter blurs; blur saves if changed and logs "Updated current state".
 
 **Drag reorder.** HTML5 drag on open task rows in project detail. Dropping onto a row inserts before it and rewrites `order` as 1..n for the project's open tasks, writing only rows whose order changed. Desktop only.
 
-**Notes composer.** Textarea with @mention popup; ⌘/Ctrl+Enter adds. Enter inside a list line continues the list (`- `, `* `, `1. `, `- [ ] `; numbers increment; a checked box continues as unchecked); Enter on an empty list marker removes it.
+**Notes composer.** One line until it has focus or text: the formatting buttons, project picker and Add note appear then, and go again when it is left empty. Textarea with @mention popup; ⌘/Ctrl+Enter adds. Enter inside a list line continues the list (`- `, `* `, `1. `, `- [ ] `; numbers increment; a checked box continues as unchecked); Enter on an empty list marker removes it.
 
 **Make task from a note.** Selecting text inside a note body shows a floating "Make task" button above the selection; clicking creates a task titled with the first line of the selection (max 200 chars) in the note's project and records `sourceNoteId`. A footer button does the same, falling back to a prompt prefilled with the note's first line.
 
@@ -159,6 +161,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 | ----------------- | ------------------------------------------------------------- |
 | ⌘K or Ctrl+K, `/` | Open search                                                   |
 | `n`               | Focus the nearest quick-add; opens the new-task panel if none |
+| Shift+N           | Open the new-note panel                                       |
 | Esc               | Close search, then panel                                      |
 | ↑ ↓ Enter         | Navigate search results and mention popup                     |
 | Tab / Enter       | Accept a mention suggestion                                   |

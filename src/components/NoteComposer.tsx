@@ -88,6 +88,7 @@ export function NoteComposer({
   rows = 3,
   maxLength = LIMITS.bodyMax,
   autoFocus,
+  toolbar = true,
   className,
   'aria-describedby': describedBy,
   'aria-invalid': invalid,
@@ -111,6 +112,8 @@ export function NoteComposer({
   rows?: number;
   maxLength?: number;
   autoFocus?: boolean;
+  /** The formatting buttons (touch and narrow screens only). */
+  toolbar?: boolean;
   className?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
@@ -389,22 +392,24 @@ export function NoteComposer({
 
   return (
     <div className="relative flex flex-col gap-1">
-      <fieldset className="format-bar">
-        <legend className="sr-only">Formatting</legend>
-        {bar.map((b) => (
-          <button
-            key={b.label}
-            type="button"
-            aria-label={b.label}
-            title={b.label}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={b.run}
-            className="press inline-flex size-11 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-5"
-          >
-            {b.icon}
-          </button>
-        ))}
-      </fieldset>
+      {toolbar && (
+        <fieldset className="format-bar">
+          <legend className="sr-only">Formatting</legend>
+          {bar.map((b) => (
+            <button
+              key={b.label}
+              type="button"
+              aria-label={b.label}
+              title={b.label}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={b.run}
+              className="press inline-flex size-11 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&_svg]:size-5"
+            >
+              {b.icon}
+            </button>
+          ))}
+        </fieldset>
+      )}
       <Textarea
         {...data}
         ref={area}
