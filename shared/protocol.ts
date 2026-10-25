@@ -22,6 +22,7 @@ import {
   type Project,
   type Settings,
   type Snapshot,
+  type SpaceInfo,
   TASK_STATUSES,
   type Task,
   type Template,
@@ -374,6 +375,59 @@ export interface EraseToken {
 }
 
 export type { ExportFile };
+
+/* ---------- spaces ---------- */
+
+/** A space's name: trimmed, not empty, short enough for the switcher. */
+const spaceName = required(LIMITS.spaceNameMax);
+
+export const SpaceSchema = z.object({
+  id,
+  name: spaceName,
+  position: z.number().int().min(0),
+  createdAt: timestamp,
+}) satisfies z.ZodType<SpaceInfo, unknown>;
+
+/** `GET /api/spaces`, in switcher order. */
+export interface SpaceList {
+  spaces: SpaceInfo[];
+}
+
+/** Create a space. The server chooses its id and position. */
+export const CreateSpaceSchema = z.object({ name: spaceName });
+export type CreateSpace = z.infer<typeof CreateSpaceSchema>;
+
+export const RenameSpaceSchema = z.object({ id, name: spaceName });
+export type RenameSpace = z.infer<typeof RenameSpaceSchema>;
+
+/** Every space's id, once each, in the new order. */
+export const ReorderSpacesSchema = z.object({
+  ids: z
+    .array(id)
+    .min(1)
+    .max(LIMITS.spacesMax)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each space once'),
+});
+export type ReorderSpaces = z.infer<typeof ReorderSpacesSchema>;
+
+/**
+ * Delete a space and everything in it. Like erase, it takes a token the
+ * server just issued, so one stray request cannot do it.
+ */
+export const DeleteSpaceSchema = z.object({
+  id,
+  token: z.string().min(1).max(LIMITS.idMax),
+});
+export type DeleteSpace = z.infer<typeof DeleteSpaceSchema>;
+
+/** Move a project, with everything that hangs off it, to another space. */
+export const MoveProjectSchema = z
+  .object({ from: id, to: id, id })
+  .refine((m) => m.from !== m.to, {
+    message: 'Pick another space',
+    path: ['to'],
+  });
+export type MoveProject = z.infer<typeof MoveProjectSchema>;
 
 /* ---------- ops ---------- */
 
@@ -753,6 +807,10 @@ export type ServerMessage =
       type: 'snapshot';
       seq: number;
       state: Snapshot;
+      /** The space this socket opened; `state` is that space's. */
+      space: string;
+      /** Every space, in switcher order. */
+      spaces: SpaceInfo[];
       /**
        * The latest op ids the object applied (up to `LIMITS.recentOps`),
        * so a reconnecting client drops pending ops whose echo it missed
@@ -770,7 +828,9 @@ export type ServerMessage =
     }
   | { type: 'rejected'; opId: string; reason: string }
   /** An op the object had already applied (a replay): nothing changed. */
-  | { type: 'ack'; opId: string };
+  | { type: 'ack'; opId: string }
+  /** The list of spaces changed (created, renamed, reordered, deleted). */
+  | { type: 'spaces'; spaces: SpaceInfo[] };
 
 /* ---------- readable errors ---------- */
 

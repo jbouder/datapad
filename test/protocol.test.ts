@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
   ClientMessageSchema,
+  CreateSpaceSchema,
+  DeleteSpaceSchema,
   DocumentSchemas,
   describeIssue,
   ExportSchema,
+  MoveProjectSchema,
   OpSchema,
+  RenameSpaceSchema,
+  ReorderSpacesSchema,
+  SpaceSchema,
 } from '#shared/protocol';
-import { COLLECTIONS } from '#shared/types';
+import { COLLECTIONS, MAIN_SPACE } from '#shared/types';
 import fixture from './fixtures/export.json';
 
 const at = '2026-10-23T12:00:00.000Z';
@@ -401,5 +407,91 @@ describe('ops and messages', () => {
     expect(issue && describeIssue(issue)).toBe(
       `Title is too long (${LIMITS.titleMax} characters at most)`,
     );
+  });
+});
+
+describe('spaces', () => {
+  const main = { id: MAIN_SPACE, name: 'Main', position: 0, createdAt: at };
+
+  it('takes a space and trims its name', () => {
+    expect(SpaceSchema.parse({ ...main, name: '  Main  ' })).toEqual(main);
+  });
+
+  it('refuses a space with a blank, long or missing name', () => {
+    for (const name of ['', '   ', 'x'.repeat(LIMITS.spaceNameMax + 1)]) {
+      expect(SpaceSchema.safeParse({ ...main, name }).success).toBe(false);
+    }
+    const { name: _, ...nameless } = main;
+    expect(SpaceSchema.safeParse(nameless).success).toBe(false);
+  });
+
+  it('refuses a bad position or created time', () => {
+    for (const position of [-1, 1.5]) {
+      expect(SpaceSchema.safeParse({ ...main, position }).success).toBe(false);
+    }
+    expect(
+      SpaceSchema.safeParse({ ...main, createdAt: 'yesterday' }).success,
+    ).toBe(false);
+  });
+
+  it('checks create and rename names the same way', () => {
+    expect(CreateSpaceSchema.parse({ name: ' Hoth ' })).toEqual({
+      name: 'Hoth',
+    });
+    expect(CreateSpaceSchema.safeParse({ name: ' ' }).success).toBe(false);
+    expect(RenameSpaceSchema.parse({ id: 's-1', name: 'Hoth ' })).toEqual({
+      id: 's-1',
+      name: 'Hoth',
+    });
+    expect(RenameSpaceSchema.safeParse({ name: 'Hoth' }).success).toBe(false);
+    const long = CreateSpaceSchema.safeParse({
+      name: 'x'.repeat(LIMITS.spaceNameMax + 1),
+    });
+    const issue = long.error?.issues[0];
+    expect(issue && describeIssue(issue)).toBe(
+      `Name is too long (${LIMITS.spaceNameMax} characters at most)`,
+    );
+  });
+
+  it('reorders every space once, within the limit', () => {
+    expect(
+      ReorderSpacesSchema.safeParse({ ids: [MAIN_SPACE, 's-1'] }).success,
+    ).toBe(true);
+    expect(ReorderSpacesSchema.safeParse({ ids: [] }).success).toBe(false);
+    expect(
+      ReorderSpacesSchema.safeParse({ ids: ['s-1', MAIN_SPACE, 's-1'] })
+        .success,
+    ).toBe(false);
+    expect(
+      ReorderSpacesSchema.safeParse({
+        ids: Array.from({ length: LIMITS.spacesMax + 1 }, (_, i) => `s-${i}`),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('needs a token to delete', () => {
+    expect(
+      DeleteSpaceSchema.safeParse({ id: 's-1', token: 'abc123' }).success,
+    ).toBe(true);
+    expect(DeleteSpaceSchema.safeParse({ id: 's-1' }).success).toBe(false);
+    expect(DeleteSpaceSchema.safeParse({ id: 's-1', token: '' }).success).toBe(
+      false,
+    );
+  });
+
+  it('moves a project between two different spaces', () => {
+    expect(
+      MoveProjectSchema.parse({ from: MAIN_SPACE, to: 's-1', id: 'p-1' }),
+    ).toEqual({ from: MAIN_SPACE, to: 's-1', id: 'p-1' });
+    const same = MoveProjectSchema.safeParse({
+      from: 's-1',
+      to: 's-1',
+      id: 'p-1',
+    });
+    expect(same.success).toBe(false);
+    expect(same.error?.issues[0]?.path).toEqual(['to']);
+    expect(
+      MoveProjectSchema.safeParse({ from: MAIN_SPACE, to: 's-1' }).success,
+    ).toBe(false);
   });
 });
