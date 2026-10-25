@@ -16,6 +16,7 @@ import {
   ExportSchema,
   issuePath,
 } from '#shared/protocol';
+import { MAIN_SPACE } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -100,7 +101,7 @@ function useImportExportState() {
   const exportNow = useCallback(async () => {
     let text: string;
     try {
-      text = await fetchExport();
+      text = await fetchExport(MAIN_SPACE);
     } catch (error) {
       failed(error, 'Export failed. Try again.');
       return;
@@ -162,7 +163,7 @@ function useImportExportState() {
     async (day: string, label: string) => {
       let file: unknown;
       try {
-        file = await fetchBackup(day);
+        file = await fetchBackup(MAIN_SPACE, day);
       } catch (error) {
         failed(error, 'Could not read that backup. Try again.');
         return;
@@ -188,8 +189,8 @@ function useImportExportState() {
     setBusy(true);
     try {
       const result = proposal.restore
-        ? await postRestore(proposal.restore)
-        : await postImport(proposal.file);
+        ? await postRestore(MAIN_SPACE, proposal.restore)
+        : await postImport(MAIN_SPACE, proposal.file);
       setProposal(null);
       show(
         `${proposal.restore ? 'Restored' : 'Imported'} ${describeCounts(result.imported)}`,
