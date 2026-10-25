@@ -1,9 +1,16 @@
+import type { z } from 'zod';
 import { LIMITS } from '#shared/limits';
-import type {
-  AppConfig,
-  BackupList,
-  ImportResult,
-  SpaceList,
+import {
+  type AppConfig,
+  type BackupList,
+  type CreatedSpace,
+  CreateSpaceSchema,
+  DeleteSpaceSchema,
+  describeIssue,
+  type ImportResult,
+  RenameSpaceSchema,
+  ReorderSpacesSchema,
+  type SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
 import { type AccessVerifier, verifyAccess } from './access';
@@ -166,7 +173,8 @@ export function spaceOf(request: Request): string {
 
 /**
  * The data routes. Each runs on the signed-in user's object over RPC, and
- * all but `/api/spaces` on one of its spaces; an unknown space is a 404.
+ * all but the `/api/spaces` ones on one of its spaces; an unknown space is
+ * a 404.
  */
 const API_ROUTES: Record<string, ApiRoute> = {
   '/api/spaces': {
@@ -175,6 +183,72 @@ const API_ROUTES: Record<string, ApiRoute> = {
     handle: async (_request, datapad) => {
       const list: SpaceList = await datapad.listSpaces();
       return json(list);
+    },
+  },
+  // The space routes below are not scoped: the space they change is in
+  // the body, checked like `?space=` is (the object also throws for an
+  // unknown one, which the catch above answers with the same 404).
+  '/api/spaces/create': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, datapad) => {
+      const body = await readBody(request, CreateSpaceSchema);
+      if (!body.ok) return body.response;
+      const outcome = await datapad.createSpace(body.value.name);
+      if (!outcome.ok) return json({ error: outcome.error }, 400);
+      const created: CreatedSpace = { space: outcome.value };
+      return json(created);
+    },
+  },
+  '/api/spaces/rename': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, datapad) => {
+      const body = await readBody(request, RenameSpaceSchema);
+      if (!body.ok) return body.response;
+      if (!(await datapad.hasSpace(body.value.id))) return noSuchSpace();
+      const outcome = await datapad.renameSpace(body.value.id, body.value.name);
+      if (!outcome.ok) return json({ error: outcome.error }, 400);
+      const list: SpaceList = outcome.value;
+      return json(list);
+    },
+  },
+  '/api/spaces/reorder': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, datapad) => {
+      const body = await readBody(request, ReorderSpacesSchema);
+      if (!body.ok) return body.response;
+      const outcome = await datapad.reorderSpaces(body.value.ids);
+      if (!outcome.ok) return json({ error: outcome.error }, 400);
+      const list: SpaceList = outcome.value;
+      return json(list);
+    },
+  },
+  /**
+   * Delete a space and everything in it. The token comes from
+   * `GET /api/erase-token?space=<id>`, issued for that space, and is used
+   * up either way: 403 when it is wrong, expired or for another space,
+   * 400 for the last space, which cannot go.
+   */
+  '/api/spaces/delete': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, datapad) => {
+      const body = await readBody(request, DeleteSpaceSchema);
+      if (!body.ok) return body.response;
+      if (!(await datapad.hasSpace(body.value.id))) return noSuchSpace();
+      const outcome = await datapad.deleteSpace(
+        body.value.id,
+        body.value.token,
+      );
+      if (!outcome.ok) {
+        return json(
+          { error: outcome.error },
+          outcome.why === 'token' ? 403 : 400,
+        );
+      }
+      return json({ deleted: true });
     },
   },
   '/api/export.json': {
@@ -298,6 +372,31 @@ async function readJson(request: Request): Promise<JsonBody> {
   } catch {
     return { ok: false, status: 400, error: 'That file is not JSON' };
   }
+}
+
+type Body<T> = { ok: true; value: T } | { ok: false; response: Response };
+
+/** A small JSON body checked against a schema; 400 with the first problem. */
+async function readBody<T>(
+  request: Request,
+  schema: z.ZodType<T>,
+): Promise<Body<T>> {
+  const body = await readJson(request);
+  if (!body.ok) {
+    return { ok: false, response: json({ error: body.error }, body.status) };
+  }
+  const parsed = schema.safeParse(body.value);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return {
+      ok: false,
+      response: json(
+        { error: issue ? describeIssue(issue) : 'That request is not valid' },
+        400,
+      ),
+    };
+  }
+  return { ok: true, value: parsed.data };
 }
 
 const handle = createHandler(verifyAccess);

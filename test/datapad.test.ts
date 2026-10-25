@@ -1,8 +1,15 @@
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import type { Op, ServerMessage } from '#shared/protocol';
-import { MAIN_SPACE, type Snapshot } from '#shared/types';
+import {
+  type CreatedSpace,
+  type Op,
+  type ServerMessage,
+  SPACE_DELETED_CLOSE,
+  SPACE_DELETED_REASON,
+  type SpaceList,
+} from '#shared/protocol';
+import { MAIN_SPACE, type Snapshot, type SpaceInfo } from '#shared/types';
 import { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
@@ -876,5 +883,319 @@ describe('spaces', () => {
       MAIN_SPACE,
       'hoth',
     ]);
+  });
+});
+
+/** A socket's close code and reason, once the server closes it. */
+function closed(ws: WebSocket): Promise<{ code: number; reason: string }> {
+  return new Promise((resolve) =>
+    ws.addEventListener('close', (event) =>
+      resolve({ code: event.code, reason: event.reason }),
+    ),
+  );
+}
+
+async function createSpace(email: string, name: string): Promise<SpaceInfo> {
+  const response = await post(email, '/api/spaces/create', { name });
+  expect(response.status).toBe(200);
+  return ((await response.json()) as CreatedSpace).space;
+}
+
+async function deleteToken(email: string, space: string): Promise<string> {
+  const response = await get(email, `/api/erase-token?space=${space}`);
+  expect(response.status).toBe(200);
+  return ((await response.json()) as { token: string }).token;
+}
+
+/** `GET /api/spaces`, as names in switcher order. */
+async function listed(email: string): Promise<string[]> {
+  const { spaces } = (await (
+    await get(email, '/api/spaces')
+  ).json()) as SpaceList;
+  return spaces.map((s) => s.name);
+}
+
+describe('the list of spaces', () => {
+  it('creates, renames and reorders, and tells every socket', async () => {
+    const email = 'space-list@example.com';
+    const stub = await addSpace(email, 'hoth');
+    const listener = await openSocket(
+      as(email),
+      'http://datapad.test/ws?space=hoth',
+    );
+    await listener.snapshot();
+
+    const dagobah = await createSpace(email, '  Dagobah ');
+    expect(dagobah).toMatchObject({ name: 'Dagobah', position: 2 });
+    expect(dagobah.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await listed(email)).toEqual(['Main', 'Space hoth', 'Dagobah']);
+    expect(await listener.next()).toMatchObject({
+      type: 'spaces',
+      spaces: [{ id: MAIN_SPACE }, { id: 'hoth' }, { id: dagobah.id }],
+    });
+
+    const renamed = await post(email, '/api/spaces/rename', {
+      id: 'hoth',
+      name: 'Hoth',
+    });
+    expect(renamed.status).toBe(200);
+    expect(
+      ((await renamed.json()) as SpaceList).spaces.map((s) => s.name),
+    ).toEqual(['Main', 'Hoth', 'Dagobah']);
+    expect(await listener.next()).toMatchObject({
+      type: 'spaces',
+      spaces: [{ name: 'Main' }, { name: 'Hoth' }, { name: 'Dagobah' }],
+    });
+    // Recasing its own name is fine.
+    const recased = await post(email, '/api/spaces/rename', {
+      id: 'hoth',
+      name: 'HOTH',
+    });
+    expect(recased.status).toBe(200);
+    await listener.next();
+
+    const reordered = await post(email, '/api/spaces/reorder', {
+      ids: [dagobah.id, MAIN_SPACE, 'hoth'],
+    });
+    expect(reordered.status).toBe(200);
+    expect((await reordered.json()) as SpaceList).toMatchObject({
+      spaces: [
+        { id: dagobah.id, position: 0 },
+        { id: MAIN_SPACE, position: 1 },
+        { id: 'hoth', position: 2 },
+      ],
+    });
+    expect(await listener.next()).toMatchObject({
+      type: 'spaces',
+      spaces: [{ id: dagobah.id }, { id: MAIN_SPACE }, { id: 'hoth' }],
+    });
+    expect(await listed(email)).toEqual(['Dagobah', 'Main', 'HOTH']);
+
+    // It is all in storage: a wake reads the same list.
+    await runInDurableObject(stub, async (o: DatapadObject) => {
+      (o as unknown as { load: () => void }).load();
+    });
+    expect(await listed(email)).toEqual(['Dagobah', 'Main', 'HOTH']);
+    listener.ws.close(1000);
+  });
+
+  it('refuses a taken name, a bad one, and one space too many', async () => {
+    const email = 'space-names@example.com';
+    await createSpace(email, 'Endor');
+    const refusals: Array<[string, unknown, string]> = [
+      [
+        '/api/spaces/create',
+        { name: 'endor' },
+        'There is already a space called endor',
+      ],
+      [
+        '/api/spaces/rename',
+        { id: MAIN_SPACE, name: 'ENDOR' },
+        'There is already a space called ENDOR',
+      ],
+      ['/api/spaces/create', { name: '   ' }, 'Name is required'],
+      ['/api/spaces/create', {}, 'Name is required'],
+      ['/api/spaces/create', '{nope', 'That file is not JSON'],
+    ];
+    for (const [path, body, error] of refusals) {
+      const response = await post(email, path, body);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error });
+    }
+    const long = await post(email, '/api/spaces/create', {
+      name: 'x'.repeat(LIMITS.spaceNameMax + 1),
+    });
+    expect(long.status).toBe(400);
+    expect(await long.json()).toHaveProperty('error');
+
+    for (let i = 2; i < LIMITS.spacesMax; i += 1) {
+      await createSpace(email, `Moon ${i}`);
+    }
+    const over = await post(email, '/api/spaces/create', { name: 'One more' });
+    expect(over.status).toBe(400);
+    expect(await over.json()).toEqual({
+      error: `You can have ${LIMITS.spacesMax} spaces at most`,
+    });
+    expect(await listed(email)).toHaveLength(LIMITS.spacesMax);
+  });
+
+  it('reorders only by every current space, once each', async () => {
+    const email = 'space-reorder@example.com';
+    await addSpace(email, 'hoth');
+    for (const ids of [
+      [MAIN_SPACE],
+      ['hoth', MAIN_SPACE, 'bespin'],
+      ['hoth', 'bespin'],
+      ['hoth', 'hoth'],
+      [],
+    ]) {
+      const response = await post(email, '/api/spaces/reorder', { ids });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toHaveProperty('error');
+    }
+    expect(await listed(email)).toEqual(['Main', 'Space hoth']);
+  });
+
+  it('opens a new space empty and keeps its ops to itself', async () => {
+    const email = 'space-new@example.com';
+    const main = await openSocket(as(email));
+    await main.snapshot();
+    const { id } = await createSpace(email, 'Bespin');
+    expect(await main.next()).toMatchObject({ type: 'spaces' });
+
+    const fresh = await openSocket(
+      as(email),
+      `http://datapad.test/ws?space=${id}`,
+    );
+    const snapshot = await fresh.snapshot();
+    expect(snapshot).toMatchObject({ space: id, seq: 0 });
+    expect(snapshot.state.tasks).toEqual({});
+    fresh.send(addTask('t1'));
+    expect(await fresh.next()).toMatchObject({ type: 'op', seq: 1 });
+    expect(await main.quiet()).toBe(true);
+    const stub = bindings.DATAPAD.getByName(email);
+    expect((await stub.export(id)).tasks.t1).toBeDefined();
+    expect((await stub.export(MAIN_SPACE)).tasks).toEqual({});
+    main.ws.close(1000);
+    fresh.ws.close(1000);
+  });
+
+  it('deletes a space only with a fresh token issued for it', async () => {
+    const email = 'space-delete@example.com';
+    const stub = bindings.DATAPAD.getByName(email);
+    const { id } = await createSpace(email, 'Kessel');
+    await post(email, '/api/import', fixture);
+    await post(email, `/api/import?space=${id}`, fixture);
+    expect((await stub.stats()).docs).toBe(52);
+    const { exportedAt: _before, ...mainBefore } =
+      await stub.export(MAIN_SPACE);
+
+    // A token for main cannot delete Kessel, and is used up trying.
+    const forMain = await deleteToken(email, MAIN_SPACE);
+    const crossed = await post(email, '/api/spaces/delete', {
+      id,
+      token: forMain,
+    });
+    expect(crossed.status).toBe(403);
+    expect(await crossed.json()).toEqual({
+      error: 'That confirmation has expired. Ask for a new one.',
+    });
+    expect((await post(email, '/api/erase', { token: forMain })).status).toBe(
+      403,
+    );
+
+    // A wrong guess uses the right token up.
+    const guessed = await deleteToken(email, id);
+    const guess = await post(email, '/api/spaces/delete', { id, token: 'x' });
+    expect(guess.status).toBe(403);
+    const late = await post(email, '/api/spaces/delete', {
+      id,
+      token: guessed,
+    });
+    expect(late.status).toBe(403);
+    expect((await stub.stats()).docs).toBe(52);
+
+    const onKessel = await openSocket(
+      as(email),
+      `http://datapad.test/ws?space=${id}`,
+    );
+    await onKessel.snapshot();
+    const onMain = await openSocket(as(email));
+    await onMain.snapshot();
+    const closing = closed(onKessel.ws);
+
+    const token = await deleteToken(email, id);
+    const deleted = await post(email, '/api/spaces/delete', { id, token });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+    expect(await closing).toEqual({
+      code: SPACE_DELETED_CLOSE,
+      reason: SPACE_DELETED_REASON,
+    });
+    // Closed before anything else: it never heard the new list.
+    expect(await onKessel.quiet()).toBe(true);
+    expect(await onMain.next()).toEqual({
+      type: 'spaces',
+      spaces: (await stub.listSpaces()).spaces,
+    });
+
+    expect(await listed(email)).toEqual(['Main']);
+    expect(await stub.hasSpace(id)).toBe(false);
+    expect((await stub.stats()).docs).toBe(26);
+    const { exportedAt: _after, ...mainAfter } = await stub.export(MAIN_SPACE);
+    expect(mainAfter).toEqual(mainBefore);
+    await runInDurableObject(stub, async (_o: DatapadObject, state) => {
+      const left = state.storage.sql
+        .exec<{ n: number }>(
+          'SELECT (SELECT COUNT(*) FROM docs WHERE space = ?) + (SELECT COUNT(*) FROM spaces WHERE id = ?) AS n',
+          id,
+          id,
+        )
+        .one().n;
+      expect(left).toBe(0);
+    });
+    // The space is gone, and the token with it.
+    const again = await post(email, '/api/spaces/delete', { id, token });
+    expect(again.status).toBe(404);
+    expect((await get(email, `/api/export.json?space=${id}`)).status).toBe(404);
+    onMain.ws.close(1000);
+  });
+
+  it('refuses to delete the last space, main or not', async () => {
+    const email = 'space-last@example.com';
+    const { id } = await createSpace(email, 'Yavin');
+    await post(email, '/api/import', fixture);
+    // Main can go like any space but the last.
+    const deleted = await post(email, '/api/spaces/delete', {
+      id: MAIN_SPACE,
+      token: await deleteToken(email, MAIN_SPACE),
+    });
+    expect(deleted.status).toBe(200);
+    expect(await listed(email)).toEqual(['Yavin']);
+    expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(0);
+
+    const token = await deleteToken(email, id);
+    const last = await post(email, '/api/spaces/delete', { id, token });
+    expect(last.status).toBe(400);
+    expect(await last.json()).toEqual({
+      error: 'This is your only space, so it cannot be deleted',
+    });
+    // Used up all the same.
+    const erase = await post(email, `/api/erase?space=${id}`, { token });
+    expect(erase.status).toBe(403);
+    expect(await listed(email)).toEqual(['Yavin']);
+  });
+
+  it('refuses cross-site writes and unknown spaces', async () => {
+    const email = 'space-routes@example.com';
+    const routes: Array<[string, unknown]> = [
+      ['/api/spaces/create', { name: 'Tatooine' }],
+      ['/api/spaces/rename', { id: MAIN_SPACE, name: 'Tatooine' }],
+      ['/api/spaces/reorder', { ids: [MAIN_SPACE] }],
+      ['/api/spaces/delete', { id: MAIN_SPACE, token: 'x' }],
+    ];
+    for (const [path, body] of routes) {
+      const foreign = await post(email, path, body, {
+        headers: {
+          'content-type': 'application/json',
+          origin: 'https://evil.example',
+        },
+      });
+      expect(foreign.status).toBe(403);
+      const form = await post(email, path, JSON.stringify(body), {
+        headers: { 'content-type': 'text/plain' },
+      });
+      expect(form.status).toBe(415);
+      expect((await get(email, path)).status).toBe(405);
+    }
+    expect(await listed(email)).toEqual(['Main']);
+
+    for (const response of [
+      await post(email, '/api/spaces/rename', { id: 'nowhere', name: 'X' }),
+      await post(email, '/api/spaces/delete', { id: 'nowhere', token: 'x' }),
+    ]) {
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: 'No such space' });
+    }
   });
 });

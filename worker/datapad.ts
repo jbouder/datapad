@@ -13,11 +13,13 @@ import {
   issuePath,
   type Op,
   type ServerMessage,
+  SPACE_DELETED_CLOSE,
+  SPACE_DELETED_REASON,
   type SpaceList,
 } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import { lastDailyAt, nextDailyAt, zonedDay } from '#shared/schedule';
-import { orderedSpaces } from '#shared/spaces';
+import { nextPosition, orderedSpaces, validSpaceName } from '#shared/spaces';
 import {
   COLLECTIONS,
   type Collection,
@@ -33,7 +35,8 @@ import type { Bindings } from './env';
  * worker/index.ts; nothing else may choose the name). Its SQLite storage
  * holds every document the user has, one JSON row each, and its WebSockets
  * are the user's open tabs and devices. Nothing here is ever wiped; the
- * only way to delete a space's documents is `erase()` with a fresh token.
+ * only ways to delete a space's documents are `erase()` and `deleteSpace()`,
+ * each with a fresh token.
  *
  * The documents are split into spaces: each a complete, separate Datapad
  * with its own snapshot and its own sequence number, listed in the `spaces`
@@ -85,6 +88,19 @@ export function isNoSuchSpace(error: unknown): boolean {
 export type ImportOutcome =
   | { ok: true; imported: Counts }
   | { ok: false; error: string };
+
+/** What a change to the list of spaces came to: the result, or why not. */
+export type SpaceOutcome<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string };
+
+/**
+ * `deleteSpace()`: refused because the token was wrong, expired or for
+ * another space (`token`), or because of the space itself (`refused`).
+ */
+export type DeleteOutcome =
+  | { ok: true }
+  | { ok: false; why: 'token' | 'refused'; error: string };
 
 /**
  * The single sequence number from before spaces. Read once, by the
@@ -636,17 +652,7 @@ export class DatapadObject extends DurableObject<Bindings> {
    */
   async erase(space: string, token: string): Promise<boolean> {
     const data = this.space(space);
-    const stored = this.meta(ERASE_TOKEN);
-    this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', ERASE_TOKEN);
-    if (!stored) {
-      return false;
-    }
-    const expected = JSON.parse(stored) as StoredEraseToken;
-    if (
-      Date.now() > expected.expiresAt ||
-      expected.space !== space ||
-      !sameText(token, expected.token)
-    ) {
+    if (!this.takeEraseToken(space, token)) {
       return false;
     }
     const changed: Changed[] = COLLECTIONS.flatMap((col) =>
@@ -659,6 +665,167 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.commit(space, emptySnapshot(), changed, new Date().toISOString());
     this.broadcastSnapshot(space);
     return true;
+  }
+
+  /**
+   * Use up the erase token, whatever it is, and say whether `token` was it:
+   * issued for `space` and not yet expired.
+   */
+  private takeEraseToken(space: string, token: string): boolean {
+    const stored = this.meta(ERASE_TOKEN);
+    this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', ERASE_TOKEN);
+    if (!stored) {
+      return false;
+    }
+    const expected = JSON.parse(stored) as StoredEraseToken;
+    return (
+      Date.now() <= expected.expiresAt &&
+      expected.space === space &&
+      sameText(token, expected.token)
+    );
+  }
+
+  /* ---------- the list of spaces ---------- */
+
+  /**
+   * Add an empty space at the end of the list. Refused over
+   * `LIMITS.spacesMax`, or for a name `validSpaceName` turns down.
+   */
+  async createSpace(name: string): Promise<SpaceOutcome<SpaceInfo>> {
+    if (this.spaces.length >= LIMITS.spacesMax) {
+      return {
+        ok: false,
+        error: `You can have ${LIMITS.spacesMax} spaces at most`,
+      };
+    }
+    const check = validSpaceName(name, this.spaces);
+    if (!check.ok) return { ok: false, error: check.reason };
+    const space: SpaceInfo = {
+      id: crypto.randomUUID(),
+      name: check.name,
+      position: nextPosition(this.spaces),
+      createdAt: new Date().toISOString(),
+    };
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        'INSERT INTO spaces (id, name, position, seq, created_at) VALUES (?, ?, ?, 0, ?)',
+        space.id,
+        space.name,
+        space.position,
+        space.createdAt,
+      );
+    });
+    this.data.set(space.id, { state: emptySnapshot(), seq: 0 });
+    this.spaces = orderedSpaces([...this.spaces, space]);
+    this.broadcastSpaces();
+    return { ok: true, value: space };
+  }
+
+  /** Rename a space; keeping or recasing its own name is fine. */
+  async renameSpace(
+    id: string,
+    name: string,
+  ): Promise<SpaceOutcome<SpaceList>> {
+    this.space(id);
+    const check = validSpaceName(name, this.spaces, id);
+    if (!check.ok) return { ok: false, error: check.reason };
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        'UPDATE spaces SET name = ? WHERE id = ?',
+        check.name,
+        id,
+      );
+    });
+    this.spaces = this.spaces.map((s) =>
+      s.id === id ? { ...s, name: check.name } : s,
+    );
+    this.broadcastSpaces();
+    return { ok: true, value: { spaces: this.spaces } };
+  }
+
+  /**
+   * Put the spaces in this order: every current id exactly once, nothing
+   * else. Positions become 0..n-1.
+   */
+  async reorderSpaces(ids: string[]): Promise<SpaceOutcome<SpaceList>> {
+    const current = new Set(this.spaces.map((s) => s.id));
+    const permutation =
+      ids.length === current.size &&
+      new Set(ids).size === ids.length &&
+      ids.every((id) => current.has(id));
+    if (!permutation) {
+      return {
+        ok: false,
+        error: 'List every space once to reorder them. Refresh and try again.',
+      };
+    }
+    this.ctx.storage.transactionSync(() => {
+      ids.forEach((id, position) => {
+        this.ctx.storage.sql.exec(
+          'UPDATE spaces SET position = ? WHERE id = ?',
+          position,
+          id,
+        );
+      });
+    });
+    const byId = new Map(this.spaces.map((s) => [s.id, s]));
+    this.spaces = orderedSpaces(
+      ids.flatMap((id, position) => {
+        const space = byId.get(id);
+        return space ? [{ ...space, position }] : [];
+      }),
+    );
+    this.broadcastSpaces();
+    return { ok: true, value: { spaces: this.spaces } };
+  }
+
+  /**
+   * Delete a space and every document in it, given the token
+   * `eraseToken()` just issued for that space; the token is used up
+   * either way. The last space cannot go (`main` is not special: any
+   * space but the last may). Its sockets are closed with
+   * `SPACE_DELETED_CLOSE` before anything else is sent, since a socket
+   * whose space is gone would otherwise read as the first space's.
+   *
+   * Its backups stay in R2 (data is kept): nothing prunes the folder of a
+   * deleted space, and they can still be restored by hand.
+   */
+  async deleteSpace(id: string, token: string): Promise<DeleteOutcome> {
+    this.space(id);
+    const fresh = this.takeEraseToken(id, token);
+    if (this.spaces.length <= 1) {
+      return {
+        ok: false,
+        why: 'refused',
+        error: 'This is your only space, so it cannot be deleted',
+      };
+    }
+    if (!fresh) {
+      return {
+        ok: false,
+        why: 'token',
+        error: 'That confirmation has expired. Ask for a new one.',
+      };
+    }
+    const doomed = this.ctx
+      .getWebSockets()
+      .filter((ws) => this.socketSpace(ws) === id);
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec('DELETE FROM docs WHERE space = ?', id);
+      this.ctx.storage.sql.exec('DELETE FROM spaces WHERE id = ?', id);
+    });
+    this.data.delete(id);
+    this.spaces = this.spaces.filter((s) => s.id !== id);
+    for (const ws of doomed) {
+      this.recent.delete(ws);
+      try {
+        ws.close(SPACE_DELETED_CLOSE, SPACE_DELETED_REASON);
+      } catch {
+        // Already closed.
+      }
+    }
+    this.broadcastSpaces(new Set(doomed));
+    return { ok: true };
   }
 
   /* ---------- sockets ---------- */
@@ -808,6 +975,15 @@ export class DatapadObject extends DurableObject<Bindings> {
   /** A fresh snapshot to every socket on a space, after a bulk change. */
   private broadcastSnapshot(space: string) {
     this.sendTo(space, this.snapshotText(space));
+  }
+
+  /** The list of spaces changed: tell every socket, whatever its space. */
+  private broadcastSpaces(skip: ReadonlySet<WebSocket> = new Set()) {
+    const message: ServerMessage = { type: 'spaces', spaces: this.spaces };
+    const text = JSON.stringify(message);
+    for (const socket of this.ctx.getWebSockets()) {
+      if (!skip.has(socket)) trySend(socket, text);
+    }
   }
 
   /** Send to the sockets open on one space, and only those. */
