@@ -393,6 +393,19 @@ export interface SpaceList {
   spaces: SpaceInfo[];
 }
 
+/** `POST /api/spaces/create` → 200: the new space, last in the list. */
+export interface CreatedSpace {
+  space: SpaceInfo;
+}
+
+/**
+ * The close code (and reason) a socket gets when its space is deleted, so
+ * the client can tell it from a dropped connection and move to another
+ * space instead of reconnecting to one that is gone.
+ */
+export const SPACE_DELETED_CLOSE = 4004;
+export const SPACE_DELETED_REASON = 'space deleted';
+
 /** Create a space. The server chooses its id and position. */
 export const CreateSpaceSchema = z.object({ name: spaceName });
 export type CreateSpace = z.infer<typeof CreateSpaceSchema>;
