@@ -193,3 +193,88 @@ test('when the open space is deleted elsewhere, the first one opens', async ({
     'main',
   );
 });
+
+test.describe('Moving a project', () => {
+  const echo = (page: Page) =>
+    page.getByRole('heading', { level: 1, name: 'Echo Base relocation' });
+  const moveButton = (page: Page) =>
+    page.getByRole('button', { name: 'Move to…' });
+
+  test('only offered once there is another space', async ({
+    page,
+    request,
+  }) => {
+    await request.post('/api/import', { data: SEED });
+    await openLive(page, '/projects/p-echo');
+    await expect(echo(page)).toBeVisible();
+    await expect(moveButton(page)).toHaveCount(0);
+  });
+
+  test('move a project to another space, then open it there', async ({
+    page,
+    request,
+  }) => {
+    await request.post('/api/import', { data: SEED });
+    await request.post('/api/spaces/create', { data: { name: 'Personal' } });
+    await request.post('/api/spaces/create', { data: { name: 'Dagobah' } });
+    await openLive(page, '/projects/p-echo');
+    await expect(echo(page)).toBeVisible();
+    if (isMobile(page)) await expectNoSidewaysScroll(page);
+
+    await moveButton(page).click();
+    const dialog = page.getByRole('dialog', { name: 'Move to another space' });
+    await expect(dialog).toBeVisible();
+    // The other spaces, not this one; the first is picked.
+    await expect(dialog.getByRole('radio')).toHaveCount(2);
+    await expect(dialog.getByRole('radio', { name: 'Main' })).toHaveCount(0);
+    await expect(dialog.getByRole('radio', { name: 'Personal' })).toBeChecked();
+    await expectAccessible(page);
+    if (isMobile(page)) {
+      // Measured at rest (after the dialog's entrance): 44px to a finger.
+      const row = await dialog
+        .locator('label', { hasText: 'Dagobah' })
+        .boundingBox();
+      expect(row?.height).toBeGreaterThanOrEqual(44);
+      await expectNoSidewaysScroll(page);
+    }
+    await dialog.getByRole('button', { name: 'Move' }).click();
+    await expect(dialog).toBeHidden();
+
+    // Gone from this space: on to Projects, which no longer lists it.
+    const toast = page.getByRole('status').filter({
+      hasText: 'Moved Echo Base relocation to Personal',
+    });
+    await expect(toast).toBeVisible();
+    await expect(page).toHaveURL(/\/projects$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Projects' }),
+    ).toBeVisible();
+    const main = page.getByRole('main');
+    await main.getByText('All', { exact: true }).click();
+    await expect(main.getByText('Falcon hyperdrive refit')).toBeVisible();
+    await expect(main.getByText('Echo Base relocation')).toHaveCount(0);
+
+    // Open follows it to Personal, with its tasks and people.
+    await toast.getByRole('button', { name: 'Open' }).click();
+    await expect(page).toHaveURL(/\/projects\/p-echo$/);
+    await expect(echo(page)).toBeVisible();
+    await expect(page).toHaveTitle('Echo Base relocation · Personal · Datapad');
+    if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
+    await expect(
+      page.getByText('Confirm shield generator delivery'),
+    ).toBeVisible();
+    const details = page.getByRole('list', { name: 'Details' });
+    for (const name of ['Leia Organa', 'Han Solo', 'Chewbacca']) {
+      await expect(details.getByText(name)).toHaveCount(1);
+    }
+    if (isMobile(page)) await expectNoSidewaysScroll(page);
+
+    // Back in Main, it is gone from Projects.
+    await switchTo(page, 'Main');
+    await page.goto('/projects');
+    await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+    await main.getByText('All', { exact: true }).click();
+    await expect(main.getByText('Falcon hyperdrive refit')).toBeVisible();
+    await expect(main.getByText('Echo Base relocation')).toHaveCount(0);
+  });
+});

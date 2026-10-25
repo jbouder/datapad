@@ -8,6 +8,7 @@ import {
   DeleteSpaceSchema,
   describeIssue,
   type ImportResult,
+  MoveProjectSchema,
   RenameSpaceSchema,
   ReorderSpacesSchema,
   type SpaceList,
@@ -249,6 +250,26 @@ const API_ROUTES: Record<string, ApiRoute> = {
         );
       }
       return json({ deleted: true });
+    },
+  },
+  /**
+   * Move a project, with everything that hangs off it, from one of your
+   * spaces to another: 404 when either space is unknown, 400 with the
+   * reason for the same space twice or a project that is gone.
+   */
+  '/api/spaces/move-project': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, datapad) => {
+      const body = await readBody(request, MoveProjectSchema);
+      if (!body.ok) return body.response;
+      const { from, to, id } = body.value;
+      if (!(await datapad.hasSpace(from)) || !(await datapad.hasSpace(to))) {
+        return noSuchSpace();
+      }
+      const outcome = await datapad.moveProject(from, to, id);
+      if (!outcome.ok) return json({ error: outcome.error }, 400);
+      return json({ moved: true });
     },
   },
   '/api/export.json': {

@@ -19,7 +19,13 @@ import {
 } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import { lastDailyAt, nextDailyAt, zonedDay } from '#shared/schedule';
-import { nextPosition, orderedSpaces, validSpaceName } from '#shared/spaces';
+import {
+  nextPosition,
+  orderedSpaces,
+  projectSubtree,
+  removeSubtree,
+  validSpaceName,
+} from '#shared/spaces';
 import {
   COLLECTIONS,
   type Collection,
@@ -94,6 +100,9 @@ export type SpaceOutcome<T> =
   | { ok: true; value: T }
   | { ok: false; error: string };
 
+/** `moveProject()`: done, or why not. */
+export type MoveOutcome = { ok: true } | { ok: false; error: string };
+
 /**
  * `deleteSpace()`: refused because the token was wrong, expired or for
  * another space (`token`), or because of the space itself (`refused`).
@@ -122,6 +131,13 @@ const BACKUP_PREFIX = 'datapad-';
 interface SpaceData {
   state: Snapshot;
   seq: number;
+}
+
+/** One space's part of a commit: its next state and the rows that changed. */
+interface SpaceWrite {
+  space: string;
+  next: Snapshot;
+  changed: Changed[];
 }
 
 /** What a socket carries through hibernation: the space it opened. */
@@ -493,52 +509,68 @@ export class DatapadObject extends DurableObject<Bindings> {
     at: string,
     opId?: string,
   ) {
-    const data = this.space(space);
-    const seq = data.seq + 1;
+    this.commitSpaces([{ space, next, changed }], at, opId);
+  }
+
+  /**
+   * `commit()` across several spaces at once (moving a project): every
+   * space's rows and next sequence number in the same transaction, so
+   * either all land or none does. An op id, when there is one, belongs
+   * to the first.
+   */
+  private commitSpaces(writes: SpaceWrite[], at: string, opId?: string) {
+    const bumped = writes.map((w) => {
+      const data = this.space(w.space);
+      return { ...w, data, seq: data.seq + 1 };
+    });
     const opIds = opId ? [...this.opIds, opId] : this.opIds;
     const dropped = opIds.splice(
       0,
       Math.max(0, opIds.length - LIMITS.opIdsKept),
     );
     this.ctx.storage.transactionSync(() => {
-      for (const c of changed) {
-        if ('deleted' in c) {
-          this.ctx.storage.sql.exec(
-            'DELETE FROM docs WHERE space = ? AND col = ? AND id = ?',
-            space,
-            c.col,
-            c.id,
-          );
-        } else {
-          const doc = (next[c.col] as Record<string, unknown>)[c.id];
-          this.ctx.storage.sql.exec(
-            'INSERT OR REPLACE INTO docs (space, col, id, json, updated_at) VALUES (?, ?, ?, ?, ?)',
-            space,
-            c.col,
-            c.id,
-            JSON.stringify(doc),
-            at,
-          );
+      for (const { space, next, changed, seq } of bumped) {
+        for (const c of changed) {
+          if ('deleted' in c) {
+            this.ctx.storage.sql.exec(
+              'DELETE FROM docs WHERE space = ? AND col = ? AND id = ?',
+              space,
+              c.col,
+              c.id,
+            );
+          } else {
+            const doc = (next[c.col] as Record<string, unknown>)[c.id];
+            this.ctx.storage.sql.exec(
+              'INSERT OR REPLACE INTO docs (space, col, id, json, updated_at) VALUES (?, ?, ?, ?, ?)',
+              space,
+              c.col,
+              c.id,
+              JSON.stringify(doc),
+              at,
+            );
+          }
         }
+        this.ctx.storage.sql.exec(
+          'UPDATE spaces SET seq = ? WHERE id = ?',
+          seq,
+          space,
+        );
       }
-      this.ctx.storage.sql.exec(
-        'UPDATE spaces SET seq = ? WHERE id = ?',
-        seq,
-        space,
-      );
       if (opId) {
         this.ctx.storage.sql.exec(
           'INSERT OR IGNORE INTO op_ids (op_id, seq) VALUES (?, ?)',
           opId,
-          seq,
+          bumped[0]?.seq ?? 0,
         );
       }
       for (const id of dropped) {
         this.ctx.storage.sql.exec('DELETE FROM op_ids WHERE op_id = ?', id);
       }
     });
-    data.state = next;
-    data.seq = seq;
+    for (const { data, next, seq } of bumped) {
+      data.state = next;
+      data.seq = seq;
+    }
     this.opIds = opIds;
     if (opId) this.seenOps.add(opId);
     for (const id of dropped) this.seenOps.delete(id);
@@ -683,6 +715,50 @@ export class DatapadObject extends DurableObject<Bindings> {
       expected.space === space &&
       sameText(token, expected.token)
     );
+  }
+
+  /* ---------- moving a project ---------- */
+
+  /**
+   * Move a project, with its tasks, notes, events, decisions and log, from
+   * one space to another, copying the people and org it refers to (see
+   * `projectSubtree`). Not an op: an op changes one space, and this
+   * changes two. So the target takes the project the way an import does,
+   * through `merge()`, the source lets it go through `removeSubtree()`,
+   * both pure, and both spaces' rows and sequence numbers are written in
+   * one transaction: the project is never in both spaces, or in neither.
+   * Each space's sockets then get a fresh snapshot, as after an import.
+   */
+  async moveProject(
+    from: string,
+    to: string,
+    id: string,
+  ): Promise<MoveOutcome> {
+    const source = this.space(from);
+    const target = this.space(to);
+    if (from === to) return { ok: false, error: 'Pick another space' };
+    const at = new Date().toISOString();
+    const name =
+      this.spaces.find((s) => s.id === from)?.name ?? 'another space';
+    const subtree = projectSubtree(source.state, id, target.state, {
+      from: name,
+      at,
+    });
+    if (!subtree) {
+      return { ok: false, error: 'That project no longer exists' };
+    }
+    const landed = merge(target.state, subtree);
+    const left = removeSubtree(source.state, subtree);
+    this.commitSpaces(
+      [
+        { space: to, next: landed.state, changed: landed.changed },
+        { space: from, next: left.state, changed: left.changed },
+      ],
+      at,
+    );
+    this.broadcastSnapshot(from);
+    this.broadcastSnapshot(to);
+    return { ok: true };
   }
 
   /* ---------- the list of spaces ---------- */

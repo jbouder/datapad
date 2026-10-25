@@ -12,7 +12,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { DatapadContext, useDatapadConnection } from '@/hooks/useDatapad';
 import { createSpace as postCreateSpace } from '@/lib/api';
 import { withViewTransition } from '@/lib/motion';
-import { currentRoute, navigate } from '@/lib/router';
+import { currentRoute, navigate, type Route } from '@/lib/router';
 import { routeAfterSwitch, SPACE_KEY } from '@/lib/spaces';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
@@ -26,6 +26,11 @@ export interface Spaces {
   current: SpaceInfo;
   /** Open another space (remembered on this device). */
   switchSpace: (id: string) => void;
+  /**
+   * Open another space, then a page in it (a project just moved there)
+   * once that space's live state has arrived.
+   */
+  openInSpace: (id: string, route: Route) => void;
   /** Make a space and open it; false (and a toast) when refused. */
   createSpace: (name: string) => Promise<boolean>;
 }
@@ -64,8 +69,14 @@ export function DatapadProvider({ children }: { children: ReactNode }) {
   const [made, setMade] = useState<SpaceInfo | null>(null);
   const datapad = useDatapadConnection(email, space, show);
 
-  const switchSpace = useCallback(
-    (id: string) => {
+  /** Where to go once a space just switched to has its live state. */
+  const [arrive, setArrive] = useState<{ space: string; route: Route } | null>(
+    null,
+  );
+
+  const go = useCallback(
+    (id: string, then?: Route) => {
+      setArrive(then ? { space: id, route: then } : null);
       if (id === space) return;
       saveSpace(id);
       // A project, person or org belongs to the space being left.
@@ -81,6 +92,22 @@ export function DatapadProvider({ children }: { children: ReactNode }) {
     },
     [space, active],
   );
+  const switchSpace = useCallback((id: string) => go(id), [go]);
+  const openInSpace = useCallback(
+    (id: string, route: Route) => go(id, route),
+    [go],
+  );
+
+  // Not before the server's snapshot: a page for something in that space
+  // would read Not found from an older cache, or from nothing.
+  const live =
+    datapad.space !== null && datapad.state !== null && !datapad.stale;
+  useEffect(() => {
+    if (arrive && live && datapad.space === arrive.space) {
+      setArrive(null);
+      navigate(arrive.route);
+    }
+  }, [arrive, live, datapad.space]);
 
   // The server opened another space than asked for (an unknown id, or
   // this one was deleted): that one is open now.
@@ -121,8 +148,8 @@ export function DatapadProvider({ children }: { children: ReactNode }) {
   const current = spaces.find((s) => s.id === space) as SpaceInfo;
 
   const value = useMemo(
-    () => ({ spaces, current, switchSpace, createSpace }),
-    [spaces, current, switchSpace, createSpace],
+    () => ({ spaces, current, switchSpace, openInSpace, createSpace }),
+    [spaces, current, switchSpace, openInSpace, createSpace],
   );
 
   return (
