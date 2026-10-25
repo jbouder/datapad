@@ -278,3 +278,214 @@ test.describe('Moving a project', () => {
     await expect(main.getByText('Echo Base relocation')).toHaveCount(0);
   });
 });
+
+test.describe('Settings → Spaces', () => {
+  const list = (page: Page) => page.getByRole('list', { name: 'Spaces' });
+
+  /** These spaces, in the order the switcher lists them. */
+  async function switcherOrder(page: Page, names: string[]) {
+    await openSwitcher(page);
+    const all = await page.getByRole('menuitemradio').allTextContents();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toBeHidden();
+    return all.map((n) => n.trim()).filter((n) => names.includes(n));
+  }
+
+  test('rename, reorder and delete a space', async ({ page, request }) => {
+    test.slow();
+    await request.post('/api/import', { data: SEED });
+    await openLive(page, '/');
+
+    // A second space, made from the switcher; then back to Main.
+    await openSwitcher(page);
+    await page.getByRole('menuitem', { name: 'New space…' }).click();
+    const made = page.getByRole('dialog', { name: 'New space' });
+    await made.getByRole('textbox', { name: 'Name' }).fill('Personal');
+    await made.getByRole('textbox', { name: 'Name' }).press('Enter');
+    await expect(made).toBeHidden();
+    await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+    await switchTo(page, 'Main');
+
+    // Manage spaces leads here.
+    await openSwitcher(page);
+    await page.getByRole('menuitem', { name: 'Manage spaces' }).click();
+    await expect(page).toHaveURL(/\/settings\/spaces$/);
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Spaces' }),
+    ).toBeVisible();
+    await expect(list(page).getByRole('listitem')).toHaveText([
+      /^Main.*Open/,
+      /^Personal/,
+    ]);
+    await expect(list(page).getByRole('listitem').first()).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Move Main up' }),
+    ).toBeDisabled();
+    await expectAccessible(page);
+    if (isMobile(page)) await expectNoSidewaysScroll(page);
+
+    // Rename in place: a taken name is refused, Esc puts it back, Enter
+    // saves.
+    await page.getByRole('button', { name: 'Rename Personal' }).click();
+    const name = page.getByRole('textbox', { name: 'Name of Personal' });
+    await expect(name).toBeFocused();
+    await name.fill('main');
+    await name.press('Enter');
+    await expect(
+      page.getByText('There is already a space called main'),
+    ).toBeVisible();
+    await name.fill('Nope');
+    await name.press('Escape');
+    await expect(name).toBeHidden();
+    await expect(list(page)).toContainText('Personal');
+    await expect(list(page)).not.toContainText('Nope');
+
+    await page.getByRole('button', { name: 'Rename Personal' }).click();
+    await name.fill('Outpost');
+    await name.press('Enter');
+    await expect(name).toBeHidden();
+    await expect(list(page).getByRole('listitem').nth(1)).toHaveText(
+      /^Outpost/,
+    );
+    await expect(
+      list(page).getByRole('button', { name: 'Outpost, rename' }),
+    ).toBeFocused();
+    expect(await switcherOrder(page, ['Main', 'Outpost'])).toEqual([
+      'Main',
+      'Outpost',
+    ]);
+
+    // Move it up: the switcher follows.
+    await page.getByRole('button', { name: 'Move Outpost up' }).click();
+    await expect(list(page).getByRole('listitem')).toHaveText([
+      /^Outpost/,
+      /^Main.*Open/,
+    ]);
+    await expect(
+      page.getByRole('button', { name: 'Move Outpost down' }),
+    ).toBeFocused();
+    await expect
+      .poll(() => switcherOrder(page, ['Main', 'Outpost']))
+      .toEqual(['Outpost', 'Main']);
+
+    // Delete it: counted from its export, its name typed exactly.
+    await page.getByRole('button', { name: 'Delete Outpost…' }).click();
+    const panel = page.getByRole('dialog', { name: 'Delete Outpost?' });
+    await expect(panel).toBeVisible();
+    await expect(
+      panel.getByText(
+        'This deletes Outpost and everything in it: 0 projects, 0 tasks, 0 notes, 0 events, 0 people',
+      ),
+    ).toBeVisible();
+    const confirm = panel.getByRole('textbox', {
+      name: 'Type Outpost to confirm',
+    });
+    const remove = panel.getByRole('button', { name: 'Delete space' });
+    await expect(remove).toBeDisabled();
+    await confirm.fill('outpost');
+    await expect(remove).toBeDisabled();
+    await confirm.fill('Outpost');
+    await expect(remove).toBeEnabled();
+    await expectAccessible(page);
+    if (isMobile(page)) await expectNoSidewaysScroll(page);
+    await remove.click();
+    await expect(panel).toBeHidden();
+    await expect(page.getByText('Deleted Outpost')).toBeVisible();
+    await expect(list(page).getByRole('listitem')).toHaveText([/^Main.*Open/]);
+    await expect(page.getByRole('button', { name: 'New space' })).toBeFocused();
+
+    // The last space cannot go.
+    await expect(
+      page.getByRole('button', { name: 'Delete Main…' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText('The last space cannot be deleted.'),
+    ).toBeVisible();
+
+    // The Data section names the space it acts on.
+    await page
+      .getByRole('navigation', { name: 'Settings' })
+      .getByRole('link', { name: 'Data' })
+      .click();
+    await expect(page).toHaveURL(/\/settings\/data$/);
+    for (const heading of [
+      'Export Main',
+      'Import into Main',
+      'Backups of Main',
+    ]) {
+      await expect(
+        page.getByRole('heading', { level: 3, name: heading }),
+      ).toBeVisible();
+    }
+    await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();
+    if (isMobile(page)) await expectNoSidewaysScroll(page);
+  });
+
+  test('deleting the open space opens the first one', async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    await request.post('/api/import', { data: SEED });
+    await request.post('/api/spaces/create', { data: { name: 'Personal' } });
+    await openLive(page, '/');
+    await switchTo(page, 'Personal');
+    await page.goto('/settings/spaces');
+    await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+    await expect(list(page).getByRole('listitem').nth(1)).toHaveText(
+      /^Personal.*Open/,
+    );
+
+    await page.getByRole('button', { name: 'Delete Personal…' }).click();
+    const panel = page.getByRole('dialog', { name: 'Delete Personal?' });
+    // The open space is counted from what is loaded.
+    await expect(
+      panel.getByText('0 projects, 0 tasks, 0 notes, 0 events, 0 people', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      panel.getByText(
+        'It is the space open here; the first space opens after.',
+      ),
+    ).toBeVisible();
+    await panel
+      .getByRole('textbox', { name: 'Type Personal to confirm' })
+      .fill('Personal');
+    // A confirmation that expired on the way: say so, and the next try
+    // asks for a fresh one.
+    await page.route(
+      '**/api/spaces/delete',
+      (route) =>
+        route.fulfill({
+          status: 403,
+          json: { error: 'That confirmation has expired. Ask for a new one.' },
+        }),
+      { times: 1 },
+    );
+    await panel.getByRole('button', { name: 'Delete space' }).click();
+    await expect(
+      panel.getByText('That confirmation expired before it was used.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await panel.getByRole('button', { name: 'Delete space' }).click();
+    await expect(panel).toBeHidden();
+    await expect(page.getByText('Deleted Personal')).toBeVisible();
+
+    // The close reaches the page late through the local preview's proxy.
+    await expect(list(page).getByRole('listitem')).toHaveText([/^Main.*Open/], {
+      timeout: 20_000,
+    });
+    await page
+      .getByRole('navigation', { name: 'Settings' })
+      .getByRole('link', { name: 'Data' })
+      .click();
+    await expect(
+      page.getByText('Main has 3 projects, 7 tasks', { exact: false }),
+    ).toBeVisible();
+  });
+});

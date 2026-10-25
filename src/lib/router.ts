@@ -41,6 +41,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'templates',
   'summaries',
+  'spaces',
   'data',
   'account',
 ] as const;

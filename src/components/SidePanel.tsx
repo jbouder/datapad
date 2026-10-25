@@ -45,6 +45,7 @@ export function SidePanel({
   dirty = false,
   onSubmit,
   footer,
+  returnFocus,
   children,
 }: {
   open: boolean;
@@ -58,6 +59,9 @@ export function SidePanel({
   /** The body is a form; Enter in a field and ⌘/Ctrl+Enter submit it. */
   onSubmit?: () => void;
   footer?: ReactNode;
+  /** Where focus goes on close instead of the opener, when it answers one
+   * (the opener may be gone with what the panel deleted). */
+  returnFocus?: () => HTMLElement | null;
   children: ReactNode;
 }) {
   const popup = useRef<HTMLDivElement>(null);
@@ -111,7 +115,8 @@ export function SidePanel({
             popup.current?.querySelector<HTMLElement>(FIELDS) ?? true
           }
           finalFocus={() =>
-            opener.current?.isConnected ? opener.current : true
+            returnFocus?.() ??
+            (opener.current?.isConnected ? opener.current : true)
           }
           onKeyDown={(event) => {
             if (

@@ -7,6 +7,7 @@ import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { SpacesSettings } from '@/components/SpacesSettings';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ import {
 } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { cn } from '@/lib/utils';
-import { useEmail } from '@/providers/DatapadProvider';
+import { useEmail, useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -29,13 +30,14 @@ const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
   templates: 'Templates',
   summaries: 'Summaries',
+  spaces: 'Spaces',
   data: 'Data',
   account: 'Account',
 };
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
- * templates, summaries, your data in and out, and who is signed in. Each
+ * templates, summaries, your spaces, your data in and out, and who is signed in. Each
  * section has its own address (`/settings/data`); the account menu leads
  * here.
  */
@@ -80,6 +82,7 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
           {section === 'appearance' && <Appearance />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
+          {section === 'spaces' && <SpacesSettings />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}
         </section>
@@ -134,15 +137,21 @@ function Appearance() {
 function Data() {
   const { state } = useDatapad();
   const data = useImportExport();
+  // Everything here acts on the open space; the headings say which.
+  const { name } = useSpaces().current;
   const counts = state ? countDocuments(state) : null;
   return (
     <>
-      {counts && <p className="text-sm">You have {describeCounts(counts)}.</p>}
+      {counts && (
+        <p className="text-sm">
+          {name} has {describeCounts(counts)}.
+        </p>
+      )}
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold">Export</h3>
+        <h3 className="text-sm font-semibold">Export {name}</h3>
         <p className="text-sm text-muted-foreground">
-          Every document as one JSON file, yours to keep. It imports into
-          Datapad again.
+          Every document in {name} as one JSON file, yours to keep. It imports
+          into Datapad again.
         </p>
         <Button
           variant="outline"
@@ -154,7 +163,7 @@ function Data() {
         </Button>
       </div>
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold">Import</h3>
+        <h3 className="text-sm font-semibold">Import into {name}</h3>
         <p className="text-sm text-muted-foreground">
           A Datapad export, or the original tracker’s <code>ledger-*.json</code>
           . Same ids are replaced; everything else stays. You confirm first.
