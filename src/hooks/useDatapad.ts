@@ -217,7 +217,7 @@ export function useDatapadConnection(
 
   /* the socket */
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     let attempts = 0;
     let reconnectTimer: number | undefined;
     let pingTimer: number | undefined;
@@ -248,7 +248,7 @@ export function useDatapadConnection(
     };
 
     const connect = () => {
-      if (cancelled) return;
+      if (canceled) return;
       window.clearTimeout(reconnectTimer);
       const ws = new WebSocket(socketUrl());
       socket.current = ws;
@@ -341,7 +341,7 @@ export function useDatapadConnection(
 
       ws.addEventListener('close', () => {
         window.clearInterval(pingTimer);
-        if (cancelled || ws !== socket.current) return;
+        if (canceled || ws !== socket.current) return;
         socket.current = null;
         setStatus('offline');
         attempts += 1;
@@ -352,7 +352,7 @@ export function useDatapadConnection(
 
     /** Back online, or back on the tab: try now instead of waiting. */
     const retryNow = () => {
-      if (!socket.current && !cancelled) {
+      if (!socket.current && !canceled) {
         attempts = 0;
         connect();
       }
@@ -368,7 +368,7 @@ export function useDatapadConnection(
     reconnectTimer = window.setTimeout(connect, 0);
 
     return () => {
-      cancelled = true;
+      canceled = true;
       window.clearTimeout(reconnectTimer);
       window.clearInterval(pingTimer);
       window.removeEventListener('online', retryNow);
@@ -381,10 +381,10 @@ export function useDatapadConnection(
   /* the cache: read once we know who we are, write as things settle */
   useEffect(() => {
     if (!email) return;
-    let cancelled = false;
+    let canceled = false;
     idbGet<Cached>(CACHE_KEY)
       .then((value) => {
-        if (!cancelled && value?.email === email && value.state) {
+        if (!canceled && value?.email === email && value.state) {
           setCached(value);
         }
       })
@@ -394,7 +394,7 @@ export function useDatapadConnection(
     idbGet<StoredPending>(PENDING_KEY)
       .catch(() => undefined)
       .then((value) => {
-        if (cancelled) return;
+        if (canceled) return;
         // Both copies: IndexedDB (every tab's) and the synchronous one
         // (this browser's last tab), once each, oldest first.
         const byId = new Map<string, Pending>();
@@ -423,7 +423,7 @@ export function useDatapadConnection(
         setRestored(true);
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [email]);
 

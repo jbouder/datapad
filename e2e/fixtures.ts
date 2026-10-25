@@ -38,7 +38,7 @@ interface Options {
 
 interface Fixtures {
   /**
-   * The address this test is signed in as. The dev Access bypass honours the
+   * The address this test is signed in as. The dev Access bypass honors the
    * `x-dev-access-email` header (only while ACCESS_AUD is empty), so every
    * test gets its own, empty Durable Object.
    */

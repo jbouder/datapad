@@ -144,8 +144,8 @@ test('Orgs: a default org that new projects start in', async ({
   await openLive(page, '/orgs');
   const picker = page.getByRole('combobox', { name: 'Default org' });
   await expect(picker).toHaveValue('OpenTeams Internal');
-  // Plain text until organised; then each is a record with a count.
-  await page.getByRole('button', { name: 'Organise orgs' }).click();
+  // Plain text until organized; then each is a record with a count.
+  await page.getByRole('button', { name: 'Organize orgs' }).click();
   const list = page.getByRole('list', { name: 'Orgs' });
   await expect(list).toContainText('OpenTeams Internal');
   await expect(list).toContainText('default');

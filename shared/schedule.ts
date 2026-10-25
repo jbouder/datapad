@@ -45,7 +45,7 @@ export function zonedParts(ts: number, timeZone: string): Parts {
     year: parts.year,
     month: parts.month,
     day: parts.day,
-    // Some engines report midnight as 24 with h23 on older ICU; normalise.
+    // Some engines report midnight as 24 with h23 on older ICU; normalize.
     hour: parts.hour === 24 ? 0 : parts.hour,
     minute: parts.minute,
     second: parts.second,

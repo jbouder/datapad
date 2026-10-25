@@ -197,7 +197,7 @@ describe('document schemas', () => {
   it('strips unknown keys instead of refusing them', () => {
     const result = DocumentSchemas.people.parse({
       ...cases.people.valid,
-      colour: 'blue',
+      color: 'blue',
     });
     expect(result).toEqual(cases.people.valid);
   });

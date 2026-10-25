@@ -94,7 +94,7 @@ export const ProjectSchema = z.object({
   id,
   name: z.string().min(1).max(LIMITS.nameMax),
   org: text(LIMITS.nameMax).default(''),
-  /** Absent in older exports: not organised yet. */
+  /** Absent in older exports: not organized yet. */
   orgId: nullableId.optional(),
   status: projectStatus.default('active'),
   /** Absent in older exports; `healthOf()` reads that as `none`. */
@@ -640,7 +640,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   /** Its projects keep their org text; only the link goes. */
   z.object({ type: z.literal('deleteOrg'), id }),
   /**
-   * "Organise orgs": make an Org for each project org text that has none
+   * "Organize orgs": make an Org for each project org text that has none
    * (ids from the client), then link every project whose text names an
    * Org. Running it again changes nothing.
    */

@@ -3,14 +3,14 @@
 Datapad looks, feels and moves like holocron: Oxanium Variable for UI and
 headings, JetBrains Mono for code, square Lyra corners, and three themes:
 System, Light and Dark: holocron's light set and a neutral dark that mirrors
-it (stock shadcn neutral dark greys, no tint; owner's call 2026-10-24).
+it (stock shadcn neutral dark grays, no tint; owner's call 2026-10-24).
 Holocron's extra themes are deliberately left out. The spec's
-structural rules carry over; its fonts and colours do not (see
+structural rules carry over; its fonts and colors do not (see
 `PLAN.md` → Deliberate departures).
 
 ## Tokens
 
-Every colour is a semantic token defined by both Light (`:root`) and Dark
+Every color is a semantic token defined by both Light (`:root`) and Dark
 (`.dark`) in `src/index.css`; `test/themes.test.ts` fails if Dark misses one or if a
 text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 
@@ -44,7 +44,7 @@ text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 | Due date        | overdue   | `destructive`, with the word "Overdue"                                              |
 |                 | today     | `warn`, with the word "Today"                                                       |
 
-State is never shown by colour alone: dots have a text label for screen
+State is never shown by color alone: dots have a text label for screen
 readers and a tooltip, and dates carry words.
 
 ## Type scale

@@ -153,7 +153,7 @@ test('rows are 36px on desktop and 44px on phones, with 44px checkboxes on touch
   }
 });
 
-test('due dates say overdue and today in words, not only colour', async ({
+test('due dates say overdue and today in words, not only color', async ({
   page,
   request,
 }) => {

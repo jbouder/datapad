@@ -21,7 +21,7 @@ export function dueLabel(due: DateString, today: DateString): string {
 }
 
 /**
- * A task's due date, in words as well as colour: destructive when overdue,
+ * A task's due date, in words as well as color: destructive when overdue,
  * warn when today. Done tasks are never overdue.
  */
 export function DueDate({

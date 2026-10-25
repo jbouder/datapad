@@ -9,7 +9,7 @@ import type {
 
 /**
  * The Events view's selection and the small rules events share: reading a
- * typed time, ordering, and the month grouping. Pure; pages memoise it.
+ * typed time, ordering, and the month grouping. Pure; pages memoize it.
  */
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {

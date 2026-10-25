@@ -14,7 +14,7 @@ import {
 /**
  * What Summarize tells the on-device model (docs/SPEC.md § Claude
  * summaries): the system prompt, and per item a plain-text context of
- * labelled sections, mentions as names, nothing from outside the item.
+ * labeled sections, mentions as names, nothing from outside the item.
  * Pure, so it is tested without a GPU; the model itself lives behind
  * `src/lib/summary-engine.ts`.
  */
@@ -129,7 +129,7 @@ function noteDay(note: Note): string {
 
 /**
  * An event: title, type, date and times, project, attendees, agenda, and
- * every linked note, oldest first, labelled `[prep]`, `[debrief]` or
+ * every linked note, oldest first, labeled `[prep]`, `[debrief]` or
  * `[note]`.
  */
 export function eventContext(
@@ -377,7 +377,7 @@ export interface SummaryRequest {
   context: string;
   /** Where Save as note puts the result. */
   projectId: string | null;
-  /** Set when summarising an event, so the saved note links to it. */
+  /** Set when summarizing an event, so the saved note links to it. */
   eventId: string | null;
 }
 

@@ -129,7 +129,7 @@ export function NoteForm({
     if (!accepts({ projectId: fixed, prefill: () => {} }, event)) return;
     clearPending();
     // After the composer has put back any draft, which the seed follows.
-    // Not cancelled: clearing `pending` re-runs this effect.
+    // Not canceled: clearing `pending` re-runs this effect.
     window.setTimeout(() => prefill.current(event, pending.phase));
   }, [pending, state, fixed, clearPending]);
 

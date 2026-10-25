@@ -21,7 +21,7 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('set health in the header; the card says it in words and colour', async ({
+test('set health in the header; the card says it in words and color', async ({
   page,
   request,
 }) => {

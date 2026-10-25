@@ -148,7 +148,7 @@ useless. To turn previews on later:
 ### Dependency updates
 
 Dependabot opens grouped monthly pull requests for npm packages (via bun)
-and GitHub Actions, labelled `dependencies`. They run CI like any other PR
+and GitHub Actions, labeled `dependencies`. They run CI like any other PR
 and never deploy until merged.
 
 ## Local development

@@ -9,7 +9,7 @@
 export const PROJECT_STATUSES = ['active', 'paused', 'done'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-/** The leader's judgement of how a project is going, separate from status. */
+/** The leader's judgment of how a project is going, separate from status. */
 export const PROJECT_HEALTHS = ['none', 'green', 'yellow', 'red'] as const;
 export type ProjectHealth = (typeof PROJECT_HEALTHS)[number];
 
@@ -62,7 +62,7 @@ export interface Project {
   name: string;
   /** Client or org, free text: what shows, and what older exports carry. */
   org: string;
-  /** The Org record `org` names, once orgs are organised (M7). */
+  /** The Org record `org` names, once orgs are organized (M7). */
   orgId?: string | null;
   status: ProjectStatus;
   /**

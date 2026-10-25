@@ -5,7 +5,7 @@ import {
   orgByName,
   orgName,
   orgProjects,
-  unorganised,
+  unorganized,
 } from '#shared/orgs';
 import type { Org, Project } from '#shared/types';
 
@@ -68,8 +68,8 @@ describe('orgs', () => {
   });
 
   it('counts projects whose org is text only', () => {
-    expect(unorganised({ projects, orgs })).toBe(2);
-    expect(unorganised({ projects, orgs: {} })).toBe(3);
+    expect(unorganized({ projects, orgs })).toBe(2);
+    expect(unorganized({ projects, orgs: {} })).toBe(3);
   });
 
   it('finds orgs by name in any case, and names a project’s org', () => {

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-/** A labelled single select over string values (toolbars, filters). */
+/** A labeled single select over string values (toolbars, filters). */
 export function SelectField<T extends string>({
   label,
   value,

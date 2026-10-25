@@ -58,7 +58,7 @@ test('switch to Grid, expand a note, edit it in place, collapse', async ({
   await expect(card(page, 'n-3').getByText('idea 14')).not.toBeInViewport();
 
   await settle(page);
-  const neighbour = await place(page, 'n-2');
+  const neighbor = await place(page, 'n-2');
   await card(page, 'n-3').getByRole('button', { name: 'Expand note' }).click();
   const open = card(page, 'n-3');
   await expect(
@@ -67,7 +67,7 @@ test('switch to Grid, expand a note, edit it in place, collapse', async ({
   await expect(open.getByText('idea 14')).toBeVisible();
   // Opening covers; it does not push the other cards around.
   await settle(page);
-  expect(await place(page, 'n-2')).toEqual(neighbour);
+  expect(await place(page, 'n-2')).toEqual(neighbor);
 
   await open.getByRole('button', { name: 'Edit note' }).click();
   const editor = open.getByRole('combobox', { name: 'Edit note' });

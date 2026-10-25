@@ -89,7 +89,7 @@ describe.each(Object.entries(THEMES))('theme %s', (_, tokens) => {
 
 /**
  * `.dark` layers on `:root`; a token it forgets silently keeps the light
- * value, so it has to define every colour token :root does (the radius is
+ * value, so it has to define every color token :root does (the radius is
  * the same in both).
  */
 const REQUIRED = Object.keys(light).filter((name) => name !== 'radius');
@@ -130,7 +130,7 @@ describe('Dark is the neutral counterpart of Light', () => {
       'primary',
     ]) {
       const value = dark[token] ?? '';
-      // oklch(L C H [/ alpha]): chroma 0 means grey.
+      // oklch(L C H [/ alpha]): chroma 0 means gray.
       expect(value, token).toMatch(/^oklch\(\s*[\d.]+\s+0(\s|\))/);
     }
   });
