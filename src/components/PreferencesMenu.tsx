@@ -83,6 +83,15 @@ export function PreferencesMenu({ email }: { email: string | null }) {
             <PlusIcon />
             New space…
           </DropdownMenuItem>
+          <DropdownMenuItem
+            className={SPACE_ROW}
+            render={
+              <a {...linkProps({ name: 'settings', section: 'spaces' })} />
+            }
+          >
+            <GearSixIcon />
+            Manage spaces
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

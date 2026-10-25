@@ -18,7 +18,7 @@ import { useSpaces } from '@/providers/DatapadProvider';
  */
 export function Backups() {
   const { restoreBackup } = useImportExport();
-  const space = useSpaces().current.id;
+  const { id: space, name } = useSpaces().current;
   const [list, setList] = useState<BackupList | null>(null);
   const backups = list?.backups ?? null;
   const [failed, setFailed] = useState(false);
@@ -41,11 +41,12 @@ export function Backups() {
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold">Backups</h3>
+      <h3 className="text-sm font-semibold">Backups of {name}</h3>
       <p className="text-sm text-muted-foreground">
         Every night{list ? ` at ${describeSchedule(list)}` : ''}, a copy of
-        everything goes to your own R2 bucket. The latest 30 are kept. Restoring
-        merges a copy back in: same ids are replaced, nothing is deleted.
+        everything in {name} goes to your own R2 bucket. The latest 30 are kept.
+        Restoring merges a copy back in: same ids are replaced, nothing is
+        deleted.
       </p>
       {failed ? (
         <p className="text-sm">Could not list the backups. Reload to retry.</p>

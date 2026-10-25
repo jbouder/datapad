@@ -92,11 +92,11 @@ export function SpaceSwitcher() {
             <PlusIcon />
             New space…
           </DropdownMenuItem>
-          {/* Settings → Spaces (#117) will take over; until then the data
-              settings are where a space's contents are managed. */}
           <DropdownMenuItem
             className={SPACE_ROW}
-            render={<a {...linkProps({ name: 'settings', section: 'data' })} />}
+            render={
+              <a {...linkProps({ name: 'settings', section: 'spaces' })} />
+            }
           >
             <GearSixIcon />
             Manage spaces

@@ -24,6 +24,17 @@ export class SignedOutError extends Error {
   }
 }
 
+/** A spaces route said no; `message` is the reason, ready for a toast. */
+export class RefusedError extends Error {
+  constructor(
+    message: string,
+    /** 403 is a wrong or expired delete token. */
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export async function fetchConfig(signal?: AbortSignal): Promise<AppConfig> {
   const response = await fetch('/api/config', {
     signal,
@@ -145,9 +156,10 @@ async function postSpaces<T>(path: string, payload: unknown): Promise<T> {
     | T
     | { error?: string };
   if (!response.ok) {
-    throw new Error(
+    throw new RefusedError(
       (body as { error?: string }).error ||
         `Spaces answered ${response.status}`,
+      response.status,
     );
   }
   return body as T;

@@ -19,7 +19,7 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // The spaces and New space…, Motion and Theme, then Settings, then Sign
+  // The spaces, New space… and Manage spaces, Motion and Theme, then Settings, then Sign
   // out. Phones, with no People or Orgs in the tab bar, get them here.
   await expect(
     page
@@ -30,6 +30,7 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
   ).toHaveText([
     'Main',
     'New space…',
+    'Manage spaces',
     'Motion',
     'System',
     'Light',
@@ -185,7 +186,7 @@ test('Data and Account', async ({ page, request, email }) => {
   await openLive(page, '/settings/data');
   await expect(
     page.getByText(
-      'You have 3 projects, 7 tasks, 4 notes, 4 events, 4 people.',
+      'Main has 3 projects, 7 tasks, 4 notes, 4 events, 4 people.',
     ),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();

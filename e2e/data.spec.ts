@@ -30,7 +30,7 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Import' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(/^Imported 3 projects/)).toBeVisible();
-  await expect(page.getByText('You have 3 projects, 7 tasks')).toBeVisible();
+  await expect(page.getByText('Main has 3 projects, 7 tasks')).toBeVisible();
   // Archived projects and their tasks stay out of Focus.
   await page
     .getByRole('link', { name: /^Focus/ })
