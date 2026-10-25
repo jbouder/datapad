@@ -26,6 +26,7 @@ const SECTIONS = [
   { id: 'mentions', title: 'Mentions' },
   { id: 'events', title: 'Events, prep and debrief' },
   { id: 'summaries', title: 'Summaries' },
+  { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
   { id: 'account', title: 'Settings and signing out' },
 ] as const;
@@ -214,19 +215,33 @@ export function HelpPage({ section }: { section?: string }) {
         </p>
       </Section>
 
+      <Section id="spaces">
+        <p className="text-sm">
+          A space is a separate Datapad: its own projects, tasks, notes, events
+          and people, with nothing shared between spaces. You start with Main.
+          Switch spaces, or make a new one, from the name at the top of the
+          rail, the account menu, or <Key>⌘K</Key>; each device remembers which
+          one it has open. Settings → Spaces renames, reorders and deletes them;
+          deleting asks you to type the name, and the last space cannot go.{' '}
+          <strong>Move to…</strong> on a project page takes the project, with
+          its tasks, notes, events and decisions, to another space, and copies
+          the people and org it needs.
+        </p>
+      </Section>
       <Section id="data">
         <ul className="list-disc space-y-1 pl-5 text-sm">
           <li>
-            <strong>Export</strong> (Settings → Data) downloads everything as
-            one JSON file, yours to keep.
+            <strong>Export</strong> (Settings → Data) downloads everything in
+            the open space as one JSON file, yours to keep.
           </li>
           <li>
             <strong>Import</strong> merges such a file in: same ids are
             replaced, nothing else is deleted. You see the counts first.
           </li>
           <li>
-            <strong>Backups</strong> run every night to your own R2 bucket; the
-            latest 30 are kept. Download or restore one from Settings → Data.
+            <strong>Backups</strong> of every space run each night to your own
+            R2 bucket; the latest 30 of each are kept. Download or restore one
+            from Settings → Data.
           </li>
           <li>
             <strong>Offline</strong>, changes wait on the device (the status
@@ -237,13 +252,14 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="account">
         <p className="text-sm">
-          The account button at the top right opens the menu: Motion, Theme,
-          Settings and Sign out; on phones it also leads to People and Orgs,
-          which sit in the rail on desktop. Settings has Appearance, Templates
-          (the tasks a new project can start with; Save as template on a project
-          makes one), Summaries, Data and Account. Signing out ends your
-          Cloudflare Access session on this browser; sign in again to come back.
-          When your device asks for reduced motion, Datapad never animates.
+          The account button at the top right opens the menu: your spaces,
+          Motion, Theme, Settings and Sign out; on phones it also leads to
+          People and Orgs, which sit in the rail on desktop. Settings has
+          Appearance, Templates (the tasks a new project can start with; Save as
+          template on a project makes one), Summaries, Spaces, Data and Account.
+          Signing out ends your Cloudflare Access session on this browser; sign
+          in again to come back. When your device asks for reduced motion,
+          Datapad never animates.
         </p>
       </Section>
 

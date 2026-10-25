@@ -6,18 +6,18 @@ and a configuration mistake fails closed.
 
 ## Threat model
 
-| Threat                                                                                                    | Mitigation                                                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Someone on the internet opens the app                                                                     | Cloudflare Access requires sign-in with the one allowed email before any request reaches the Worker.                                                                                                                                                   |
-| The Access application does not cover a hostname (a renamed route, a preview Worker, a new custom domain) | The Worker verifies the Access JWT itself on every request, assets included, and answers 401 without one. With `ACCESS_AUD` empty and no `DEV_ACCESS_EMAIL`, everything is 401.                                                                        |
-| A forged or replayed token                                                                                | RS256 signature checked against the team's published keys; `aud` must be the app's AUD tag, `iss` the team domain, `exp` and `nbf` within 60 seconds of now. Unknown key ids refetch the keys at most every 30 seconds.                                |
-| A signed-in user reaching someone else's data                                                             | The Durable Object is named only by the verified email. No URL, header, body or socket message can choose another object. Tests try.                                                                                                                   |
-| The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored). With `ACCESS_AUD` set the bypass code path does not run. The Worker logs a loud warning whenever the bypass is active.      |
-| Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and (from M3) a Markdown renderer that emits no raw HTML.                                                                                                           |
-| Clickjacking, MIME sniffing, referrer leaks                                                               | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`.                                                                                                                                                          |
-| Cross-site requests                                                                                       | In the Access application's cookie settings, HttpOnly is on and SameSite is Lax. Writes (`POST /api/import`, `POST /api/erase`) accept `application/json` bodies only, which a cross-site form cannot send, and refuse any `Origin` but the app's own. |
-| Data leaving the account                                                                                  | Summaries run on-device; the item's text never leaves the tab. The CSP's `connect-src` allows only this origin plus the model's download hosts (Hugging Face, `raw.githubusercontent.com`), which receive no data and no referrer.                     |
-| Loss of data                                                                                              | Nightly R2 backups (latest 30, in a private bucket, under the owner's email), JSON export; the backup alarm never deletes documents; deleting everything takes a fresh, single-use token (`/api/erase-token`).                                         |
+| Threat                                                                                                    | Mitigation                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Someone on the internet opens the app                                                                     | Cloudflare Access requires sign-in with the one allowed email before any request reaches the Worker.                                                                                                                                                                                    |
+| The Access application does not cover a hostname (a renamed route, a preview Worker, a new custom domain) | The Worker verifies the Access JWT itself on every request, assets included, and answers 401 without one. With `ACCESS_AUD` empty and no `DEV_ACCESS_EMAIL`, everything is 401.                                                                                                         |
+| A forged or replayed token                                                                                | RS256 signature checked against the team's published keys; `aud` must be the app's AUD tag, `iss` the team domain, `exp` and `nbf` within 60 seconds of now. Unknown key ids refetch the keys at most every 30 seconds.                                                                 |
+| A signed-in user reaching someone else's data                                                             | The Durable Object is named only by the verified email. No URL, header, body or socket message can choose another object; a space id only picks among the user's own spaces. Tests try.                                                                                                 |
+| The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored). With `ACCESS_AUD` set the bypass code path does not run. The Worker logs a loud warning whenever the bypass is active.                                       |
+| Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and (from M3) a Markdown renderer that emits no raw HTML.                                                                                                                                            |
+| Clickjacking, MIME sniffing, referrer leaks                                                               | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`.                                                                                                                                                                                           |
+| Cross-site requests                                                                                       | In the Access application's cookie settings, HttpOnly is on and SameSite is Lax. Every `POST` (import, erase, backup restore, and every `/api/spaces/*` write) accepts `application/json` bodies only, which a cross-site form cannot send, and refuses any `Origin` but the app's own. |
+| Data leaving the account                                                                                  | Summaries run on-device; the item's text never leaves the tab. The CSP's `connect-src` allows only this origin plus the model's download hosts (Hugging Face, `raw.githubusercontent.com`), which receive no data and no referrer.                                                      |
+| Loss of data                                                                                              | Nightly R2 backups (latest 30 per space, in a private bucket, under the owner's email), JSON export; the backup alarm never deletes documents; erasing a space or deleting one takes a fresh, single-use token for that space (`/api/erase-token`), and a deleted space's backups stay. |
 
 ## What Access protects, and what the Worker adds
 
@@ -29,6 +29,26 @@ The Worker (`worker/access.ts`) checks that JWT on every request, so the
 app's safety does not depend on the Access application being attached to
 every hostname correctly. It also turns the token into the one thing that
 selects data: the lowercased `email` claim names the Durable Object.
+
+## Spaces
+
+A user's spaces all live in that one object. The space id (`?space=` on
+`/ws` and the scoped routes, `id` / `from` / `to` in the `/api/spaces/*`
+bodies) is not a credential: it never names the object, so the worst a
+forged one can do is reach another of your own spaces. Ids are random
+UUIDs chosen by the object (`main` is fixed), and they appear in URLs and
+in R2 keys, which is fine because they are not secret.
+
+The Worker still checks every one. Each body is parsed with its zod
+schema (`shared/protocol.ts`); a scoped route asks the object whether the
+space exists before doing anything and answers 404 "No such space" when
+it does not, and the object's RPCs refuse an unknown space too, as a
+backstop. A socket asking for an unknown space gets the first space, never
+another object's. Space names are checked like any document field (trimmed,
+not empty, at most 40 characters, unique ignoring case), and a user can
+have at most 12 spaces. Deleting a space takes the same single-use token
+as erasing one, issued for that space only; the last space cannot be
+deleted.
 
 ## What the logs contain
 

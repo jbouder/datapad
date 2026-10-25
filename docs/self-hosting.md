@@ -87,7 +87,10 @@ npx wrangler r2 bucket create datapad-backups
 Do this before the first deploy: `wrangler.jsonc` binds the bucket as
 `BACKUPS`, and a deploy whose bucket does not exist fails. Use another
 name by changing `bucket_name` there. The bucket stays private; nothing
-serves it publicly.
+serves it publicly. Each user gets a folder named by their email: the
+`main` space's backups sit directly in it
+(`<email>/datapad-YYYY-MM-DD.json`), and every other space's in a
+subfolder named by its id (`<email>/<spaceId>/datapad-YYYY-MM-DD.json`).
 
 When the backup runs is two vars in `wrangler.jsonc`: `BACKUP_HOUR` (0–23,
 default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default

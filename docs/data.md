@@ -8,14 +8,22 @@ commit `.dev.vars`.
 
 ## Where your data lives
 
-| What                                     | Where                                                                                                                                              | Who can reach it                                     |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Everything you enter                     | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email                                                          | The Worker, only after verifying your Access sign-in |
-| Nightly backups                          | The `BACKUPS` R2 bucket in your account, `<email>/datapad-YYYY-MM-DD.json`, latest 30 kept                                                         | You, through the Cloudflare dashboard or API         |
-| Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`), and the unsaved changes again in `localStorage` (`datapad:pending-now`) | That browser profile                                 |
-| Theme and motion preferences             | `localStorage` in each browser                                                                                                                     | That browser profile                                 |
-| Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                                                                                  | That browser profile                                 |
-| Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                           | That browser profile                                 |
+| What                                     | Where                                                                                                                                                                                                | Who can reach it                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Everything you enter                     | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email, holding each of your spaces                                                                               | The Worker, only after verifying your Access sign-in |
+| Nightly backups                          | The `BACKUPS` R2 bucket in your account, one folder per space (see [Backups](#backups)), latest 30 kept in each                                                                                      | You, through the Cloudflare dashboard or API         |
+| Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`), and the unsaved changes again in `localStorage` (`datapad:pending-now`); spaces other than `main` add `:<id>` to each key | That browser profile                                 |
+| Which space is open                      | `localStorage` (`datapad:space`) in each browser                                                                                                                                                     | That browser profile                                 |
+| Theme and motion preferences             | `localStorage` in each browser                                                                                                                                                                       | That browser profile                                 |
+| Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                                                                                                                                    | That browser profile                                 |
+| Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                                                                             | That browser profile                                 |
+
+**Spaces.** Your object holds one or more spaces, each a complete,
+separate Datapad: its own projects, tasks, notes, events, people, orgs,
+decisions, templates, settings and activity. Nothing is shared between
+them. Everyone starts with one, Main (id `main`); data from before spaces
+is in it. You can have up to 12. Each browser remembers which space it
+has open; the URL does not say.
 
 Cloudflare Access logs record your email and sign-ins, by design. Worker
 logs follow your account's Workers observability settings; the Worker logs
@@ -38,6 +46,12 @@ Those requests carry no referrer and nothing of yours. Settings →
 Summaries picks the model and removes the downloaded weights again.
 
 ## Export and import
+
+Export, Import and Backups work on the space you have open; Settings →
+Data names it (Export <space>, Import into <space>, Backups of <space>).
+The file format is the same for every space, so a file exported from one
+space imports into any other. Over HTTP the scoped routes take
+`?space=<id>`, and use `main` without one.
 
 **Export:** Settings → Data → Export downloads `datapad-YYYY-MM-DD.json` (your
 local date). If the browser cannot save a file, the JSON goes to the
@@ -109,17 +123,23 @@ as it is:
 
 Every night at `BACKUP_HOUR` in `BACKUP_TIME_ZONE` (3 AM America/New_York
 unless you change the vars in `wrangler.jsonc`) your Durable Object's
-alarm writes the export JSON to the `BACKUPS` R2 bucket as
-`<your email>/datapad-YYYY-MM-DD.json` (the day in that zone), deletes all
-but the latest 30 of yours, and books the next night. A Datapad with no
-documents writes nothing. If a night is missed, the next time any tab
+alarm writes each space's export JSON to the `BACKUPS` R2 bucket (the
+day in that zone), deletes all but that space's latest 30, and books the
+next night. A space with no documents writes nothing.
+
+````
+datapad-backups/
+  you@example.com/
+    datapad-2026-10-24.json          main, where backups were before spaces
+    <spaceId>/datapad-2026-10-24.json   every other space, in a folder named by its id
+``` If a night is missed, the next time any tab
 connects writes one at once.
 
 The alarm only adds to and prunes the bucket. It never changes or deletes
 a document; the only way to delete your data is the erase below.
 
-**Restore in the app:** Settings → Data → Backups lists them with their
-sizes. Download saves one; Restore counts what it holds, asks, and merges
+**Restore in the app:** Settings → Data → Backups lists the open space's
+backups with their sizes. Download saves one; Restore counts what it holds, asks, and merges
 it in one transaction exactly like an import: same ids are replaced,
 nothing else is deleted. A document you created after the backup stays.
 
@@ -128,12 +148,40 @@ nothing else is deleted. A document you created after the backup stays.
 ```bash
 npx wrangler r2 object get "datapad-backups/you@example.com/datapad-2026-10-24.json" \
   --file datapad-2026-10-24.json --remote
-```
+````
 
 The file is an ordinary export: read it as JSON, or import it into any
 Datapad through Settings → Data → Import… once the app is back.
 `npx wrangler r2 object list datapad-backups --prefix you@example.com/
---remote` lists what there is (or browse the bucket in the dashboard).
+--remote` lists what there is, every space's folder included (or browse
+the bucket in the dashboard). A space's id is in the `/api/spaces` list.
+
+## Moving a project to another space
+
+With more than one space, a project page's menu has **Move to…**. The
+project goes with its tasks, notes, events, decisions and activity log
+(unlike deleting a project, its events and decisions go with it rather
+than to General), and the log gains "Moved from <space>". The people it
+refers to (members, assignees, who its tasks are blocked on, event
+attendees, deciders, its org's contacts, and anyone @-mentioned in its
+description, tasks, notes, decisions or the org's notes) and its org are
+copied; the source space keeps its copies. If the target already has an
+org by that name, the project joins it. A copied person is not "me" when
+the target already has a "me".
+
+Both spaces change in one transaction: the move happens whole or not at
+all. It is not undoable from the toast; move the project back instead.
+
+## Deleting a space
+
+Settings → Spaces → Delete… asks you to type the space's name, then
+fetches a one-time token for that space (good for five minutes) and
+deletes the space and every document in it. The last space cannot be
+deleted; Main can, once another exists. Every tab open on it is closed and
+opens the first space left.
+
+Its backups stay in R2: nothing prunes a deleted space's folder, but the
+app no longer lists it. Restore one by hand (above) and import it.
 
 ## Deleting everything
 
@@ -151,8 +199,9 @@ Datapad through Settings → Data → Import… once the app is back.
   });
   ```
 
-  Every document in your object is deleted and every open tab is sent the
-  empty state. The token works once; a wrong one uses it up. This is the
+  Every document in that space (`main` here; add `?space=<id>` to both
+  calls for another) is deleted and every tab open on it is sent the empty
+  state. The space itself stays. The token works once; a wrong one uses it up. This is the
   only code path that deletes everything, and nothing runs it on a timer.
   Export first.
 - **Everyone's data, and the class:** add a migration to `wrangler.jsonc`
