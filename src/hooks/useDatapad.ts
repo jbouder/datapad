@@ -17,7 +17,7 @@ import {
   type ServerMessage,
 } from '#shared/protocol';
 import { OpError, reduce } from '#shared/reducer';
-import type { Snapshot } from '#shared/types';
+import { MAIN_SPACE, type Snapshot } from '#shared/types';
 import { socketUrl } from '@/lib/api';
 import { newId } from '@/lib/ids';
 
@@ -250,7 +250,7 @@ export function useDatapadConnection(
     const connect = () => {
       if (canceled) return;
       window.clearTimeout(reconnectTimer);
-      const ws = new WebSocket(socketUrl());
+      const ws = new WebSocket(socketUrl(MAIN_SPACE));
       socket.current = ws;
       syncing = false;
 

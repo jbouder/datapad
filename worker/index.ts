@@ -1,7 +1,13 @@
 import { LIMITS } from '#shared/limits';
-import type { AppConfig, BackupList, ImportResult } from '#shared/protocol';
+import type {
+  AppConfig,
+  BackupList,
+  ImportResult,
+  SpaceList,
+} from '#shared/protocol';
+import { MAIN_SPACE } from '#shared/types';
 import { type AccessVerifier, verifyAccess } from './access';
-import type { DatapadObject } from './datapad';
+import { type DatapadObject, isNoSuchSpace } from './datapad';
 import type { Bindings } from './env';
 
 export { DatapadObject } from './datapad';
@@ -12,6 +18,13 @@ export { DatapadObject } from './datapad';
  * Cloudflare Access; nothing, not even index.html, is served without a
  * verified email. That email, and only that email, names the user's
  * Durable Object.
+ *
+ * Inside that object the user's documents are split into spaces. The data
+ * routes and the socket take a `?space=` to pick one (`main` when there is
+ * none). A space id is not a credential and never names the object: it
+ * only chooses among the spaces of the object the email already named, so
+ * the worst a forged one can do is reach another of your own spaces, or
+ * get a 404.
  */
 
 /**
@@ -57,7 +70,10 @@ export function createHandler(verify: AccessVerifier) {
         if (request.method !== 'GET') {
           return json({ error: 'Method not allowed' }, 405);
         }
-        const text = await env.DATAPAD.getByName(email).readBackup(backup[1]);
+        const datapad = env.DATAPAD.getByName(email);
+        const space = spaceOf(request);
+        if (!(await datapad.hasSpace(space))) return noSuchSpace();
+        const text = await datapad.readBackup(space, backup[1]);
         if (text === null)
           return json({ error: 'No backup for that day' }, 404);
         return new Response(text, {
@@ -79,8 +95,16 @@ export function createHandler(verify: AccessVerifier) {
             const refused = refuseCrossSite(request);
             if (refused) return refused;
           }
-          // The name comes from the verified email and nowhere else.
-          return route.handle(request, env.DATAPAD.getByName(email));
+          // The name comes from the verified email and nowhere else; the
+          // space only picks within that object.
+          const datapad = env.DATAPAD.getByName(email);
+          const space = spaceOf(request);
+          if (route.scoped && !(await datapad.hasSpace(space))) {
+            return noSuchSpace();
+          }
+          // Awaited so a space deleted since the check still reaches the
+          // catch below as a 404.
+          return await route.handle(request, datapad, space);
         }
       }
 
@@ -96,12 +120,16 @@ export function createHandler(verify: AccessVerifier) {
           });
         }
         // Upgrades travel as a fetch; RPC cannot carry a socket. The name
-        // comes from the verified email and nowhere else.
+        // comes from the verified email and nowhere else. The request goes
+        // on with its query, whose `space` the object reads (falling back
+        // to the first space, never to another object).
         return env.DATAPAD.getByName(email).fetch(request);
       }
 
       return env.ASSETS.fetch(request);
     } catch (error) {
+      // Every scoped call refuses a space this user does not have.
+      if (isNoSuchSpace(error)) return noSuchSpace();
       console.error(
         JSON.stringify({
           level: 'error',
@@ -118,15 +146,42 @@ type Datapad = DurableObjectStub<DatapadObject>;
 
 interface ApiRoute {
   method: 'GET' | 'POST';
-  handle: (request: Request, datapad: Datapad) => Promise<Response>;
+  /** Works on one space, `spaceOf(request)`, which must exist. */
+  scoped: boolean;
+  handle: (
+    request: Request,
+    datapad: Datapad,
+    space: string,
+  ) => Promise<Response>;
 }
 
-/** The data routes. Each runs on the signed-in user's object over RPC. */
+/**
+ * The space a data route works on: its `space` query parameter, else
+ * `main`, so a client that predates spaces keeps working unchanged. Not a
+ * credential (see the top of this file).
+ */
+export function spaceOf(request: Request): string {
+  return new URL(request.url).searchParams.get('space') || MAIN_SPACE;
+}
+
+/**
+ * The data routes. Each runs on the signed-in user's object over RPC, and
+ * all but `/api/spaces` on one of its spaces; an unknown space is a 404.
+ */
 const API_ROUTES: Record<string, ApiRoute> = {
+  '/api/spaces': {
+    method: 'GET',
+    scoped: false,
+    handle: async (_request, datapad) => {
+      const list: SpaceList = await datapad.listSpaces();
+      return json(list);
+    },
+  },
   '/api/export.json': {
     method: 'GET',
-    handle: async (_request, datapad) => {
-      const file = await datapad.export();
+    scoped: true,
+    handle: async (_request, datapad, space) => {
+      const file = await datapad.export(space);
       const day = file.exportedAt.slice(0, 10);
       return new Response(JSON.stringify(file, null, 2), {
         headers: {
@@ -139,12 +194,13 @@ const API_ROUTES: Record<string, ApiRoute> = {
   },
   '/api/import': {
     method: 'POST',
-    handle: async (request, datapad) => {
+    scoped: true,
+    handle: async (request, datapad, space) => {
       const body = await readJson(request);
       if (!body.ok) {
         return json({ error: body.error }, body.status);
       }
-      const outcome = await datapad.import(body.value);
+      const outcome = await datapad.import(space, body.value);
       if (!outcome.ok) {
         return json({ error: outcome.error }, 400);
       }
@@ -154,14 +210,16 @@ const API_ROUTES: Record<string, ApiRoute> = {
   },
   '/api/backups': {
     method: 'GET',
-    handle: async (_request, datapad) => {
-      const list: BackupList = await datapad.backups();
+    scoped: true,
+    handle: async (_request, datapad, space) => {
+      const list: BackupList = await datapad.backups(space);
       return json(list);
     },
   },
   '/api/backups/restore': {
     method: 'POST',
-    handle: async (request, datapad) => {
+    scoped: true,
+    handle: async (request, datapad, space) => {
       const body = await readJson(request);
       const day =
         body.ok && typeof body.value === 'object' && body.value !== null
@@ -170,7 +228,7 @@ const API_ROUTES: Record<string, ApiRoute> = {
       if (typeof day !== 'string') {
         return json({ error: 'Say which day to restore' }, 400);
       }
-      const outcome = await datapad.restoreBackup(day);
+      const outcome = await datapad.restoreBackup(space, day);
       if (!outcome.ok) {
         return json({ error: outcome.error }, 404);
       }
@@ -180,17 +238,20 @@ const API_ROUTES: Record<string, ApiRoute> = {
   },
   '/api/erase-token': {
     method: 'GET',
-    handle: async (_request, datapad) => json(await datapad.eraseToken()),
+    scoped: true,
+    handle: async (_request, datapad, space) =>
+      json(await datapad.eraseToken(space)),
   },
   '/api/erase': {
     method: 'POST',
-    handle: async (request, datapad) => {
+    scoped: true,
+    handle: async (request, datapad, space) => {
       const body = await readJson(request);
       const token =
         body.ok && typeof body.value === 'object' && body.value !== null
           ? (body.value as { token?: unknown }).token
           : undefined;
-      if (typeof token !== 'string' || !(await datapad.erase(token))) {
+      if (typeof token !== 'string' || !(await datapad.erase(space, token))) {
         return json(
           { error: 'That confirmation has expired. Ask for a new one.' },
           403,
@@ -291,6 +352,10 @@ const SIGN_IN_PAGE = `<!doctype html>
 </body>
 </html>
 `;
+
+function noSuchSpace(): Response {
+  return json({ error: 'No such space' }, 404);
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

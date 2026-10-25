@@ -13,9 +13,11 @@ import {
   issuePath,
   type Op,
   type ServerMessage,
+  type SpaceList,
 } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import { lastDailyAt, nextDailyAt, zonedDay } from '#shared/schedule';
+import { orderedSpaces } from '#shared/spaces';
 import {
   COLLECTIONS,
   type Collection,
@@ -31,17 +33,27 @@ import type { Bindings } from './env';
  * worker/index.ts; nothing else may choose the name). Its SQLite storage
  * holds every document the user has, one JSON row each, and its WebSockets
  * are the user's open tabs and devices. Nothing here is ever wiped; the
- * only way to delete everything is `erase()` with a fresh token.
+ * only way to delete a space's documents is `erase()` with a fresh token.
  *
- * The whole snapshot lives in memory, loaded from SQLite when the object
- * starts (and so again after hibernation). Every change is an op through
- * `reduce()`: the rows it touched are written in one transaction with the
- * new sequence number, then the op goes to every socket, the sender's too,
- * so all tabs apply the same ops in the same order.
+ * The documents are split into spaces: each a complete, separate Datapad
+ * with its own snapshot and its own sequence number, listed in the `spaces`
+ * table. Every row of `docs` belongs to one. A space id only picks among
+ * this user's spaces; it is never a credential and never names the object.
+ * The data from before spaces lives in `main`, migrated in place.
  *
- * Every night (BACKUP_HOUR in BACKUP_TIME_ZONE) an alarm writes the export
- * to R2 at `<email>/datapad-YYYY-MM-DD.json` and keeps the latest 30. The
- * alarm only ever adds to R2 and prunes R2; it never touches the data here.
+ * Every space's snapshot lives in memory, loaded from SQLite when the
+ * object starts (and so again after hibernation). Every change is an op
+ * through `reduce()`: the rows it touched are written in one transaction
+ * with that space's next sequence number, then the op goes to every socket
+ * open on that space, the sender's too, so all its tabs apply the same ops
+ * in the same order. A socket's space is in its attachment, which survives
+ * hibernation.
+ *
+ * Every night (BACKUP_HOUR in BACKUP_TIME_ZONE) an alarm writes each
+ * space's export to R2 and keeps the latest 30 per space: `main` at
+ * `<email>/datapad-YYYY-MM-DD.json`, where backups were before spaces, and
+ * any other space at `<email>/<space>/datapad-YYYY-MM-DD.json`. The alarm
+ * only ever adds to R2 and prunes R2; it never touches the data here.
  */
 
 export interface DatapadStats {
@@ -50,35 +62,61 @@ export interface DatapadStats {
   sockets: number;
 }
 
+/**
+ * Thrown by every RPC that names a space this user does not have. The
+ * Worker checks `hasSpace()` first, so this is the backstop; RPC carries
+ * the message, not the class, so the Worker matches on `NO_SUCH_SPACE`
+ * (see `isNoSuchSpace`) and answers 404 all the same.
+ */
+export const NO_SUCH_SPACE = 'No such space';
+
+export class SpaceError extends Error {
+  constructor() {
+    super(NO_SUCH_SPACE);
+    this.name = 'SpaceError';
+  }
+}
+
+/** Whether an error, thrown here or rethrown across RPC, is a SpaceError. */
+export function isNoSuchSpace(error: unknown): boolean {
+  return error instanceof Error && error.message === NO_SUCH_SPACE;
+}
+
 export type ImportOutcome =
   | { ok: true; imported: Counts }
   | { ok: false; error: string };
 
+/**
+ * The single sequence number from before spaces. Read once, by the
+ * migration, as `main`'s; each space's own lives in its `spaces` row.
+ */
 const SEQ = 'seq';
+/** The storage layout: 1 before spaces, 2 with `docs` keyed by space. */
+const SCHEMA = 'schema_version';
+const SCHEMA_VERSION = 2;
 /** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
 /** When the last backup ran, in ms. */
 const LAST_BACKUP = 'last_backup';
 
-/**
- * Placeholder until the object keeps spaces (#114): everything here is
- * Main, so every snapshot names it and lists only it. The date is fixed,
- * not real; nothing reads it yet.
- */
-const PLACEHOLDER_SPACES: SpaceInfo[] = [
-  {
-    id: MAIN_SPACE,
-    name: 'Main',
-    position: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-];
 const BACKUP_PREFIX = 'datapad-';
 
+/** One space's documents and how many changes it has seen. */
+interface SpaceData {
+  state: Snapshot;
+  seq: number;
+}
+
+/** What a socket carries through hibernation: the space it opened. */
+interface SocketAttachment {
+  space: string;
+}
+
 export class DatapadObject extends DurableObject<Bindings> {
-  private state: Snapshot = emptySnapshot();
-  private seq = 0;
+  private data = new Map<string, SpaceData>();
+  /** Every space, in switcher order. */
+  private spaces: SpaceInfo[] = [];
   /**
    * The last `LIMITS.opIdsKept` applied op ids, oldest first: the
    * idempotency table, mirrored from `op_ids`.
@@ -118,39 +156,53 @@ export class DatapadObject extends DurableObject<Bindings> {
     return nextDailyAt(now, this.backupZone(), this.backupHour());
   }
 
-  /** The R2 folder of this user: the verified email that named us. */
-  private backupFolder(): string {
+  /**
+   * A space's R2 folder, under the verified email that named us. `main`
+   * keeps the folder from before spaces, so its old backups stay listed
+   * and restorable; every other space gets a folder of its own.
+   */
+  private backupFolder(space: string): string {
     const name = this.ctx.id.name;
     if (!name) throw new Error('A Datapad object must be named by email');
-    return `${name}/`;
+    return space === MAIN_SPACE ? `${name}/` : `${name}/${space}/`;
   }
 
-  private backupKey(day: string): string {
-    return `${this.backupFolder()}${BACKUP_PREFIX}${day}.json`;
+  private backupKey(space: string, day: string): string {
+    return `${this.backupFolder(space)}${BACKUP_PREFIX}${day}.json`;
   }
 
   /**
-   * Write today's backup (the export as JSON), then delete all but the
-   * latest `LIMITS.backupsKept`. An object with no documents writes
-   * nothing. Never changes a document.
+   * Write today's backup of every space that has documents (its export as
+   * JSON), then delete all but that space's latest `LIMITS.backupsKept`.
+   * An empty space writes nothing. Never changes a document.
    */
-  async backup(now = Date.now()): Promise<BackupInfo | null> {
+  async backup(now = Date.now()): Promise<BackupInfo[]> {
     this.setMeta(LAST_BACKUP, String(now));
-    if (countRows(this.state) === 0) return null;
     const day = zonedDay(now, this.backupZone());
-    const body = JSON.stringify(await this.export(), null, 2);
-    const object = await this.env.BACKUPS.put(this.backupKey(day), body, {
-      httpMetadata: { contentType: 'application/json; charset=utf-8' },
-    });
-    await this.prune();
-    return { day, bytes: object.size, at: object.uploaded.toISOString() };
+    const written: BackupInfo[] = [];
+    for (const { id } of this.spaces) {
+      if (countRows(this.space(id).state) === 0) continue;
+      const body = JSON.stringify(await this.export(id), null, 2);
+      const object = await this.env.BACKUPS.put(this.backupKey(id, day), body, {
+        httpMetadata: { contentType: 'application/json; charset=utf-8' },
+      });
+      await this.prune(id);
+      written.push({
+        day,
+        bytes: object.size,
+        at: object.uploaded.toISOString(),
+      });
+    }
+    return written;
   }
 
-  private async prune() {
-    const all = await this.listBackups();
+  private async prune(space: string) {
+    const all = await this.listBackups(space);
     const old = all.slice(LIMITS.backupsKept);
     if (old.length > 0) {
-      await this.env.BACKUPS.delete(old.map((b) => this.backupKey(b.day)));
+      await this.env.BACKUPS.delete(
+        old.map((b) => this.backupKey(space, b.day)),
+      );
     }
   }
 
@@ -177,18 +229,23 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
   }
 
-  /** The backups and when they run, for Settings → Data. */
-  async backups(): Promise<BackupList> {
+  /** A space's backups and when they run, for Settings → Data. */
+  async backups(space: string): Promise<BackupList> {
     return {
-      backups: await this.listBackups(),
+      backups: await this.listBackups(space),
       hour: this.backupHour(),
       timeZone: this.backupZone(),
     };
   }
 
-  /** This user's backups, newest first. */
-  async listBackups(): Promise<BackupInfo[]> {
-    const folder = this.backupFolder();
+  /**
+   * A space's backups, newest first. `main`'s prefix also matches the
+   * names of other spaces' folders, but the day pattern below never
+   * matches their keys, so each space lists only its own files.
+   */
+  async listBackups(space: string): Promise<BackupInfo[]> {
+    this.space(space);
+    const folder = this.backupFolder(space);
     const out: BackupInfo[] = [];
     let cursor: string | undefined;
     do {
@@ -207,31 +264,35 @@ export class DatapadObject extends DurableObject<Bindings> {
     return out.sort((a, b) => b.day.localeCompare(a.day));
   }
 
-  /** One backup's JSON text, or null when there is none for that day. */
-  async readBackup(day: string): Promise<string | null> {
+  /**
+   * One backup's JSON text, or null when there is none for that day. The
+   * space's folder is chosen here, never by the caller.
+   */
+  async readBackup(space: string, day: string): Promise<string | null> {
+    this.space(space);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
-    const object = await this.env.BACKUPS.get(this.backupKey(day));
+    const object = await this.env.BACKUPS.get(this.backupKey(space, day));
     return object ? object.text() : null;
   }
 
-  /** Merge a backup back in: the same path, and transaction, as Import. */
-  async restoreBackup(day: string): Promise<ImportOutcome> {
-    const text = await this.readBackup(day);
+  /**
+   * Merge a space's backup back into that space: the same path, and
+   * transaction, as Import.
+   */
+  async restoreBackup(space: string, day: string): Promise<ImportOutcome> {
+    const text = await this.readBackup(space, day);
     if (text === null)
       return { ok: false, error: 'There is no backup for that day' };
-    return this.import(JSON.parse(text));
+    return this.import(space, JSON.parse(text));
   }
 
-  /** Created on first touch; `IF NOT EXISTS` makes it safe on every wake. */
+  /**
+   * Created on first touch, migrated to the current layout on the first
+   * wake after an upgrade; safe to run on every wake.
+   */
   private ensureTables() {
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS docs (
-        col TEXT NOT NULL,
-        id TEXT NOT NULL,
-        json TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (col, id)
-      );
+    const sql = this.ctx.storage.sql;
+    sql.exec(`
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -241,23 +302,107 @@ export class DatapadObject extends DurableObject<Bindings> {
         seq INTEGER NOT NULL
       );
     `);
+    if (Number(this.meta(SCHEMA) ?? 1) >= SCHEMA_VERSION) return;
+    // One transaction, so a failure leaves the old layout whole and the
+    // next wake tries again.
+    this.ctx.storage.transactionSync(() => {
+      const hasDocs =
+        sql
+          .exec(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'docs'",
+          )
+          .toArray().length > 0;
+      const keyedBySpace =
+        hasDocs &&
+        sql
+          .exec<{ name: string }>("PRAGMA table_info('docs')")
+          .toArray()
+          .some((c) => c.name === 'space');
+      if (!keyedBySpace) {
+        // Rows from before spaces belong to `main`, unchanged otherwise.
+        sql.exec(`
+          DROP TABLE IF EXISTS docs_by_space;
+          CREATE TABLE docs_by_space (
+            space TEXT NOT NULL,
+            col TEXT NOT NULL,
+            id TEXT NOT NULL,
+            json TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (space, col, id)
+          );
+        `);
+        if (hasDocs) {
+          sql.exec(
+            'INSERT INTO docs_by_space (space, col, id, json, updated_at) SELECT ?, col, id, json, updated_at FROM docs',
+            MAIN_SPACE,
+          );
+          sql.exec('DROP TABLE docs');
+        }
+        sql.exec('ALTER TABLE docs_by_space RENAME TO docs');
+      }
+      sql.exec(`
+        CREATE TABLE IF NOT EXISTS spaces (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          position INTEGER NOT NULL,
+          seq INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        );
+      `);
+      const empty =
+        sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM spaces').one().n ===
+        0;
+      if (empty) {
+        // `main` carries on the sequence the clients already know.
+        sql.exec(
+          'INSERT INTO spaces (id, name, position, seq, created_at) VALUES (?, ?, 0, ?, ?)',
+          MAIN_SPACE,
+          'Main',
+          Number(this.meta(SEQ) ?? 0),
+          new Date().toISOString(),
+        );
+      }
+      // From here each space's row holds its own sequence number.
+      sql.exec('DELETE FROM meta WHERE key = ?', SEQ);
+      this.setMeta(SCHEMA, String(SCHEMA_VERSION));
+    });
   }
 
   private load() {
-    const state = emptySnapshot();
+    const sql = this.ctx.storage.sql;
+    const rows = sql
+      .exec<{
+        id: string;
+        name: string;
+        position: number;
+        seq: number;
+        created_at: string;
+      }>('SELECT id, name, position, seq, created_at FROM spaces')
+      .toArray();
+    this.spaces = orderedSpaces(
+      rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        position: r.position,
+        createdAt: r.created_at,
+      })),
+    );
+    this.data = new Map(
+      rows.map((r) => [r.id, { state: emptySnapshot(), seq: r.seq }]),
+    );
     const known = new Set<string>(COLLECTIONS);
-    for (const row of this.ctx.storage.sql.exec<{
+    for (const row of sql.exec<{
+      space: string;
       col: string;
       id: string;
       json: string;
-    }>('SELECT col, id, json FROM docs')) {
-      if (known.has(row.col)) {
+    }>('SELECT space, col, id, json FROM docs')) {
+      const state = this.data.get(row.space)?.state;
+      if (state && known.has(row.col)) {
         (state[row.col as Collection] as Record<string, unknown>)[row.id] =
           JSON.parse(row.json);
       }
     }
-    this.state = state;
-    this.seq = Number(this.meta(SEQ) ?? 0);
     const legacy = this.meta(RECENT);
     if (legacy) {
       // One-time move from the meta row to the table.
@@ -267,7 +412,7 @@ export class DatapadObject extends DurableObject<Bindings> {
           this.ctx.storage.sql.exec(
             'INSERT OR IGNORE INTO op_ids (op_id, seq) VALUES (?, ?)',
             id,
-            this.seq,
+            this.data.get(MAIN_SPACE)?.seq ?? 0,
           );
         }
         this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', RECENT);
@@ -299,17 +444,41 @@ export class DatapadObject extends DurableObject<Bindings> {
     );
   }
 
+  /** A space's data, or a SpaceError when this user has no such space. */
+  private space(id: string): SpaceData {
+    const data = this.data.get(id);
+    if (!data) throw new SpaceError();
+    return data;
+  }
+
   /**
-   * Write the touched rows and the next sequence number in one
-   * transaction, then adopt the new state. Nothing changes if it throws.
+   * The space a socket opened, from its attachment. One that is gone (or
+   * a socket without one) reads as the first space, as a new one would.
+   */
+  private socketSpace(ws: WebSocket): string {
+    const attached = ws.deserializeAttachment() as SocketAttachment | null;
+    if (attached && this.data.has(attached.space)) return attached.space;
+    return this.firstSpace();
+  }
+
+  private firstSpace(): string {
+    return this.spaces[0]?.id ?? MAIN_SPACE;
+  }
+
+  /**
+   * Write the touched rows of one space and its next sequence number in
+   * one transaction, then adopt the new state. Nothing changes if it
+   * throws.
    */
   private commit(
+    space: string,
     next: Snapshot,
     changed: Changed[],
     at: string,
     opId?: string,
   ) {
-    const seq = this.seq + 1;
+    const data = this.space(space);
+    const seq = data.seq + 1;
     const opIds = opId ? [...this.opIds, opId] : this.opIds;
     const dropped = opIds.splice(
       0,
@@ -319,14 +488,16 @@ export class DatapadObject extends DurableObject<Bindings> {
       for (const c of changed) {
         if ('deleted' in c) {
           this.ctx.storage.sql.exec(
-            'DELETE FROM docs WHERE col = ? AND id = ?',
+            'DELETE FROM docs WHERE space = ? AND col = ? AND id = ?',
+            space,
             c.col,
             c.id,
           );
         } else {
           const doc = (next[c.col] as Record<string, unknown>)[c.id];
           this.ctx.storage.sql.exec(
-            'INSERT OR REPLACE INTO docs (col, id, json, updated_at) VALUES (?, ?, ?, ?)',
+            'INSERT OR REPLACE INTO docs (space, col, id, json, updated_at) VALUES (?, ?, ?, ?, ?)',
+            space,
             c.col,
             c.id,
             JSON.stringify(doc),
@@ -334,7 +505,11 @@ export class DatapadObject extends DurableObject<Bindings> {
           );
         }
       }
-      this.setMeta(SEQ, String(seq));
+      this.ctx.storage.sql.exec(
+        'UPDATE spaces SET seq = ? WHERE id = ?',
+        seq,
+        space,
+      );
       if (opId) {
         this.ctx.storage.sql.exec(
           'INSERT OR IGNORE INTO op_ids (op_id, seq) VALUES (?, ?)',
@@ -346,8 +521,8 @@ export class DatapadObject extends DurableObject<Bindings> {
         this.ctx.storage.sql.exec('DELETE FROM op_ids WHERE op_id = ?', id);
       }
     });
-    this.state = next;
-    this.seq = seq;
+    data.state = next;
+    data.seq = seq;
     this.opIds = opIds;
     if (opId) this.seenOps.add(opId);
     for (const id of dropped) this.seenOps.delete(id);
@@ -355,17 +530,35 @@ export class DatapadObject extends DurableObject<Bindings> {
 
   /* ---------- RPC (called by the Worker) ---------- */
 
-  /** Counts for tests and diagnostics. Carries no document content. */
+  /**
+   * Counts for tests and diagnostics, across every space: `seq` is the
+   * changes all spaces have seen together. Carries no document content.
+   */
   async stats(): Promise<DatapadStats> {
     const docs =
       this.ctx.storage.sql
         .exec<{ n: number }>('SELECT COUNT(*) AS n FROM docs')
         .one().n ?? 0;
-    return { docs, seq: this.seq, sockets: this.ctx.getWebSockets().length };
+    let seq = 0;
+    for (const data of this.data.values()) seq += data.seq;
+    return { docs, seq, sockets: this.ctx.getWebSockets().length };
   }
 
-  /** Every document, in the artifact's export format. */
-  async export(): Promise<ExportFile> {
+  /**
+   * Whether this user has a space. The Worker asks before a scoped call,
+   * so an unknown space is a 404 rather than an exception thrown here.
+   */
+  async hasSpace(space: string): Promise<boolean> {
+    return this.data.has(space);
+  }
+
+  /** Every space, in switcher order. */
+  async listSpaces(): Promise<SpaceList> {
+    return { spaces: this.spaces };
+  }
+
+  /** Every document in a space, in the artifact's export format. */
+  async export(space: string): Promise<ExportFile> {
     const {
       projects,
       tasks,
@@ -377,7 +570,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       decisions,
       orgs,
       templates,
-    } = this.state;
+    } = this.space(space).state;
     // The artifact's order, then what Datapad adds.
     return {
       exportedAt: new Date().toISOString(),
@@ -395,10 +588,12 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   /**
-   * Merge an export by id, validated first, written in one transaction.
-   * Every open socket then gets a fresh snapshot.
+   * Merge an export into a space by id, validated first, written in one
+   * transaction. Every socket open on that space then gets a fresh
+   * snapshot.
    */
-  async import(file: unknown): Promise<ImportOutcome> {
+  async import(space: string, file: unknown): Promise<ImportOutcome> {
+    const data = this.space(space);
     const parsed = ExportSchema.safeParse(file);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
@@ -410,54 +605,69 @@ export class DatapadObject extends DurableObject<Bindings> {
       };
     }
     const at = new Date().toISOString();
-    const { state, changed } = merge(this.state, parsed.data);
-    this.commit(state, changed, at);
-    this.broadcastSnapshot();
+    const { state, changed } = merge(data.state, parsed.data);
+    this.commit(space, state, changed, at);
+    this.broadcastSnapshot(space);
     const { exportedAt: _, ...incoming } = parsed.data;
     return { ok: true, imported: countDocuments(incoming) };
   }
 
-  /** A one-time token for `erase()`, good for a few minutes. */
-  async eraseToken(): Promise<EraseToken> {
+  /**
+   * A one-time token for `erase()` of this space, good for a few minutes.
+   * It records the space, so it cannot erase another.
+   */
+  async eraseToken(space: string): Promise<EraseToken> {
+    this.space(space);
     const bytes = crypto.getRandomValues(new Uint8Array(24));
     const token = [...bytes]
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
     const expiresAt = Date.now() + LIMITS.eraseTokenTtlMs;
-    this.setMeta(ERASE_TOKEN, JSON.stringify({ token, expiresAt }));
+    const stored: StoredEraseToken = { token, expiresAt, space };
+    this.setMeta(ERASE_TOKEN, JSON.stringify(stored));
     return { token, expiresAt };
   }
 
   /**
-   * Delete every document, given the token `eraseToken()` just issued. The
-   * only code path that deletes everything. Returns false for a wrong or
-   * expired token, which is used up either way.
+   * Delete every document in a space, given the token `eraseToken()` just
+   * issued for it. The only code path that deletes everything; the space
+   * itself stays. Returns false for a wrong or expired token, or one for
+   * another space, which is used up either way.
    */
-  async erase(token: string): Promise<boolean> {
+  async erase(space: string, token: string): Promise<boolean> {
+    const data = this.space(space);
     const stored = this.meta(ERASE_TOKEN);
     this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', ERASE_TOKEN);
     if (!stored) {
       return false;
     }
-    const expected = JSON.parse(stored) as EraseToken;
-    if (Date.now() > expected.expiresAt || !sameText(token, expected.token)) {
+    const expected = JSON.parse(stored) as StoredEraseToken;
+    if (
+      Date.now() > expected.expiresAt ||
+      expected.space !== space ||
+      !sameText(token, expected.token)
+    ) {
       return false;
     }
     const changed: Changed[] = COLLECTIONS.flatMap((col) =>
-      Object.keys(this.state[col]).map((id) => ({
+      Object.keys(data.state[col]).map((id) => ({
         col,
         id,
         deleted: true as const,
       })),
     );
-    this.commit(emptySnapshot(), changed, new Date().toISOString());
-    this.broadcastSnapshot();
+    this.commit(space, emptySnapshot(), changed, new Date().toISOString());
+    this.broadcastSnapshot(space);
     return true;
   }
 
   /* ---------- sockets ---------- */
 
-  /** WebSocket upgrades only; everything else goes through RPC. */
+  /**
+   * WebSocket upgrades only; everything else goes through RPC. `?space=`
+   * picks which of this user's spaces the socket follows; a missing or
+   * unknown one opens the first space, and the snapshot says which.
+   */
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected a WebSocket upgrade', { status: 426 });
@@ -467,6 +677,10 @@ export class DatapadObject extends DurableObject<Bindings> {
     const [client, server] = Object.values(new WebSocketPair());
     // Hibernation API: the object can sleep while sockets stay open.
     this.ctx.acceptWebSocket(server);
+    const asked = new URL(request.url).searchParams.get('space');
+    const space = asked && this.data.has(asked) ? asked : this.firstSpace();
+    const attachment: SocketAttachment = { space };
+    server.serializeAttachment(attachment);
     this.sendSnapshot(server);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -528,6 +742,8 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   private applyOp(ws: WebSocket, opId: string, op: Op) {
+    const space = this.socketSpace(ws);
+    const data = this.space(space);
     if (this.seenOps.has(opId)) {
       // A replay (an offline queue resent after its echo was lost): it
       // is already in the state, so say so and change nothing.
@@ -538,7 +754,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     const at = new Date().toISOString();
     let result: ReturnType<typeof reduce>;
     try {
-      result = reduce(this.state, op, at);
+      result = reduce(data.state, op, at);
     } catch (error) {
       if (error instanceof OpError) {
         this.reject(ws, opId, error.message);
@@ -548,12 +764,9 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
     // A no-op still takes a sequence number and an echo: the sender is
     // waiting for one to settle its pending copy.
-    this.commit(result.state, result.changed, at, opId);
-    const message: ServerMessage = { type: 'op', seq: this.seq, opId, op, at };
-    const text = JSON.stringify(message);
-    for (const socket of this.ctx.getWebSockets()) {
-      trySend(socket, text);
-    }
+    this.commit(space, result.state, result.changed, at, opId);
+    const message: ServerMessage = { type: 'op', seq: data.seq, opId, op, at };
+    this.sendTo(space, JSON.stringify(message));
   }
 
   async webSocketClose(ws: WebSocket, code: number) {
@@ -575,26 +788,32 @@ export class DatapadObject extends DurableObject<Bindings> {
     }
   }
 
-  private snapshotText(): string {
+  private snapshotText(space: string): string {
+    const { state, seq } = this.space(space);
     const message: ServerMessage = {
       type: 'snapshot',
-      seq: this.seq,
-      state: this.state,
-      space: MAIN_SPACE,
-      spaces: PLACEHOLDER_SPACES,
+      seq,
+      state,
+      space,
+      spaces: this.spaces,
       recent: this.recentOps(),
     };
     return JSON.stringify(message);
   }
 
   private sendSnapshot(ws: WebSocket) {
-    trySend(ws, this.snapshotText());
+    trySend(ws, this.snapshotText(this.socketSpace(ws)));
   }
 
-  private broadcastSnapshot() {
-    const text = this.snapshotText();
+  /** A fresh snapshot to every socket on a space, after a bulk change. */
+  private broadcastSnapshot(space: string) {
+    this.sendTo(space, this.snapshotText(space));
+  }
+
+  /** Send to the sockets open on one space, and only those. */
+  private sendTo(space: string, text: string) {
     for (const socket of this.ctx.getWebSockets()) {
-      trySend(socket, text);
+      if (this.socketSpace(socket) === space) trySend(socket, text);
     }
   }
 
@@ -614,6 +833,11 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.recent.set(ws, stamps);
     return allowed;
   }
+}
+
+/** The erase token as stored: with the space it was issued for. */
+interface StoredEraseToken extends EraseToken {
+  space: string;
 }
 
 function countRows(state: Snapshot): number {

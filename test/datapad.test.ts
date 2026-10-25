@@ -2,7 +2,7 @@ import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import type { Op, ServerMessage } from '#shared/protocol';
-import type { Snapshot } from '#shared/types';
+import { MAIN_SPACE, type Snapshot } from '#shared/types';
 import { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
@@ -107,29 +107,109 @@ describe('DatapadObject storage', () => {
         )
         .toArray()
         .map((r) => r.name);
-      expect(tables).toEqual(expect.arrayContaining(['docs', 'meta']));
+      expect(tables).toEqual(
+        expect.arrayContaining(['docs', 'meta', 'op_ids', 'spaces']),
+      );
       const columns = state.storage.sql
         .exec<{ name: string; pk: number }>("PRAGMA table_info('docs')")
         .toArray();
       expect(columns.map((c) => c.name)).toEqual([
+        'space',
         'col',
         'id',
         'json',
         'updated_at',
       ]);
-      expect(columns.filter((c) => c.pk > 0).map((c) => c.name)).toEqual([
-        'col',
-        'id',
-      ]);
+      expect(
+        columns
+          .filter((c) => c.pk > 0)
+          .sort((a, b) => a.pk - b.pk)
+          .map((c) => c.name),
+      ).toEqual(['space', 'col', 'id']);
     });
     expect(await stub.stats()).toEqual({ docs: 0, seq: 0, sockets: 0 });
+  });
+
+  it('starts with one space, Main, and lists it', async () => {
+    const email = 'fresh@example.com';
+    const { spaces } = await bindings.DATAPAD.getByName(email).listSpaces();
+    expect(spaces).toEqual([
+      {
+        id: MAIN_SPACE,
+        name: 'Main',
+        position: 0,
+        createdAt: expect.any(String),
+      },
+    ]);
+    expect(Date.parse(spaces[0]?.createdAt ?? '')).not.toBeNaN();
+    const response = await get(email, '/api/spaces');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ spaces });
+    expect((await post(email, '/api/spaces', {})).status).toBe(405);
+  });
+
+  it('moves the documents from before spaces into main, with their seq', async () => {
+    const stub = bindings.DATAPAD.getByName('legacy@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      // Put storage back the way it was before spaces.
+      sql.exec(`
+        DROP TABLE docs;
+        DROP TABLE spaces;
+        CREATE TABLE docs (
+          col TEXT NOT NULL,
+          id TEXT NOT NULL,
+          json TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (col, id)
+        );
+        DELETE FROM meta;
+      `);
+      const task = { ...fixture.tasks['t-1'], id: 't-1' };
+      const project = Object.values(fixture.projects)[0];
+      sql.exec(
+        "INSERT INTO docs VALUES ('tasks', 't-1', ?, '2026-10-01')",
+        JSON.stringify(task),
+      );
+      sql.exec(
+        "INSERT INTO docs VALUES ('projects', ?, ?, '2026-10-01')",
+        project?.id ?? '',
+        JSON.stringify(project),
+      );
+      sql.exec("INSERT INTO meta VALUES ('seq', '7')");
+
+      // Waking up runs the migration; so does every later wake, harmlessly.
+      for (let i = 0; i < 2; i += 1) {
+        const revived = new DatapadObject(state, bindings);
+        await state.blockConcurrencyWhile(async () => {});
+        const file = await revived.export(MAIN_SPACE);
+        expect(file.tasks['t-1']).toEqual(task);
+        expect(Object.keys(file.projects)).toEqual([project?.id]);
+        expect(await revived.stats()).toMatchObject({ docs: 2, seq: 7 });
+        const { spaces } = await revived.listSpaces();
+        expect(spaces.map((s) => [s.id, s.name])).toEqual([
+          [MAIN_SPACE, 'Main'],
+        ]);
+      }
+      const rows = sql
+        .exec<{ space: string }>('SELECT space FROM docs')
+        .toArray();
+      expect(rows.map((r) => r.space)).toEqual([MAIN_SPACE, MAIN_SPACE]);
+      // The global seq is gone; main's row holds it now.
+      expect(
+        sql.exec("SELECT value FROM meta WHERE key = 'seq'").toArray(),
+      ).toEqual([]);
+      expect(
+        sql.exec<{ seq: number }>('SELECT seq FROM spaces').one().seq,
+      ).toBe(7);
+    });
   });
 
   it('keeps each user in their own object', async () => {
     const leia = bindings.DATAPAD.getByName('leia@example.com');
     await runInDurableObject(leia, async (_i: DatapadObject, state) => {
       state.storage.sql.exec(
-        "INSERT INTO docs VALUES ('task', 't1', '{}', '2026-10-23')",
+        "INSERT INTO docs VALUES ('main', 'task', 't1', '{}', '2026-10-23')",
       );
     });
     expect((await leia.stats()).docs).toBe(1);
@@ -355,7 +435,7 @@ describe('live sync', () => {
     expect(await inbox.quiet()).toBe(true);
     const stub = bindings.DATAPAD.getByName(email);
     expect((await stub.stats()).seq).toBe(1);
-    expect(Object.keys((await stub.export()).tasks)).toEqual(['t1']);
+    expect(Object.keys((await stub.export(MAIN_SPACE)).tasks)).toEqual(['t1']);
     inbox.ws.close(1000);
     other.ws.close(1000);
   });
@@ -366,12 +446,24 @@ describe('live sync', () => {
     const ids = await runInDurableObject(stub, async (o, state) => {
       const commit = (
         o as unknown as {
-          commit: (n: Snapshot, c: [], at: string, opId: string) => void;
+          commit: (
+            space: string,
+            n: Snapshot,
+            c: [],
+            at: string,
+            opId: string,
+          ) => void;
         }
       ).commit.bind(o);
       const now = new Date().toISOString();
       for (let i = 0; i < LIMITS.opIdsKept + 5; i += 1) {
-        commit((await o.export()) as unknown as Snapshot, [], now, `op-${i}`);
+        commit(
+          MAIN_SPACE,
+          (await o.export(MAIN_SPACE)) as unknown as Snapshot,
+          [],
+          now,
+          `op-${i}`,
+        );
       }
       return state.storage.sql
         .exec<{ op_id: string }>('SELECT op_id FROM op_ids ORDER BY seq')
@@ -407,7 +499,7 @@ describe('live sync', () => {
     expect(refused).toBe(5);
     const stub = bindings.DATAPAD.getByName(email);
     expect((await stub.stats()).seq).toBe(LIMITS.opsPerSecond);
-    const tasks = Object.keys((await stub.export()).tasks);
+    const tasks = Object.keys((await stub.export(MAIN_SPACE)).tasks);
     expect(tasks).toHaveLength(LIMITS.opsPerSecond);
     inbox.ws.close(1000);
   });
@@ -427,14 +519,14 @@ describe('live sync', () => {
     await inbox.next();
     inbox.ws.close(1000);
 
-    const before = await bindings.DATAPAD.getByName(email).export();
+    const before = await bindings.DATAPAD.getByName(email).export(MAIN_SPACE);
     // A new instance over the same storage is what waking up looks like.
     await runInDurableObject(
       bindings.DATAPAD.getByName(email),
       async (_i: DatapadObject, state) => {
         const revived = new DatapadObject(state, bindings);
         await state.blockConcurrencyWhile(async () => {});
-        const after = await revived.export();
+        const after = await revived.export(MAIN_SPACE);
         expect({ ...after, exportedAt: '' }).toEqual({
           ...before,
           exportedAt: '',
@@ -618,5 +710,171 @@ describe('erase', () => {
     expect((await post(email, '/api/erase', { token: 'x' })).status).toBe(403);
     expect((await post(email, '/api/erase', { token })).status).toBe(403);
     expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(26);
+  });
+});
+
+/**
+ * A second space, written straight into storage (creating one over the API
+ * comes later), then reloaded the way a wake would.
+ */
+async function addSpace(email: string, id: string, position = 1) {
+  const stub = bindings.DATAPAD.getByName(email);
+  await runInDurableObject(stub, async (o: DatapadObject, state) => {
+    state.storage.sql.exec(
+      'INSERT INTO spaces (id, name, position, seq, created_at) VALUES (?, ?, ?, 0, ?)',
+      id,
+      `Space ${id}`,
+      position,
+      '2026-10-01T00:00:00.000Z',
+    );
+    (o as unknown as { load: () => void }).load();
+  });
+  return stub;
+}
+
+describe('spaces', () => {
+  it('keeps ops, seq and snapshots to their own space', async () => {
+    const email = 'two-spaces@example.com';
+    await addSpace(email, 'hoth');
+    const a = await openSocket(as(email));
+    const b = await openSocket(as(email), 'http://datapad.test/ws?space=hoth');
+    const first = await a.snapshot();
+    expect(first.space).toBe(MAIN_SPACE);
+    expect(first.spaces.map((s) => s.id)).toEqual([MAIN_SPACE, 'hoth']);
+    expect((await b.snapshot()).space).toBe('hoth');
+
+    const opId = a.send(addTask('t1'));
+    expect(await a.next()).toMatchObject({ type: 'op', seq: 1, opId });
+    expect(await b.quiet()).toBe(true);
+    a.send(addTask('t2', 'Doors'));
+    expect(await a.next()).toMatchObject({ type: 'op', seq: 2 });
+
+    // Each space counts its own changes from zero.
+    b.send(addTask('t9', 'Scanners'));
+    expect(await b.next()).toMatchObject({ type: 'op', seq: 1 });
+    expect(await a.quiet()).toBe(true);
+
+    b.ws.send(JSON.stringify({ type: 'sync' }));
+    const hoth = await b.snapshot();
+    expect(hoth.space).toBe('hoth');
+    expect(hoth.seq).toBe(1);
+    expect(Object.keys(hoth.state.tasks)).toEqual(['t9']);
+
+    const stub = bindings.DATAPAD.getByName(email);
+    expect(Object.keys((await stub.export(MAIN_SPACE)).tasks).sort()).toEqual([
+      't1',
+      't2',
+    ]);
+    expect((await stub.stats()).seq).toBe(3);
+    a.ws.close(1000);
+    b.ws.close(1000);
+  });
+
+  it('keeps a socket on its space across a wake', async () => {
+    const email = 'space-wake@example.com';
+    const stub = await addSpace(email, 'hoth');
+    const b = await openSocket(as(email), 'http://datapad.test/ws?space=hoth');
+    await b.snapshot();
+    // The attachment is what a woken object reads the space from.
+    await runInDurableObject(stub, async (o: DatapadObject, state) => {
+      (o as unknown as { load: () => void }).load();
+      const [socket] = state.getWebSockets();
+      expect(socket?.deserializeAttachment()).toEqual({ space: 'hoth' });
+    });
+    b.send(addTask('t1'));
+    expect(await b.next()).toMatchObject({ type: 'op', seq: 1 });
+    expect((await stub.export('hoth')).tasks.t1).toBeDefined();
+    expect((await stub.export(MAIN_SPACE)).tasks).toEqual({});
+    b.ws.close(1000);
+  });
+
+  it('opens the first space for an unknown or missing one, and says so', async () => {
+    const email = 'space-fallback@example.com';
+    // Main moved after `hoth`, so `hoth` is the first space: a socket that
+    // asks for nothing it has lands there.
+    const stub = await addSpace(email, 'hoth', 0);
+    await runInDurableObject(stub, async (o: DatapadObject, state) => {
+      state.storage.sql.exec(
+        'UPDATE spaces SET position = 1 WHERE id = ?',
+        MAIN_SPACE,
+      );
+      (o as unknown as { load: () => void }).load();
+    });
+    for (const url of [
+      'http://datapad.test/ws?space=nowhere',
+      'http://datapad.test/ws',
+    ]) {
+      const inbox = await openSocket(as(email), url);
+      const snapshot = await inbox.snapshot();
+      expect(snapshot.space).toBe('hoth');
+      expect(snapshot.spaces.map((s) => s.id)).toEqual(['hoth', MAIN_SPACE]);
+      inbox.ws.close(1000);
+    }
+  });
+
+  it('scopes export and import, and refuses an unknown space', async () => {
+    const email = 'space-import@example.com';
+    await addSpace(email, 'hoth');
+    const listener = await openSocket(as(email));
+    await listener.snapshot();
+    const imported = await post(email, '/api/import?space=hoth', fixture);
+    expect(imported.status).toBe(200);
+    // Main's socket hears nothing of hoth's import.
+    expect(await listener.quiet()).toBe(true);
+    listener.ws.close(1000);
+
+    const hoth = (await (
+      await get(email, '/api/export.json?space=hoth')
+    ).json()) as Snapshot;
+    expect(Object.keys(hoth.projects)).toHaveLength(3);
+    const main = (await (
+      await get(email, '/api/export.json')
+    ).json()) as Snapshot;
+    expect(main.projects).toEqual({});
+
+    for (const response of [
+      await get(email, '/api/export.json?space=nowhere'),
+      await post(email, '/api/import?space=nowhere', fixture),
+      await get(email, '/api/backups?space=nowhere'),
+      await get(email, '/api/backups/2026-01-01.json?space=nowhere'),
+      await get(email, '/api/erase-token?space=nowhere'),
+    ]) {
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: 'No such space' });
+    }
+  });
+
+  it('erases one space and leaves the others', async () => {
+    const email = 'space-erase@example.com';
+    const stub = await addSpace(email, 'hoth');
+    await post(email, '/api/import', fixture);
+    await post(email, '/api/import?space=hoth', fixture);
+    expect((await stub.stats()).docs).toBe(52);
+
+    // A token issued for main cannot erase hoth.
+    const issued = (await (await get(email, '/api/erase-token')).json()) as {
+      token: string;
+    };
+    const wrong = await post(email, '/api/erase?space=hoth', {
+      token: issued.token,
+    });
+    expect(wrong.status).toBe(403);
+    expect((await stub.stats()).docs).toBe(52);
+
+    const { token } = (await (
+      await get(email, '/api/erase-token?space=hoth')
+    ).json()) as { token: string };
+    const erased = await post(email, '/api/erase?space=hoth', { token });
+    expect(erased.status).toBe(200);
+    expect((await stub.stats()).docs).toBe(26);
+    expect((await stub.export('hoth')).projects).toEqual({});
+    expect(Object.keys((await stub.export(MAIN_SPACE)).projects)).toHaveLength(
+      3,
+    );
+    // The space itself stays.
+    expect((await stub.listSpaces()).spaces.map((s) => s.id)).toEqual([
+      MAIN_SPACE,
+      'hoth',
+    ]);
   });
 });
