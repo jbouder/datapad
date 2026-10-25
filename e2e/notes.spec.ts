@@ -163,3 +163,79 @@ test('long notes clamp with Show more', async ({ page, request }) => {
   await more.click();
   await expect(long.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
+
+test('the composer is one line until you use it', async ({ page }) => {
+  await openLive(page, '/notes');
+  const box = page.getByRole('combobox', { name: 'New note' });
+  const add = page.getByRole('button', { name: 'Add note' });
+  const picker = page.getByRole('combobox', { name: 'Project for the note' });
+  await expect(box).toHaveAttribute('placeholder', 'Write a note…');
+  await expect(add).toBeHidden();
+  await expect(picker).toBeHidden();
+
+  await box.click();
+  await expect(add).toBeVisible();
+  await expect(picker).toBeVisible();
+
+  // Left empty, it folds away again; with text in it, it stays open.
+  await page.getByRole('heading', { name: 'Notes', level: 1 }).click();
+  await expect(add).toBeHidden();
+  await box.fill('Half a thought');
+  await page.getByRole('heading', { name: 'Notes', level: 1 }).click();
+  await expect(add).toBeVisible();
+});
+
+test('writes a note from anywhere, into the project you are on', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/projects/p-falcon');
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Write a note' })
+    .click();
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  const body = panel.getByRole('combobox', { name: 'Note' });
+  await expect(body).toBeFocused();
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('Falcon hyperdrive refit');
+
+  // Empty: it says so instead of adding.
+  await panel.getByRole('button', { name: 'Add note' }).click();
+  await expect(panel.getByText('Write something first')).toBeVisible();
+
+  await body.fill('Check the coolant lines');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(panel).toBeHidden();
+  await expect(
+    page.getByText('Added a note to Falcon hyperdrive refit'),
+  ).toBeVisible();
+  await expect(card(page, 'Check the coolant lines')).toBeVisible();
+
+  await expectSaved(page);
+  const data = await stored(request);
+  const added = Object.values(data.notes).find(
+    (n) => n.body === 'Check the coolant lines',
+  );
+  expect(added?.projectId).toBe('p-falcon');
+});
+
+test('Shift+N writes a General note from a page with no project', async ({
+  page,
+}) => {
+  await openLive(page, '/tasks');
+  await page.locator('body').press('Shift+N');
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('General');
+
+  // Closing with text asks first.
+  await page.keyboard.type('Ask about the parade');
+  await page.keyboard.press('Escape');
+  await expect(panel.getByText('Discard your changes?')).toBeVisible();
+  await panel.getByRole('button', { name: 'Discard' }).click();
+  await expect(panel).toBeHidden();
+});

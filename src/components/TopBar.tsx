@@ -1,5 +1,6 @@
 import {
   MagnifyingGlassIcon,
+  NotePencilIcon,
   PlusIcon,
   QuestionIcon,
 } from '@phosphor-icons/react';
@@ -20,7 +21,7 @@ import { cn } from '@/lib/utils';
 /**
  * The current title on the left once the page's own h1 has scrolled away
  * (with the brand on phones, where there is no rail), then Search (with its shortcut on desktop), sync trouble on
- * phones, **+** (Add task), Help and Preferences.
+ * phones, **+** (Add task), Write a note, Help and Preferences.
  */
 export function TopBar({
   route,
@@ -28,6 +29,7 @@ export function TopBar({
   pageKey,
   email,
   onAddTask,
+  onAddNote,
   onSearch,
 }: {
   route: Route;
@@ -36,6 +38,7 @@ export function TopBar({
   pageKey: string;
   email: string | null;
   onAddTask: () => void;
+  onAddNote: () => void;
   onSearch: () => void;
 }) {
   const hint = paletteHint();
@@ -98,6 +101,23 @@ export function TopBar({
               <span className="sr-only">Add task</span>
             </TooltipTrigger>
             <TooltipContent>Add task</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="press size-11 sm:size-9"
+                  aria-keyshortcuts="Shift+N"
+                  onClick={onAddNote}
+                />
+              }
+            >
+              <NotePencilIcon weight="bold" />
+              <span className="sr-only">Write a note</span>
+            </TooltipTrigger>
+            <TooltipContent>Write a note</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger

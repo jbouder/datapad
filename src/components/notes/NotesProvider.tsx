@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import type { Note } from '#shared/types';
+import { NewNotePanel } from '@/components/notes/NewNotePanel';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useRoute } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
@@ -21,11 +22,22 @@ interface Notes {
   hidden: ReadonlySet<string>;
   /** Hide the note, toast with Undo, and delete it for real afterwards. */
   removeNote: (note: Note) => void;
+  /** Open the new-note panel, preset to `projectId` (null: General). */
+  newNote: (projectId: string | null) => void;
+}
+
+interface Session {
+  key: number;
+  projectId: string | null;
+  open: boolean;
 }
 
 const Context = createContext<Notes | null>(null);
 
 /**
+ * The new-note panel (the top bar's note button and `N`) lives here, one
+ * for the app.
+ *
  * Deleting a note waits for its Undo: the note disappears at once, and
  * `deleteNote` (which logs "Deleted a note") goes out when the toast
  * ends, when you move to another page, or when the tab goes away. Undo
@@ -37,6 +49,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const route = useRoute();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const timers = useRef(new Map<string, number>());
+  const [session, setSession] = useState<Session | null>(null);
+  const newNote = useCallback((projectId: string | null) => {
+    setSession({ key: Date.now(), projectId, open: true });
+  }, []);
 
   const commit = useCallback(
     (id: string) => {
@@ -89,8 +105,24 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('pagehide', commitAll);
   }, [commitAll]);
 
-  const value = useMemo(() => ({ hidden, removeNote }), [hidden, removeNote]);
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  const value = useMemo(
+    () => ({ hidden, removeNote, newNote }),
+    [hidden, removeNote, newNote],
+  );
+  return (
+    <Context.Provider value={value}>
+      {children}
+      {session && (
+        <NewNotePanel
+          key={session.key}
+          projectId={session.projectId}
+          open={session.open}
+          onClose={() => setSession((s) => (s ? { ...s, open: false } : s))}
+          onExited={() => setSession((s) => (s?.open ? s : null))}
+        />
+      )}
+    </Context.Provider>
+  );
 }
 
 export function useNotes(): Notes {
