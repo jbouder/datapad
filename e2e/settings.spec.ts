@@ -19,8 +19,8 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // Motion and Theme first, then Settings, then Sign out. Phones, with no
-  // People or Orgs in the tab bar, get them here.
+  // The spaces and New space…, Motion and Theme, then Settings, then Sign
+  // out. Phones, with no People or Orgs in the tab bar, get them here.
   await expect(
     page
       .getByRole('menu')
@@ -28,6 +28,8 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
       .or(page.getByRole('menu').getByRole('menuitemcheckbox'))
       .or(page.getByRole('menu').getByRole('menuitemradio')),
   ).toHaveText([
+    'Main',
+    'New space…',
     'Motion',
     'System',
     'Light',

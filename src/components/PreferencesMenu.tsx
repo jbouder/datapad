@@ -1,10 +1,12 @@
 import {
   BuildingsIcon,
   GearSixIcon,
+  PlusIcon,
   SignOutIcon,
   UserCircleIcon,
   UsersIcon,
 } from '@phosphor-icons/react';
+import { SPACE_ROW, useNewSpace } from '@/components/SpaceSwitcher';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,17 +24,21 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SIGN_OUT_URL } from '@/lib/api';
 import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
+import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 /**
- * The account menu: who is signed in, quick Motion and Theme switches,
- * then Settings and Sign out. On phones, where the tab bar has no room
+ * The account menu: who is signed in, the spaces (the phone's switcher;
+ * picking one closes the menu) and New space…, quick Motion and Theme
+ * switches, then Settings and Sign out. On phones, where the tab bar has no room
  * for them, People and Orgs come first in that group.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
+  const { spaces, current, switchSpace } = useSpaces();
+  const { openNewSpace } = useNewSpace();
   const phone = useMediaQuery('(width < 820px)');
 
   return (
@@ -54,6 +60,29 @@ export function PreferencesMenu({ email }: { email: string | null }) {
           <DropdownMenuLabel className="truncate">
             {email ? `Signed in as ${email}` : 'Signed in'}
           </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Space</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={current.id}
+            onValueChange={switchSpace}
+          >
+            {spaces.map((s) => (
+              <DropdownMenuRadioItem
+                key={s.id}
+                value={s.id}
+                closeOnClick
+                className={SPACE_ROW}
+              >
+                <span className="truncate">{s.name}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuItem className={SPACE_ROW} onClick={openNewSpace}>
+            <PlusIcon />
+            New space…
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

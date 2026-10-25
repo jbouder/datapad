@@ -15,11 +15,14 @@ import {
   OpSchema,
   type OpType,
   type ServerMessage,
+  SPACE_DELETED_CLOSE,
 } from '#shared/protocol';
 import { OpError, reduce } from '#shared/reducer';
-import { MAIN_SPACE, type Snapshot } from '#shared/types';
-import { socketUrl } from '@/lib/api';
+import { orderedSpaces } from '#shared/spaces';
+import type { Snapshot, SpaceInfo } from '#shared/types';
+import { fetchSpaces, socketUrl } from '@/lib/api';
 import { newId } from '@/lib/ids';
+import { keyFor } from '@/lib/spaces';
 
 /**
  * The live connection to the signed-in user's Datapad.
@@ -38,6 +41,11 @@ import { newId } from '@/lib/ids';
  * it twice. IndexedDB writes are asynchronous, so the queue is also copied
  * to localStorage synchronously on every change (`datapad:pending-now`):
  * a tab closed or reloaded a moment after a change still has it.
+ *
+ * One space is open at a time. The cache and the queue are per space
+ * (`keyFor`): `main` keeps the keys above, another space appends its id.
+ * Switching closes the socket, shows nothing (`state` null, as on a first
+ * load) until that space's cache or snapshot arrives, and reconnects.
  *
  * Components never touch the socket: they call the actions, one per op.
  */
@@ -136,6 +144,14 @@ export interface Datapad {
   /** Our changes the server has not confirmed yet. */
   pendingCount: number;
   actions: Actions;
+  /**
+   * The space the server opened (null until its snapshot). It differs
+   * from the one asked for when that one is unknown or was deleted: the
+   * provider then adopts it.
+   */
+  space: string | null;
+  /** Every space, in switcher order; empty until the first snapshot. */
+  spaces: SpaceInfo[];
 }
 
 export const CACHE_KEY = 'datapad:snapshot';
@@ -143,9 +159,9 @@ export const PENDING_KEY = 'datapad:pending';
 /** The same queue, written synchronously, for a reload that beats IndexedDB. */
 export const PENDING_NOW_KEY = 'datapad:pending-now';
 
-function readPendingNow(email: string): Pending[] {
+function readPendingNow(email: string, space: string): Pending[] {
   try {
-    const raw = localStorage.getItem(PENDING_NOW_KEY);
+    const raw = localStorage.getItem(keyFor(PENDING_NOW_KEY, space));
     const value = raw ? (JSON.parse(raw) as StoredPending) : null;
     return value?.email === email ? value.ops : [];
   } catch {
@@ -153,11 +169,11 @@ function readPendingNow(email: string): Pending[] {
   }
 }
 
-function writePendingNow(email: string | null, ops: Pending[]) {
+function writePendingNow(email: string | null, space: string, ops: Pending[]) {
   if (!email) return;
   try {
     localStorage.setItem(
-      PENDING_NOW_KEY,
+      keyFor(PENDING_NOW_KEY, space),
       JSON.stringify({ email, ops } satisfies StoredPending),
     );
   } catch {
@@ -174,6 +190,8 @@ interface Cached {
   email: string;
   seq: number;
   state: Snapshot;
+  /** The list of spaces as of that snapshot, for the switcher offline. */
+  spaces?: SpaceInfo[];
 }
 
 const MAX_BACKOFF_MS = 15_000;
@@ -183,16 +201,37 @@ const CACHE_DEBOUNCE_MS = 400;
 /**
  * The connection itself; `DatapadProvider` runs it once for the app.
  * `email` (from `/api/config`) keys the cache, so a browser shared by two
- * accounts never shows one the other's data.
+ * accounts never shows one the other's data. `space` is the one to open.
  */
 export function useDatapadConnection(
   email: string | null,
+  space: string,
   onRefused: (reason: string) => void,
 ): Datapad {
   const [status, setStatus] = useState<SyncStatus>('connecting');
   const [confirmed, setConfirmed] = useState<Confirmed | null>(null);
   const [cached, setCached] = useState<Cached | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
+  const [opened, setOpened] = useState<string | null>(null);
+  const [spaces, setSpaces] = useState<SpaceInfo[]>([]);
+  /** The stored queue has been read; until then, never overwrite it. */
+  const [restored, setRestored] = useState(false);
+  const restoredRef = useRef(false);
+
+  // Another space: forget this one's state during the render itself, so
+  // not one frame shows the old space's data (or its empty states) under
+  // the new name. Its cache, queue and socket follow in the effects.
+  const [showing, setShowing] = useState(space);
+  if (showing !== space) {
+    setShowing(space);
+    setConfirmed(null);
+    setCached(null);
+    setPending([]);
+    setOpened(null);
+    setStatus('connecting');
+    setRestored(false);
+    restoredRef.current = false;
+  }
 
   const socket = useRef<WebSocket | null>(null);
   const confirmedRef = useRef<Confirmed | null>(null);
@@ -203,11 +242,10 @@ export function useDatapadConnection(
   refusedRef.current = onRefused;
   const emailRef = useRef(email);
   emailRef.current = email;
+  const spaceRef = useRef(space);
+  spaceRef.current = space;
   /** Which socket each pending op went out on. */
   const sentOn = useRef(new Map<string, WebSocket>());
-  /** The stored queue has been read; until then, never overwrite it. */
-  const [restored, setRestored] = useState(false);
-  const restoredRef = useRef(false);
   /**
    * Op ids known to be settled, from any tab: every socket gets every
    * echo. Lets this tab drop another tab's queued op from the shared
@@ -223,6 +261,8 @@ export function useDatapadConnection(
     let pingTimer: number | undefined;
     /** A sync is on its way; ops until its snapshot are ignored. */
     let syncing = false;
+    /** The space was deleted under us; waiting to be moved off it. */
+    let gone = false;
 
     const send = (ws: WebSocket, message: unknown) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -250,7 +290,7 @@ export function useDatapadConnection(
     const connect = () => {
       if (canceled) return;
       window.clearTimeout(reconnectTimer);
-      const ws = new WebSocket(socketUrl(MAIN_SPACE));
+      const ws = new WebSocket(socketUrl(space));
       socket.current = ws;
       syncing = false;
 
@@ -260,6 +300,8 @@ export function useDatapadConnection(
       });
 
       ws.addEventListener('message', (event) => {
+        // A message still in flight on the socket of the space we left.
+        if (canceled) return;
         if (typeof event.data !== 'string' || event.data === 'pong') return;
         let message: ServerMessage;
         try {
@@ -270,6 +312,14 @@ export function useDatapadConnection(
         switch (message.type) {
           case 'snapshot': {
             syncing = false;
+            setSpaces(orderedSpaces(message.spaces));
+            setOpened(message.space);
+            if (message.space !== space) {
+              // Not the space asked for (unknown, or deleted meanwhile):
+              // the provider adopts the one opened and reconnects to it,
+              // so its data never lands under this space's cache.
+              return;
+            }
             const next = { seq: message.seq, state: message.state };
             confirmedRef.current = next;
             setConfirmed(next);
@@ -337,25 +387,50 @@ export function useDatapadConnection(
             settle(message.opId);
             return;
           case 'spaces':
-            // Nothing shows the list of spaces yet.
+            setSpaces(orderedSpaces(message.spaces));
             return;
         }
       });
 
-      ws.addEventListener('close', () => {
+      ws.addEventListener('close', (event) => {
         window.clearInterval(pingTimer);
         if (canceled || ws !== socket.current) return;
         socket.current = null;
         setStatus('offline');
+        if (event.code === SPACE_DELETED_CLOSE) {
+          gone = true;
+          // This space is gone: never reconnect to it. The socket that
+          // closed missed the new list, so ask for it.
+          leave();
+          return;
+        }
         attempts += 1;
         const delay = Math.min(MAX_BACKOFF_MS, 500 * 2 ** (attempts - 1));
         reconnectTimer = window.setTimeout(connect, delay);
       });
     };
 
+    /** Open the first space left, once the list says which it is. */
+    const leave = () => {
+      fetchSpaces()
+        .then(({ spaces: list }) => {
+          if (canceled) return;
+          const ordered = orderedSpaces(list);
+          setSpaces(ordered);
+          const first = ordered[0];
+          if (first) setOpened(first.id);
+        })
+        .catch(() => {
+          if (canceled) return;
+          attempts += 1;
+          const delay = Math.min(MAX_BACKOFF_MS, 500 * 2 ** (attempts - 1));
+          reconnectTimer = window.setTimeout(leave, delay);
+        });
+    };
+
     /** Back online, or back on the tab: try now instead of waiting. */
     const retryNow = () => {
-      if (!socket.current && !canceled) {
+      if (!socket.current && !canceled && !gone) {
         attempts = 0;
         connect();
       }
@@ -379,22 +454,27 @@ export function useDatapadConnection(
       socket.current?.close(1000, 'leaving');
       socket.current = null;
     };
-  }, []);
+  }, [space]);
 
   /* the cache: read once we know who we are, write as things settle */
   useEffect(() => {
     if (!email) return;
     let canceled = false;
-    idbGet<Cached>(CACHE_KEY)
+    idbGet<Cached>(keyFor(CACHE_KEY, space))
       .then((value) => {
         if (!canceled && value?.email === email && value.state) {
           setCached(value);
+          // Offline, the switcher still knows the spaces' names.
+          if (value.spaces) {
+            const known = value.spaces;
+            setSpaces((current) => (current.length > 0 ? current : known));
+          }
         }
       })
       .catch(() => {
         // No IndexedDB (private mode, blocked storage): live data only.
       });
-    idbGet<StoredPending>(PENDING_KEY)
+    idbGet<StoredPending>(keyFor(PENDING_KEY, space))
       .catch(() => undefined)
       .then((value) => {
         if (canceled) return;
@@ -403,7 +483,7 @@ export function useDatapadConnection(
         const byId = new Map<string, Pending>();
         for (const p of [
           ...(value?.email === email ? value.ops : []),
-          ...readPendingNow(email),
+          ...readPendingNow(email, space),
         ]) {
           byId.set(p.opId, p);
         }
@@ -428,15 +508,15 @@ export function useDatapadConnection(
     return () => {
       canceled = true;
     };
-  }, [email]);
+  }, [email, space]);
 
   // Every change to the queue, at once: a tab can close any moment. Other
   // tabs share the store, so merge (atomically) rather than overwrite:
   // keep their ops until some tab has seen them settle.
   useEffect(() => {
     if (!email || !restored) return;
-    writePendingNow(email, pending);
-    idbUpdate<StoredPending>(PENDING_KEY, (stored) => {
+    writePendingNow(email, space, pending);
+    idbUpdate<StoredPending>(keyFor(PENDING_KEY, space), (stored) => {
       const mine = new Set(pending.map((p) => p.opId));
       const theirs = (stored?.email === email ? stored.ops : []).filter(
         (p) => !mine.has(p.opId) && !settledIds.current.has(p.opId),
@@ -446,17 +526,19 @@ export function useDatapadConnection(
       );
       return { email, ops };
     }).catch(() => {});
-  }, [email, restored, pending]);
+  }, [email, space, restored, pending]);
 
   useEffect(() => {
     if (!email || !confirmed) return;
     const timer = window.setTimeout(() => {
-      idbSet(CACHE_KEY, { email, ...confirmed } satisfies Cached).catch(
-        () => {},
-      );
+      idbSet(keyFor(CACHE_KEY, space), {
+        email,
+        ...confirmed,
+        spaces,
+      } satisfies Cached).catch(() => {});
     }, CACHE_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [email, confirmed]);
+  }, [email, space, confirmed, spaces]);
 
   const base = confirmed?.state ?? cached?.state ?? null;
   const baseRef = useRef(base);
@@ -496,7 +578,7 @@ export function useDatapadConnection(
     setPending(pendingRef.current);
     // Until the stored queue is read, writing would overwrite it.
     if (restoredRef.current)
-      writePendingNow(emailRef.current, pendingRef.current);
+      writePendingNow(emailRef.current, spaceRef.current, pendingRef.current);
     // Before the first snapshot it waits; the snapshot handler sends it.
     const ws = socket.current;
     if (ws && ws.readyState === WebSocket.OPEN && confirmedRef.current) {
@@ -523,8 +605,16 @@ export function useDatapadConnection(
   const stale = confirmed === null && cached !== null;
   const pendingCount = pending.length;
   return useMemo(
-    () => ({ state, status, stale, pendingCount, actions }),
-    [state, status, stale, pendingCount, actions],
+    () => ({
+      state,
+      status,
+      stale,
+      pendingCount,
+      actions,
+      space: opened,
+      spaces,
+    }),
+    [state, status, stale, pendingCount, actions, opened, spaces],
   );
 }
 

@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import type { BackupList } from '#shared/protocol';
 import { nextDailyAt } from '#shared/schedule';
-import { MAIN_SPACE } from '#shared/types';
 import { useImportExport } from '@/components/ImportExport';
 import { Button } from '@/components/ui/button';
 import { backupUrl, fetchBackups, SignedOutError } from '@/lib/api';
+import { useSpaces } from '@/providers/DatapadProvider';
 
 /**
  * Settings → Data → Backups: the nightly copies in R2, newest first, each
@@ -18,6 +18,7 @@ import { backupUrl, fetchBackups, SignedOutError } from '@/lib/api';
  */
 export function Backups() {
   const { restoreBackup } = useImportExport();
+  const space = useSpaces().current.id;
   const [list, setList] = useState<BackupList | null>(null);
   const backups = list?.backups ?? null;
   const [failed, setFailed] = useState(false);
@@ -25,7 +26,7 @@ export function Backups() {
 
   useEffect(() => {
     let current = true;
-    fetchBackups(MAIN_SPACE)
+    fetchBackups(space)
       .then((list) => {
         if (current) setList(list);
       })
@@ -36,7 +37,7 @@ export function Backups() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [space]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -66,7 +67,7 @@ export function Backups() {
                   {formatBytes(b.bytes)}
                 </span>
                 <a
-                  href={backupUrl(MAIN_SPACE, b.day)}
+                  href={backupUrl(space, b.day)}
                   download={`datapad-${b.day}.json`}
                   className="press inline-flex h-11 items-center gap-1.5 px-2 text-xs hover:bg-accent desk:h-8"
                 >

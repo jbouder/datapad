@@ -1,8 +1,8 @@
 import { ArchiveIcon, GavelIcon, NewspaperIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
+import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
-import { DatapadMark } from '@/components/TopBar';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { NAV, sectionOf } from '@/lib/nav';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const ANYONE = { kind: 'anyone' } as const;
 
 /**
- * The desktop rail (≥ 820px): brand, the sections with live counts, the
+ * The desktop rail (≥ 820px): the space switcher, the sections with live counts, the
  * active projects (most recently updated first) with their open counts,
  * Archived when there is any, and a footer with sync status. Hidden below 820px; the tab bar takes over.
  */
@@ -62,16 +62,9 @@ export function Rail({ route }: { route: Route }) {
   return (
     <aside
       aria-label="Datapad"
-      className="sticky top-0 hidden h-dvh w-(--rail-width) shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground desk:flex"
+      className="vt-rail sticky top-0 hidden h-dvh w-(--rail-width) shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground desk:flex"
     >
-      <a
-        {...linkProps({ name: 'focus' })}
-        className="press flex h-14 shrink-0 items-center gap-2 px-4 font-heading text-base font-semibold tracking-tight outline-ring/50 focus-visible:outline-2 focus-visible:-outline-offset-2"
-      >
-        <DatapadMark className="size-6" />
-        <span>Datapad</span>
-        <span className="sr-only">, Focus</span>
-      </a>
+      <SpaceSwitcher />
 
       <nav
         aria-label="Sections"

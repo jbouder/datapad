@@ -9,6 +9,15 @@ import { flushSync } from 'react-dom';
 
 /* ---------- View Transitions ---------- */
 
+/** What a view transition is for; `src/index.css` scopes names by it. */
+export type ViewTransitionType =
+  | 'default'
+  | 'page'
+  | 'theme'
+  | 'filter'
+  | 'layout'
+  | 'space';
+
 /**
  * Run a React state update inside a view transition, or just run it.
  *
@@ -19,7 +28,7 @@ import { flushSync } from 'react-dom';
 export function withViewTransition(
   update: () => void,
   enabled: boolean,
-  type = 'default',
+  type: ViewTransitionType = 'default',
 ) {
   if (!enabled || typeof document.startViewTransition !== 'function') {
     update();
