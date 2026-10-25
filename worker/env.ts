@@ -21,7 +21,7 @@ export interface Bindings
   /** `<team>.cloudflareaccess.com` (public). */
   ACCESS_TEAM_DOMAIN?: string;
   /**
-   * .dev.vars only. The signed-in email while developing, honoured only when
+   * .dev.vars only. The signed-in email while developing, honored only when
    * ACCESS_AUD is empty. Never set it as a deployed var.
    */
   DEV_ACCESS_EMAIL?: string;

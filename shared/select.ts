@@ -12,7 +12,7 @@ import {
 } from './types';
 
 /**
- * Pure selectors over the snapshot. Each one is memoised on the identity of
+ * Pure selectors over the snapshot. Each one is memoized on the identity of
  * its arguments: the reducer copies a collection only when it changes, so a
  * selector over `tasks` recomputes when a task changes and not when a note
  * does. Pass collections, not the whole snapshot, for that to hold.

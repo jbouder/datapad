@@ -20,7 +20,7 @@ export const EVENT_VIEWS: readonly ViewOption<EventView>[] = [
   { id: 'timeline', label: 'Timeline', icon: ChartBarHorizontalIcon },
 ];
 
-/** A calendar chip's colours, as the type pills have them. */
+/** A calendar chip's colors, as the type pills have them. */
 const CHIP: Record<EventType, string> = {
   milestone: 'bg-accent text-accent-foreground',
   deadline: 'border-destructive text-destructive',

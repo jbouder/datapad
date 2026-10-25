@@ -765,7 +765,7 @@ describe('people', () => {
     expect(state.projects.p2?.orgId).toBe('o1');
     expect(state.projects.p3?.orgId).toBe('o2');
     expect(lastLog(state, 'general')).toBe(
-      'Organised orgs: 2 new, 3 projects linked',
+      'Organized orgs: 2 new, 3 projects linked',
     );
     // Again, even with fresh ids: nothing changes.
     expect(

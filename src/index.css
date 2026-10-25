@@ -12,7 +12,7 @@
  * Theme: holocron's. Stock shadcn base-lyra (neutral) with Oxanium Variable
  * for body AND headings (Lyra normally sets JetBrains Mono as the body
  * font); JetBrains Mono is reserved for code. Datapad adds two semantic
- * colours every theme defines: --warn and --ok (see docs/design.md).
+ * colors every theme defines: --warn and --ok (see docs/design.md).
  */
 @theme {
   /* The one layout breakpoint: rail and two columns above, tab bar below. */
@@ -117,7 +117,7 @@
 
 .dark {
   /* Dark: the neutral counterpart of Light (stock shadcn neutral dark),
-   * the same greys inverted, with no tint. */
+   * the same grays inverted, with no tint. */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

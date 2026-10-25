@@ -76,7 +76,7 @@ interface Proposal {
   counts: Counts;
   /** A nightly backup's day: restore it on the server instead. */
   restore?: string;
-  /** Its projects name orgs as text only: offer to organise them. */
+  /** Its projects name orgs as text only: offer to organize them. */
   plainOrgs?: boolean;
 }
 
@@ -196,7 +196,7 @@ function useImportExportState() {
         undefined,
         proposal.plainOrgs
           ? {
-              label: 'Organise orgs',
+              label: 'Organize orgs',
               run: () => navigate({ name: 'orgs' }),
             }
           : undefined,

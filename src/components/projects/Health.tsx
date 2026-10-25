@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * A project's health: green, yellow, red, or not judged. Always a word as
- * well as a colour (`ok`, `warn`, `destructive`), never colour alone.
+ * well as a color (`ok`, `warn`, `destructive`), never color alone.
  */
 
 export const HEALTH_LABELS: Record<ProjectHealth, string> = {

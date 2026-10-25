@@ -70,7 +70,7 @@ const webLlm: EngineFactory = async (modelId, onProgress) => {
   }
 };
 
-/** A scripted engine for the e2e build: streams its chunks, honours Stop. */
+/** A scripted engine for the e2e build: streams its chunks, honors Stop. */
 function scripted(fake: FakeModel): EngineFactory {
   return async (_modelId, onProgress) => {
     onProgress({ fraction: 1, text: 'Loaded the test model' });

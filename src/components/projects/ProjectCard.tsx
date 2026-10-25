@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 const MAX_MEMBERS = 4;
 
 /**
- * One project as a card, the whole card a link: org, health (a coloured
+ * One project as a card, the whole card a link: org, health (a colored
  * left edge and its word), status, priority,
  * name, the current state line, then open count, target, the next
  * milestone or deadline, and up to four members (+N for the rest).
@@ -61,7 +61,7 @@ export function ProjectCard({
         </span>
         <HealthBadge health={healthOf(project)} />
         <StatusPill status={project.status} />
-        <PriorityDot priority={project.priority} labelled={false} />
+        <PriorityDot priority={project.priority} labeled={false} />
         <span className="sr-only">
           {PRIORITY_LABELS[project.priority]} priority
         </span>

@@ -654,7 +654,7 @@ function apply(d: Draft, op: Op, now: string) {
         log(
           d,
           null,
-          `Organised orgs: ${made} new, ${linked} ${linked === 1 ? 'project' : 'projects'} linked`,
+          `Organized orgs: ${made} new, ${linked} ${linked === 1 ? 'project' : 'projects'} linked`,
           now,
         );
       }

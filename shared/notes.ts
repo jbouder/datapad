@@ -4,7 +4,7 @@ import type { DateString, Note, Snapshot } from './types';
 
 /**
  * The Notes view's selection: which notes, in what order, under which day.
- * Pure; the page memoises it on the snapshot and the filters.
+ * Pure; the page memoizes it on the snapshot and the filters.
  */
 
 export interface NoteFilters {

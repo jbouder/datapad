@@ -20,7 +20,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-test('import offers to organise; orgs become records with a page each', async ({
+test('import offers to organize; orgs become records with a page each', async ({
   page,
   request,
 }) => {
@@ -36,12 +36,12 @@ test('import offers to organise; orgs become records with a page each', async ({
     .getByRole('dialog')
     .getByRole('button', { name: 'Import' })
     .click();
-  await page.getByRole('button', { name: 'Organise orgs' }).click();
+  await page.getByRole('button', { name: 'Organize orgs' }).click();
   await expect(page).toHaveURL(/\/orgs$/);
 
   const callout = page.getByRole('status').filter({ hasText: 'plain text' });
   await expect(callout).toContainText('3 projects name an org as plain text');
-  await callout.getByRole('button', { name: 'Organise orgs' }).click();
+  await callout.getByRole('button', { name: 'Organize orgs' }).click();
   await expect(callout).toBeHidden();
   const list = page.getByRole('list', { name: 'Orgs' });
   await expect(list.getByRole('listitem')).toHaveCount(3);

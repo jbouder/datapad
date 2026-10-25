@@ -69,7 +69,7 @@ jobs:
       - if: steps.browsers.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
       # Sign-in for the browser suite: the dev Access bypass, which the Worker
-      # honours only while wrangler.jsonc's ACCESS_AUD is empty. The suite
+      # honors only while wrangler.jsonc's ACCESS_AUD is empty. The suite
       # never sees real credentials. Each test signs in as its own address.
       - name: Dev Access bypass for e2e
         run: |

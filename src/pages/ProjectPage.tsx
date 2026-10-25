@@ -187,7 +187,7 @@ export function ProjectPage({ id }: { id: string }) {
             />
           </li>
           <li className="flex items-center gap-1.5">
-            <PriorityDot priority={project.priority} labelled={false} />
+            <PriorityDot priority={project.priority} labeled={false} />
             {PRIORITY_LABELS[project.priority]}
           </li>
           {project.startDate && (

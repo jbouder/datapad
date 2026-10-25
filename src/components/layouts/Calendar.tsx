@@ -23,7 +23,7 @@ export interface CalendarItem {
   /** `HH:MM` or empty. */
   time?: string;
   label: string;
-  /** The chip's colours (an event's type, say). */
+  /** The chip's colors (an event's type, say). */
   className?: string;
 }
 

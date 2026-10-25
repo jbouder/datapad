@@ -140,7 +140,7 @@ describe('focusBuckets', () => {
     ).toEqual(['t-2']);
   });
 
-  it('is memoised on its arguments', () => {
+  it('is memoized on its arguments', () => {
     const a = focusBuckets(state.tasks, state.projects, today, null, anyone);
     expect(focusBuckets(state.tasks, state.projects, today, null, anyone)).toBe(
       a,
@@ -240,7 +240,7 @@ describe('project filters and sorts', () => {
     expect(ids(selectProjects(s.projects, all, true))).toEqual(['p-yavin']);
   });
 
-  it('filters by health; unset health matches no colour', () => {
+  it('filters by health; unset health matches no color', () => {
     const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
     const projects = {
       ...s.projects,

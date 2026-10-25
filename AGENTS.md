@@ -20,7 +20,7 @@ is wiped. `docs/SPEC.md` is the product spec, `docs/PLAN.md` the build plan
   collections), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoisable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
+  (memoizable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking).
@@ -95,7 +95,7 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   JS helpers take `enabled` from `useMotion().active`.
 - Motion styling belongs in `src/index.css` or at the call site, never in
   `src/components/ui/*`.
-- **Colours are tokens.** Light and Dark define every token
+- **Colors are tokens.** Light and Dark define every token
   (`test/themes.test.ts`); use `text-warn`, `bg-ok/15`, etc., never a literal.
 - Self-hosting docs live in `docs/`, not in the app.
 

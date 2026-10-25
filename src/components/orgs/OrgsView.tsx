@@ -8,7 +8,7 @@ import {
 import { useMemo, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { byWhen } from '#shared/events';
-import { organizePlan, orgProjects, unorganised } from '#shared/orgs';
+import { organizePlan, orgProjects, unorganized } from '#shared/orgs';
 import { healthOf, type Org, settingsOf } from '#shared/types';
 import { Field } from '@/components/Field';
 import { Initials } from '@/components/Initials';
@@ -28,8 +28,8 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * Orgs: the default org, every org as a record (kind, project
  * count) and, at `/orgs/:id`, one org's page: its projects,
- * contacts, upcoming events, notes and links. Until orgs are organised,
- * projects carry plain org text; "Organise orgs" turns that into records.
+ * contacts, upcoming events, notes and links. Until orgs are organized,
+ * projects carry plain org text; "Organize orgs" turns that into records.
  */
 export function OrgsView({ selected }: { selected?: string }) {
   const { state } = useDatapad();
@@ -69,7 +69,7 @@ function OrganizeCallout() {
   const { state, actions } = useDatapad();
   const { show } = useToast();
   if (!state) return null;
-  const waiting = unorganised(state);
+  const waiting = unorganized(state);
   if (waiting === 0) return null;
   const organize = () => {
     const plan = organizePlan(state, settingsOf(state).defaultOrg, newId);
@@ -88,12 +88,12 @@ function OrganizeCallout() {
     >
       <p className="min-w-0 flex-1">
         {waiting === 1 ? '1 project names' : `${waiting} projects name`} an org
-        as plain text. Organise them into org records you can add contacts,
+        as plain text. Organize them into org records you can add contacts,
         notes and links to. Their text stays as it is.
       </p>
       <Button className="press" onClick={organize}>
         <SparkleIcon />
-        Organise orgs
+        Organize orgs
       </Button>
     </div>
   );

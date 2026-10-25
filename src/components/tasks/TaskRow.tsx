@@ -186,7 +186,7 @@ export const TaskRow = memo(function TaskRow({
             className={cn(POPOVER_TRIGGER, 'hidden size-8 desk:flex')}
             aria-label={`Priority: ${PRIORITY_LABELS[task.priority]}. Change`}
           >
-            <PriorityDot priority={task.priority} labelled={false} />
+            <PriorityDot priority={task.priority} labeled={false} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-40">
             <DropdownMenuRadioGroup
@@ -197,7 +197,7 @@ export const TaskRow = memo(function TaskRow({
             >
               {[...PRIORITIES].reverse().map((p) => (
                 <DropdownMenuRadioItem key={p} value={p} closeOnClick>
-                  <PriorityDot priority={p} labelled={false} />
+                  <PriorityDot priority={p} labeled={false} />
                   {PRIORITY_LABELS[p]}
                 </DropdownMenuRadioItem>
               ))}

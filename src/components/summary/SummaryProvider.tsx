@@ -51,7 +51,7 @@ export interface Summaries {
   model: ModelState;
   /** The model the owner picked; remembered on this device. */
   choice: SummaryModel;
-  /** Open the summary panel for an item, and summarise it. */
+  /** Open the summary panel for an item, and summarize it. */
   summarize: (target: SummaryTarget) => void;
   /** Pick another model. Unloads the current one, if any. */
   choose: (modelId: string) => void;

@@ -173,7 +173,7 @@ export function TaskTable(props: TaskLayoutProps) {
           sortable: true,
           cell: (t) => (
             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <PriorityDot priority={t.priority} labelled={false} />
+              <PriorityDot priority={t.priority} labeled={false} />
               {t.priority === 'none' ? '' : PRIORITY_LABELS[t.priority]}
             </span>
           ),

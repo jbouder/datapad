@@ -163,7 +163,7 @@ describe('inline', () => {
       ],
     ],
     [
-      'labelled link',
+      'labeled link',
       '[the **doc**](https://example.com)',
       [
         {

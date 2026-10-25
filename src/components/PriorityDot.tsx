@@ -16,17 +16,17 @@ const DOT: Record<Priority, string> = {
 };
 
 /**
- * The priority dot (docs/design.md). Never colour alone: the label is
+ * The priority dot (docs/design.md). Never color alone: the label is
  * there for screen readers unless the caller shows it as text already.
  */
 export function PriorityDot({
   priority,
-  labelled = true,
+  labeled = true,
   className,
 }: {
   priority: Priority;
   /** Add the label as visually hidden text. */
-  labelled?: boolean;
+  labeled?: boolean;
   className?: string;
 }) {
   return (
@@ -35,7 +35,7 @@ export function PriorityDot({
         aria-hidden
         className={cn('inline-block size-2.5 rounded-full', DOT[priority])}
       />
-      {labelled && (
+      {labeled && (
         <span className="sr-only">{PRIORITY_LABELS[priority]} priority</span>
       )}
     </span>

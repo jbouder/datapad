@@ -244,7 +244,7 @@ export function ProjectLayouts({
           cell: (p) => (
             <DropdownMenu>
               <DropdownMenuTrigger className="press inline-flex min-h-8 items-center gap-1.5 px-1 text-muted-foreground outline-ring/50 hover:bg-accent focus-visible:outline-2">
-                <PriorityDot priority={p.priority} labelled={false} />
+                <PriorityDot priority={p.priority} labeled={false} />
                 <span className="sr-only">Priority: </span>
                 {PRIORITY_LABELS[p.priority]}
                 <span className="sr-only">, change</span>
@@ -261,7 +261,7 @@ export function ProjectLayouts({
                 >
                   {[...PRIORITIES].reverse().map((pr) => (
                     <DropdownMenuRadioItem key={pr} value={pr} closeOnClick>
-                      <PriorityDot priority={pr} labelled={false} />
+                      <PriorityDot priority={pr} labeled={false} />
                       {PRIORITY_LABELS[pr]}
                     </DropdownMenuRadioItem>
                   ))}

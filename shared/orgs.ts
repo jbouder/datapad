@@ -4,7 +4,7 @@ import type { Org, OrgKind, Project, Snapshot } from './types';
 /**
  * Orgs as records (M7). A project's `org` text is still what shows and
  * what older exports carry; `orgId` links it to the record once orgs are
- * organised. Names are unique, ignoring case.
+ * organized. Names are unique, ignoring case.
  */
 
 const key = (name: string) => name.trim().toLowerCase();
@@ -32,7 +32,7 @@ export function guessKind(name: string): OrgKind {
 }
 
 /**
- * The orgs "Organise orgs" would make: each distinct project org text (and
+ * The orgs "Organize orgs" would make: each distinct project org text (and
  * the default org) with no Org yet, once each, with ids from `newId`.
  */
 export function organizePlan(
@@ -56,7 +56,7 @@ export function organizePlan(
 }
 
 /** How many projects still carry org text with no linked Org. */
-export function unorganised(
+export function unorganized(
   state: Pick<Snapshot, 'projects' | 'orgs'>,
 ): number {
   return Object.values(state.projects).filter(

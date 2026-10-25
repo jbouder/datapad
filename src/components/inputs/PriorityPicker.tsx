@@ -46,7 +46,7 @@ export function PriorityPicker({
               className="sr-only"
               aria-label={PRIORITY_LABELS[p]}
             />
-            <PriorityDot priority={p} labelled={false} />
+            <PriorityDot priority={p} labeled={false} />
             <span aria-hidden>{SHORT[p]}</span>
           </label>
         ))}
