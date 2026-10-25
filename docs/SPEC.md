@@ -19,7 +19,7 @@ What it is not: multi-user collaboration, recurring tasks, subtasks, time tracki
 
 ## Data model
 
-Six collections, each a flat map of id → document. Ids are client-generated random strings; timestamps are ISO 8601; dates are `YYYY-MM-DD`; times are `HH:MM` 24-hour local.
+Six collections, each a flat map of id → document. Ids are client-generated random strings; timestamps are ISO 8601; dates are `YYYY-MM-DD`; times are `HH:MM` 24-hour local. In the rebuild every collection lives inside a space, and each space holds a complete, separate set of them (see Spaces).
 
 ### Project
 
@@ -248,6 +248,19 @@ Model tier is the default (not the quick tier); the artifact caches identical re
 
 **Caps to respect** when designing the remote store: documents under 256 KiB (activity logs are capped at 150 entries for this reason), collections scanned without indexes (keep to low thousands of documents), last-writer-wins with no transactions.
 
+## Spaces
+
+Added in the rebuild (M9). A space is a complete, separate Datapad under the one signed-in user: its own projects, tasks, notes, events, people, orgs, decisions, templates, settings and activity. Nothing is shared or searched across spaces; every view, count, summary and ⌘K result is the open space's.
+
+| Topic     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model     | `{id, name, position, createdAt}`. Every user starts with Main (`main`), which holds any data from before spaces. Names are trimmed, not empty, at most 40 characters and unique ignoring case; at most 12 spaces. `position` is the switcher order.                                                                                                                                                                                         |
+| Switching | The rail header (desktop), the account menu (every width; the switcher on phones) and ⌘K list the spaces, with New space…; the rail and the account menu also have Manage spaces. The choice is remembered per device, not in the URL. Switching from a project, person or org page goes to Focus; section pages stay. The page and rail crossfade. With more than one space, the tab title carries its name ("Tasks · Personal · Datapad"). |
+| Settings  | Settings → Spaces (`/settings/spaces`) lists them in switcher order: rename in place (Enter saves, Esc or leaving the field reverts), Move up / Move down, New space, Delete…. Settings → Data acts on the open space: Export <space>, Import into <space>, Backups of <space>.                                                                                                                                                              |
+| Moving    | Move to… on a project page (with more than one space). The project goes with its tasks, notes, events, decisions and activity log; the people it refers to and its org are copied, and the source keeps its copies. A same-named org in the target is reused; a copied person is not `me` if the target has one. The log gains "Moved from <space>". One transaction across both spaces; not undoable from the toast, but moving back works. |
+| Deleting  | Delete… asks for the space's name typed exactly, then deletes it with a one-time token issued for that space (good for five minutes). The last space cannot be deleted; Main can, once another exists. Tabs open on it go to the first space left. Its nightly backups stay in R2 but are no longer listed in the app.                                                                                                                       |
+| Backups   | Nightly, per space, 30 kept each: Main at `<email>/datapad-YYYY-MM-DD.json` as before, others at `<email>/<spaceId>/datapad-YYYY-MM-DD.json`.                                                                                                                                                                                                                                                                                                |
+
 ## Activity log
 
 One log per project plus one for General. Entries are `{t, text}`, prepended, capped at 150; the project page shows the latest 40 in a collapsed Activity section, and project summaries read the latest 25.
@@ -266,6 +279,7 @@ One log per project plus one for General. Entries are `{t, text}`, prepended, ca
 | Status changed                 | Status changed to <status>                                                                       |
 | Archived / restored            | Archived project / Unarchived project                                                            |
 | Event added / edited / deleted | Added <type> "<title>" / Edited … / Deleted event "<title>"                                      |
+| Project moved in from a space  | Moved from <space> (rebuild only, in the target space)                                           |
 
 Pinning a note and reordering tasks are not logged. The log is the data source for the deferred weekly digest.
 
