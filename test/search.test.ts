@@ -35,6 +35,23 @@ describe('search', () => {
     expect(r.task).toEqual([]);
   });
 
+  it('finds a meeting by its topics, and not the topic on its own', () => {
+    let s = seeded();
+    s = reduce(
+      s,
+      {
+        type: 'addTopic',
+        meetingId: 'e-1',
+        id: 'tp-1',
+        title: 'Mynock nests',
+      },
+      '2026-10-24T09:00:00.000Z',
+    ).state;
+    const r = search(indexOf(s), 'mynock');
+    expect(ids(r.meeting)).toEqual(['e-1']);
+    expect(Object.values(r).flat()).toHaveLength(1);
+  });
+
   it('finds a task by title and every word must match, any case', () => {
     const r = search(indexOf(seeded()), 'SHIELD delivery');
     expect(ids(r.task)).toEqual(['t-1']);

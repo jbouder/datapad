@@ -1386,6 +1386,49 @@ describe('moving a project', () => {
     onMain.ws.close(1000);
   });
 
+  it('carries a meeting’s topics, intact, through export, import and a move', async () => {
+    const email = 'move-topics@example.com';
+    const topics = [
+      { id: 'tp-1', title: 'Shield power', done: true, outcome: 'Holding' },
+      { id: 'tp-2', title: 'North ridge', done: false, outcome: '' },
+    ];
+    const withTopics = {
+      ...fixture,
+      meetings: {
+        ...fixture.meetings,
+        'e-1': { ...fixture.meetings['e-1'], topics },
+      },
+    };
+    expect((await post(email, '/api/import', withTopics)).status).toBe(200);
+
+    // Export, then import that file elsewhere: the same meeting.
+    const file = (await (await get(email, '/api/export.json')).json()) as {
+      meetings: Snapshot['meetings'];
+    };
+    expect(file.meetings['e-1']).toEqual(withTopics.meetings['e-1']);
+    const copy = 'move-topics-copy@example.com';
+    expect((await post(copy, '/api/import', file)).status).toBe(200);
+    expect(
+      (await bindings.DATAPAD.getByName(copy).export(MAIN_SPACE)).meetings[
+        'e-1'
+      ],
+    ).toEqual(withTopics.meetings['e-1']);
+
+    // Move the project to another space: the topics go with the meeting.
+    const personal = await createSpace(email, 'Personal');
+    const response = await post(email, '/api/spaces/move-project', {
+      from: MAIN_SPACE,
+      to: personal.id,
+      id: 'p-echo',
+    });
+    expect(response.status).toBe(200);
+    const stub = bindings.DATAPAD.getByName(email);
+    expect((await stub.export(personal.id)).meetings['e-1']).toEqual(
+      withTopics.meetings['e-1'],
+    );
+    expect((await stub.export(MAIN_SPACE)).meetings['e-1']).toBeUndefined();
+  });
+
   it('carries decisions and copies the org and its contacts', async () => {
     const email = 'move-org@example.com';
     const personal = await createSpace(email, 'Personal');

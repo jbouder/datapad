@@ -49,7 +49,40 @@ function note(id: string, patch: Partial<Note>): Note {
   };
 }
 
+const topics: Meeting['topics'] = [
+  { id: 't1', title: 'Shield power', done: true, outcome: 'Holding at 80%' },
+  { id: 't2', title: 'North ridge', done: true, outcome: '' },
+  { id: 't3', title: 'Evacuation', done: false, outcome: 'Not reached' },
+];
+
 describe('meetingContext', () => {
+  it('lists topics in order, covered ones with their outcome', () => {
+    const text = meetingContext(
+      { ...meeting, topics },
+      { projects: {}, people: {}, notes: {} },
+    );
+    expect(text).toContain(
+      [
+        'Agenda: Power budget.',
+        '',
+        'Topics:',
+        '- [x] Shield power — Holding at 80%',
+        '- [x] North ridge',
+        '- [ ] Evacuation',
+      ].join('\n'),
+    );
+    expect(
+      meetingContext(
+        { ...meeting, topics: [] },
+        {
+          projects: {},
+          people: {},
+          notes: {},
+        },
+      ),
+    ).not.toContain('Topics');
+  });
+
   it('labels linked notes [prep] and [debrief], oldest first, names for mentions', () => {
     const text = meetingContext(meeting, {
       projects: { p1: { id: 'p1', name: 'Echo Base' } as Project },
@@ -219,6 +252,26 @@ describe('projectContext', () => {
         '',
         'Recent activity, newest first:',
         '- Fri 23 Oct 2026: Added a note',
+      ].join('\n'),
+    );
+  });
+
+  it('says how many topics a meeting covered, when it has topics', () => {
+    const state = world();
+    state.meetings.e1 = { ...meeting, topics };
+    state.meetings.e2 = {
+      ...meeting,
+      id: 'e2',
+      title: 'Debrief',
+      date: '2026-10-28',
+      topics: [],
+    };
+    const text = projectContext('p1', state);
+    expect(text).toContain(
+      [
+        'Meetings:',
+        '- Tue 27 Oct 2026 14:00–15:00: Shield review (2 of 3 topics covered)',
+        '- Wed 28 Oct 2026 14:00–15:00: Debrief',
       ].join('\n'),
     );
   });
