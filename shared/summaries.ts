@@ -10,6 +10,7 @@ import {
   type Note,
   type Snapshot,
   type Task,
+  topicsOf,
 } from './types';
 
 /**
@@ -129,7 +130,8 @@ function noteDay(note: Note): string {
 }
 
 /**
- * A meeting: title, date and times, project, attendees, agenda, and every
+ * A meeting: title, date and times, project, attendees, agenda, its
+ * topics in order (`- [x] title — outcome` once covered), and every
  * linked note, oldest first, labeled `[prep]`, `[debrief]` or `[note]`.
  */
 export function meetingContext(
@@ -145,6 +147,18 @@ export function meetingContext(
     `Attendees: ${attendees || 'none listed'}`,
   ];
   if (meeting.note) lines.push(`Agenda: ${meeting.note}`);
+
+  const topics = topicsOf(meeting);
+  if (topics.length > 0) {
+    lines.push('', 'Topics:');
+    for (const t of topics) {
+      lines.push(
+        t.done
+          ? `- [x] ${t.title}${t.outcome ? ` — ${t.outcome}` : ''}`
+          : `- [ ] ${t.title}`,
+      );
+    }
+  }
 
   const notes = Object.values(state.notes)
     .filter((n) => n.meetingId === meeting.id)
@@ -254,7 +268,15 @@ export function projectContext(projectId: string, state: Snapshot): string {
     lines.push('', 'Meetings:');
     for (const m of meetings) {
       const range = timeRange(m);
-      lines.push(`- ${day(m.date)}${range ? ` ${range}` : ''}: ${m.title}`);
+      const topics = topicsOf(m);
+      const covered = topics.filter((t) => t.done).length;
+      lines.push(
+        `- ${day(m.date)}${range ? ` ${range}` : ''}: ${m.title}${
+          topics.length > 0
+            ? ` (${covered} of ${topics.length} topics covered)`
+            : ''
+        }`,
+      );
     }
   }
 
