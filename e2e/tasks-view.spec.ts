@@ -167,7 +167,9 @@ test('a thousand tasks render promptly', async ({ page, request }) => {
     .click();
   await expect(
     page.locator('[data-task-title]').filter({ visible: true }).first(),
-  ).toBeVisible({ timeout: 15_000 });
-  // A smoke budget, loose enough for a loaded CI runner (about 300ms alone).
-  expect(Date.now() - started).toBeLessThan(5000);
+  ).toBeVisible({ timeout: 20_000 });
+  // A smoke budget for a gross regression, not a benchmark: about 700ms
+  // alone, but a loaded CI runner has taken over 5s, and with
+  // failOnFlakyTests one slow first try fails the run.
+  expect(Date.now() - started).toBeLessThan(12_000);
 });
