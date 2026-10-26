@@ -164,6 +164,7 @@ export const TopicSchema = z.object({
   title: z.string().min(1).max(LIMITS.titleMax),
   done: z.boolean().default(false),
   outcome: text(LIMITS.topicOutcomeMax).default(''),
+  carriedFrom: date.optional(),
 }) satisfies z.ZodType<Topic, unknown>;
 
 export const MeetingSchema = z.object({
@@ -712,13 +713,17 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('deleteMeeting'), id }),
 
   /* topics (they live on their meeting) */
-  /** Appends, or inserts right after the topic `after`. */
+  /**
+   * Appends, or inserts right after the topic `after`. `carriedFrom`: it
+   * was carried forward from a meeting on that day.
+   */
   z.object({
     type: z.literal('addTopic'),
     meetingId: id,
     id,
     title: topicFields.title,
     after: id.optional(),
+    carriedFrom: date.optional(),
   }),
   z.object({
     type: z.literal('editTopic'),

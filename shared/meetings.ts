@@ -231,3 +231,156 @@ export function restoredOrder(
   const known = new Set(kept);
   return [...kept, ...current.filter((id) => !known.has(id))];
 }
+
+/* ---- carrying topics forward --------------------------------------------- */
+
+/**
+ * What places a meeting in its series and in time. A meeting being
+ * written (not saved yet) has no id.
+ */
+export type MeetingKey = Pick<
+  Meeting,
+  'projectId' | 'title' | 'attendees' | 'date' | 'time'
+> & { id?: string };
+
+const titleKey = (title: string) => title.trim().toLowerCase();
+
+/**
+ * The same series: the same project, the same title (trimmed, any case)
+ * and the same attendees (in any order). There is no recurrence model;
+ * this is the whole of it.
+ */
+export function sameSeries(a: MeetingKey, b: MeetingKey): boolean {
+  if (a.projectId !== b.projectId) return false;
+  const title = titleKey(a.title);
+  if (title === '' || title !== titleKey(b.title)) return false;
+  const people = new Set(a.attendees);
+  const others = new Set(b.attendees);
+  return (
+    people.size === others.size && [...people].every((id) => others.has(id))
+  );
+}
+
+/** Earlier: by day, then time (an all-day meeting before a timed one). */
+const earlier = (a: MeetingKey, b: MeetingKey) =>
+  a.date < b.date || (a.date === b.date && a.time < b.time);
+
+/**
+ * The most recent earlier meeting of the same series as `meeting` (one
+ * being written counts too), or null. Without a day there is nothing to
+ * be earlier than.
+ */
+export function previousMeeting(
+  meetings: Snapshot['meetings'],
+  meeting: MeetingKey,
+): Meeting | null {
+  if (!meeting.date) return null;
+  let found: Meeting | null = null;
+  for (const m of Object.values(meetings)) {
+    if (m.id === meeting.id || !earlier(m, meeting)) continue;
+    if (!sameSeries(m, meeting)) continue;
+    if (!found || byWhen(found, m) < 0) found = m;
+  }
+  return found;
+}
+
+/** The soonest later meeting of the same series as `meeting`, or null. */
+export function nextMeeting(
+  meetings: Snapshot['meetings'],
+  meeting: Meeting,
+): Meeting | null {
+  let found: Meeting | null = null;
+  for (const m of Object.values(meetings)) {
+    if (m.id === meeting.id || !earlier(meeting, m)) continue;
+    if (!sameSeries(m, meeting)) continue;
+    if (!found || byWhen(m, found) < 0) found = m;
+  }
+  return found;
+}
+
+/**
+ * The topics of `from` to carry to `to`: the uncovered ones, less any
+ * `to` already has (by title, any case), so carrying twice adds nothing.
+ */
+export function topicsToCarry(
+  from: Pick<Meeting, 'topics'>,
+  to?: Pick<Meeting, 'topics'>,
+): Topic[] {
+  const there = new Set(to ? topicsOf(to).map((t) => titleKey(t.title)) : []);
+  return topicsOf(from).filter((t) => !t.done && !there.has(titleKey(t.title)));
+}
+
+/**
+ * Copies of `topics` (from the meeting `from`) as `addTopic` ops on
+ * `meetingId`: new ids, uncovered, no outcome, and the day they were
+ * first raised (a topic that was itself carried keeps its first day).
+ */
+export function carryOps(
+  from: Pick<Meeting, 'date'>,
+  topics: readonly Topic[],
+  meetingId: string,
+  newId: () => string,
+): OpOf<'addTopic'>[] {
+  return topics.map((t) => ({
+    type: 'addTopic',
+    meetingId,
+    id: newId(),
+    title: t.title,
+    carriedFrom: t.carriedFrom ?? from.date,
+  }));
+}
+
+/** The outcome a topic carried away from its meeting is left with. */
+export const CARRIED_OUTCOME = 'Carried forward';
+
+export type TopicOp =
+  | OpOf<'addTopic'>
+  | OpOf<'editTopic'>
+  | OpOf<'toggleTopic'>
+  | OpOf<'deleteTopic'>;
+
+/**
+ * Carrying an existing meeting's uncovered topics to `to`: copy them there
+ * and mark them covered on `from` with the outcome "Carried forward". The
+ * ops go in one batch; `undo` is the batch that takes it back.
+ */
+export function carryForward(
+  from: Meeting,
+  to: Meeting,
+  newId: () => string,
+): { ops: TopicOp[]; undo: TopicOp[]; count: number } {
+  const topics = topicsToCarry(from, to);
+  const added = carryOps(from, topics, to.id, newId);
+  const ops: TopicOp[] = [...added];
+  const undo: TopicOp[] = added.map((op) => ({
+    type: 'deleteTopic',
+    meetingId: to.id,
+    id: op.id,
+  }));
+  for (const t of topics) {
+    ops.push(
+      { type: 'toggleTopic', meetingId: from.id, id: t.id, done: true },
+      {
+        type: 'editTopic',
+        meetingId: from.id,
+        id: t.id,
+        patch: { outcome: CARRIED_OUTCOME },
+      },
+    );
+    undo.push(
+      { type: 'toggleTopic', meetingId: from.id, id: t.id, done: false },
+      {
+        type: 'editTopic',
+        meetingId: from.id,
+        id: t.id,
+        patch: { outcome: t.outcome },
+      },
+    );
+  }
+  return { ops, undo, count: topics.length };
+}
+
+/** "2 topics" / "1 topic". */
+export function topicsNoun(count: number): string {
+  return `${count} ${count === 1 ? 'topic' : 'topics'}`;
+}

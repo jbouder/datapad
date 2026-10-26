@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import { ExportSchema, type Op } from '#shared/protocol';
+import { ExportSchema, type Op, OpSchema } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import {
   emptySnapshot,
@@ -679,6 +679,37 @@ describe('topics', () => {
       { col: 'meetings', id: 'e1' },
       { col: 'projects', id: 'p1' },
     ]);
+  });
+
+  it('addTopic with `carriedFrom` keeps the day and logs a carry', () => {
+    const { state } = at(run(base(), meeting), {
+      type: 'addTopic',
+      meetingId: 'e1',
+      id: 'a',
+      title: 'Shields',
+      carriedFrom: '2026-10-20',
+    });
+    expect(state.meetings.e1?.topics).toEqual([
+      {
+        id: 'a',
+        title: 'Shields',
+        done: false,
+        outcome: '',
+        carriedFrom: '2026-10-20',
+      },
+    ]);
+    expect(lastLog(state, 'p1')).toBe(
+      'Carried topic "Shields" forward to "Review"',
+    );
+    expect(() =>
+      OpSchema.parse({
+        type: 'addTopic',
+        meetingId: 'e1',
+        id: 'b',
+        title: 'Doors',
+        carriedFrom: '2026-02-30',
+      }),
+    ).toThrow();
   });
 
   it('addTopic with `after` inserts right after that topic', () => {
