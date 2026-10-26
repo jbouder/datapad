@@ -19,15 +19,6 @@ export type Priority = (typeof PRIORITIES)[number];
 export const TASK_STATUSES = ['open', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const EVENT_TYPES = [
-  'meeting',
-  'milestone',
-  'deadline',
-  'demo',
-  'other',
-] as const;
-export type EventType = (typeof EVENT_TYPES)[number];
-
 /** What an org is to you. */
 export const ORG_KINDS = ['client', 'internal', 'vendor', 'partner'] as const;
 export type OrgKind = (typeof ORG_KINDS)[number];
@@ -36,7 +27,7 @@ export type OrgKind = (typeof ORG_KINDS)[number];
 export const DECISION_STATUSES = ['proposed', 'decided', 'revisited'] as const;
 export type DecisionStatus = (typeof DECISION_STATUSES)[number];
 
-/** A note's role for its event: prep (before) or debrief (after). */
+/** A note's role for its meeting: prep (before) or debrief (after). */
 export const NOTE_PHASES = ['pre', 'post'] as const;
 export type NotePhase = (typeof NOTE_PHASES)[number];
 
@@ -55,6 +46,17 @@ export interface Link {
   type: string;
   url: string;
   label: string;
+}
+
+/**
+ * A dated marker on a project: a launch, a review, a handover. It lives on
+ * the project document, so it goes wherever the project goes. A deadline is
+ * the project's `targetDate`, not a milestone.
+ */
+export interface Milestone {
+  id: string;
+  title: string;
+  date: DateString;
 }
 
 export interface Project {
@@ -85,10 +87,15 @@ export interface Project {
   state: string;
   members: string[];
   links: Link[];
+  /**
+   * By date, then title. Absent on documents written before milestones
+   * moved onto the project: read it with `milestonesOf()`.
+   */
+  milestones?: Milestone[];
   /** Archived projects leave default views but stay searchable. */
   archived: boolean;
   createdAt: Timestamp;
-  /** Also bumps on task, note and event changes in the project. */
+  /** Also bumps on task, note, meeting and milestone changes in the project. */
   updatedAt: Timestamp;
 }
 
@@ -137,19 +144,19 @@ export interface Note {
   body: string;
   /** Pinned notes sort first within a project. */
   pinned: boolean;
-  eventId: string | null;
-  /** Prep or debrief note for `eventId`. */
+  meetingId: string | null;
+  /** Prep or debrief note for `meetingId`. */
   phase: NotePhase | null;
   createdAt: Timestamp;
   editedAt?: Timestamp;
 }
 
-export interface Event {
+/** Something you attend: attendees, a link, an agenda, prep and debrief notes. */
+export interface Meeting {
   id: string;
   /** null = General. */
   projectId: string | null;
   title: string;
-  type: EventType;
   date: DateString;
   time: TimeString | '';
   end: TimeString | '';
@@ -241,6 +248,13 @@ export function healthOf(project: Pick<Project, 'health'>): ProjectHealth {
   return project.health ?? 'none';
 }
 
+/** A project's milestones, empty on documents written before they existed. */
+export function milestonesOf(
+  project: Pick<Project, 'milestones'>,
+): Milestone[] {
+  return project.milestones ?? [];
+}
+
 /** A task's blocked flag, null when it is not blocked. */
 export function blockedOf(task: Pick<Task, 'blocked'>): Blocked | null {
   return task.blocked ?? null;
@@ -251,7 +265,7 @@ export const GENERAL = 'general';
 
 /**
  * A space: a complete, separate Datapad (its own projects, tasks, notes,
- * events, decisions, people, orgs, templates, settings and activity) under
+ * meetings, decisions, people, orgs, templates, settings and activity) under
  * the one signed-in email. The Durable Object keeps the list; `position`
  * is its order in the switcher, so a reorder never touches `createdAt`.
  */
@@ -296,7 +310,7 @@ export interface Collections {
   projects: Project;
   tasks: Task;
   notes: Note;
-  events: Event;
+  meetings: Meeting;
   people: Person;
   decisions: Decision;
   orgs: Org;
@@ -311,7 +325,7 @@ export const COLLECTIONS = [
   'projects',
   'tasks',
   'notes',
-  'events',
+  'meetings',
   'people',
   'decisions',
   'orgs',
@@ -327,7 +341,7 @@ export const DOC_COLLECTIONS = [
   'projects',
   'tasks',
   'notes',
-  'events',
+  'meetings',
   'people',
   'decisions',
   'orgs',
@@ -344,7 +358,7 @@ export function emptySnapshot(): Snapshot {
     projects: {},
     tasks: {},
     notes: {},
-    events: {},
+    meetings: {},
     people: {},
     decisions: {},
     orgs: {},

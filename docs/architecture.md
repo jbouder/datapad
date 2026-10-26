@@ -150,6 +150,16 @@ in `meta`): in one transaction every `docs` row moves into `main`, the
 `seq` from `meta`, so open clients carry on without a resync. A failed
 migration leaves the old layout whole and runs again on the next wake.
 
+Schema version 3 turns events into meetings and moves milestones onto
+their project. On the first wake after the upgrade, in one transaction,
+each space's projects, notes and `events` rows go through
+`shared/migrate.ts` (the same function every import runs): the `events`
+rows are gone, the changed rows are written (`meetings` rows, projects
+with `milestones`, notes with `meetingId`), and the space's `seq` goes up
+by one so every open or cached client takes a fresh snapshot rather than
+replaying ops across the change. A space that never changed keeps `seq`
+0.
+
 ## Client
 
 React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending

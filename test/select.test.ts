@@ -12,13 +12,18 @@ import {
   GENERAL_KEY,
   meId,
   mentionsOf,
-  nextMarkers,
+  nextMilestones,
   openCounts,
   orgs,
   peopleStats,
   statsFor,
 } from '#shared/select';
-import { emptySnapshot, type Snapshot, type Task } from '#shared/types';
+import {
+  emptySnapshot,
+  type Project,
+  type Snapshot,
+  type Task,
+} from '#shared/types';
 import { dropIndex, moveItem } from '../src/lib/reorder';
 import fixture from './fixtures/export.json';
 
@@ -179,22 +184,41 @@ describe('other selectors', () => {
     expect(meId({})).toBeNull();
   });
 
-  it('finds the next milestone or deadline per project', () => {
-    const next = nextMarkers(s.events, '2026-10-23');
+  it('finds the next milestone per project', () => {
+    const next = nextMilestones(s.projects, '2026-10-23');
     expect(next.get('p-echo')?.id).toBe('e-2');
-    // The demo is past and not a marker; General events have no project.
-    expect(next.has('p-yavin')).toBe(false);
+    // Only Echo Base has milestones.
     expect([...next.keys()]).toEqual(['p-echo']);
+    // Today counts; the day after it, nothing is next.
+    expect(nextMilestones(s.projects, '2026-11-14').get('p-echo')?.id).toBe(
+      'e-2',
+    );
+    expect(nextMilestones(s.projects, '2026-11-15').size).toBe(0);
   });
 
-  it('lists the next seven days of events', () => {
-    expect(agenda(s.events, s.projects, '2026-10-23').map((e) => e.id)).toEqual(
-      ['e-1'],
-    );
-    expect(agenda(s.events, s.projects, '2026-10-21').map((e) => e.id)).toEqual(
-      ['e-1'],
-    );
-    expect(agenda(s.events, s.projects, '2026-10-20')).toEqual([]);
+  it('picks the soonest milestone, by date then title', () => {
+    const projects = {
+      p: {
+        ...(s.projects['p-echo'] as Project),
+        id: 'p',
+        milestones: [
+          { id: 'old', title: 'Done', date: '2026-10-01' },
+          { id: 'b', title: 'Beta', date: '2026-11-01' },
+          { id: 'a', title: 'Alpha', date: '2026-11-01' },
+        ],
+      },
+    };
+    expect(nextMilestones(projects, '2026-10-23').get('p')?.id).toBe('a');
+  });
+
+  it('lists the next seven days of meetings', () => {
+    expect(
+      agenda(s.meetings, s.projects, '2026-10-23').map((e) => e.id),
+    ).toEqual(['e-1']);
+    expect(
+      agenda(s.meetings, s.projects, '2026-10-21').map((e) => e.id),
+    ).toEqual(['e-1']);
+    expect(agenda(s.meetings, s.projects, '2026-10-20')).toEqual([]);
   });
 
   it('finds every note and task that mentions a person', () => {

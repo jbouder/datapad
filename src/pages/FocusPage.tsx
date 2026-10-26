@@ -66,7 +66,7 @@ export function FocusPage() {
   const buckets = state
     ? focusBuckets(state.tasks, state.projects, today, me, who)
     : null;
-  const week = state ? agenda(state.events, state.projects, today) : [];
+  const week = state ? agenda(state.meetings, state.projects, today) : [];
   const projects = state ? activeProjects(state.projects).length : 0;
   const open = buckets
     ? BUCKETS.reduce((n, b) => n + buckets[b.key].length, 0)

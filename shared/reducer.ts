@@ -1,4 +1,6 @@
+import { formatDay } from './dates';
 import { LIMITS } from './limits';
+import { byDate } from './milestones';
 import type { Op, OpOf, ParsedExport } from './protocol';
 import {
   type Activity,
@@ -8,6 +10,8 @@ import {
   DEFAULT_SETTINGS,
   GENERAL,
   healthOf,
+  type Milestone,
+  milestonesOf,
   type Person,
   type Project,
   SETTINGS_ID,
@@ -132,6 +136,25 @@ function task(d: Draft, id: string): Task {
   return d.get('tasks', id) ?? fail('That task no longer exists');
 }
 
+function meeting(d: Draft, id: string) {
+  return d.get('meetings', id) ?? fail('That meeting no longer exists');
+}
+
+function milestone(list: Milestone[], id: string): Milestone {
+  return (
+    list.find((m) => m.id === id) ?? fail('That milestone no longer exists')
+  );
+}
+
+/** A project's milestones, kept by date then title. */
+function setMilestones(d: Draft, p: Project, list: Milestone[], now: string) {
+  d.set('projects', p.id, {
+    ...p,
+    milestones: [...list].sort(byDate),
+    updatedAt: now,
+  });
+}
+
 /** A target project for new or moved things: null (General) or one that exists. */
 function checkProject(d: Draft, projectId: string | null) {
   if (projectId !== null) {
@@ -170,7 +193,7 @@ function log(d: Draft, projectId: string | null, text: string, now: string) {
   });
 }
 
-/** A project's `updatedAt` follows its tasks, notes and events. */
+/** A project's `updatedAt` follows its tasks, notes and meetings. */
 function touch(d: Draft, projectId: string | null, now: string) {
   const p = projectId === null ? undefined : d.get('projects', projectId);
   if (p && p.updatedAt !== now) {
@@ -198,7 +221,10 @@ function onlyMe(d: Draft, meId: string) {
   }
 }
 
-/** Deletes a project's tasks, notes and log; its events move to General. */
+/**
+ * Deletes a project's tasks, notes and log (its milestones live on it and
+ * go with it); its meetings and decisions move to General.
+ */
 function cascadeProject(d: Draft, id: string, now: string) {
   for (const t of d.all('tasks')) {
     if (t.projectId === id) d.delete('tasks', t.id);
@@ -206,9 +232,9 @@ function cascadeProject(d: Draft, id: string, now: string) {
   for (const n of d.all('notes')) {
     if (n.projectId === id) d.delete('notes', n.id);
   }
-  for (const e of d.all('events')) {
-    if (e.projectId === id) {
-      d.set('events', e.id, { ...e, projectId: null, updatedAt: now });
+  for (const m of d.all('meetings')) {
+    if (m.projectId === id) {
+      d.set('meetings', m.id, { ...m, projectId: null, updatedAt: now });
     }
   }
   // A decision outlives its project: why something was decided is still
@@ -488,17 +514,17 @@ function apply(d: Draft, op: Op, now: string) {
     case 'addNote': {
       fresh(d, 'notes', op.id, 'note');
       checkProject(d, op.projectId);
-      const eventId = op.eventId ?? null;
-      if (eventId !== null && !d.get('events', eventId)) {
-        fail('That event no longer exists');
+      const meetingId = op.meetingId ?? null;
+      if (meetingId !== null && !d.get('meetings', meetingId)) {
+        fail('That meeting no longer exists');
       }
       d.set('notes', op.id, {
         id: op.id,
         projectId: op.projectId,
         body: op.body,
         pinned: false,
-        eventId,
-        phase: eventId === null ? null : (op.phase ?? null),
+        meetingId,
+        phase: meetingId === null ? null : (op.phase ?? null),
         createdAt: now,
       });
       log(
@@ -532,15 +558,14 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
-    /* events */
-    case 'addEvent': {
-      fresh(d, 'events', op.id, 'event');
+    /* meetings */
+    case 'addMeeting': {
+      fresh(d, 'meetings', op.id, 'meeting');
       checkProject(d, op.projectId);
-      d.set('events', op.id, {
+      d.set('meetings', op.id, {
         id: op.id,
         projectId: op.projectId,
         title: op.title,
-        type: op.eventType,
         date: op.date,
         time: op.time ?? '',
         end: op.end ?? '',
@@ -550,25 +575,72 @@ function apply(d: Draft, op: Op, now: string) {
         createdAt: now,
         updatedAt: now,
       });
-      log(d, op.projectId, `Added ${op.eventType} "${op.title}"`, now);
+      log(d, op.projectId, `Added meeting "${op.title}"`, now);
       touch(d, op.projectId, now);
       return;
     }
-    case 'editEvent': {
-      const e = d.get('events', op.id) ?? fail('That event no longer exists');
+    case 'editMeeting': {
+      const m = meeting(d, op.id);
       if (op.patch.projectId !== undefined) checkProject(d, op.patch.projectId);
-      const next = { ...e, ...op.patch, updatedAt: now };
-      d.set('events', e.id, next);
-      log(d, next.projectId, `Edited ${next.type} "${next.title}"`, now);
-      touch(d, e.projectId, now);
+      const next = { ...m, ...op.patch, updatedAt: now };
+      d.set('meetings', m.id, next);
+      log(d, next.projectId, `Edited meeting "${next.title}"`, now);
+      touch(d, m.projectId, now);
       touch(d, next.projectId, now);
       return;
     }
-    case 'deleteEvent': {
-      const e = d.get('events', op.id) ?? fail('That event no longer exists');
-      d.delete('events', e.id);
-      log(d, e.projectId, `Deleted event "${e.title}"`, now);
-      touch(d, e.projectId, now);
+    case 'deleteMeeting': {
+      const m = meeting(d, op.id);
+      d.delete('meetings', m.id);
+      log(d, m.projectId, `Deleted meeting "${m.title}"`, now);
+      touch(d, m.projectId, now);
+      return;
+    }
+
+    /* milestones: on the project, so each one bumps its `updatedAt` */
+    case 'addMilestone': {
+      const p = project(d, op.projectId);
+      const list = milestonesOf(p);
+      if (list.some((m) => m.id === op.id))
+        fail('That milestone already exists');
+      if (list.length >= LIMITS.milestonesMax) {
+        fail(`A project has ${LIMITS.milestonesMax} milestones at most`);
+      }
+      const added: Milestone = { id: op.id, title: op.title, date: op.date };
+      setMilestones(d, p, [...list, added], now);
+      log(
+        d,
+        p.id,
+        `Added milestone "${op.title}" (${formatDay(op.date, '0000-01-01')})`,
+        now,
+      );
+      return;
+    }
+    case 'editMilestone': {
+      const p = project(d, op.projectId);
+      const list = milestonesOf(p);
+      const m = milestone(list, op.id);
+      const next = { ...m, ...op.patch };
+      setMilestones(
+        d,
+        p,
+        list.map((x) => (x.id === m.id ? next : x)),
+        now,
+      );
+      log(d, p.id, `Edited milestone "${next.title}"`, now);
+      return;
+    }
+    case 'deleteMilestone': {
+      const p = project(d, op.projectId);
+      const list = milestonesOf(p);
+      const m = milestone(list, op.id);
+      setMilestones(
+        d,
+        p,
+        list.filter((x) => x.id !== m.id),
+        now,
+      );
+      log(d, p.id, `Deleted milestone "${m.title}"`, now);
       return;
     }
 
@@ -784,11 +856,11 @@ function apply(d: Draft, op: Op, now: string) {
           });
         }
       }
-      for (const e of d.all('events')) {
-        if (e.attendees.includes(op.id)) {
-          d.set('events', e.id, {
-            ...e,
-            attendees: e.attendees.filter((a) => a !== op.id),
+      for (const m of d.all('meetings')) {
+        if (m.attendees.includes(op.id)) {
+          d.set('meetings', m.id, {
+            ...m,
+            attendees: m.attendees.filter((a) => a !== op.id),
           });
         }
       }

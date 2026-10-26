@@ -70,18 +70,17 @@ const cases = {
       projectId: 'p-1',
       body: 'Hello @{u-1}',
       pinned: false,
-      eventId: 'e-1',
+      meetingId: 'e-1',
       phase: 'pre',
       createdAt: at,
     },
     invalid: { id: 'n-1', body: 'x', phase: 'during', createdAt: at },
   },
-  events: {
+  meetings: {
     valid: {
       id: 'e-1',
       projectId: null,
       title: 'Review',
-      type: 'meeting',
       date: '2026-10-27',
       time: '14:00',
       end: '',
@@ -256,8 +255,8 @@ describe('document schemas', () => {
   });
 
   it('checks dates, times and timestamps', () => {
-    const event = DocumentSchemas.events;
-    const base = cases.events.valid;
+    const event = DocumentSchemas.meetings;
+    const base = cases.meetings.valid;
     expect(event.safeParse({ ...base, date: '2026-10-31' }).success).toBe(true);
     expect(event.safeParse({ ...base, date: '10/31/2026' }).success).toBe(
       false,
@@ -269,6 +268,36 @@ describe('document schemas', () => {
       event.safeParse({ ...base, createdAt: '2026-10-23T12:00:00+02:00' })
         .success,
     ).toBe(true);
+  });
+});
+
+describe('milestones on a project', () => {
+  const milestone = { id: 'm-1', title: 'Launch', date: '2026-11-14' };
+
+  it('are optional, and checked when present', () => {
+    const project = DocumentSchemas.projects;
+    const base = cases.projects.valid;
+    expect(project.parse(base)).not.toHaveProperty('milestones');
+    expect(
+      project.parse({ ...base, milestones: [milestone] }).milestones,
+    ).toEqual([milestone]);
+    expect(
+      project.safeParse({
+        ...base,
+        milestones: [{ ...milestone, date: '2026-13-01' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      project.safeParse({ ...base, milestones: [{ ...milestone, title: '' }] })
+        .success,
+    ).toBe(false);
+    const many = Array.from({ length: LIMITS.milestonesMax + 1 }, (_, i) => ({
+      ...milestone,
+      id: `m-${i}`,
+    }));
+    expect(project.safeParse({ ...base, milestones: many }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -327,6 +356,64 @@ describe('ops and messages', () => {
       projectId: null,
       title: 'Fix the heaters',
     });
+  });
+
+  it('has meeting and milestone ops, and no event ops', () => {
+    expect(
+      OpSchema.parse({
+        type: 'addMilestone',
+        projectId: 'p-1',
+        id: 'm-1',
+        title: '  Launch ',
+        date: '2026-11-14',
+      }),
+    ).toMatchObject({ title: 'Launch' });
+    expect(
+      OpSchema.safeParse({
+        type: 'addMilestone',
+        projectId: 'p-1',
+        id: 'm-1',
+        title: 'Launch',
+        date: '2026-02-30',
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'editMilestone',
+        projectId: 'p-1',
+        id: 'm-1',
+        patch: {},
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'deleteMilestone',
+        projectId: 'p-1',
+        id: 'm-1',
+      }).success,
+    ).toBe(true);
+    expect(
+      OpSchema.safeParse({
+        type: 'addMeeting',
+        id: 'e-9',
+        projectId: null,
+        title: 'Standup',
+        date: '2026-10-27',
+      }).success,
+    ).toBe(true);
+    expect(
+      OpSchema.safeParse({ type: 'deleteMeeting', id: 'e-9' }).success,
+    ).toBe(true);
+    for (const type of ['addEvent', 'editEvent', 'deleteEvent']) {
+      expect(OpSchema.safeParse({ type, id: 'e-9' }).success).toBe(false);
+    }
+    expect(
+      OpSchema.safeParse({
+        type: 'put',
+        col: 'events',
+        doc: cases.meetings.valid,
+      }).success,
+    ).toBe(false);
   });
 
   it('refuses an unknown op, an empty title and an empty patch', () => {

@@ -5,9 +5,10 @@ import {
 } from '@phosphor-icons/react';
 import { formatDay, localDate, relativeTime } from '#shared/dates';
 import type { ProjectSort } from '#shared/projects';
-import { nextMarkers, openCounts } from '#shared/select';
+import { nextMilestones, openCounts } from '#shared/select';
 import {
   healthOf,
+  milestonesOf,
   PRIORITIES,
   PROJECT_HEALTHS,
   PROJECT_STATUSES,
@@ -81,7 +82,7 @@ export function ProjectLayouts({
   const today = localDate(new Date());
   const now = new Date();
   const counts = openCounts(state.tasks);
-  const next = nextMarkers(state.events, today);
+  const next = nextMilestones(state.projects, today);
 
   if (view === 'cards') {
     return <ProjectGrid projects={projects} label={label} />;
@@ -92,17 +93,12 @@ export function ProjectLayouts({
       <Timeline
         label={label}
         rows={projects.map((p) => {
-          const events = Object.values(state.events)
-            .filter(
-              (e) =>
-                e.projectId === p.id &&
-                (e.type === 'milestone' || e.type === 'deadline'),
-            )
-            .sort((a, b) => a.date.localeCompare(b.date));
+          // Kept by date on the project.
+          const milestones = milestonesOf(p);
           // The start date when set; else creation or the first milestone.
           const first =
             p.startDate ||
-            [p.createdAt.slice(0, 10), events[0]?.date]
+            [p.createdAt.slice(0, 10), milestones[0]?.date]
               .filter((d): d is string => Boolean(d))
               .sort()[0];
           return {
@@ -112,14 +108,11 @@ export function ProjectLayouts({
             // No target: up to the last activity, drawn dashed.
             end: p.targetDate || p.updatedAt.slice(0, 10),
             open: !p.targetDate,
-            points: events.map((e) => ({
-              id: e.id,
-              date: e.date,
-              label: e.title,
-              kind:
-                e.type === 'deadline'
-                  ? ('deadline' as const)
-                  : ('milestone' as const),
+            points: milestones.map((m) => ({
+              id: m.id,
+              date: m.date,
+              label: m.title,
+              kind: 'milestone' as const,
             })),
           };
         })}

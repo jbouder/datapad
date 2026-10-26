@@ -1,15 +1,9 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import { localDate } from '#shared/dates';
-import {
-  EVENT_TYPE_LABELS,
-  type EventFilters,
-  selectEvents,
-} from '#shared/events';
-import { EVENT_TYPES, type EventType } from '#shared/types';
+import { type MeetingFilters, selectMeetings } from '#shared/meetings';
 import { useEventForm } from '@/components/events/EventFormProvider';
 import { EVENT_VIEWS, EventLayouts } from '@/components/events/EventLayouts';
-import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Button } from '@/components/ui/button';
@@ -20,24 +14,18 @@ import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 
 /** The view's controls, from the URL so Back restores them. */
-function useEventFilters(): EventFilters {
+function useEventFilters(): MeetingFilters {
   const value = useQuery().toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
-    const type = q.get('type') ?? '';
-    return {
-      project: q.get('project') ?? '',
-      type: (EVENT_TYPES as readonly string[]).includes(type)
-        ? (type as EventType)
-        : '',
-    };
+    return { project: q.get('project') ?? '' };
   }, [value]);
 }
 
 /**
  * Every event as a List (upcoming by month, then Past, collapsed), a
- * Calendar or a Timeline. Add event (any project, or General), a project
- * filter and a type segment; the filters and layout live in the URL.
+ * Calendar or a Timeline. Add event (any project, or General) and a
+ * project filter; the filter and layout live in the URL.
  */
 export function EventsPage() {
   usePageTitle('Events');
@@ -56,7 +44,7 @@ export function EventsPage() {
   );
 
   const events = useMemo(
-    () => (state ? selectEvents(state.events, filters) : []),
+    () => (state ? selectMeetings(state.meetings, filters) : []),
     [state, filters],
   );
 
@@ -69,7 +57,7 @@ export function EventsPage() {
     (a, b) =>
       Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name),
   );
-  const filtered = Boolean(filters.project || filters.type);
+  const filtered = Boolean(filters.project);
   const filterProject =
     filters.project && filters.project !== 'general' ? filters.project : null;
 
@@ -106,19 +94,6 @@ export function EventsPage() {
           ]}
           onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
         />
-        <Segmented
-          legend="Type"
-          wrap
-          value={filters.type || 'all'}
-          onChange={(v) => changeQuery({ type: v === 'all' ? null : v })}
-          options={[
-            { value: 'all', label: 'All' },
-            ...EVENT_TYPES.map((t) => ({
-              value: t,
-              label: EVENT_TYPE_LABELS[t],
-            })),
-          ]}
-        />
       </div>
 
       <EventLayouts
@@ -130,7 +105,7 @@ export function EventsPage() {
         empty={
           filtered
             ? 'Nothing coming up that matches.'
-            : 'Nothing coming up. Add a meeting, milestone or deadline.'
+            : 'Nothing coming up. Add a meeting.'
         }
       />
     </section>

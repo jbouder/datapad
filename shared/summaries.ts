@@ -1,11 +1,12 @@
 import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
-import { byWhen, EVENT_TYPE_LABELS, timeRange } from './events';
+import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import {
   blockedOf,
-  type Event,
   healthOf,
+  type Meeting,
+  milestonesOf,
   type Note,
   type Snapshot,
   type Task,
@@ -128,27 +129,25 @@ function noteDay(note: Note): string {
 }
 
 /**
- * An event: title, type, date and times, project, attendees, agenda, and
- * every linked note, oldest first, labeled `[prep]`, `[debrief]` or
- * `[note]`.
+ * A meeting: title, date and times, project, attendees, agenda, and every
+ * linked note, oldest first, labeled `[prep]`, `[debrief]` or `[note]`.
  */
-export function eventContext(
-  event: Event,
+export function meetingContext(
+  meeting: Meeting,
   state: Pick<Snapshot, 'projects' | 'people' | 'notes'>,
 ): string {
-  const attendees = names(state, event.attendees);
-  const range = timeRange(event);
+  const attendees = names(state, meeting.attendees);
+  const range = timeRange(meeting);
   const lines = [
-    `Event: ${event.title}`,
-    `Type: ${EVENT_TYPE_LABELS[event.type]}`,
-    `Date: ${day(event.date)}${range ? `, ${range}` : ''}`,
-    `Project: ${projectName(state, event.projectId)}`,
+    `Meeting: ${meeting.title}`,
+    `Date: ${day(meeting.date)}${range ? `, ${range}` : ''}`,
+    `Project: ${projectName(state, meeting.projectId)}`,
     `Attendees: ${attendees || 'none listed'}`,
   ];
-  if (event.note) lines.push(`Agenda: ${event.note}`);
+  if (meeting.note) lines.push(`Agenda: ${meeting.note}`);
 
   const notes = Object.values(state.notes)
-    .filter((n) => n.eventId === event.id)
+    .filter((n) => n.meetingId === meeting.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (notes.length > 0) {
     lines.push('', 'Linked notes:');
@@ -196,7 +195,8 @@ function indent(text: string): string {
 
 /**
  * A project: its fields, open tasks with their details, the last 15 done
- * tasks, every event, the last 20 notes newest first, the last 25
+ * tasks, every milestone, every meeting, the last 20 notes newest first,
+ * the last 25
  * activity lines.
  */
 export function projectContext(projectId: string, state: Snapshot): string {
@@ -241,16 +241,20 @@ export function projectContext(projectId: string, state: Snapshot): string {
     for (const t of done) lines.push(taskLine(t, state));
   }
 
-  const events = Object.values(state.events)
-    .filter((e) => e.projectId === projectId)
+  const milestones = milestonesOf(project);
+  if (milestones.length > 0) {
+    lines.push('', 'Milestones:');
+    for (const m of milestones) lines.push(`- ${day(m.date)}: ${m.title}`);
+  }
+
+  const meetings = Object.values(state.meetings)
+    .filter((m) => m.projectId === projectId)
     .sort(byWhen);
-  if (events.length > 0) {
-    lines.push('', 'Events:');
-    for (const e of events) {
-      const range = timeRange(e);
-      lines.push(
-        `- ${day(e.date)}${range ? ` ${range}` : ''}: ${e.title} (${EVENT_TYPE_LABELS[e.type]})`,
-      );
+  if (meetings.length > 0) {
+    lines.push('', 'Meetings:');
+    for (const m of meetings) {
+      const range = timeRange(m);
+      lines.push(`- ${day(m.date)}${range ? ` ${range}` : ''}: ${m.title}`);
     }
   }
 
@@ -339,24 +343,24 @@ export function taskContext(
   return lines.join('\n');
 }
 
-/** A note: its date, project, the event it belongs to, and the body. */
+/** A note: its date, project, the meeting it belongs to, and the body. */
 export function noteContext(
   note: Note,
-  state: Pick<Snapshot, 'projects' | 'people' | 'events'>,
+  state: Pick<Snapshot, 'projects' | 'people' | 'meetings'>,
 ): string {
-  const event = note.eventId ? state.events[note.eventId] : undefined;
+  const meeting = note.meetingId ? state.meetings[note.meetingId] : undefined;
   const lines = [
     `Note of ${noteDay(note)}`,
     `Project: ${projectName(state, note.projectId)}`,
   ];
-  if (event) {
+  if (meeting) {
     const role =
       note.phase === 'pre'
         ? 'prep for'
         : note.phase === 'post'
           ? 'debrief of'
           : 'about';
-    lines.push(`Event: ${role} ${event.title} on ${day(event.date)}`);
+    lines.push(`Meeting: ${role} ${meeting.title} on ${day(meeting.date)}`);
   }
   lines.push('', tokensToNames(note.body, state.people).trim());
   return lines.join('\n');
@@ -366,7 +370,7 @@ export function noteContext(
 export type SummaryTarget =
   | { kind: 'project'; id: string }
   | { kind: 'task'; id: string }
-  | { kind: 'event'; id: string }
+  | { kind: 'meeting'; id: string }
   | { kind: 'note'; id: string }
   /** The seven days ending `toDay` (the Digest page). */
   | { kind: 'digest'; toDay: string };
@@ -377,8 +381,8 @@ export interface SummaryRequest {
   context: string;
   /** Where Save as note puts the result. */
   projectId: string | null;
-  /** Set when summarizing an event, so the saved note links to it. */
-  eventId: string | null;
+  /** Set when summarizing a meeting, so the saved note links to it. */
+  meetingId: string | null;
 }
 
 /** Everything one Summarize run needs, or null when the item is gone. */
@@ -394,7 +398,7 @@ export function summaryRequest(
         label: project.name,
         context: projectContext(project.id, state),
         projectId: project.id,
-        eventId: null,
+        meetingId: null,
       };
     }
     case 'task': {
@@ -404,17 +408,17 @@ export function summaryRequest(
         label: task.title,
         context: taskContext(task, state),
         projectId: task.projectId,
-        eventId: null,
+        meetingId: null,
       };
     }
-    case 'event': {
-      const event = state.events[target.id];
-      if (!event) return null;
+    case 'meeting': {
+      const meeting = state.meetings[target.id];
+      if (!meeting) return null;
       return {
-        label: event.title,
-        context: eventContext(event, state),
-        projectId: event.projectId,
-        eventId: event.id,
+        label: meeting.title,
+        context: meetingContext(meeting, state),
+        projectId: meeting.projectId,
+        meetingId: meeting.id,
       };
     }
     case 'digest': {
@@ -424,7 +428,7 @@ export function summaryRequest(
         label: `week of ${day(fromDay)} – ${day(toDay)}`,
         context: `Weekly digest across every project.\n\n${digestMarkdown(digest)}`,
         projectId: null,
-        eventId: null,
+        meetingId: null,
       };
     }
     case 'note': {
@@ -434,7 +438,7 @@ export function summaryRequest(
         label: `note of ${noteDay(note)}`,
         context: noteContext(note, state),
         projectId: note.projectId,
-        eventId: null,
+        meetingId: null,
       };
     }
   }

@@ -7,13 +7,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { Event, NotePhase } from '#shared/types';
+import type { Meeting, NotePhase } from '#shared/types';
 import { useDatapad } from '@/hooks/useDatapad';
 import { navigate } from '@/lib/router';
 
 /** A Prep or Debrief note waiting for a composer. */
 export interface EventNoteIntent {
-  eventId: string;
+  meetingId: string;
   phase: NotePhase;
 }
 
@@ -21,12 +21,12 @@ export interface EventNoteIntent {
 export interface NoteTarget {
   /** Its fixed project (null = General), or undefined: it has a picker. */
   projectId: string | null | undefined;
-  prefill: (event: Event, phase: NotePhase) => void;
+  prefill: (event: Meeting, phase: NotePhase) => void;
 }
 
 interface EventNotes {
   /** Prep or Debrief: prefill a composer here, or go where there is one. */
-  startNote: (event: Event, phase: NotePhase) => void;
+  startNote: (event: Meeting, phase: NotePhase) => void;
   /** A composer announces itself; the return value withdraws it. */
   register: (target: NoteTarget) => () => void;
   /** Parked by `startNote` until a composer for it mounts. */
@@ -36,7 +36,7 @@ interface EventNotes {
 
 const Context = createContext<EventNotes | null>(null);
 
-export function accepts(target: NoteTarget, event: Event): boolean {
+export function accepts(target: NoteTarget, event: Meeting): boolean {
   return target.projectId === undefined || target.projectId === event.projectId;
 }
 
@@ -61,7 +61,7 @@ export function EventNotesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const startNote = useCallback((event: Event, phase: NotePhase) => {
+  const startNote = useCallback((event: Meeting, phase: NotePhase) => {
     // A composer bound to the event's project beats one with a picker.
     const here =
       targets.current.find((t) => t.projectId === event.projectId) ??
@@ -70,7 +70,7 @@ export function EventNotesProvider({ children }: { children: ReactNode }) {
       here.prefill(event, phase);
       return;
     }
-    setPending({ eventId: event.id, phase });
+    setPending({ meetingId: event.id, phase });
     if (event.projectId && projects.current?.[event.projectId]) {
       navigate({ name: 'project', id: event.projectId });
     } else {

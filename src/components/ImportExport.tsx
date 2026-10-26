@@ -51,7 +51,7 @@ export function describeCounts(counts: Counts): string {
     n(counts.projects, 'project', 'projects'),
     n(counts.tasks, 'task', 'tasks'),
     n(counts.notes, 'note', 'notes'),
-    n(counts.events, 'event', 'events'),
+    n(counts.meetings, 'event', 'events'),
     n(counts.people, 'person', 'people'),
   ].join(', ');
 }

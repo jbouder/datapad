@@ -3,8 +3,8 @@ import { addDays, localDate } from '../shared/dates';
 import { expect, expectSaved, openLive, SEED, test } from './fixtures';
 
 interface Stored {
-  events: Record<string, { title: string; time: string; end: string }>;
-  notes: Record<string, { eventId: string | null }>;
+  meetings: Record<string, { title: string; time: string; end: string }>;
+  notes: Record<string, { meetingId: string | null }>;
   activity: Record<string, { events: { text: string }[] }>;
 }
 
@@ -21,7 +21,7 @@ const today = localDate(new Date());
 test.beforeEach(async ({ request }) => {
   // The seed's dates are fixed; keep Shield review a few days ahead.
   const seed = structuredClone(SEED);
-  seed.events['e-1'].date = addDays(today, 3);
+  seed.meetings['e-1'].date = addDays(today, 3);
   await request.post('/api/import', { data: seed });
 });
 
@@ -53,7 +53,6 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
 
   const added = row(page, 'Hangar walkthrough');
   await expect(added).toContainText('09:30–10:15');
-  await expect(added.getByText('Meeting')).toBeVisible();
 
   // Edit the time: `2pm` reads as 14:00, and the end must come after.
   await added
@@ -98,14 +97,14 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
 
   await expectSaved(page);
   const after = await stored(request);
-  expect(after.events['e-1']).toBeUndefined();
+  expect(after.meetings['e-1']).toBeUndefined();
   expect(after.notes['n-2']).toBeDefined();
   expect(after.activity['p-echo']?.events[0]?.text).toBe(
-    'Deleted event "Shield review"',
+    'Deleted meeting "Shield review"',
   );
 });
 
-test('filters by project and type, and keeps archived projects under Past', async ({
+test('filters by project and General, and keeps archived projects under Past', async ({
   page,
 }) => {
   await openLive(page, '/events');
@@ -120,15 +119,16 @@ test('filters by project and type, and keeps archived projects under Past', asyn
     }),
   ).toBeVisible();
 
-  await page
-    .locator('label')
-    .filter({ hasText: /^Deadline$/ })
-    .click();
-  await expect(page).toHaveURL(/type=deadline/);
+  // No type filter: a meeting is the only kind there is.
+  await expect(page.getByRole('radiogroup', { name: 'Type' })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Type' })).toHaveCount(0);
+
+  await page.getByRole('combobox', { name: 'Project' }).click();
+  await page.getByRole('option', { name: 'General', exact: true }).click();
+  await expect(page).toHaveURL(/project=general/);
   await expect(page.locator('[data-event-id]')).toHaveCount(1);
   await expect(row(page, 'Quarterly planning')).toContainText('General');
 
-  await page.locator('label').filter({ hasText: /^All$/ }).click();
   await page.getByRole('combobox', { name: 'Project' }).click();
   await page.getByRole('option', { name: 'Echo Base relocation' }).click();
   await expect(page).toHaveURL(/project=p-echo/);

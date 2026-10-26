@@ -11,7 +11,7 @@ export const LIMITS = {
   spacesMax: 12,
   /** A space's name: short, it sits in the switcher. */
   spaceNameMax: 40,
-  /** Task and event titles. */
+  /** Task, meeting and milestone titles. */
   titleMax: 200,
   /** Note bodies and markdown descriptions. */
   bodyMax: 20_000,
@@ -21,15 +21,17 @@ export const LIMITS = {
   blockedNoteMax: 200,
   /** The project's one-line current state. */
   stateMax: 300,
-  /** An event's short agenda or context note. */
-  eventNoteMax: 2_000,
+  /** A meeting's short agenda or context note. */
+  meetingNoteMax: 2_000,
+  /** Milestones on one project. */
+  milestonesMax: 50,
   tagsMax: 20,
   tagMax: 30,
   linksMax: 20,
   linkTypeMax: 30,
   linkLabelMax: 200,
   urlMax: 2_048,
-  /** Project members and event attendees. */
+  /** Project members and meeting attendees. */
   peopleMax: 100,
   /** Entries kept in one activity log (newest first). */
   activityMax: 150,

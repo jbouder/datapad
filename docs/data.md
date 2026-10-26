@@ -19,7 +19,7 @@ commit `.dev.vars`.
 | Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                                                                             | That browser profile                                 |
 
 **Spaces.** Your object holds one or more spaces, each a complete,
-separate Datapad: its own projects, tasks, notes, events, people, orgs,
+separate Datapad: its own projects, tasks, notes, meetings, people, orgs,
 decisions, templates, settings and activity. Nothing is shared between
 them. Everyone starts with one, Main (id `main`); data from before spaces
 is in it. You can have up to 12. Each browser remembers which space it
@@ -31,7 +31,7 @@ errors with the path only, never document content.
 
 ## What leaves your account
 
-Nothing about your projects, tasks, notes, events or people.
+Nothing about your projects, tasks, notes, meetings or people.
 
 **Summaries run on your device.** Summarize builds a plain-text context of
 the one item (`shared/summaries.ts`) and hands it to a small language model
@@ -78,7 +78,7 @@ as it is:
   "notes": { … },
   "people": { … },
   "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
-  "events": { … },
+  "meetings": { … },
   "settings": { "user": { "defaultOrg": "Rebel Alliance" } },
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
   "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
@@ -101,9 +101,19 @@ as it is:
 - Timestamps are ISO 8601, dates `YYYY-MM-DD`, times `HH:MM`; an empty
   string means "not set" for dates, times and the assignee.
 - Mentions stay as `@{personId}` tokens; `order`, `sourceNoteId`,
-  `eventId` / `phase`, `archived` and `links[]` carry over untouched.
+  `meetingId` / `phase`, `archived` and `links[]` carry over untouched.
+- A project may carry `milestones` (`[{ "id", "title", "date" }]`, by
+  date, 50 at most); a deadline is its `targetDate`.
+- A file from before meetings (the artifact's, or an older Datapad
+  export or backup) has `events` instead of `meetings`, and notes with
+  `eventId`. It imports as it is, migrated on the way in
+  ([`shared/migrate.ts`](../shared/migrate.ts)): meetings, demos and
+  other events become meetings; a milestone or deadline on a project
+  becomes a milestone on it (its notes keep their text and lose the
+  link); one in General stays a meeting titled `Milestone: …` or
+  `Deadline: …`. Activity keeps its text.
 - Unknown keys are dropped. A field an older file lacks gets its empty
-  value (`[]`, `''`, `false`, `null`); names, titles, event dates and
+  value (`[]`, `''`, `false`, `null`); names, titles, meeting dates and
   timestamps must be there.
 - Limits: [`shared/limits.ts`](../shared/limits.ts) (titles 200, bodies
   20 000 characters, 150 activity entries, 16 MiB per file).
@@ -115,7 +125,7 @@ as it is:
    `ledger-YYYY-MM-DD.json`.
 2. Open Datapad, signed in as yourself. Settings → Data → Import… → pick the
    file → check the counts → Import.
-3. Projects, tasks, notes, events, people and activity appear in every
+3. Projects, tasks, notes, meetings, people and activity appear in every
    open tab at once. Archived projects stay archived.
 4. Keep the artifact's file until you have used Datapad for a while; you
    can import it again at any time without making duplicates.
@@ -160,8 +170,8 @@ the bucket in the dashboard). A space's id is in the `/api/spaces` list.
 ## Moving a project to another space
 
 With more than one space, a project page's menu has **Move to…**. The
-project goes with its tasks, notes, events, decisions and activity log
-(unlike deleting a project, its events and decisions go with it rather
+project goes with its tasks, notes, meetings, milestones, decisions and
+activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it
 refers to (members, assignees, who its tasks are blocked on, event
 attendees, deciders, its org's contacts, and anyone @-mentioned in its

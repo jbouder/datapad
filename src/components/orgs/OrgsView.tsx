@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
 import { formatDay } from '#shared/dates';
-import { byWhen } from '#shared/events';
+import { byWhen } from '#shared/meetings';
 import { organizePlan, orgProjects, unorganized } from '#shared/orgs';
 import { healthOf, type Org, settingsOf } from '#shared/types';
 import { Field } from '@/components/Field';
@@ -188,7 +188,7 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
   if (!state) return null;
   const projects = orgProjects(state.projects, state.orgs).get(org.id) ?? [];
   const ids = new Set(projects.map((p) => p.id));
-  const events = Object.values(state.events)
+  const events = Object.values(state.meetings)
     .filter((e) => e.projectId && ids.has(e.projectId) && e.date >= today)
     .sort(byWhen)
     .slice(0, 5);

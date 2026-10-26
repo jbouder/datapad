@@ -256,7 +256,10 @@ describe('projectSubtree', () => {
       't-4',
     ]);
     expect(Object.keys(subtree.notes).sort()).toEqual(['n-1', 'n-2']);
-    expect(Object.keys(subtree.events).sort()).toEqual(['e-1', 'e-2']);
+    expect(Object.keys(subtree.meetings)).toEqual(['e-1']);
+    expect(subtree.projects['p-echo']?.milestones).toEqual([
+      { id: 'e-2', title: 'Base operational', date: '2026-11-14' },
+    ]);
     expect(Object.keys(subtree.decisions)).toEqual(['d-1']);
     expect(Object.keys(subtree.activity)).toEqual(['p-echo']);
     expect(Object.keys(subtree.orgs)).toEqual(['o-rebels']);
@@ -427,8 +430,7 @@ describe('removeSubtree', () => {
         'tasks/t-4',
         'notes/n-1',
         'notes/n-2',
-        'events/e-1',
-        'events/e-2',
+        'meetings/e-1',
         'decisions/d-1',
         'activity/p-echo',
       ].sort(),

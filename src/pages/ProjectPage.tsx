@@ -10,7 +10,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { projectDecisions } from '#shared/decisions';
-import { projectEvents } from '#shared/events';
+import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { DecisionList } from '@/components/decisions/DecisionList';
@@ -92,8 +92,8 @@ export function ProjectPage({ id }: { id: string }) {
   );
 
   const events = useMemo(
-    () => projectEvents(state?.events ?? {}, id),
-    [state?.events, id],
+    () => projectMeetings(state?.meetings ?? {}, id),
+    [state?.meetings, id],
   );
 
   const tasks = useMemo(() => {

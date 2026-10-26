@@ -77,13 +77,12 @@ describe('buildDigest', () => {
     expect(g?.added).toEqual(['fresh']);
   });
 
-  it('events by local day, decisions, notes, and status / health / state lines', () => {
+  it('meetings by local day, decisions, notes, and status / health / state lines', () => {
     const s = world();
-    const event = (id: string, date: string) => ({
+    const meeting = (id: string, date: string) => ({
       id,
       projectId: 'p1',
       title: id,
-      type: 'meeting' as const,
       date,
       time: '',
       end: '',
@@ -93,15 +92,15 @@ describe('buildDigest', () => {
       createdAt: range.from,
       updatedAt: range.from,
     });
-    s.events.a = event('Kickoff', '2026-10-19');
-    s.events.b = event('Review', '2026-10-25');
-    s.events.c = event('Too late', '2026-10-26');
+    s.meetings.a = meeting('Kickoff', '2026-10-19');
+    s.meetings.b = meeting('Review', '2026-10-25');
+    s.meetings.c = meeting('Too late', '2026-10-26');
     s.notes.n = {
       id: 'n',
       projectId: null,
       body: 'x',
       pinned: false,
-      eventId: null,
+      meetingId: null,
       phase: null,
       createdAt: '2026-10-21T08:00:00.000Z',
     };
@@ -131,9 +130,9 @@ describe('buildDigest', () => {
       'General',
     ]);
     const echo = digest.projects[0];
-    expect(echo?.events).toEqual([
-      'Mon 19 Oct 2026: Kickoff (Meeting)',
-      'Sun 25 Oct 2026: Review (Meeting)',
+    expect(echo?.meetings).toEqual([
+      'Mon 19 Oct 2026: Kickoff',
+      'Sun 25 Oct 2026: Review',
     ]);
     expect(echo?.decisions).toEqual(['Decided: Move to Hoth']);
     expect(echo?.changes).toEqual([

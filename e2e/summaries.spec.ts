@@ -18,7 +18,7 @@ import {
 interface Stored {
   notes: Record<
     string,
-    { body: string; projectId: string | null; eventId: string | null }
+    { body: string; projectId: string | null; meetingId: string | null }
   >;
   activity: Record<string, { events: { text: string }[] }>;
 }
@@ -203,7 +203,7 @@ test('an event summary saves as a note linked to the event', async ({
   const note = Object.values((await stored(request)).notes).find((n) =>
     n.body.startsWith('Summary of Shield review'),
   );
-  expect(note).toMatchObject({ projectId: 'p-echo', eventId: 'e-1' });
+  expect(note).toMatchObject({ projectId: 'p-echo', meetingId: 'e-1' });
 });
 
 test('Settings picks the model and removes the download', async ({ page }) => {

@@ -11,6 +11,7 @@ import type { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
 import fixture from './fixtures/export.json';
+import legacy from './fixtures/legacy-export.json';
 
 const bindings = env as unknown as Bindings;
 
@@ -234,6 +235,23 @@ describe('backup routes', () => {
       bindings,
     );
     expect(missing.status).toBe(404);
+  });
+
+  it('restores a backup written before meetings, migrated', async () => {
+    const email = `${crypto.randomUUID()}@example.com`;
+    const stub = bindings.DATAPAD.getByName(email);
+    await bindings.BACKUPS.put(
+      `${email}/datapad-2026-01-02.json`,
+      JSON.stringify(legacy),
+    );
+    const outcome = await stub.restoreBackup(MAIN_SPACE, '2026-01-02');
+    expect(outcome).toMatchObject({ ok: true });
+    const file = await stub.export(MAIN_SPACE);
+    expect(Object.keys(file.meetings).sort()).toEqual(['e-1', 'e-3', 'e-4']);
+    expect(file.projects['p-echo']?.milestones?.map((m) => m.id)).toEqual([
+      'e-2',
+    ]);
+    expect(file).not.toHaveProperty('events');
   });
 });
 

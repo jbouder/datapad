@@ -1,6 +1,11 @@
 import { FlagIcon } from '@phosphor-icons/react';
 import { formatDay } from '#shared/dates';
-import { type Event, healthOf, type Person, type Project } from '#shared/types';
+import {
+  healthOf,
+  type Milestone,
+  type Person,
+  type Project,
+} from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { HEALTH_EDGE, HealthBadge } from '@/components/projects/Health';
@@ -14,7 +19,7 @@ const MAX_MEMBERS = 4;
  * One project as a card, the whole card a link: org, health (a colored
  * left edge and its word), status, priority,
  * name, the current state line, then open count, target, the next
- * milestone or deadline, and up to four members (+N for the rest).
+ * milestone, and up to four members (+N for the rest).
  */
 export function ProjectCard({
   project,
@@ -27,7 +32,7 @@ export function ProjectCard({
 }: {
   project: Project;
   open: number;
-  next: Event | undefined;
+  next: Milestone | undefined;
   people: Record<string, Person>;
   today: string;
   /** Run the entrance (first mount of the page only). */

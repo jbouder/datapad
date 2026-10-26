@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { LIMITS } from '#shared/limits';
+import { migrate } from '#shared/migrate';
 import {
   type BackupInfo,
   type BackupList,
@@ -116,9 +117,14 @@ export type DeleteOutcome =
  * migration, as `main`'s; each space's own lives in its `spaces` row.
  */
 const SEQ = 'seq';
-/** The storage layout: 1 before spaces, 2 with `docs` keyed by space. */
+/**
+ * The storage layout: 1 before spaces, 2 with `docs` keyed by space, 3
+ * with meetings (no `events` rows) and milestones on their projects.
+ */
 const SCHEMA = 'schema_version';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+/** The collections the meetings migration reads and may rewrite. */
+const MIGRATED = ['projects', 'notes', 'events', 'meetings'] as const;
 /** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
@@ -334,70 +340,139 @@ export class DatapadObject extends DurableObject<Bindings> {
         seq INTEGER NOT NULL
       );
     `);
-    if (Number(this.meta(SCHEMA) ?? 1) >= SCHEMA_VERSION) return;
+    const version = Number(this.meta(SCHEMA) ?? 1);
+    if (version >= SCHEMA_VERSION) return;
     // One transaction, so a failure leaves the old layout whole and the
     // next wake tries again.
     this.ctx.storage.transactionSync(() => {
-      const hasDocs =
-        sql
-          .exec(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'docs'",
-          )
-          .toArray().length > 0;
-      const keyedBySpace =
-        hasDocs &&
-        sql
-          .exec<{ name: string }>("PRAGMA table_info('docs')")
-          .toArray()
-          .some((c) => c.name === 'space');
-      if (!keyedBySpace) {
-        // Rows from before spaces belong to `main`, unchanged otherwise.
-        sql.exec(`
-          DROP TABLE IF EXISTS docs_by_space;
-          CREATE TABLE docs_by_space (
-            space TEXT NOT NULL,
-            col TEXT NOT NULL,
-            id TEXT NOT NULL,
-            json TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            PRIMARY KEY (space, col, id)
-          );
-        `);
-        if (hasDocs) {
-          sql.exec(
-            'INSERT INTO docs_by_space (space, col, id, json, updated_at) SELECT ?, col, id, json, updated_at FROM docs',
-            MAIN_SPACE,
-          );
-          sql.exec('DROP TABLE docs');
-        }
-        sql.exec('ALTER TABLE docs_by_space RENAME TO docs');
-      }
-      sql.exec(`
-        CREATE TABLE IF NOT EXISTS spaces (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          position INTEGER NOT NULL,
-          seq INTEGER NOT NULL,
-          created_at TEXT NOT NULL
-        );
-      `);
-      const empty =
-        sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM spaces').one().n ===
-        0;
-      if (empty) {
-        // `main` carries on the sequence the clients already know.
-        sql.exec(
-          'INSERT INTO spaces (id, name, position, seq, created_at) VALUES (?, ?, 0, ?, ?)',
-          MAIN_SPACE,
-          'Main',
-          Number(this.meta(SEQ) ?? 0),
-          new Date().toISOString(),
-        );
-      }
-      // From here each space's row holds its own sequence number.
-      sql.exec('DELETE FROM meta WHERE key = ?', SEQ);
+      if (version < 2) this.migrateSpaces();
+      this.migrateMeetings();
       this.setMeta(SCHEMA, String(SCHEMA_VERSION));
     });
+  }
+
+  /** Schema 2: `docs` keyed by space, the data from before in `main`. */
+  private migrateSpaces() {
+    const sql = this.ctx.storage.sql;
+    const hasDocs =
+      sql
+        .exec(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'docs'",
+        )
+        .toArray().length > 0;
+    const keyedBySpace =
+      hasDocs &&
+      sql
+        .exec<{ name: string }>("PRAGMA table_info('docs')")
+        .toArray()
+        .some((c) => c.name === 'space');
+    if (!keyedBySpace) {
+      // Rows from before spaces belong to `main`, unchanged otherwise.
+      sql.exec(`
+        DROP TABLE IF EXISTS docs_by_space;
+        CREATE TABLE docs_by_space (
+          space TEXT NOT NULL,
+          col TEXT NOT NULL,
+          id TEXT NOT NULL,
+          json TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (space, col, id)
+        );
+      `);
+      if (hasDocs) {
+        sql.exec(
+          'INSERT INTO docs_by_space (space, col, id, json, updated_at) SELECT ?, col, id, json, updated_at FROM docs',
+          MAIN_SPACE,
+        );
+        sql.exec('DROP TABLE docs');
+      }
+      sql.exec('ALTER TABLE docs_by_space RENAME TO docs');
+    }
+    sql.exec(`
+      CREATE TABLE IF NOT EXISTS spaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        seq INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+    const empty =
+      sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM spaces').one().n === 0;
+    if (empty) {
+      // `main` carries on the sequence the clients already know.
+      sql.exec(
+        'INSERT INTO spaces (id, name, position, seq, created_at) VALUES (?, ?, 0, ?, ?)',
+        MAIN_SPACE,
+        'Main',
+        Number(this.meta(SEQ) ?? 0),
+        new Date().toISOString(),
+      );
+    }
+    // From here each space's row holds its own sequence number.
+    sql.exec('DELETE FROM meta WHERE key = ?', SEQ);
+  }
+
+  /**
+   * Schema 3: events became meetings and milestones moved onto their
+   * project (`shared/migrate.ts` has the rules). Per space: run the
+   * migration over its projects, notes and events, drop the `events`
+   * rows, write the rows it changed, and bump the space's `seq` by one so
+   * every open or cached client takes a fresh snapshot rather than
+   * replaying ops across the change. A space that never changed (seq 0,
+   * nothing stored) keeps its 0. Runs inside `ensureTables()`'s
+   * transaction.
+   */
+  private migrateMeetings() {
+    const sql = this.ctx.storage.sql;
+    const at = new Date().toISOString();
+    const spaces = sql
+      .exec<{ id: string; seq: number }>('SELECT id, seq FROM spaces')
+      .toArray();
+    for (const space of spaces) {
+      const before: Record<string, Record<string, unknown>> = {};
+      const text = new Map<string, string>();
+      for (const col of MIGRATED) before[col] = {};
+      for (const row of sql.exec<{ col: string; id: string; json: string }>(
+        `SELECT col, id, json FROM docs WHERE space = ? AND col IN (${MIGRATED.map(() => '?').join(', ')})`,
+        space.id,
+        ...MIGRATED,
+      )) {
+        const docs = before[row.col];
+        if (!docs) continue;
+        docs[row.id] = JSON.parse(row.json);
+        text.set(`${row.col}\u0000${row.id}`, row.json);
+      }
+      const after = migrate(before) as Record<
+        string,
+        Record<string, unknown> | undefined
+      >;
+      sql.exec("DELETE FROM docs WHERE space = ? AND col = 'events'", space.id);
+      for (const col of ['projects', 'notes', 'meetings'] as const) {
+        for (const [id, doc] of Object.entries(after[col] ?? {})) {
+          const json = JSON.stringify(doc);
+          if (text.get(`${col}\u0000${id}`) === json) continue;
+          sql.exec(
+            'INSERT OR REPLACE INTO docs (space, col, id, json, updated_at) VALUES (?, ?, ?, ?, ?)',
+            space.id,
+            col,
+            id,
+            json,
+            at,
+          );
+        }
+      }
+      const stored =
+        sql
+          .exec<{ n: number }>(
+            'SELECT COUNT(*) AS n FROM docs WHERE space = ?',
+            space.id,
+          )
+          .one().n > 0;
+      if (space.seq > 0 || stored) {
+        sql.exec('UPDATE spaces SET seq = seq + 1 WHERE id = ?', space.id);
+      }
+    }
   }
 
   private load() {
@@ -613,7 +688,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       notes,
       people,
       activity,
-      events,
+      meetings,
       settings,
       decisions,
       orgs,
@@ -627,7 +702,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       notes,
       people,
       activity,
-      events,
+      meetings,
       settings,
       decisions,
       orgs,
@@ -720,7 +795,7 @@ export class DatapadObject extends DurableObject<Bindings> {
   /* ---------- moving a project ---------- */
 
   /**
-   * Move a project, with its tasks, notes, events, decisions and log, from
+   * Move a project, with its tasks, notes, meetings, decisions and log, from
    * one space to another, copying the people and org it refers to (see
    * `projectSubtree`). Not an op: an op changes one space, and this
    * changes two. So the target takes the project the way an import does,

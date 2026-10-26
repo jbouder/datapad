@@ -20,7 +20,7 @@ function seeded() {
   for (const key of Object.keys(seed.activity)) {
     (seed.activity as Record<string, unknown>)[key] = { events: [] };
   }
-  for (const e of Object.values(seed.events)) {
+  for (const e of Object.values(seed.meetings)) {
     (e as { date: string }).date = addDays(today, -60);
   }
   Object.assign(seed.tasks['t-1'], {

@@ -3,8 +3,7 @@ import {
   ChartBarHorizontalIcon,
   RowsIcon,
 } from '@phosphor-icons/react';
-import { EVENT_TYPE_LABELS } from '#shared/events';
-import type { DateString, Event, EventType, Snapshot } from '#shared/types';
+import type { DateString, Meeting, Snapshot } from '#shared/types';
 import { useEventForm } from '@/components/events/EventFormProvider';
 import { EventList } from '@/components/events/EventList';
 import { EventRow } from '@/components/events/EventRow';
@@ -20,19 +19,10 @@ export const EVENT_VIEWS: readonly ViewOption<EventView>[] = [
   { id: 'timeline', label: 'Timeline', icon: ChartBarHorizontalIcon },
 ];
 
-/** A calendar chip's colors, as the type pills have them. */
-const CHIP: Record<EventType, string> = {
-  milestone: 'bg-accent text-accent-foreground',
-  deadline: 'border-destructive text-destructive',
-  demo: 'border-ok text-ok',
-  meeting: 'bg-muted',
-  other: 'border-muted-foreground/40 text-muted-foreground',
-};
-
 interface Props {
   view: EventView;
   /** Already filtered, soonest first. */
-  events: Event[];
+  events: Meeting[];
   state: Snapshot;
   today: DateString;
   /** The project a new event starts in (the page's filter). */
@@ -66,7 +56,7 @@ export function EventLayouts({
           date: e.date,
           time: e.time,
           label: e.title,
-          className: CHIP[e.type],
+          className: 'bg-muted',
         }))}
         onOpen={openEvent}
         onAddDay={(date) => newEvent({ projectId, date })}
@@ -114,11 +104,8 @@ export function EventLayouts({
               date: e.date,
               time: e.time || undefined,
               end: e.end || undefined,
-              label: `${e.title} (${EVENT_TYPE_LABELS[e.type]})`,
-              kind:
-                e.type === 'milestone' || e.type === 'deadline'
-                  ? e.type
-                  : ('event' as const),
+              label: e.title,
+              kind: 'event' as const,
             })),
         }))}
         onOpenPoint={(_lane, id) => openEvent(id)}

@@ -2,7 +2,7 @@ import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { formatTimestamp, relativeTime } from '#shared/dates';
 import { taskTitleFrom } from '#shared/notes';
-import type { Event, Note, Snapshot } from '#shared/types';
+import type { Meeting, Note, Snapshot } from '#shared/types';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { noteLocation } from '@/components/notes/useMakeTask';
 import { linkProps } from '@/lib/router';
@@ -19,13 +19,13 @@ const GROUPS = [
 /** An event's notes: Prep, then Debrief, then the rest, oldest first. */
 export function linkedNotes(
   notes: Snapshot['notes'],
-  eventId: string,
+  meetingId: string,
   hidden: ReadonlySet<string> = new Set(),
 ): Note[] {
   const rank = (n: Note) =>
     n.phase === 'pre' ? 0 : n.phase === 'post' ? 1 : 2;
   return Object.values(notes)
-    .filter((n) => n.eventId === eventId && !hidden.has(n.id))
+    .filter((n) => n.meetingId === meetingId && !hidden.has(n.id))
     .sort(
       (a, b) => rank(a) - rank(b) || a.createdAt.localeCompare(b.createdAt),
     );
@@ -40,7 +40,7 @@ export function LinkedNotes({
   event,
   state,
 }: {
-  event: Event;
+  event: Meeting;
   state: Snapshot;
 }) {
   const { hidden } = useNotes();

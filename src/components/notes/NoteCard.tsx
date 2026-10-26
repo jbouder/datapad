@@ -182,7 +182,7 @@ export function NoteCard({
   }, [note.body, expanded, editing]);
 
   const project = note.projectId ? state.projects[note.projectId] : null;
-  const event = note.eventId ? state.events[note.eventId] : null;
+  const event = note.meetingId ? state.meetings[note.meetingId] : null;
   const time = new Date(note.createdAt);
   const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
 

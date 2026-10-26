@@ -7,7 +7,7 @@ interface Stored {
     string,
     {
       body: string;
-      eventId: string | null;
+      meetingId: string | null;
       phase: string | null;
       projectId: string | null;
     }
@@ -40,8 +40,8 @@ function composer(page: Page) {
 test.beforeEach(async ({ request }) => {
   // The seed's dates are fixed; bring two events into the coming week.
   const seed = structuredClone(SEED);
-  seed.events['e-1'].date = shieldDay;
-  seed.events['e-4'].date = planningDay;
+  seed.meetings['e-1'].date = shieldDay;
+  seed.meetings['e-4'].date = planningDay;
   await request.post('/api/import', { data: seed });
 });
 
@@ -73,7 +73,7 @@ test('Prep note from Events goes to the project and links the note', async ({
     n.body.includes('Ask about the ridge'),
   );
   expect(added).toMatchObject({
-    eventId: 'e-1',
+    meetingId: 'e-1',
     phase: 'pre',
     projectId: 'p-echo',
   });
@@ -137,7 +137,7 @@ test('more than three linked notes wait behind Show all', async ({
   request,
 }) => {
   const seed = structuredClone(SEED);
-  seed.events['e-1'].date = shieldDay;
+  seed.meetings['e-1'].date = shieldDay;
   const notes: Record<string, object> = seed.notes;
   for (const [i, phase] of (['pre', 'post', null] as const).entries()) {
     notes[`n-x${i}`] = {

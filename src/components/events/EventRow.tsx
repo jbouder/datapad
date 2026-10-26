@@ -9,13 +9,12 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
-import { timeRange } from '#shared/events';
-import type { Event, Person, Snapshot } from '#shared/types';
+import { timeRange } from '#shared/meetings';
+import type { Meeting, Person, Snapshot } from '#shared/types';
 import { deleteEventQuestion } from '@/components/events/EventForm';
 import { useEventForm } from '@/components/events/EventFormProvider';
 import { useEventNotes } from '@/components/events/EventNotesProvider';
 import { LinkedNotes } from '@/components/events/LinkedNotes';
-import { TypePill } from '@/components/events/TypePill';
 import { Initials } from '@/components/Initials';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
@@ -49,7 +48,7 @@ export function EventRow({
   className,
   style,
 }: {
-  event: Event;
+  event: Meeting;
   state: Snapshot;
   today: string;
   showProject?: boolean;
@@ -81,11 +80,11 @@ export function EventRow({
     .filter((p): p is Person => Boolean(p));
   const range = timeRange(event);
   const notes = Object.values(state.notes).filter(
-    (n) => n.eventId === event.id,
+    (n) => n.meetingId === event.id,
   ).length;
 
   const remove = () => {
-    if (!actions.deleteEvent({ id: event.id })) return;
+    if (!actions.deleteMeeting({ id: event.id })) return;
     show(`Deleted “${event.title}”`);
   };
 
@@ -111,7 +110,6 @@ export function EventRow({
             {range && <span>{range}</span>}
           </span>
           <span className="flex min-w-0 items-center gap-2 @xl/row:flex-1 @xl/row:gap-3">
-            <TypePill type={event.type} />
             <button
               type="button"
               onClick={() => openEvent(event.id)}
@@ -193,7 +191,7 @@ export function EventRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
-              onClick={() => summarize({ kind: 'event', id: event.id })}
+              onClick={() => summarize({ kind: 'meeting', id: event.id })}
             >
               <SparkleIcon />
               Summarize

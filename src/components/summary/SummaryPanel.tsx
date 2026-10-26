@@ -68,7 +68,7 @@ export function SummaryPanel({
     const id = actions.addNote({
       projectId: request.projectId,
       body: namesToTokens(summaryNoteBody(request.label, text), state.people),
-      eventId: request.eventId,
+      meetingId: request.meetingId,
       summary: true,
     });
     if (!id) return;

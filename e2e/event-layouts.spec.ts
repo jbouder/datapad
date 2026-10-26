@@ -24,7 +24,7 @@ async function pick(page: Page, name: string) {
 
 test.beforeEach(async ({ request }) => {
   const seed = structuredClone(SEED);
-  seed.events['e-1'].date = day;
+  seed.meetings['e-1'].date = day;
   await request.post('/api/import', { data: seed });
 });
 
@@ -75,10 +75,10 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
 }) => {
   test.skip(isMobile(page), 'Phones list every event in the week strip.');
   const seed = structuredClone(SEED);
-  const events = seed.events as Record<string, object>;
+  const events = seed.meetings as Record<string, object>;
   for (const n of [1, 2, 3, 4]) {
     events[`e-x${n}`] = {
-      ...seed.events['e-1'],
+      ...seed.meetings['e-1'],
       id: `e-x${n}`,
       title: `Drill ${n}`,
       date: today,
@@ -126,7 +126,10 @@ test('Timeline: a lane per project, events listed for assistive tech', async ({
   await expect(list).toContainText('Echo Base relocation');
   await expect(list).toContainText('General');
   // Keyboard focus shows the list.
-  const shield = list.getByRole('button', { name: 'Shield review (Meeting)' });
+  const shield = list.getByRole('button', {
+    name: 'Shield review',
+    exact: true,
+  });
   await shield.focus();
   await expect(list).toBeVisible();
   await shield.press('Enter');
@@ -135,11 +138,10 @@ test('Timeline: a lane per project, events listed for assistive tech', async ({
   await page.keyboard.press('Escape');
   await expect(edit).toBeHidden();
 
-  // The type filter applies here too.
-  await page
-    .locator('label')
-    .filter({ hasText: /^Deadline$/ })
-    .click();
+  // The project filter applies here too.
+  await page.getByRole('combobox', { name: 'Project' }).click();
+  await page.getByRole('option', { name: 'General', exact: true }).click();
+  await expect(page).toHaveURL(/project=general/);
   await expect(list).not.toContainText('Echo Base relocation');
   await expect(list).toContainText('Quarterly planning');
   await expectNoSidewaysScroll(page);
