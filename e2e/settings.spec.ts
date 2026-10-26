@@ -145,29 +145,30 @@ test('Orgs: a default org that new projects start in', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/orgs');
+  // A space starts with no default org, and nothing marked default.
   const picker = page.getByRole('combobox', { name: 'Default org' });
-  await expect(picker).toHaveValue('OpenTeams Internal');
+  await expect(picker).toHaveValue('No org');
   // Plain text until organized; then each is a record with a count.
   await page.getByRole('button', { name: 'Organize orgs' }).click();
   const list = page.getByRole('list', { name: 'Orgs' });
-  await expect(list).toContainText('OpenTeams Internal');
-  await expect(list).toContainText('default');
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await expect(list).not.toContainText('default');
   await expect(
     list.getByRole('listitem').filter({ hasText: 'Rebel Alliance' }),
   ).toContainText('2 projects');
 
-  // New projects start in it.
+  // New projects start in no org.
   await page.goto('/projects');
   await page.getByRole('button', { name: 'New project' }).click();
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
-  ).toHaveValue('OpenTeams Internal');
+  ).toHaveValue('No org');
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Cancel' })
     .click();
 
-  // Change it; it is stored with your data, not just in this browser.
+  // Pick one; it is stored with your data, not just in this browser.
   await page.goto('/orgs');
   await picker.click();
   await picker.fill('Rebel');
@@ -175,7 +176,21 @@ test('Orgs: a default org that new projects start in', async ({
   await expect(
     page.getByText('New projects start in Rebel Alliance'),
   ).toBeVisible();
+  await expect(
+    list.getByRole('listitem').filter({ hasText: 'Rebel Alliance' }),
+  ).toContainText('default');
   await expectSaved(page);
+
+  // Now new projects start in it.
+  await page.goto('/projects');
+  await page.getByRole('button', { name: 'New project' }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
+  ).toHaveValue('Rebel Alliance');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Cancel' })
+    .click();
 
   const data = await (await request.get('/api/export.json')).json();
   expect(data.settings).toEqual({ user: { defaultOrg: 'Rebel Alliance' } });

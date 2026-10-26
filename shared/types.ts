@@ -276,14 +276,15 @@ export const MAIN_SPACE = 'main';
  * device, in localStorage.
  */
 export interface Settings {
-  /** The org a new project starts with. */
+  /** The org a new project starts with; empty for none. */
   defaultOrg: string;
 }
 
 export const SETTINGS_ID = 'user';
 
+/** A fresh space has no default org: you pick one in Orgs. */
 export const DEFAULT_SETTINGS: Settings = {
-  defaultOrg: 'OpenTeams Internal',
+  defaultOrg: '',
 };
 
 /** The settings in effect: what is stored over the defaults. */

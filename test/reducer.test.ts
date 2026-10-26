@@ -1009,7 +1009,8 @@ describe('batch', () => {
 describe('settings', () => {
   it('starts from the defaults and stores a patch, unlogged', () => {
     const state = base();
-    expect(settingsOf(state)).toEqual({ defaultOrg: 'OpenTeams Internal' });
+    // No default org until you pick one.
+    expect(settingsOf(state)).toEqual({ defaultOrg: '' });
     const { state: next, changed } = at(state, {
       type: 'setSettings',
       patch: { defaultOrg: 'Rebel Alliance' },
