@@ -175,7 +175,7 @@ test('archive with undo, then delete with the counts', async ({
   await panel(page).getByRole('button', { name: 'Delete' }).click();
   const ask = panel(page).getByRole('alertdialog');
   await expect(ask).toContainText(
-    'Delete Echo Base relocation and its 4 tasks, 2 notes and activity?',
+    'Delete Echo Base relocation and its 4 tasks, 2 notes, 1 milestone and activity?',
   );
   await ask.getByRole('button', { name: 'Delete project' }).click();
   await expect(page).toHaveURL(/\/projects$/);

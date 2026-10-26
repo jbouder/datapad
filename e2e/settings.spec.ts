@@ -201,7 +201,7 @@ test('Data and Account', async ({ page, request, email }) => {
   await openLive(page, '/settings/data');
   await expect(
     page.getByText(
-      'Main has 3 projects, 7 tasks, 4 notes, 3 events, 4 people.',
+      'Main has 3 projects, 7 tasks, 4 notes, 3 meetings, 4 people.',
     ),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();

@@ -1,25 +1,25 @@
 import { describeDay } from '#shared/dates';
 import { timeRange } from '#shared/meetings';
 import type { Meeting, Snapshot } from '#shared/types';
-import { useEventNotes } from '@/components/events/EventNotesProvider';
+import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
 
 /**
- * Focus's agenda: the next seven days of events as a strip of cards that
+ * Focus's agenda: the next seven days of meetings as a strip of cards that
  * scrolls sideways (snapping card by card on phones). Each card is a link
- * to the event on the Events page; Prep and Debrief start its notes.
+ * to the meeting on the Meetings page; Prep and Debrief start its notes.
  */
 export function AgendaStrip({
-  events,
+  meetings,
   state,
   today,
 }: {
-  events: Meeting[];
+  meetings: Meeting[];
   state: Snapshot;
   today: string;
 }) {
-  const { startNote } = useEventNotes();
+  const { startNote } = useMeetingNotes();
   return (
     <section aria-labelledby="agenda-title" className="flex min-w-0 flex-col">
       <h2 id="agenda-title" className="pb-1 font-heading text-sm font-semibold">
@@ -29,7 +29,7 @@ export function AgendaStrip({
         aria-labelledby="agenda-title"
         className="scrollbar-thin -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 desk:mx-0 desk:snap-none desk:px-0"
       >
-        {events.map((e) => {
+        {meetings.map((e) => {
           const project = e.projectId ? state.projects[e.projectId] : null;
           const range = timeRange(e);
           return (
@@ -45,7 +45,10 @@ export function AgendaStrip({
                 {range && <span>{range}</span>}
               </span>
               <a
-                {...linkProps({ name: 'events' }, `view=list&event=${e.id}`)}
+                {...linkProps(
+                  { name: 'meetings' },
+                  `view=list&meeting=${e.id}`,
+                )}
                 className="line-clamp-2 text-sm font-medium outline-none after:absolute after:inset-0"
               >
                 {e.title}

@@ -196,7 +196,7 @@ function ModelGate({ summaries }: { summaries: Summaries }) {
         <>
           <p className="text-sm">
             Summaries run on a small language model in this browser. Nothing
-            about your projects, tasks, notes or events leaves the device.
+            about your projects, tasks, notes or meetings leaves the device.
           </p>
           <ModelPicker value={choice.id} onChange={summaries.choose} />
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">

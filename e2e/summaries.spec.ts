@@ -179,15 +179,15 @@ test('Stop keeps what was written and says Stopped.', async ({ page }) => {
   ).toBeEnabled();
 });
 
-test('an event summary saves as a note linked to the event', async ({
+test('a meeting summary saves as a note linked to the meeting', async ({
   page,
   request,
 }) => {
   await fakeModel(page, ['Review went fine.']);
-  await openLive(page, '/events?view=list');
+  await openLive(page, '/meetings?view=list');
   const title = 'Shield review';
   await page
-    .locator('[data-event-id]')
+    .locator('[data-meeting-id]')
     .filter({ hasText: title })
     .first()
     .getByRole('button', { name: `More for “${title}”` })

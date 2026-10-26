@@ -9,7 +9,7 @@ test('the rail shows live counts, active projects and Archived', async ({
   await openLive(page, '/');
   const rail = page.getByRole('complementary', { name: 'Datapad' });
 
-  // Seed: 5 open tasks, none in the archived project. Events in the next
+  // Seed: 5 open tasks, none in the archived project. Meetings in the next
   // week depend on today, so only task counts are asserted.
   await expect(
     rail.getByRole('link', { name: /^Focus 5 open$/ }),
@@ -81,7 +81,7 @@ test('/ is Focus, and every section has its route', async ({ page }) => {
     ['/archive', 'Archived'],
     ['/tasks', 'Tasks'],
     ['/notes', 'Notes'],
-    ['/events', 'Events'],
+    ['/meetings', 'Meetings'],
   ]) {
     await page.goto(path);
     await expect(
@@ -143,7 +143,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Events, Notes, then People and Orgs on desktop', async ({
+test('sections run Focus, Projects, Tasks, Meetings, Notes, then People and Orgs on desktop', async ({
   page,
 }) => {
   await page.goto('/');
@@ -155,7 +155,7 @@ test('sections run Focus, Projects, Tasks, Events, Notes, then People and Orgs o
     /Focus/,
     /Projects/,
     /Tasks/,
-    /Events/,
+    /Meetings/,
     /Notes/,
     // The tab bar keeps five; People and Orgs are in the rail only.
     ...(isMobile(page) ? [] : [/People/, /Orgs/]),

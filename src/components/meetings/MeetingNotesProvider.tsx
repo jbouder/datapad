@@ -12,7 +12,7 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { navigate } from '@/lib/router';
 
 /** A Prep or Debrief note waiting for a composer. */
-export interface EventNoteIntent {
+export interface MeetingNoteIntent {
   meetingId: string;
   phase: NotePhase;
 }
@@ -21,36 +21,38 @@ export interface EventNoteIntent {
 export interface NoteTarget {
   /** Its fixed project (null = General), or undefined: it has a picker. */
   projectId: string | null | undefined;
-  prefill: (event: Meeting, phase: NotePhase) => void;
+  prefill: (meeting: Meeting, phase: NotePhase) => void;
 }
 
-interface EventNotes {
+interface MeetingNotes {
   /** Prep or Debrief: prefill a composer here, or go where there is one. */
-  startNote: (event: Meeting, phase: NotePhase) => void;
+  startNote: (meeting: Meeting, phase: NotePhase) => void;
   /** A composer announces itself; the return value withdraws it. */
   register: (target: NoteTarget) => () => void;
   /** Parked by `startNote` until a composer for it mounts. */
-  pending: EventNoteIntent | null;
+  pending: MeetingNoteIntent | null;
   clearPending: () => void;
 }
 
-const Context = createContext<EventNotes | null>(null);
+const Context = createContext<MeetingNotes | null>(null);
 
-export function accepts(target: NoteTarget, event: Meeting): boolean {
-  return target.projectId === undefined || target.projectId === event.projectId;
+export function accepts(target: NoteTarget, meeting: Meeting): boolean {
+  return (
+    target.projectId === undefined || target.projectId === meeting.projectId
+  );
 }
 
 /**
- * The route from an event's Prep note / Debrief note to a composer
- * (docs/SPEC.md § Events and notes linkage). A composer on this page that
- * can take the event's project is prefilled in place; otherwise the
- * intent is parked as `pending` and the app goes to the event's project
+ * The route from a meeting's Prep note / Debrief note to a composer
+ * (docs/SPEC.md § Meetings and notes linkage). A composer on this page that
+ * can take the meeting's project is prefilled in place; otherwise the
+ * intent is parked as `pending` and the app goes to the meeting's project
  * (Notes for General), whose composer applies it on arrival.
  */
-export function EventNotesProvider({ children }: { children: ReactNode }) {
+export function MeetingNotesProvider({ children }: { children: ReactNode }) {
   const { state } = useDatapad();
   const targets = useRef<NoteTarget[]>([]);
-  const [pending, setPending] = useState<EventNoteIntent | null>(null);
+  const [pending, setPending] = useState<MeetingNoteIntent | null>(null);
   const projects = useRef(state?.projects);
   projects.current = state?.projects;
 
@@ -61,18 +63,18 @@ export function EventNotesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const startNote = useCallback((event: Meeting, phase: NotePhase) => {
-    // A composer bound to the event's project beats one with a picker.
+  const startNote = useCallback((meeting: Meeting, phase: NotePhase) => {
+    // A composer bound to the meeting's project beats one with a picker.
     const here =
-      targets.current.find((t) => t.projectId === event.projectId) ??
-      targets.current.find((t) => accepts(t, event));
+      targets.current.find((t) => t.projectId === meeting.projectId) ??
+      targets.current.find((t) => accepts(t, meeting));
     if (here) {
-      here.prefill(event, phase);
+      here.prefill(meeting, phase);
       return;
     }
-    setPending({ meetingId: event.id, phase });
-    if (event.projectId && projects.current?.[event.projectId]) {
-      navigate({ name: 'project', id: event.projectId });
+    setPending({ meetingId: meeting.id, phase });
+    if (meeting.projectId && projects.current?.[meeting.projectId]) {
+      navigate({ name: 'project', id: meeting.projectId });
     } else {
       navigate({ name: 'notes' });
     }
@@ -86,8 +88,8 @@ export function EventNotesProvider({ children }: { children: ReactNode }) {
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
-export function useEventNotes(): EventNotes {
+export function useMeetingNotes(): MeetingNotes {
   const value = useContext(Context);
-  if (!value) throw new Error('useEventNotes needs EventNotesProvider');
+  if (!value) throw new Error('useMeetingNotes needs MeetingNotesProvider');
   return value;
 }

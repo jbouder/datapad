@@ -29,7 +29,7 @@ import { useToast } from '@/providers/ToastProvider';
 const PHASE = { pre: 'Prep', post: 'Debrief' } as const;
 
 /**
- * One note: where it belongs (project or General, and its event), when,
+ * One note: where it belongs (project or General, and its meeting), when,
  * the rendered body (checkboxes save the note), and Edit, Pin, Delete.
  * Long notes clamp at 12 lines behind "Show more". Edit swaps the body
  * for the composer, with mentions as names.
@@ -182,7 +182,7 @@ export function NoteCard({
   }, [note.body, expanded, editing]);
 
   const project = note.projectId ? state.projects[note.projectId] : null;
-  const event = note.meetingId ? state.meetings[note.meetingId] : null;
+  const meeting = note.meetingId ? state.meetings[note.meetingId] : null;
   const time = new Date(note.createdAt);
   const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
 
@@ -232,9 +232,9 @@ export function NoteCard({
           ) : (
             <span className="border border-dashed px-1.5 py-0.5">General</span>
           ))}
-        {event && note.phase && (
+        {meeting && note.phase && (
           <span className="bg-accent px-1.5 py-0.5 text-accent-foreground">
-            {PHASE[note.phase]} · {event.title}
+            {PHASE[note.phase]} · {meeting.title}
           </span>
         )}
         <time dateTime={note.createdAt} title={formatTimestamp(note.createdAt)}>

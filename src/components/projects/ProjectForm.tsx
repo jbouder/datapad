@@ -66,11 +66,20 @@ function valuesOf(project: Project | undefined, defaultOrg = ''): Values {
 }
 
 /** "Delete Apollo and its 12 tasks, 8 notes and activity?" */
-export function deleteQuestion(name: string, tasks: number, notes: number) {
+export function deleteQuestion(
+  name: string,
+  tasks: number,
+  notes: number,
+  milestones = 0,
+) {
   const parts = [
     tasks === 1 ? '1 task' : `${tasks} tasks`,
     notes === 1 ? '1 note' : `${notes} notes`,
   ];
+  // Milestones live on the project and go with it; named only when there are some.
+  if (milestones > 0) {
+    parts.push(milestones === 1 ? '1 milestone' : `${milestones} milestones`);
+  }
   return `Delete ${name} and its ${parts.join(', ')} and activity?`;
 }
 
@@ -137,8 +146,9 @@ export function ProjectForm({
     [state?.projects],
   );
   const counts = useMemo(() => {
-    if (!project || !state) return { tasks: 0, notes: 0 };
+    if (!project || !state) return { tasks: 0, notes: 0, milestones: 0 };
     return {
+      milestones: project.milestones?.length ?? 0,
       tasks: Object.values(state.tasks).filter(
         (t) => t.projectId === project.id,
       ).length,
@@ -258,7 +268,12 @@ export function ProjectForm({
             className="flex w-full flex-wrap items-center gap-2"
           >
             <p id="delete-question" className="flex-1 text-sm">
-              {deleteQuestion(project.name, counts.tasks, counts.notes)}
+              {deleteQuestion(
+                project.name,
+                counts.tasks,
+                counts.notes,
+                counts.milestones,
+              )}
             </p>
             <Button
               type="button"

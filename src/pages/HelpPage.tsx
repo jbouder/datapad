@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'keyboard', title: 'Keyboard' },
   { id: 'writing', title: 'Writing notes' },
   { id: 'mentions', title: 'Mentions' },
-  { id: 'events', title: 'Events, prep and debrief' },
+  { id: 'meetings', title: 'Meetings, prep and debrief' },
   { id: 'summaries', title: 'Summaries' },
   { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
@@ -67,7 +67,7 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="about">
         <p>
-          Datapad is a private tracker for projects, tasks, notes, events and
+          Datapad is a private tracker for projects, tasks, notes, meetings and
           people, for one person. Only you can open it: every request is checked
           against your Cloudflare Access sign-in, and your data lives in your
           own Cloudflare account. Changes save as you make them and show on
@@ -78,20 +78,20 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="views">
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
           <Term name="Focus">
-            What needs you: the next seven days of events, and open tasks by
+            What needs you: the next seven days of meetings, and open tasks by
             when they are due. <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects">
             Every active project as cards, a table or a timeline. A project page
-            has its tasks, events, notes and activity.
+            has its tasks, meetings, notes and activity.
           </Term>
           <Term name="Tasks">
             Every task, as a list, table, board or timeline, grouped and
             filtered as you like. Select several to close, move or assign them
             at once.
           </Term>
-          <Term name="Events">
-            Meetings, with their prep and debrief notes, as a list, a month
+          <Term name="Meetings">
+            Every meeting, with its prep and debrief notes, as a list, a month
             calendar or a timeline.
           </Term>
           <Term name="Notes">
@@ -100,12 +100,12 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Digest">
             Your own status report: what happened in each project over a week,
-            from tasks, notes, events, decisions and the activity logs. Copy it
-            as Markdown, keep it as a note, or Summarize it.
+            from tasks, notes, meetings, decisions and the activity logs. Copy
+            it as Markdown, keep it as a note, or Summarize it.
           </Term>
           <Term name="Search">
-            <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note, event,
-            decision or person.
+            <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
+            meeting, decision or person.
           </Term>
           <Term name="Decisions">
             Why things are the way they are: every decision, by project, with
@@ -193,19 +193,19 @@ export function HelpPage({ section }: { section?: string }) {
         </p>
       </Section>
 
-      <Section id="events">
+      <Section id="meetings">
         <p className="text-sm">
-          Every event offers <strong>Prep</strong> and <strong>Debrief</strong>.
-          Either opens a note composer for the event’s project, started with the
-          event’s title and date, and links the note to the event as its prep
-          (before) or debrief (after). The event then shows its notes under it,
-          and its summary reads them.
+          Every meeting offers <strong>Prep</strong> and{' '}
+          <strong>Debrief</strong>. Either opens a note composer for the
+          meeting’s project, started with the meeting’s title and date, and
+          links the note to the meeting as its prep (before) or debrief (after).
+          The meeting then shows its notes under it, and its summary reads them.
         </p>
       </Section>
 
       <Section id="summaries">
         <p className="text-sm">
-          Summarize (on a project, task, event or note) writes a short summary
+          Summarize (on a project, task, meeting or note) writes a short summary
           with a small language model that runs in this browser. Nothing about
           your data leaves the device. The first time, it asks before
           downloading the model (about 1 GB, once); Settings → Summaries picks
@@ -217,15 +217,15 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="spaces">
         <p className="text-sm">
-          A space is a separate Datapad: its own projects, tasks, notes, events
-          and people, with nothing shared between spaces. You start with Main.
-          Switch spaces, or make a new one, from the name at the top of the
-          rail, the account menu, or <Key>⌘K</Key>; each device remembers which
-          one it has open. Settings → Spaces renames, reorders and deletes them;
-          deleting asks you to type the name, and the last space cannot go.{' '}
-          <strong>Move to…</strong> on a project page takes the project, with
-          its tasks, notes, events and decisions, to another space, and copies
-          the people and org it needs.
+          A space is a separate Datapad: its own projects, tasks, notes,
+          meetings and people, with nothing shared between spaces. You start
+          with Main. Switch spaces, or make a new one, from the name at the top
+          of the rail, the account menu, or <Key>⌘K</Key>; each device remembers
+          which one it has open. Settings → Spaces renames, reorders and deletes
+          them; deleting asks you to type the name, and the last space cannot
+          go. <strong>Move to…</strong> on a project page takes the project,
+          with its tasks, notes, meetings, milestones and decisions, to another
+          space, and copies the people and org it needs.
         </p>
       </Section>
       <Section id="data">

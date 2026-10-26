@@ -271,7 +271,7 @@
 
 /* Arrived at from a link to it ("From note", the agenda, search). */
 .note-card[data-highlighted],
-.event-row[data-highlighted] {
+.meeting-row[data-highlighted] {
   box-shadow: 0 0 0 2px var(--ring);
 }
 
@@ -309,7 +309,7 @@
 
 /* ---- Text styles (docs/design.md § Text styles) ------------------------- */
 
-/* Rendered Markdown: notes, project descriptions, event-linked notes and
+/* Rendered Markdown: notes, project descriptions, meeting-linked notes and
    summaries. Three headings, body, mono and quote, defined once here.
    `.prose-compact` scales the whole set down (grid cards). */
 @layer components {

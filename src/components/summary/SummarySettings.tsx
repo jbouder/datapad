@@ -49,8 +49,8 @@ export function SummarySettings() {
       <p className="text-sm text-muted-foreground">
         Summarize runs a small language model in this browser. The weights
         download once from {MODEL_SOURCE} when you first agree; nothing about
-        your projects, tasks, notes or events is ever sent anywhere. Remembered
-        on this device.
+        your projects, tasks, notes or meetings is ever sent anywhere.
+        Remembered on this device.
       </p>
       <ModelPicker
         value={choice.id}

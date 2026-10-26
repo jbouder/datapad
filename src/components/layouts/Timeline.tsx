@@ -8,8 +8,8 @@ export interface TimelinePoint {
   id: string;
   date: DateString;
   label: string;
-  /** A milestone is a filled diamond; tasks and events are round. */
-  kind?: 'milestone' | 'task' | 'event';
+  /** A milestone is a filled diamond; tasks and meetings are round. */
+  kind?: 'milestone' | 'task' | 'meeting';
   /** `HH:MM`: placed within its day (which shows when zoomed to a week). */
   time?: string;
   /** `HH:MM`, with `time`: drawn as a range from one to the other. */
@@ -346,7 +346,7 @@ export function Timeline({
                         'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-foreground',
                         p.kind === 'milestone' && 'bg-foreground',
                         p.kind === 'task' && 'rounded-full bg-background',
-                        p.kind === 'event' &&
+                        p.kind === 'meeting' &&
                           'rotate-0 rounded-full bg-primary/60',
                         p.time &&
                           p.end &&

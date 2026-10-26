@@ -163,11 +163,13 @@ test('the timeline lists its items for assistive tech; the calendar is a table',
   await page.goto('/dev/components?view=calendar');
   if (isMobile(page)) {
     await expect(
-      page.getByRole('list', { name: 'Events, this week' }),
+      page.getByRole('list', { name: 'Meetings, this week' }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next week' })).toBeVisible();
   } else {
-    await expect(page.getByRole('table', { name: /^Events, / })).toBeVisible();
+    await expect(
+      page.getByRole('table', { name: /^Meetings, / }),
+    ).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'Mon' })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Next month' }),
