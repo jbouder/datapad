@@ -1,6 +1,7 @@
 import {
   ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
+  CheckSquareIcon,
   CheckSquareOffsetIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -19,6 +20,7 @@ import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
 import { useSummaries } from '@/components/summary/SummaryProvider';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -72,6 +74,7 @@ export function NoteCard({
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
+  const { openTask } = useTaskPanels();
   const { show } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -183,6 +186,7 @@ export function NoteCard({
 
   const project = note.projectId ? state.projects[note.projectId] : null;
   const meeting = note.meetingId ? state.meetings[note.meetingId] : null;
+  const task = note.taskId ? state.tasks[note.taskId] : null;
   const time = new Date(note.createdAt);
   const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
 
@@ -237,6 +241,24 @@ export function NoteCard({
             {PHASE[note.phase]} · {meeting.title}
           </span>
         )}
+        {note.taskId &&
+          (task ? (
+            <button
+              type="button"
+              onClick={() => openTask(task.id)}
+              className="press inline-flex max-w-full min-h-11 items-center gap-1 desk:min-h-0"
+            >
+              <span className="inline-flex min-w-0 items-center gap-1 bg-accent px-1.5 py-0.5 text-accent-foreground hover:underline">
+                <CheckSquareIcon aria-hidden className="shrink-0" />
+                <span className="sr-only">Task: </span>
+                <span className="truncate">{task.title}</span>
+              </span>
+            </button>
+          ) : (
+            <span className="border border-dashed px-1.5 py-0.5">
+              Task deleted
+            </span>
+          ))}
         <time dateTime={note.createdAt} title={formatTimestamp(note.createdAt)}>
           {when === 'time' ? hhmm : relativeTime(note.createdAt, new Date())}
         </time>

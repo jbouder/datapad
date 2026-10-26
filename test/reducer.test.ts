@@ -469,6 +469,7 @@ describe('notes', () => {
       pinned: false,
       meetingId: null,
       phase: null,
+      taskId: null,
       createdAt: T1,
     });
     expect(lastLog(state, 'p1')).toBe('Added a note');
@@ -525,6 +526,136 @@ describe('notes', () => {
         meetingId: 'e9',
       }),
     ).toThrow('That meeting no longer exists');
+  });
+
+  it('addNote on a task: the task’s project, its log line, both bumped', () => {
+    const T0 = '2026-10-23T09:00:00.000Z';
+    const state = reduce(
+      base(),
+      { type: 'moveTask', id: 't2', projectId: null },
+      T0,
+    ).state;
+    const { state: next, changed } = at(state, {
+      type: 'addNote',
+      id: 'n1',
+      projectId: null,
+      body: 'Pinged legal, waiting on the redline',
+      taskId: 't1',
+    });
+    expect(next.notes.n1).toMatchObject({
+      projectId: 'p1',
+      taskId: 't1',
+      meetingId: null,
+      phase: null,
+    });
+    expect(lastLog(next, 'p1')).toBe('Added a note to "Heaters"');
+    expect(next.tasks.t1?.updatedAt).toBe(T1);
+    expect(next.projects.p1?.updatedAt).toBe(T1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'notes', id: 'n1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'tasks', id: 't1' },
+    ]);
+
+    // A General task's note is General's.
+    const general = at(state, {
+      type: 'addNote',
+      id: 'n2',
+      projectId: 'p1',
+      body: 'Asked again',
+      taskId: 't2',
+    }).state;
+    expect(general.notes.n2).toMatchObject({ projectId: null, taskId: 't2' });
+    expect(lastLog(general, GENERAL)).toBe('Added a note to "Doors"');
+  });
+
+  it('addNote refuses an unknown task, and a meeting and a task together', () => {
+    expect(() =>
+      at(base(), {
+        type: 'addNote',
+        id: 'n1',
+        projectId: 'p1',
+        body: 'x',
+        taskId: 't9',
+      }),
+    ).toThrow('That task no longer exists');
+    const state = run(base(), {
+      type: 'addMeeting',
+      id: 'e1',
+      projectId: 'p1',
+      title: 'Review',
+      date: '2026-10-27',
+    });
+    expect(() =>
+      at(state, {
+        type: 'addNote',
+        id: 'n1',
+        projectId: 'p1',
+        body: 'x',
+        meetingId: 'e1',
+        taskId: 't1',
+      }),
+    ).toThrow('A note goes on a meeting or a task, not both');
+  });
+
+  it('deleteTask keeps its notes', () => {
+    const state = run(base(), {
+      type: 'addNote',
+      id: 'n1',
+      projectId: 'p1',
+      body: 'Running note',
+      taskId: 't1',
+    });
+    const { state: next, changed } = at(state, {
+      type: 'deleteTask',
+      id: 't1',
+    });
+    expect(next.tasks.t1).toBeUndefined();
+    expect(next.notes.n1).toMatchObject({
+      projectId: 'p1',
+      taskId: 't1',
+      body: 'Running note',
+    });
+    expect(changed).not.toContainEqual(
+      expect.objectContaining({ col: 'notes' }),
+    );
+  });
+
+  it('moving a task moves its notes, and only its notes', () => {
+    const state = run(
+      base(),
+      { type: 'createProject', id: 'p2', name: 'Hoth' },
+      {
+        type: 'addNote',
+        id: 'n1',
+        projectId: 'p1',
+        body: 'On t1',
+        taskId: 't1',
+      },
+      {
+        type: 'addNote',
+        id: 'n2',
+        projectId: 'p1',
+        body: 'On t2',
+        taskId: 't2',
+      },
+      { type: 'addNote', id: 'n3', projectId: 'p1', body: 'Loose' },
+    );
+    const { state: next, changed } = at(state, {
+      type: 'moveTask',
+      id: 't1',
+      projectId: 'p2',
+    });
+    expect(next.tasks.t1?.projectId).toBe('p2');
+    expect(next.notes.n1).toMatchObject({ projectId: 'p2', taskId: 't1' });
+    expect(next.notes.n2?.projectId).toBe('p1');
+    expect(next.notes.n3?.projectId).toBe('p1');
+    expect(changed).toContainEqual({ col: 'notes', id: 'n1' });
+    expect(changed).not.toContainEqual({ col: 'notes', id: 'n2' });
+
+    const general = at(next, { type: 'moveTask', id: 't1', projectId: null });
+    expect(general.state.notes.n1?.projectId).toBeNull();
   });
 
   it('pinNote is not logged', () => {
@@ -1425,6 +1556,34 @@ describe('settings', () => {
 });
 
 describe('merge (import)', () => {
+  it('round-trips a task’s notes, and leaves a note without taskId as it was', () => {
+    const state = run(
+      base(),
+      {
+        type: 'addNote',
+        id: 'n1',
+        projectId: 'p1',
+        body: 'On t1',
+        taskId: 't1',
+      },
+      { type: 'addNote', id: 'n2', projectId: 'p1', body: 'Loose' },
+    );
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(next.notes).toEqual(state.notes);
+    expect(next.notes.n1?.taskId).toBe('t1');
+
+    // An export from before taskId.
+    const { taskId: _, ...old } = state.notes.n2 as NonNullable<
+      typeof state.notes.n2
+    >;
+    const before = ExportSchema.parse({ exportedAt: T1, notes: { n2: old } });
+    expect(before.notes.n2).toEqual(old);
+    const merged = merge(emptySnapshot(), before).state.notes.n2;
+    expect(merged).toEqual(old);
+    expect(merged?.taskId ?? null).toBeNull();
+  });
+
   it('adds new documents and replaces same ids', () => {
     const state = run(emptySnapshot(), {
       type: 'addTask',

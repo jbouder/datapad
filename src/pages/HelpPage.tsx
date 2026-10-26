@@ -169,6 +169,14 @@ export function HelpPage({ section }: { section?: string }) {
           Lists carry on when you press Enter; Enter on an empty item ends the
           list.
         </p>
+        <p className="text-sm">
+          A task keeps <strong>running notes</strong> too: in its panel, under
+          Details, <strong>Add note</strong> writes a dated entry (“pinged
+          legal, waiting on the redline”) instead of rewriting the details. They
+          are ordinary notes, so they show on Notes with a link to the task, and
+          a task with notes shows how many in its row. Deleting the task keeps
+          them.
+        </p>
         <Table
           caption="/ commands"
           head={['Command', 'Types', 'What it is']}

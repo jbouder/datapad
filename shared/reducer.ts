@@ -345,6 +345,12 @@ function apply(d: Draft, op: Op, now: string) {
         order: nextOrder(d, op.projectId),
         updatedAt: now,
       });
+      // Its running notes go with it.
+      for (const n of d.all('notes')) {
+        if (n.taskId === t.id && n.projectId !== op.projectId) {
+          d.set('notes', n.id, { ...n, projectId: op.projectId });
+        }
+      }
       const from = projectName(d, t.projectId);
       const to = projectName(d, op.projectId);
       log(d, t.projectId, `Moved "${t.title}" to ${to}`, now);
@@ -384,6 +390,7 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
     case 'deleteTask': {
+      // Keeps its notes: they stay plain notes, their task link gone.
       const t = task(d, op.id);
       d.delete('tasks', t.id);
       log(d, t.projectId, `Deleted task "${t.title}"`, now);
@@ -526,27 +533,40 @@ function apply(d: Draft, op: Op, now: string) {
     /* notes */
     case 'addNote': {
       fresh(d, 'notes', op.id, 'note');
-      checkProject(d, op.projectId);
       const meetingId = op.meetingId ?? null;
+      const taskId = op.taskId ?? null;
+      if (meetingId !== null && taskId !== null) {
+        fail('A note goes on a meeting or a task, not both');
+      }
       if (meetingId !== null && !d.get('meetings', meetingId)) {
         fail('That meeting no longer exists');
       }
+      // A task's note lives in the task's project.
+      const t = taskId === null ? null : task(d, taskId);
+      const projectId = t ? t.projectId : op.projectId;
+      checkProject(d, projectId);
       d.set('notes', op.id, {
         id: op.id,
-        projectId: op.projectId,
+        projectId,
         body: op.body,
         pinned: false,
         meetingId,
         phase: meetingId === null ? null : (op.phase ?? null),
+        taskId,
         createdAt: now,
       });
+      if (t) d.set('tasks', t.id, { ...t, updatedAt: now });
       log(
         d,
-        op.projectId,
-        op.summary ? 'Saved a summary as a note' : 'Added a note',
+        projectId,
+        op.summary
+          ? 'Saved a summary as a note'
+          : t
+            ? `Added a note to "${t.title}"`
+            : 'Added a note',
         now,
       );
-      touch(d, op.projectId, now);
+      touch(d, projectId, now);
       return;
     }
     case 'editNote': {

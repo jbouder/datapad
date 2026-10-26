@@ -29,13 +29,13 @@ export default function App() {
                       <DecisionPanelProvider>
                         <TemplateFormProvider>
                           <ProjectFormProvider>
-                            <TaskPanelProvider>
-                              <MeetingFormProvider>
-                                <NotesProvider>
+                            <NotesProvider>
+                              <TaskPanelProvider>
+                                <MeetingFormProvider>
                                   <AppShell />
-                                </NotesProvider>
-                              </MeetingFormProvider>
-                            </TaskPanelProvider>
+                                </MeetingFormProvider>
+                              </TaskPanelProvider>
+                            </NotesProvider>
                           </ProjectFormProvider>
                         </TemplateFormProvider>
                       </DecisionPanelProvider>

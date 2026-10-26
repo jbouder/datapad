@@ -119,9 +119,12 @@ export function SidePanel({
             (opener.current?.isConnected ? opener.current : true)
           }
           onKeyDown={(event) => {
+            // A composer that took ⌘Enter for itself (a note's Save
+            // note) has prevented it: that is not the panel's submit.
             if (
               event.key === 'Enter' &&
               (event.metaKey || event.ctrlKey) &&
+              !event.defaultPrevented &&
               onSubmit
             ) {
               event.preventDefault();

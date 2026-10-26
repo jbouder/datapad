@@ -147,6 +147,11 @@ export interface Note {
   meetingId: string | null;
   /** Prep or debrief note for `meetingId`. */
   phase: NotePhase | null;
+  /**
+   * A running note on a task (never with `meetingId`); `projectId` is the
+   * task's. Absent on notes written before it existed: read it as null.
+   */
+  taskId?: string | null;
   createdAt: Timestamp;
   editedAt?: Timestamp;
 }

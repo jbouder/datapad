@@ -155,6 +155,11 @@ export const NoteSchema = z.object({
   pinned: z.boolean().default(false),
   meetingId: nullableId.default(null),
   phase: phase.default(null),
+  /**
+   * Absent in older exports, and kept absent so they import unchanged:
+   * read it as null.
+   */
+  taskId: nullableId.optional(),
   createdAt: timestamp,
   editedAt: timestamp.optional(),
 }) satisfies z.ZodType<Note, unknown>;
@@ -619,6 +624,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   }),
   /** Close (`done: true`) or reopen. Says the outcome, so it is idempotent. */
   z.object({ type: z.literal('toggleTask'), id, done: z.boolean() }),
+  /** Its notes (`taskId`) move with it. */
   z.object({ type: z.literal('moveTask'), id, projectId: nullableId }),
   /** The project's open tasks in their new order. */
   z.object({
@@ -627,6 +633,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     ids: z.array(id).min(1).max(LIMITS.reorderMax),
   }),
   z.object({ type: z.literal('editTask'), id, patch: patch(taskFields) }),
+  /** Keeps the task's notes. */
   z.object({ type: z.literal('deleteTask'), id }),
   /** Logs "Blocked "<title>" on <name>" or "Unblocked "<title>"". */
   z.object({
@@ -684,6 +691,11 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     body: required(LIMITS.bodyMax),
     meetingId: nullableId.optional(),
     phase: phase.optional(),
+    /**
+     * A running note on this task: its project is the task's (`projectId`
+     * is ignored), and it bumps the task. Not with `meetingId`.
+     */
+    taskId: nullableId.optional(),
     /** A saved summary: logs "Saved a summary as a note". */
     summary: z.boolean().optional(),
   }),
@@ -938,6 +950,7 @@ const LABELS: Record<string, string> = {
   targetDate: 'Target date',
   projectId: 'Project',
   meetingId: 'Meeting',
+  taskId: 'Task',
   topics: 'Topics',
   sourceNoteId: 'Source note',
   createdAt: 'Created',

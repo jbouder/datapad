@@ -65,16 +65,17 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 ### Note
 
-| Field     | Type                    | Notes                                      |
-| --------- | ----------------------- | ------------------------------------------ |
-| id        | string                  |                                            |
-| projectId | string or null          | null = General                             |
-| body      | string                  | markdown; mentions stored as `@{personId}` |
-| pinned    | boolean                 | pinned notes sort first within a project   |
-| meetingId | string or null          | links the note to a meeting                |
-| phase     | `pre` \| `post` \| null | prep or debrief note for that meeting      |
-| createdAt | timestamp               |                                            |
-| editedAt  | timestamp, optional     |                                            |
+| Field     | Type                     | Notes                                                                                                                            |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| id        | string                   |                                                                                                                                  |
+| projectId | string or null           | null = General                                                                                                                   |
+| body      | string                   | markdown; mentions stored as `@{personId}`                                                                                       |
+| pinned    | boolean                  | pinned notes sort first within a project                                                                                         |
+| meetingId | string or null           | links the note to a meeting                                                                                                      |
+| phase     | `pre` \| `post` \| null  | prep or debrief note for that meeting                                                                                            |
+| taskId    | string or null, optional | a running note on that task (never with `meetingId`); `projectId` is the task's. Absent on older notes and exports, read as null |
+| createdAt | timestamp                |                                                                                                                                  |
+| editedAt  | timestamp, optional      |                                                                                                                                  |
 
 ### Meeting
 
@@ -132,7 +133,7 @@ One document per project, keyed by projectId, plus one keyed `general`.
 
 ### Relationships
 
-task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting (optional); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes. Deleting a person leaves mentions rendering as "@unknown".
+task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting or task (optional, not both); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes, and so does deleting a task. Moving a task to another project moves its notes with it. Deleting a person leaves mentions rendering as "@unknown".
 
 ## Views
 
@@ -150,7 +151,7 @@ Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#not
 | People         | Settings → People in the rebuild. List (name, role, "you" tag) and a detail pane: projects they're on, open tasks assigned, every note and task that mentions them                                                                                                                                                                                                                                                                                    | Add / Edit / Remove person; "This is me" checkbox                                                                                                              | Prompts to add team members                               |
 | Search         | ⌘K palette: Projects (recent when query empty), Tasks, Notes, Meetings, People; arrow keys and Enter                                                                                                                                                                                                                                                                                                                                                  | Opens the item: project page, task panel, notes page, meetings page, or person                                                                                 | "Nothing matches."                                        |
 
-Task row (shared by Focus, Tasks, project detail, People): drag handle (desktop, project detail only), circular checkbox, priority dot, title (click opens panel), project chip (hidden on mobile and when grouped by project), assignee initials, due date colored red when overdue and amber when today. Done rows strike through.
+Task row (shared by Focus, Tasks, project detail, People): drag handle (desktop, project detail only), circular checkbox, priority dot, title (click opens panel), a small note count when the task has running notes (it does not animate), project chip (hidden on mobile and when grouped by project), assignee initials, due date colored red when overdue and amber when today. Done rows strike through.
 
 Project card ordering by priority uses high → med → low → none, then name. "Recently updated" uses `updatedAt`, which bumps when tasks, notes, meetings, or milestones in the project change.
 
@@ -162,7 +163,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **Close / reopen.** Clicking the circle toggles `status`, sets or clears `completedAt`, logs activity, and bumps the project's `updatedAt`. No confirmation.
 
-**Task panel** (slide-over from the right, 460px, full width on mobile): title, project, status, priority, due, assignee, tags (comma separated), details (markdown textarea with @mention autocomplete), links editor, created/closed timestamps. Footer: Summarize, Delete (confirm), Cancel, Save. Moving a task between projects logs an entry in both projects' activity. The panel renders once on open and is not re-rendered by data updates, so in-progress edits survive background sync.
+**Task panel** (slide-over from the right, 460px, full width on mobile): title, project, status, priority, due, assignee, tags (comma separated), details (markdown textarea with @mention autocomplete), a **Notes** section (its running notes; see [Task notes](#task-notes)), links editor, created/closed timestamps. Footer: Summarize, Delete (confirm), Cancel, Save. Moving a task between projects logs an entry in both projects' activity. The panel renders once on open and is not re-rendered by data updates, so in-progress edits survive background sync.
 
 **New task panel** (the + button, or when no quick-add is visible): title, project, priority, due, assignee, details.
 
@@ -217,6 +218,15 @@ Panels and palette share a scrim; clicking it closes the panel. Toasts are botto
 
 Not supported and not needed yet: nested lists, block quotes, fenced code, images, tables. Checklists are display-only; ticking happens by editing the note.
 
+## Task notes
+
+Added in the rebuild (#164). Running notes on a task: dated entries such as "pinged legal, waiting on the redline", instead of rewriting the one **Details** field. They are ordinary notes with `taskId` set, so they also show on Notes and the project page, are found by ⌘K as notes, and go into summaries.
+1. In the task panel, under Details, a **Notes** section lists the task's notes newest first, each rendered (Markdown, mentions, checkboxes) with its relative time, "edited" when it was, **Edit** (in place: the composer, Save note or ⌘Enter, Cancel or Esc) and **Delete** (with Undo). With none, it says "No notes yet".
+2. **Add note** beside the heading opens the inline composer (`InlineNoteComposer`) after the list; pressing it again returns to the composer. **Save note** (or ⌘Enter) sends `addNote` with the task's `taskId` and closes the composer, leaving the panel open; **Cancel** or Esc closes the composer, not the panel. The draft is kept per task in sessionStorage until Save or Cancel.
+3. `addNote` with `taskId` checks the task exists ("That task no longer exists"), takes the task's project (the op's `projectId` is ignored), refuses a `meetingId` alongside it ("A note goes on a meeting or a task, not both"), bumps the task's and the project's `updatedAt`, and logs `Added a note to "<task title>"`. The bump alone does not show the panel's "Updated elsewhere" line.
+4. A note card with `taskId` shows a chip naming its task; it opens the task panel. When the task has been deleted the chip reads "Task deleted" and the note stays.
+5. `moveTask` moves the task's notes to the new project in the same op; moving a project to another space carries them with it, `taskId` and all.
+
 ## Meetings and notes linkage
 
 Notes on a meeting are written on the meeting, never by going somewhere else. Every meeting row offers **Prep**, **Debrief** and **Note** (beside the row on wide screens; **Prep note**, **Debrief note** and **Note** in its ⋯ menu everywhere, which is how a phone reaches them). Each opens an inline composer right under the row, above its linked notes; the URL does not change.
@@ -266,9 +276,9 @@ A **Summarize** action exists on four item types: project (header), task (panel 
 | Item    | Included                                                                                                                                                                                                                                                                                                                    |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project | name, org, status, priority, target date, team names, current state, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first with prep/debrief labels; last 25 activity lines |
-| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any                                                                                                                                                                                                                        |
+| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                                                                                                          |
 | Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), all linked notes with phase                                                                                                                                                  |
-| Note    | date, project, meeting title if linked, body                                                                                                                                                                                                                                                                                |
+| Note    | date, project, meeting title if linked, task title if it is a task's note, body                                                                                                                                                                                                                                             |
 
 Mentions are expanded to names before sending. Nothing outside the item is included.
 
@@ -317,6 +327,7 @@ One log per project plus one for General. Entries are `{t, text}`, prepended, ca
 | Task moved                         | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project)                      |
 | Task deleted                       | Deleted task "<title>"                                                                                                |
 | Note added / deleted               | Added a note / Deleted a note                                                                                         |
+| Note added to a task               | Added a note to "<task title>"                                                                                        |
 | Summary saved                      | Saved a Claude summary as a note                                                                                      |
 | State line changed                 | Updated current state                                                                                                 |
 | Project created / edited           | Created project / Edited project details                                                                              |

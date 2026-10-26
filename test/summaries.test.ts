@@ -385,9 +385,48 @@ describe('taskContext', () => {
     );
     expect(text).not.toContain('https://');
   });
+
+  it('ends with the task’s notes, oldest first', () => {
+    const state = world();
+    state.notes.b = note('b', {
+      meetingId: null,
+      taskId: 't',
+      body: 'Waiting on the redline',
+      createdAt: '2026-10-22T09:00:00.000Z',
+    });
+    state.notes.a = note('a', {
+      meetingId: null,
+      taskId: 't',
+      body: 'Pinged @{leia}',
+    });
+    state.notes.other = note('other', { meetingId: null, taskId: 'x' });
+    const text = taskContext(task('t', { title: 'Calibrate shields' }), state);
+    expect(text).toContain(
+      [
+        'Notes, oldest first:',
+        '[note] Wed 21 Oct 2026',
+        'Pinged @Leia Organa',
+        '',
+        '[note] Thu 22 Oct 2026',
+        'Waiting on the redline',
+      ].join('\n'),
+    );
+    expect(text).not.toContain('other');
+    expect(text.endsWith('Waiting on the redline')).toBe(true);
+  });
 });
 
 describe('noteContext', () => {
+  it('names the task a running note is on', () => {
+    const state = world();
+    state.tasks.t = task('t', { title: 'Calibrate shields' });
+    const text = noteContext(
+      note('x', { meetingId: null, taskId: 't', body: 'Done' }),
+      state,
+    );
+    expect(text).toContain('Task: Calibrate shields');
+  });
+
   it('has the date, project, meeting and body', () => {
     const text = noteContext(
       note('x', { phase: 'post', body: 'Ask @{leia}' }),

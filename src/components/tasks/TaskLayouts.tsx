@@ -7,6 +7,7 @@ import {
 import { useState } from 'react';
 import { formatDay, relativeTime } from '#shared/dates';
 import type { Op } from '#shared/protocol';
+import { taskNoteCounts } from '#shared/select';
 import {
   DUE_BUCKETS,
   type DueBucket,
@@ -27,7 +28,7 @@ import { Timeline } from '@/components/layouts/Timeline';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { DueDate } from '@/components/tasks/DueDate';
-import { TaskCheck, TaskRow } from '@/components/tasks/TaskRow';
+import { NoteCount, TaskCheck, TaskRow } from '@/components/tasks/TaskRow';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -106,6 +107,7 @@ export function TaskListLayout(props: TaskLayoutProps) {
                   onToggle={toggle}
                   onOpen={(task) => openTask(task.id)}
                   select={selectOf(selection, t)}
+                  noteCount={taskNoteCounts(state.notes).get(t.id)}
                 />
               </li>
             ))}
@@ -139,18 +141,21 @@ export function TaskTable(props: TaskLayoutProps) {
           header: 'Title',
           sortable: true,
           cell: (t) => (
-            <button
-              type="button"
-              data-task-title
-              data-row-action="open"
-              onClick={() => openTask(t.id)}
-              className={cn(
-                'max-w-[28rem] truncate text-left outline-ring/50 hover:underline focus-visible:outline-2',
-                isDone(t) && 'text-muted-foreground line-through',
-              )}
-            >
-              {t.title}
-            </button>
+            <span className="inline-flex max-w-full items-center gap-2">
+              <button
+                type="button"
+                data-task-title
+                data-row-action="open"
+                onClick={() => openTask(t.id)}
+                className={cn(
+                  'max-w-[28rem] truncate text-left outline-ring/50 hover:underline focus-visible:outline-2',
+                  isDone(t) && 'text-muted-foreground line-through',
+                )}
+              >
+                {t.title}
+              </button>
+              <NoteCount count={taskNoteCounts(state.notes).get(t.id)} />
+            </span>
           ),
         },
         ...(filters.group === 'project'
@@ -228,6 +233,7 @@ export function TaskTable(props: TaskLayoutProps) {
           showProject={filters.group !== 'project'}
           onToggle={toggle}
           onOpen={(task) => openTask(task.id)}
+          noteCount={taskNoteCounts(state.notes).get(t.id)}
         />
       )}
     />
@@ -586,6 +592,7 @@ export function TaskTimeline(props: TaskLayoutProps) {
                     )
                   }
                   select={selectOf(selection, t)}
+                  noteCount={taskNoteCounts(state.notes).get(t.id)}
                 />
               </li>
             ))}
