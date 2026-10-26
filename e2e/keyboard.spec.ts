@@ -86,7 +86,7 @@ test('add, move, complete, edit and reorder without the mouse', async ({
   expect(task.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('the Tasks table: j focuses a row, x completes, e opens', async ({
+test('the Tasks table: j focuses a row, x completes, e opens its page', async ({
   page,
 }) => {
   await openLive(page, '/tasks?view=table&group=none&sort=title');
@@ -97,11 +97,13 @@ test('the Tasks table: j focuses a row, x completes, e opens', async ({
   await expect(page.locator('tr[data-row-id]').nth(1)).toBeFocused();
   await page.keyboard.press('x');
   await expect(page.getByText(/^Closed “/)).toBeVisible();
-  await page.locator('tr[data-row-id]').first().focus();
+  const opened = page.locator('tr[data-row-id]').first();
+  const id = await opened.getAttribute('data-row-id');
+  await opened.focus();
   await page.keyboard.press('e');
-  await expect(page.getByRole('dialog', { name: 'Task' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Task' })).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
+  await page.goBack();
+  await expect(page.locator('tr[data-row-id]').first()).toBeVisible();
 });
 
 test.describe('the shortcut sheet', () => {

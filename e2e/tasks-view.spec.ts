@@ -106,15 +106,23 @@ test('sorting, filters and Back, all in the URL', async ({ page }) => {
   await expect(titles).toHaveText(['Find a replacement motivator']);
 });
 
-test('quick-add on Mine assigns to you; ⌘A and Esc', async ({
+test('Add task on Mine assigns to you; ⌘A and Esc', async ({
   page,
   request,
 }) => {
   test.skip(isMobile(page), 'Selection is the desktop table.');
   await openLive(page, '/tasks?who=mine');
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill('Brief the pilots');
-  await input.press('Enter');
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Add task' })
+    .click();
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  await expect(panel.getByRole('combobox', { name: 'Assignee' })).toHaveValue(
+    'Leia Organa',
+  );
+  await panel.getByLabel('Title').fill('Brief the pilots');
+  await panel.getByRole('button', { name: 'Add task' }).click();
+  await expect(panel).toBeHidden();
   await expect(table(page).locator('[data-task-title]')).toContainText([
     'Brief the pilots',
   ]);

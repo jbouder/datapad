@@ -20,8 +20,9 @@ export function keyFor(base: string, space: string): string {
 
 /**
  * Where switching spaces leaves you: a project, person or org belongs to
- * the space you are leaving, so its page goes to Focus; a section page
- * (Tasks, Settings, …) stays where it is. Null means stay.
+ * the space you are leaving, so its page goes to Focus, and a task or
+ * meeting goes to its list; a section page (Tasks, Settings, …) stays
+ * where it is. Null means stay.
  */
 export function routeAfterSwitch(route: {
   // Structural (a `Route` fits), so the unit tests need no router.
@@ -29,8 +30,10 @@ export function routeAfterSwitch(route: {
   person?: string;
   org?: string;
   [key: string]: unknown;
-}): { name: 'focus' } | null {
+}): { name: 'focus' | 'tasks' | 'meetings' } | null {
   if (route.name === 'project') return { name: 'focus' };
+  if (route.name === 'task') return { name: 'tasks' };
+  if (route.name === 'meeting') return { name: 'meetings' };
   if (route.name === 'people' && route.person) return { name: 'focus' };
   if (route.name === 'orgs' && route.org) return { name: 'focus' };
   return null;

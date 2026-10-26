@@ -29,6 +29,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { TaskPage } from '@/pages/TaskPage';
 import { TasksPage } from '@/pages/TasksPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
@@ -55,9 +56,11 @@ export function AppShell() {
   const pageName =
     route.name === 'project'
       ? state?.projects[route.id]?.name
-      : route.name === 'meeting'
-        ? state?.meetings[route.id]?.title
-        : undefined;
+      : route.name === 'task'
+        ? state?.tasks[route.id]?.title
+        : route.name === 'meeting'
+          ? state?.meetings[route.id]?.title
+          : undefined;
 
   // + opens the new-task panel, preset to the project you are on.
   const currentProject = route.name === 'project' ? route.id : null;
@@ -177,6 +180,7 @@ const DevComponentsPage = __DEV_ROUTES__
 
 function pageKey(route: Route): string {
   if (route.name === 'project') return `project:${route.id}`;
+  if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
@@ -196,6 +200,8 @@ function Page({ route }: { route: Route }) {
       return <ArchivePage />;
     case 'tasks':
       return <TasksPage />;
+    case 'task':
+      return <TaskPage id={route.id} />;
     case 'notes':
       return <NotesPage />;
     case 'meetings':

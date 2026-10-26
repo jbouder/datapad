@@ -10,6 +10,8 @@ export type Route =
   | { name: 'archive' }
   | { name: 'project'; id: string }
   | { name: 'tasks' }
+  /** One task's page (`/tasks/:id`), opened from Tasks. */
+  | { name: 'task'; id: string }
   | { name: 'notes' }
   | { name: 'meetings' }
   /** One meeting's page (`/meetings/:id`). */
@@ -103,6 +105,10 @@ export function parseRoute(
   if (project?.[1]) {
     return { name: 'project', id: decodeURIComponent(project[1]) };
   }
+  const task = /^\/tasks\/([^/]+)$/.exec(clean);
+  if (task?.[1]) {
+    return { name: 'task', id: decodeURIComponent(task[1]) };
+  }
   const meeting = /^\/meetings\/([^/]+)$/.exec(clean);
   if (meeting?.[1]) {
     return { name: 'meeting', id: decodeURIComponent(meeting[1]) };
@@ -133,6 +139,8 @@ export function routePath(route: Route): string | null {
         : `/settings/${route.section}`;
     case 'project':
       return `/projects/${encodeURIComponent(route.id)}`;
+    case 'task':
+      return `/tasks/${encodeURIComponent(route.id)}`;
     case 'meeting':
       return `/meetings/${encodeURIComponent(route.id)}`;
     case 'help':
@@ -178,6 +186,7 @@ export function linkedMeeting(pathname: string, search: string): string | null {
 /** The top-level section a route belongs to, for `aria-current` in the nav. */
 export function sectionOf(route: Route): RouteName {
   if (route.name === 'project' || route.name === 'archive') return 'projects';
+  if (route.name === 'task') return 'tasks';
   if (route.name === 'meeting') return 'meetings';
   if (route.name === 'people' || route.name === 'orgs') return 'settings';
   return route.name;
@@ -214,9 +223,10 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notFound: 'Not found',
 };
 
-/** The top bar's title; a project or meeting page passes its name. */
+/** The top bar's title; a project, task or meeting page passes its name. */
 export function titleOf(route: Route, name?: string): string {
   if (route.name === 'project') return name ?? 'Project';
+  if (route.name === 'task') return name ?? 'Task';
   if (route.name === 'meeting') return name ?? 'Meeting';
   return TITLES[route.name] ?? 'Datapad';
 }

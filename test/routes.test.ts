@@ -66,6 +66,7 @@ describe('parseRoute', () => {
   it('does not know anything else', () => {
     expect(parseRoute('/event')).toEqual({ name: 'notFound' });
     expect(parseRoute('/meetings/x/y')).toEqual({ name: 'notFound' });
+    expect(parseRoute('/tasks/x/y')).toEqual({ name: 'notFound' });
   });
 });
 
@@ -77,6 +78,7 @@ describe('routePath', () => {
       { name: 'tasks' },
       { name: 'project', id: 'a/b' },
       { name: 'meeting', id: 'e 1' },
+      { name: 'task', id: 't 1' },
       { name: 'people' },
       { name: 'people', person: 'p1' },
       { name: 'orgs' },
@@ -99,6 +101,11 @@ describe('routePath', () => {
       id: 'e-1',
     });
     expect(routePath(parseRoute('/events'))).toBe('/meetings');
+  });
+
+  it('puts each task under Tasks', () => {
+    expect(routePath({ name: 'task', id: 't-1' })).toBe('/tasks/t-1');
+    expect(parseRoute('/tasks/t-1/')).toEqual({ name: 'task', id: 't-1' });
   });
 
   it('puts People and Orgs under Settings', () => {
@@ -159,11 +166,12 @@ describe('linkedMeeting', () => {
 });
 
 describe('sectionOf and titleOf', () => {
-  it('puts a project and the archive under Projects, a meeting under Meetings', () => {
+  it('puts a project and the archive under Projects, a task under Tasks, a meeting under Meetings', () => {
     expect(sectionOf({ name: 'project', id: 'p' })).toBe('projects');
     expect(sectionOf({ name: 'archive' })).toBe('projects');
     expect(sectionOf({ name: 'meetings' })).toBe('meetings');
     expect(sectionOf({ name: 'meeting', id: 'e' })).toBe('meetings');
+    expect(sectionOf({ name: 'task', id: 't' })).toBe('tasks');
     expect(sectionOf(parseRoute('/events'))).toBe('meetings');
   });
 
@@ -179,6 +187,8 @@ describe('sectionOf and titleOf', () => {
     expect(titleOf({ name: 'project', id: 'p' })).toBe('Project');
     expect(titleOf({ name: 'meeting', id: 'e' }, 'Standup')).toBe('Standup');
     expect(titleOf({ name: 'meeting', id: 'e' })).toBe('Meeting');
+    expect(titleOf({ name: 'task', id: 't' }, 'Fix it')).toBe('Fix it');
+    expect(titleOf({ name: 'task', id: 't' })).toBe('Task');
     expect(titleOf({ name: 'digest' })).toBe('Weekly digest');
     expect(titleOf({ name: 'people', person: 'p' })).toBe('People');
     expect(titleOf({ name: 'orgs' })).toBe('Orgs');

@@ -52,9 +52,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   the topics (`MeetingTopics` on the meeting's page and in its panel,
   `PendingTopics` for a new meeting's), the meeting note composer and
   the Focus agenda strip;
-  `notes/LinkedNoteList` is the Notes section a task's panel and a
-  meeting's page and panel share), `pages/*` (`MeetingPage` is
-  `/meetings/:id`, as `ProjectPage` is `/projects/:id`).
+  `notes/LinkedNoteList` is the Notes section a task's page and panel and
+  a meeting's page and panel share), `pages/*` (`MeetingPage` is
+  `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
+  `/projects/:id`; a task opens its page only from Tasks, its panel
+  everywhere else).
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a

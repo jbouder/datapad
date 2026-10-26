@@ -194,8 +194,10 @@ test('a meeting that is not there says so', async ({ page }) => {
 
 test('search opens a meeting’s page', async ({ page }) => {
   await openLive(page, '/');
-  await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.type('Medal');
+  await page.getByRole('button', { name: 'Search' }).click();
+  const search = page.getByRole('dialog', { name: 'Search' });
+  await expect(search.getByRole('combobox')).toBeFocused();
+  await search.getByRole('combobox').fill('Medal');
   await page
     .getByRole('group', { name: 'Meetings' })
     .getByRole('option', { name: /Medal ceremony/ })

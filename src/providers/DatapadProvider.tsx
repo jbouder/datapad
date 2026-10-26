@@ -79,7 +79,7 @@ export function DatapadProvider({ children }: { children: ReactNode }) {
       setArrive(then ? { space: id, route: then } : null);
       if (id === space) return;
       saveSpace(id);
-      // A project, person or org belongs to the space being left.
+      // A project, task, meeting, person or org belongs to the space being left.
       const leave = routeAfterSwitch(currentRoute());
       withViewTransition(
         () => {
