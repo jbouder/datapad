@@ -98,15 +98,24 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
     pop.getByRole('button', { name: 'More for “Drill 4”' }),
   ).toBeVisible();
 
-  // Month navigation.
+  // Month navigation. Today's cell may still show as a leading day of the
+  // next month's grid (when today falls in its first week), so what moves
+  // is the month heading.
   await page.keyboard.press('Escape');
+  const heading = page
+    .getByRole('heading', { level: 3 })
+    .filter({ visible: true });
+  const thisMonth = (await heading.textContent())?.trim() ?? '';
+  expect(thisMonth).toMatch(/^[A-Z][a-z]+ \d{4}$/);
   await page.getByRole('button', { name: 'Next month' }).click();
-  await expect(cell).toHaveCount(0);
+  await expect(heading).not.toHaveText(thisMonth);
+  await expect(heading).toHaveText(/^[A-Z][a-z]+ \d{4}$/);
   await page
     .getByRole('button', { name: 'Today' })
     .filter({ visible: true })
     .click();
-  await expect(cell).toBeVisible();
+  await expect(heading).toHaveText(thisMonth);
+  await expect(cell).toHaveAttribute('aria-current', 'date');
 });
 
 test('Timeline: a lane per project, events listed for assistive tech', async ({
