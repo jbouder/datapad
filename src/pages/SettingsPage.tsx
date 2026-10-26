@@ -64,7 +64,9 @@ export function SettingsPage({
   const nav = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const strip = nav.current;
-    const link = strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    const link = strip?.querySelector<HTMLElement>(
+      `[data-section="${section}"]`,
+    );
     if (!strip || !link || strip.scrollWidth <= strip.clientWidth) return;
     const left =
       link.getBoundingClientRect().left -
@@ -91,6 +93,7 @@ export function SettingsPage({
               <li key={s} className="shrink-0">
                 <a
                   {...linkProps(settingsRoute(s))}
+                  data-section={s}
                   aria-current={s === section ? 'page' : undefined}
                   className={cn(
                     'press flex min-h-11 items-center px-3 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 desk:min-h-9',
