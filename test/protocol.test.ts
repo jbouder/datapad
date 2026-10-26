@@ -108,7 +108,7 @@ const cases = {
     invalid: { events: [{ t: 'yesterday', text: 'Created project' }] },
   },
   settings: {
-    valid: { defaultOrg: 'OpenTeams Internal' },
+    valid: { defaultOrg: 'Rebel Alliance' },
     invalid: { defaultOrg: 'x'.repeat(LIMITS.nameMax + 1) },
   },
   templates: {
@@ -280,9 +280,7 @@ describe('the export file', () => {
   });
 
   it('fills settings an export lacks with the defaults', () => {
-    expect(DocumentSchemas.settings.parse({})).toEqual({
-      defaultOrg: 'OpenTeams Internal',
-    });
+    expect(DocumentSchemas.settings.parse({})).toEqual({ defaultOrg: '' });
     expect(ExportSchema.parse(fixture).settings).toEqual({});
   });
 

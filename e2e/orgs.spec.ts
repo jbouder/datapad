@@ -43,10 +43,12 @@ test('import offers to organize; orgs become records with a page each', async ({
   await expect(callout).toContainText('3 projects name an org as plain text');
   await callout.getByRole('button', { name: 'Organize orgs' }).click();
   await expect(callout).toBeHidden();
+  // One org per distinct name in the projects, and nothing else: a space
+  // starts with no default org to materialize.
   const list = page.getByRole('list', { name: 'Orgs' });
-  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await expect(list.getByRole('listitem')).toHaveCount(2);
   await expect(list).toContainText('Rebel Alliance');
-  await expect(list).toContainText('OpenTeams Internal');
+  await expect(list).toContainText('Corellian Engineering');
   await expectAccessible(page);
   await expectSaved(page);
 
@@ -57,8 +59,9 @@ test('import offers to organize; orgs become records with a page each', async ({
   expect(data.projects['p-echo']?.orgId).toBe(rebels?.id);
   expect(data.projects['p-yavin']?.orgId).toBe(rebels?.id);
   expect(
-    Object.values(data.orgs).find((o) => o.name === 'OpenTeams Internal')?.kind,
-  ).toBe('internal');
+    Object.values(data.orgs).find((o) => o.name === 'Corellian Engineering')
+      ?.kind,
+  ).toBe('client');
 
   // The org's page: projects, then add a contact and rename it.
   await list.getByRole('link', { name: 'Rebel Alliance' }).click();

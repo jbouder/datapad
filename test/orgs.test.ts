@@ -58,13 +58,22 @@ describe('orgs', () => {
     let n = 0;
     const plan = organizePlan(
       { projects, orgs, settings: {} },
-      'OpenTeams Internal',
+      'Alderaan Internal',
       () => `new-${++n}`,
     );
     expect(plan.map((o) => [o.name, o.kind])).toEqual([
-      ['OpenTeams Internal', 'internal'],
+      ['Alderaan Internal', 'internal'],
       ['Rebel Alliance', 'client'],
     ]);
+  });
+
+  it('plans nothing for an empty default org', () => {
+    const plan = organizePlan(
+      { projects: { d: project('d', '') }, orgs: {}, settings: {} },
+      '',
+      () => 'never',
+    );
+    expect(plan).toEqual([]);
   });
 
   it('counts projects whose org is text only', () => {
@@ -85,7 +94,7 @@ describe('orgs', () => {
   });
 
   it('guesses internal teams from the name', () => {
-    expect(guessKind('OpenTeams Internal')).toBe('internal');
+    expect(guessKind('Alderaan Internal')).toBe('internal');
     expect(guessKind('Internals Ltd')).toBe('client');
   });
 });

@@ -79,7 +79,7 @@ as it is:
   "people": { … },
   "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
   "events": { … },
-  "settings": { "user": { "defaultOrg": "OpenTeams Internal" } },
+  "settings": { "user": { "defaultOrg": "Rebel Alliance" } },
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
   "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
   "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } }
@@ -88,7 +88,8 @@ as it is:
 
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, today only the
-  default org for new projects.
+  default org for new projects (none until you pick one in Orgs; a new
+  space starts with no orgs).
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and project templates. A file without them imports fine; its projects' `org` text
   is kept, and Orgs offers to organize it into records
