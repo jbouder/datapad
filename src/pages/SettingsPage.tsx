@@ -3,10 +3,13 @@ import {
   SignOutIcon,
   UploadSimpleIcon,
 } from '@phosphor-icons/react';
+import { useLayoutEffect, useRef } from 'react';
 import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { OrgsView } from '@/components/orgs/OrgsView';
+import { PeopleView } from '@/components/people/PeopleView';
 import { SpacesSettings } from '@/components/SpacesSettings';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
@@ -19,6 +22,7 @@ import {
   linkProps,
   SETTINGS_SECTIONS,
   type SettingsSection,
+  settingsRoute,
 } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { cn } from '@/lib/utils';
@@ -31,23 +35,54 @@ const LABELS: Record<SettingsSection, string> = {
   templates: 'Templates',
   summaries: 'Summaries',
   spaces: 'Spaces',
+  people: 'People',
+  orgs: 'Orgs',
   data: 'Data',
   account: 'Account',
 };
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
- * templates, summaries, your spaces, your data in and out, and who is signed in. Each
- * section has its own address (`/settings/data`); the account menu leads
- * here.
+ * templates, summaries, your spaces, the people and orgs the rest of the
+ * app refers to, your data in and out, and who is signed in. Each section
+ * has its own address (`/settings/data`, `/settings/people/:id`); the
+ * account menu leads here.
  */
-export function SettingsPage({ section }: { section: SettingsSection }) {
+export function SettingsPage({
+  section,
+  person,
+  org,
+}: {
+  section: SettingsSection;
+  /** The person selected in People. */
+  person?: string;
+  /** The org open in Orgs. */
+  org?: string;
+}) {
   usePageTitle(`${LABELS[section]} · Settings`);
+  // On phones the sections scroll sideways: keep the open one in view.
+  const nav = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const strip = nav.current;
+    const link = strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!strip || !link || strip.scrollWidth <= strip.clientWidth) return;
+    const left =
+      link.getBoundingClientRect().left -
+      strip.getBoundingClientRect().left +
+      strip.scrollLeft;
+    const right = left + link.offsetWidth;
+    if (left < strip.scrollLeft) {
+      strip.scrollLeft = left;
+    } else if (right > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollLeft = right - strip.clientWidth;
+    }
+  }, [section]);
   return (
     <div className="enter flex flex-col gap-6">
       <h1 className="text-page-title">Settings</h1>
       <div className="grid grid-cols-1 gap-6 desk:grid-cols-[11rem_minmax(0,1fr)]">
         <nav
+          ref={nav}
           aria-label="Settings"
           className="-mx-4 overflow-x-auto px-4 desk:mx-0 desk:px-0"
         >
@@ -55,7 +90,7 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
             {SETTINGS_SECTIONS.map((s) => (
               <li key={s} className="shrink-0">
                 <a
-                  {...linkProps({ name: 'settings', section: s })}
+                  {...linkProps(settingsRoute(s))}
                   aria-current={s === section ? 'page' : undefined}
                   className={cn(
                     'press flex min-h-11 items-center px-3 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 desk:min-h-9',
@@ -71,7 +106,11 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
         </nav>
         <section
           aria-labelledby="settings-section"
-          className="flex min-w-0 max-w-2xl flex-col gap-6"
+          className={cn(
+            'flex min-w-0 flex-col gap-6',
+            // People's detail pane sits beside the list.
+            section !== 'people' && 'max-w-2xl',
+          )}
         >
           <h2
             id="settings-section"
@@ -83,6 +122,8 @@ export function SettingsPage({ section }: { section: SettingsSection }) {
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'spaces' && <SpacesSettings />}
+          {section === 'people' && <PeopleView selected={person} />}
+          {section === 'orgs' && <OrgsView selected={org} />}
           {section === 'data' && <Data />}
           {section === 'account' && <Account />}
         </section>

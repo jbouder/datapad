@@ -25,8 +25,8 @@ const ROUTES = [
   { path: '/notes', heading: 'Notes' },
   { path: '/meetings', heading: 'Meetings' },
   { path: '/settings', heading: 'Settings' },
-  { path: '/people', heading: 'People' },
-  { path: '/orgs', heading: 'Orgs' },
+  { path: '/settings/people', heading: 'Settings' },
+  { path: '/settings/orgs', heading: 'Settings' },
   { path: '/settings/data', heading: 'Settings' },
   { path: '/settings/account', heading: 'Settings' },
   { path: '/projects/nope', heading: 'Not found' },
@@ -88,14 +88,14 @@ for (const theme of CHECKED) {
       const seed = structuredClone(SEED);
       seed.notes['n-1'].body = 'Ask @{u-han} about the hyperdrive';
       await request.post('/api/import', { data: seed });
-      await page.goto('/people/u-han');
+      await page.goto('/settings/people/u-han');
       await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
       await expectAccessible(page);
     });
 
     test('People as Cards', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/people/u-han?view=cards');
+      await page.goto('/settings/people/u-han?view=cards');
       await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
       await expectAccessible(page);
     });

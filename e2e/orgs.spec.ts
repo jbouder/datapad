@@ -37,7 +37,7 @@ test('import offers to organize; orgs become records with a page each', async ({
     .getByRole('button', { name: 'Import' })
     .click();
   await page.getByRole('button', { name: 'Organize orgs' }).click();
-  await expect(page).toHaveURL(/\/orgs$/);
+  await expect(page).toHaveURL(/\/settings\/orgs$/);
 
   const callout = page.getByRole('status').filter({ hasText: 'plain text' });
   await expect(callout).toContainText('3 projects name an org as plain text');
@@ -65,7 +65,7 @@ test('import offers to organize; orgs become records with a page each', async ({
 
   // The org's page: projects, then add a contact and rename it.
   await list.getByRole('link', { name: 'Rebel Alliance' }).click();
-  await expect(page).toHaveURL(/\/orgs\/[^/]+$/);
+  await expect(page).toHaveURL(/\/settings\/orgs\/[^/]+$/);
   await expect(
     page.getByRole('list', { name: 'Projects of Rebel Alliance' }),
   ).toContainText('Echo Base relocation');
@@ -124,10 +124,10 @@ test('a new org from the project form becomes a record and is linked', async ({
     orgId: made?.id,
   });
 
-  // The old Settings address and ⌘K get there.
-  await openLive(page, '/settings/orgs');
-  await expect(page).toHaveURL(/\/orgs$/);
-  await expect(page).not.toHaveURL(/settings/);
+  // The old /orgs address and ⌘K get there.
+  await openLive(page, '/orgs');
+  await expect(page).toHaveURL(/\/settings\/orgs$/);
+  await expect(page).toHaveTitle('Orgs · Settings · Datapad');
   await page.getByRole('button', { name: /^Search/ }).click();
   const palette = page.getByRole('dialog', { name: 'Search' });
   await palette.getByRole('combobox').fill('mon cala');
@@ -136,6 +136,7 @@ test('a new org from the project form becomes a record and is linked', async ({
     .getByRole('option')
     .first()
     .click();
+  await expect(page).toHaveURL(/\/settings\/orgs\/[^/]+$/);
   await expect(
     page.getByRole('heading', { name: 'Mon Cala Shipyards' }),
   ).toBeVisible();

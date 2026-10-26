@@ -14,9 +14,9 @@ export type Route =
   | { name: 'meetings' }
   | { name: 'decisions' }
   | { name: 'digest' }
-  /** `person` is the one selected (`/people/:id`). */
+  /** Settings → People; `person` is the one selected (`/settings/people/:id`). */
   | { name: 'people'; person?: string }
-  /** `org` is the one open (`/orgs/:id`). */
+  /** Settings → Orgs; `org` is the one open (`/settings/orgs/:id`). */
   | { name: 'orgs'; org?: string }
   | { name: 'settings'; section: SettingsSection }
   | { name: 'help'; section?: string }
@@ -26,12 +26,17 @@ export type Route =
 
 export type RouteName = Route['name'];
 
-/** The Settings page's sections, each its own address. */
+/**
+ * The Settings page's sections, each its own address. People and Orgs are
+ * routes of their own (`people`, `orgs`) that render as Settings sections.
+ */
 export const SETTINGS_SECTIONS = [
   'appearance',
   'templates',
   'summaries',
   'spaces',
+  'people',
+  'orgs',
   'data',
   'account',
 ] as const;
@@ -64,8 +69,8 @@ export function parseRoute(
   if (clean === '/events') {
     return { name: 'meetings' };
   }
-  // People and orgs lived under Settings until #93; the old addresses
-  // still get there.
+  // People and orgs are under Settings (#159); /people and /orgs, their
+  // addresses from #93 until then, still get there.
   const people = /^(?:\/settings)?\/people(?:\/([^/]+))?$/.exec(clean);
   if (people) {
     return people[1]
@@ -110,10 +115,12 @@ export function routePath(route: Route): string | null {
       return '/';
     case 'people':
       return route.person
-        ? `/people/${encodeURIComponent(route.person)}`
-        : '/people';
+        ? `/settings/people/${encodeURIComponent(route.person)}`
+        : '/settings/people';
     case 'orgs':
-      return route.org ? `/orgs/${encodeURIComponent(route.org)}` : '/orgs';
+      return route.org
+        ? `/settings/orgs/${encodeURIComponent(route.org)}`
+        : '/settings/orgs';
     case 'settings':
       return route.section === 'appearance'
         ? '/settings'
@@ -151,9 +158,23 @@ export function canonicalQuery(pathname: string, search: string): string {
 
 /** The top-level section a route belongs to, for `aria-current` in the nav. */
 export function sectionOf(route: Route): RouteName {
-  return route.name === 'project' || route.name === 'archive'
-    ? 'projects'
-    : route.name;
+  if (route.name === 'project' || route.name === 'archive') return 'projects';
+  if (route.name === 'people' || route.name === 'orgs') return 'settings';
+  return route.name;
+}
+
+/** The Settings section a route shows; `null` off the Settings page. */
+export function settingsSectionOf(route: Route): SettingsSection | null {
+  if (route.name === 'settings') return route.section;
+  if (route.name === 'people' || route.name === 'orgs') return route.name;
+  return null;
+}
+
+/** The route for a Settings section: People and Orgs have their own. */
+export function settingsRoute(section: SettingsSection): Route {
+  return section === 'people' || section === 'orgs'
+    ? { name: section }
+    : { name: 'settings', section };
 }
 
 const TITLES: Partial<Record<RouteName, string>> = {

@@ -112,6 +112,16 @@ export function HelpPage({ section }: { section?: string }) {
             who decided and when. Add them on a project page, or turn a line of
             a note into one with <code>/decision</code>.
           </Term>
+          <Term name="People">
+            In Settings → People: everyone you assign, add to projects and
+            mention, each with their projects, open tasks, decisions and
+            mentions, for a quick check before a 1:1.
+          </Term>
+          <Term name="Orgs">
+            In Settings → Orgs: the clients, teams, vendors and partners your
+            projects belong to, each with its projects, contacts, meetings and
+            notes.
+          </Term>
         </dl>
         <p className="text-sm">
           Most pages switch layout from the buttons at the top right of the
@@ -189,7 +199,8 @@ export function HelpPage({ section }: { section?: string }) {
           Type <code>@</code> and a name in any note or description to mention
           someone from People; pick them with the arrow keys and Enter or Tab. A
           mention follows the person if you rename them, and their page lists
-          every note and task that mentions them. Add people in People.
+          every note and task that mentions them. Add people in Settings →
+          People.
         </p>
       </Section>
 
@@ -219,12 +230,13 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           A space is a separate Datapad: its own projects, tasks, notes,
           meetings and people, with nothing shared between spaces. You start
-          with Main. Switch spaces, or make a new one, from the name at the top
-          of the rail, the account menu, or <Key>⌘K</Key>; each device remembers
-          which one it has open. Settings → Spaces renames, reorders and deletes
-          them; deleting asks you to type the name, and the last space cannot
-          go. <strong>Move to…</strong> on a project page takes the project,
-          with its tasks, notes, meetings, milestones and decisions, to another
+          with Main. Switch spaces from the name at the top of the rail, the
+          account menu, or <Key>⌘K</Key>; each device remembers which one it has
+          open. Make a new one from the rail, <Key>⌘K</Key> or Settings →
+          Spaces, which also renames, reorders and deletes them; deleting asks
+          you to type the name, and the last space cannot go.{' '}
+          <strong>Move to…</strong> on a project page takes the project, with
+          its tasks, notes, meetings, milestones and decisions, to another
           space, and copies the people and org it needs.
         </p>
       </Section>
@@ -253,13 +265,13 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="account">
         <p className="text-sm">
           The account button at the top right opens the menu: your spaces,
-          Motion, Theme, Settings and Sign out; on phones it also leads to
-          People and Orgs, which sit in the rail on desktop. Settings has
-          Appearance, Templates (the tasks a new project can start with; Save as
-          template on a project makes one), Summaries, Spaces, Data and Account.
-          Signing out ends your Cloudflare Access session on this browser; sign
-          in again to come back. When your device asks for reduced motion,
-          Datapad never animates.
+          Motion, Theme, Settings and Sign out. Settings has Appearance,
+          Templates (the tasks a new project can start with; Save as template on
+          a project makes one), Summaries, Spaces, People (each person with
+          their projects, tasks and mentions), Orgs (each org with its projects,
+          contacts, meetings and notes), Data and Account. Signing out ends your
+          Cloudflare Access session on this browser; sign in again to come back.
+          When your device asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 

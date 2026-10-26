@@ -1,12 +1,10 @@
 import {
-  BuildingsIcon,
   CalendarBlankIcon,
   CheckSquareIcon,
   CrosshairIcon,
   FoldersIcon,
   type Icon,
   NoteIcon,
-  UsersIcon,
 } from '@phosphor-icons/react';
 import type { Route } from '@/lib/router';
 
@@ -15,8 +13,6 @@ export interface NavItem {
   route: Route;
   label: string;
   icon: Icon;
-  /** In the rail only: the phone's tab bar holds five. */
-  desktopOnly?: boolean;
 }
 
 export const NAV: NavItem[] = [
@@ -25,18 +21,6 @@ export const NAV: NavItem[] = [
   { route: { name: 'tasks' }, label: 'Tasks', icon: CheckSquareIcon },
   { route: { name: 'meetings' }, label: 'Meetings', icon: CalendarBlankIcon },
   { route: { name: 'notes' }, label: 'Notes', icon: NoteIcon },
-  {
-    route: { name: 'people' },
-    label: 'People',
-    icon: UsersIcon,
-    desktopOnly: true,
-  },
-  {
-    route: { name: 'orgs' },
-    label: 'Orgs',
-    icon: BuildingsIcon,
-    desktopOnly: true,
-  },
 ];
 
 export { sectionOf, titleOf } from '#shared/routes';

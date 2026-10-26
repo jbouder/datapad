@@ -24,6 +24,36 @@ async function openSwitcher(page: Page) {
   }
 }
 
+/**
+ * Open the New space dialog: the rail switcher's New space… on desktop;
+ * on a phone, the account menu has no New space…, so Settings → Spaces.
+ */
+async function openNewSpace(page: Page) {
+  if (isMobile(page)) {
+    await openSettingsSpaces(page);
+    await page.getByRole('button', { name: 'New space' }).click();
+  } else {
+    await switcher(page).click();
+    await page.getByRole('menuitem', { name: 'New space…' }).click();
+  }
+}
+
+/** Settings → Spaces: Manage spaces in the rail switcher, Settings on a phone. */
+async function openSettingsSpaces(page: Page) {
+  if (isMobile(page)) {
+    await openPreferences(page);
+    await page.getByRole('menuitem', { name: 'Settings' }).click();
+    await page
+      .getByRole('navigation', { name: 'Settings' })
+      .getByRole('link', { name: 'Spaces' })
+      .click();
+  } else {
+    await switcher(page).click();
+    await page.getByRole('menuitem', { name: 'Manage spaces' }).click();
+  }
+  await expect(page).toHaveURL(/\/settings\/spaces$/);
+}
+
 async function switchTo(page: Page, name: string) {
   await openSwitcher(page);
   await page.getByRole('menuitemradio', { name }).click();
@@ -43,13 +73,23 @@ test('make a space, work in it, and switch back and forth', async ({
   await expect(seeded(page)).toBeVisible();
   if (!isMobile(page)) await expect(switcher(page)).toHaveText('Main');
 
-  // New space… from the switcher (the account menu on a phone).
+  // The switcher (the account menu on a phone) has Main checked; on a
+  // phone it lists the spaces only, with no New space… or Manage spaces.
   await openSwitcher(page);
   await expect(
     page.getByRole('menuitemradio', { name: 'Main' }),
   ).toHaveAttribute('aria-checked', 'true');
   await expectAccessible(page);
-  await page.getByRole('menuitem', { name: 'New space…' }).click();
+  if (isMobile(page)) {
+    await expect(
+      page.getByRole('menuitem', { name: /New space|Manage spaces/ }),
+    ).toHaveCount(0);
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toBeHidden();
+
+  // New space… from the rail switcher (Settings → Spaces on a phone).
+  await openNewSpace(page);
   const dialog = page.getByRole('dialog', { name: 'New space' });
   await expect(dialog).toBeVisible();
   const name = dialog.getByRole('textbox', { name: 'Name' });
@@ -64,6 +104,13 @@ test('make a space, work in it, and switch back and forth', async ({
   await name.fill('Personal');
   await name.press('Enter');
   await expect(dialog).toBeHidden();
+  // Made from Settings on a phone: back to Focus.
+  if (isMobile(page)) {
+    await page
+      .getByRole('navigation', { name: 'Sections' })
+      .getByRole('link', { name: 'Focus' })
+      .click();
+  }
 
   // The new space is open, empty, and says so in the title.
   if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
@@ -296,9 +343,9 @@ test.describe('Settings → Spaces', () => {
     await request.post('/api/import', { data: SEED });
     await openLive(page, '/');
 
-    // A second space, made from the switcher; then back to Main.
-    await openSwitcher(page);
-    await page.getByRole('menuitem', { name: 'New space…' }).click();
+    // A second space, made from the switcher (Settings on a phone); then
+    // back to Main.
+    await openNewSpace(page);
     const made = page.getByRole('dialog', { name: 'New space' });
     await made.getByRole('textbox', { name: 'Name' }).fill('Personal');
     await made.getByRole('textbox', { name: 'Name' }).press('Enter');
@@ -306,10 +353,8 @@ test.describe('Settings → Spaces', () => {
     await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
     await switchTo(page, 'Main');
 
-    // Manage spaces leads here.
-    await openSwitcher(page);
-    await page.getByRole('menuitem', { name: 'Manage spaces' }).click();
-    await expect(page).toHaveURL(/\/settings\/spaces$/);
+    // Manage spaces (Settings on a phone) leads here.
+    await openSettingsSpaces(page);
     await expect(
       page.getByRole('heading', { level: 2, name: 'Spaces' }),
     ).toBeVisible();

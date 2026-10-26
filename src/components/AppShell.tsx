@@ -10,7 +10,12 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { withViewTransition } from '@/lib/motion';
 import { titleOf } from '@/lib/nav';
 import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
-import { type Route, setRouteTransition, useRoute } from '@/lib/router';
+import {
+  type Route,
+  setRouteTransition,
+  settingsSectionOf,
+  useRoute,
+} from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { DecisionsPage } from '@/pages/DecisionsPage';
@@ -20,8 +25,6 @@ import { HelpPage } from '@/pages/HelpPage';
 import { MeetingsPage } from '@/pages/MeetingsPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { OrgsPage } from '@/pages/OrgsPage';
-import { PeoplePage } from '@/pages/PeoplePage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -168,7 +171,9 @@ const DevComponentsPage = __DEV_ROUTES__
   : () => null;
 
 function pageKey(route: Route): string {
-  return route.name === 'project' ? `project:${route.id}` : route.name;
+  if (route.name === 'project') return `project:${route.id}`;
+  // People and Orgs are Settings sections: the page stays mounted.
+  return settingsSectionOf(route) ? 'settings' : route.name;
 }
 
 function Page({ route }: { route: Route }) {
@@ -194,9 +199,9 @@ function Page({ route }: { route: Route }) {
     case 'digest':
       return <DigestPage />;
     case 'people':
-      return <PeoplePage person={route.person} />;
+      return <SettingsPage section="people" person={route.person} />;
     case 'orgs':
-      return <OrgsPage org={route.org} />;
+      return <SettingsPage section="orgs" org={route.org} />;
     case 'settings':
       return <SettingsPage section={route.section} />;
     case 'devComponents':
