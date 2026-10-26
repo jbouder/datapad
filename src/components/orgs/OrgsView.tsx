@@ -344,10 +344,7 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
                   {formatDay(e.date, today)}
                 </span>
                 <a
-                  {...linkProps(
-                    { name: 'meetings' },
-                    `view=list&meeting=${e.id}`,
-                  )}
+                  {...linkProps({ name: 'meeting', id: e.id })}
                   className="min-w-0 flex-1 truncate hover:underline hover:underline-offset-4"
                 >
                   {e.title}

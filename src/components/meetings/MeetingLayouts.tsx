@@ -16,6 +16,7 @@ import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingList } from '@/components/meetings/MeetingList';
 import { MeetingRow } from '@/components/meetings/MeetingRow';
+import { navigate } from '@/lib/router';
 
 export type MeetingView = 'list' | 'calendar' | 'timeline';
 
@@ -64,7 +65,8 @@ export function MeetingLayouts({
   projectId,
   empty,
 }: Props) {
-  const { openMeeting, newMeeting } = useMeetingForm();
+  const { newMeeting } = useMeetingForm();
+  const open = (id: string) => navigate({ name: 'meeting', id });
 
   if (view === 'calendar') {
     const byId = new Map(meetings.map((e) => [e.id, e]));
@@ -80,7 +82,7 @@ export function MeetingLayouts({
           meta: topicMeta(e),
           className: 'bg-muted',
         }))}
-        onOpen={openMeeting}
+        onOpen={open}
         onAddDay={(date) => newMeeting({ projectId, date })}
         renderDay={(_day, ids) =>
           ids.map((id) => {
@@ -130,7 +132,7 @@ export function MeetingLayouts({
               kind: 'meeting' as const,
             })),
         }))}
-        onOpenPoint={(_lane, id) => openMeeting(id)}
+        onOpenPoint={(_lane, id) => open(id)}
       />
     );
   }

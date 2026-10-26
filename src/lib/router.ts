@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import {
   canonicalQuery,
+  linkedMeeting,
   parseRoute,
   type Route,
   routePath,
@@ -39,7 +40,7 @@ export function pathFor(route: Route): string {
 }
 
 /**
- * Two routes are the same page (same name, same project). Settings
+ * Two routes are the same page (same name, same project or meeting). Settings
  * sections, People and Orgs among them, are one page, so moving between
  * them is no page transition; so is picking another person or org.
  */
@@ -47,7 +48,8 @@ export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
   return (
     a.name === b.name &&
-    (a.name !== 'project' || a.id === (b as { id: string }).id)
+    ((a.name !== 'project' && a.name !== 'meeting') ||
+      a.id === (b as { id: string }).id)
   );
 }
 
@@ -57,14 +59,26 @@ function here(): string {
   );
 }
 
-let current: Route = parse(window.location.pathname, window.location.hash);
+/**
+ * Where an address lands: the route and its query. Old addresses settle on
+ * their canonical one: /focus is /, /people is /settings/people,
+ * /events?event=<id> and /meetings?meeting=<id> are /meetings/<id>.
+ */
+function land(pathname: string, query: string, hash: string): [Route, string] {
+  const meeting = linkedMeeting(pathname, query);
+  if (meeting) return [{ name: 'meeting', id: meeting }, ''];
+  return [parse(pathname, hash), canonicalQuery(pathname, query)];
+}
 
-// Old addresses settle on their canonical one: /focus is /,
-// /people is /settings/people, /events?event=<id> is /meetings?meeting=<id>.
-let search = canonicalQuery(window.location.pathname, window.location.search);
+let [current, search] = land(
+  window.location.pathname,
+  window.location.search,
+  window.location.hash,
+);
 if (
   current.name !== 'notFound' &&
-  pathFor(current) !== window.location.pathname &&
+  (pathFor(current) !== window.location.pathname ||
+    search !== window.location.search) &&
   current.name !== 'help'
 ) {
   window.history.replaceState(
@@ -89,8 +103,15 @@ function notify() {
   }
 }
 
+/** The latest commit's number: an older one that lands late is dropped. */
+let latest = 0;
+
 function commit(next: Route, nextSearch: string, instant = false) {
+  const id = ++latest;
   const update = () => {
+    // Back pressed mid-transition: the view transition API can run the
+    // earlier update after this one, which would leave the old page up.
+    if (id !== latest) return;
     current = next;
     search = nextSearch;
     notify();
@@ -127,10 +148,13 @@ export function navigate(
 }
 
 window.addEventListener('popstate', () => {
-  commit(
-    parse(window.location.pathname, window.location.hash),
-    window.location.search,
-  );
+  const { pathname, search: query, hash } = window.location;
+  const [route, nextSearch] = land(pathname, query, hash);
+  // An old meeting link in the history: settle it as on load.
+  if (route.name === 'meeting' && pathFor(route) !== pathname) {
+    window.history.replaceState(null, '', pathFor(route) + hash);
+  }
+  commit(route, nextSearch);
 });
 
 function subscribe(listener: () => void) {

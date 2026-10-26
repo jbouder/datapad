@@ -48,12 +48,13 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `components/*` (shared layouts in `components/layouts/`: ViewSwitcher,
   DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
-  `meetings/` holds the meeting form, row, list, layouts, linked notes,
-  the topics (`MeetingTopics` on the row and in the panel,
+  `meetings/` holds the meeting form, row, list, layouts,
+  the topics (`MeetingTopics` on the meeting's page and in its panel,
   `PendingTopics` for a new meeting's), the meeting note composer and
   the Focus agenda strip;
-  `notes/LinkedNoteList` is the Notes section a task's and a meeting's
-  panel share), `pages/*`.
+  `notes/LinkedNoteList` is the Notes section a task's panel and a
+  meeting's page and panel share), `pages/*` (`MeetingPage` is
+  `/meetings/:id`, as `ProjectPage` is `/projects/:id`).
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a

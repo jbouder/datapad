@@ -91,8 +91,8 @@ export function HelpPage({ section }: { section?: string }) {
             at once.
           </Term>
           <Term name="Meetings">
-            Every meeting, with its topics and its notes, as a list, a month
-            calendar or a timeline.
+            Every meeting as a list, a month calendar or a timeline. Each
+            meeting has a page of its own with its topics and its notes.
           </Term>
           <Term name="Notes">
             Every note, newest first, as a feed or a grid. Pinned notes stay on
@@ -217,32 +217,33 @@ export function HelpPage({ section }: { section?: string }) {
           Every meeting offers <strong>Add note</strong> (in its ⋯ menu on a
           phone), as many times as you like: before, during or after. It opens a
           note composer right under the meeting and links the note to it. Save
-          note adds it without leaving the page; Esc or Cancel closes it. The
-          meeting then shows its notes under it, newest first, and its summary
-          reads them. The meeting’s panel lists them too, where you can add,
-          edit and delete them as you would a task’s notes.
+          note adds it without leaving the page; Esc or Cancel closes it. Click
+          a meeting’s title to open its page: its notes are there, newest first,
+          where you can add, edit and delete them as you would a task’s notes,
+          and its summary reads them. The page links to the previous and next
+          meeting of its series.
         </p>
         <p className="text-sm">
           <strong>Topics</strong> are a meeting’s agenda, one line each. Add
-          them with <strong>Add topic</strong> in the meeting’s panel (Enter
-          adds one and keeps the field open for the next; Esc closes it), in the
-          field under the meeting, or with Add topic in its menu. In the panel
-          of a meeting you have saved, topics change at once, as its notes do; a
-          new meeting’s are saved with it. Tick a topic when it has been
-          covered, and use <strong>Outcome</strong> to note what came of it in a
-          line; ticking and the outcome are separate. Click a title or an
-          outcome to change it. Drag to reorder, or use Move up and Move down in
-          a topic’s menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the
-          keyboard); the menu also makes a task or a decision from a topic.
+          them with <strong>Add topic</strong> on the meeting’s page or in its
+          panel (Enter adds one and keeps the field open for the next; Esc
+          closes it). Topics on a meeting you have saved change at once, as its
+          notes do; a new meeting’s are saved with it. A row in the list shows
+          only how many are covered. Tick a topic when it has been covered, and
+          use <strong>Outcome</strong> to note what came of it in a line;
+          ticking and the outcome are separate. Click a title or an outcome to
+          change it. Drag to reorder, or use Move up and Move down in a topic’s
+          menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the keyboard);
+          the menu also makes a task or a decision from a topic.
         </p>
         <p className="text-sm">
           Meetings with the same title, project and people are a series. A new
           one in a series offers to <strong>carry forward</strong> the last
           one’s uncovered topics (a checkbox in the form, on by default).{' '}
-          <strong>Carry forward</strong> in a meeting’s menu copies its
-          uncovered topics to the next one in the series (skipping any it
-          already has) and marks them covered here, with Undo. A carried topic
-          shows the day it was first raised.
+          <strong>Carry forward</strong> in a meeting’s menu or on its page
+          copies its uncovered topics to the next one in the series (skipping
+          any it already has) and marks them covered here, with Undo. A carried
+          topic shows the day it was first raised.
         </p>
       </Section>
 

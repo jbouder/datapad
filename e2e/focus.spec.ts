@@ -116,10 +116,10 @@ test('each agenda card links to its meeting', async ({ page }) => {
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
   await expect(agenda.getByRole('listitem')).toHaveCount(1);
   await agenda.getByRole('link', { name: 'Shield review' }).click();
-  await expect(page).toHaveURL(/\/meetings\?view=list&meeting=e-1$/);
-  await expect(page.locator('[data-meeting-id="e-1"]')).toHaveAttribute(
-    'data-highlighted',
-  );
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Shield review' }),
+  ).toBeVisible();
 });
 
 test('nothing open says what to do next', async ({ page }) => {

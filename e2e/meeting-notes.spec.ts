@@ -58,8 +58,9 @@ function composer(page: Page, title: string) {
   return page.getByRole('combobox', { name: `New note for “${title}”` });
 }
 
-function linked(page: Page, title: string) {
-  return row(page, title).getByRole('list', { name: `Notes for “${title}”` });
+/** The Notes section's list on a meeting's page. */
+function linked(page: Page) {
+  return page.getByRole('region', { name: 'Notes', exact: true });
 }
 
 test.beforeEach(async ({ request }) => {
@@ -70,7 +71,10 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-/** Write and save two notes on Shield review under its row, in place. */
+/**
+ * Write and save two notes on Shield review under its row, in place; the
+ * row only says so, and its page lists them.
+ */
 async function writeTwo(page: Page) {
   const url = page.url();
   for (const text of ['Ask about the ridge', 'Ridge is clear']) {
@@ -85,10 +89,20 @@ async function writeTwo(page: Page) {
       .getByRole('button', { name: 'Save note' })
       .click();
     await expect(box).toBeHidden();
+    await expect(
+      page.getByText('Added a note to “Shield review”').first(),
+    ).toBeVisible();
     expect(page.url()).toBe(url);
   }
+  await expect(
+    row(page, 'Shield review').getByRole('list', { name: /^Notes/ }),
+  ).toHaveCount(0);
+  await row(page, 'Shield review')
+    .getByRole('link', { name: 'Shield review', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
   // One list, newest first, the seed's old Prep note (phase `pre`) last.
-  const items = linked(page, 'Shield review').getByRole('listitem');
+  const items = linked(page).getByRole('listitem');
   await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText('Ridge is clear');
   await expect(items.nth(1)).toContainText('Ask about the ridge');
@@ -118,7 +132,6 @@ test('notes on a meeting row on Meetings, written in place', async ({
 }) => {
   await openLive(page, '/meetings');
   await writeTwo(page);
-  await expect(page).toHaveURL(/\/meetings/);
   // No kinds of note to choose from any more.
   await expect(page.getByRole('button', { name: /Prep|Debrief/ })).toHaveCount(
     0,
@@ -135,7 +148,6 @@ test('notes on a meeting row on a project page, in place', async ({
 }) => {
   await openLive(page, '/projects/p-echo');
   await writeTwo(page);
-  await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await expectSaved(page);
   await expectStoredTwo(request);
 });
@@ -170,40 +182,34 @@ test('the row’s composer: one per meeting, Esc and Cancel', async ({
   await expect(box).toBeHidden();
 });
 
-test('notes in the meeting’s panel: add, edit and delete', async ({
+test('notes on the meeting’s page: add, edit and delete', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/meetings');
-  await row(page, 'Shield review')
-    .getByRole('button', { name: 'Shield review', exact: true })
-    .click();
-  const panel = page.getByRole('dialog', { name: 'Edit Shield review' });
-  await expect(panel).toBeVisible();
-  const notes = panel.getByRole('region', { name: 'Notes', exact: true });
+  await openLive(page, '/meetings/e-1');
+  const main = page.getByRole('main');
+  const notes = linked(page);
   const items = notes.getByRole('listitem');
   // The seed's old Prep note (phase `pre`) is listed like any other.
   await expect(items).toHaveCount(1);
   await expect(items.nth(0)).toContainText('Bring the power budget');
 
-  // Esc closes the composer, not the panel.
+  // Esc closes the composer.
   await notes.getByRole('button', { name: 'Add note' }).click();
-  const box = panel.getByRole('combobox', {
+  const box = main.getByRole('combobox', {
     name: 'New note for “Shield review”',
   });
   await expect(box).toBeFocused();
   await expect(box).toHaveValue('');
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
-  await expect(panel).toBeVisible();
 
-  // ⌘Enter saves the note and leaves the panel open.
+  // ⌘Enter saves the note.
   await notes.getByRole('button', { name: 'Add note' }).click();
   await expect(box).toBeFocused();
   await page.keyboard.type('Shields hold at **ninety**');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(box).toBeHidden();
-  await expect(panel).toBeVisible();
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('Shields hold at ninety');
   await expect(items.nth(0).locator('strong')).toHaveText('ninety');
@@ -213,10 +219,10 @@ test('notes in the meeting’s panel: add, edit and delete', async ({
 
   // Edit in place.
   await items.nth(0).getByRole('button', { name: /^Edit/ }).click();
-  const edit = panel.getByRole('combobox', { name: 'Edit note' });
+  const edit = main.getByRole('combobox', { name: 'Edit note' });
   await expect(edit).toBeFocused();
   await edit.fill('Shields hold at ninety-five');
-  await panel.getByRole('button', { name: 'Save note' }).click();
+  await main.getByRole('button', { name: 'Save note' }).click();
   await expect(items.nth(0)).toContainText('Shields hold at ninety-five');
   await expect(items.nth(0)).toContainText('edited');
 
@@ -232,12 +238,14 @@ test('notes in the meeting’s panel: add, edit and delete', async ({
     .click();
   await expect(items).toHaveCount(2);
 
-  // Nothing in the meeting's own fields changed: it closes without asking.
+  // The meeting's panel lists the same notes.
+  await main.getByRole('button', { name: 'Edit', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Edit Shield review' });
+  await expect(
+    form.getByRole('region', { name: 'Notes', exact: true }),
+  ).toContainText('Shields hold at ninety-five');
   await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  await expect(linked(page, 'Shield review')).toContainText(
-    'Shields hold at ninety-five',
-  );
+  await expect(form).toBeHidden();
 
   await expectSaved(page);
   const all = Object.values((await stored(request)).notes).filter(
@@ -299,7 +307,7 @@ test('from the Focus agenda: a project meeting and a General one', async ({
   });
 });
 
-test('more than three linked notes wait behind Show all, newest first', async ({
+test('the page lists every note on the meeting, newest first', async ({
   page,
   request,
 }) => {
@@ -316,15 +324,11 @@ test('more than three linked notes wait behind Show all, newest first', async ({
     };
   }
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/meetings');
-  const items = linked(page, 'Shield review').getByRole('listitem');
-  await expect(items).toHaveCount(3);
+  await openLive(page, '/meetings/e-1');
+  const items = linked(page).getByRole('listitem');
+  await expect(items).toHaveCount(4);
   await expect(items.nth(0)).toContainText('Extra 2');
   await expect(items.nth(2)).toContainText('Extra 0');
-  await row(page, 'Shield review')
-    .getByRole('button', { name: 'Show all 4' })
-    .click();
-  await expect(items).toHaveCount(4);
   await expect(items.nth(3)).toContainText('Shield review — 2026-10-27');
 });
 
@@ -335,10 +339,7 @@ test('a meeting’s note on Notes shows a chip that opens the meeting', async ({
   const card = page
     .locator('article[data-note-id]')
     .filter({ hasText: 'Bring the power budget' });
-  await card.getByRole('button', { name: 'Meeting: Shield review' }).click();
-  const panel = page.getByRole('dialog', { name: 'Edit Shield review' });
-  await expect(panel).toBeVisible();
-  await expect(
-    panel.getByRole('region', { name: 'Notes', exact: true }),
-  ).toContainText('Bring the power budget');
+  await card.getByRole('link', { name: 'Meeting: Shield review' }).click();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await expect(linked(page)).toContainText('Bring the power budget');
 });

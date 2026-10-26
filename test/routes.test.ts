@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canonicalQuery,
+  linkedMeeting,
   parseRoute,
   type Route,
   routePath,
@@ -64,7 +65,7 @@ describe('parseRoute', () => {
 
   it('does not know anything else', () => {
     expect(parseRoute('/event')).toEqual({ name: 'notFound' });
-    expect(parseRoute('/meetings/x')).toEqual({ name: 'notFound' });
+    expect(parseRoute('/meetings/x/y')).toEqual({ name: 'notFound' });
   });
 });
 
@@ -75,6 +76,7 @@ describe('routePath', () => {
       { name: 'meetings' },
       { name: 'tasks' },
       { name: 'project', id: 'a/b' },
+      { name: 'meeting', id: 'e 1' },
       { name: 'people' },
       { name: 'people', person: 'p1' },
       { name: 'orgs' },
@@ -89,8 +91,13 @@ describe('routePath', () => {
     }
   });
 
-  it('puts Meetings at /meetings', () => {
+  it('puts Meetings at /meetings, and each meeting under it', () => {
     expect(routePath({ name: 'meetings' })).toBe('/meetings');
+    expect(routePath({ name: 'meeting', id: 'e-1' })).toBe('/meetings/e-1');
+    expect(parseRoute('/meetings/e-1/')).toEqual({
+      name: 'meeting',
+      id: 'e-1',
+    });
     expect(routePath(parseRoute('/events'))).toBe('/meetings');
   });
 
@@ -136,11 +143,27 @@ describe('canonicalQuery', () => {
   });
 });
 
+describe('linkedMeeting', () => {
+  it('reads the meeting an old link opened', () => {
+    expect(linkedMeeting('/meetings', '?view=list&meeting=e-1')).toBe('e-1');
+    expect(linkedMeeting('/events', '?event=e-1')).toBe('e-1');
+    expect(linkedMeeting('/events/', '?view=list&event=e%201')).toBe('e 1');
+  });
+
+  it('is null without one, or anywhere else', () => {
+    expect(linkedMeeting('/meetings', '?view=calendar')).toBeNull();
+    expect(linkedMeeting('/meetings', '')).toBeNull();
+    expect(linkedMeeting('/notes', '?meeting=e-1')).toBeNull();
+    expect(linkedMeeting('/meetings/e-1', '?meeting=e-2')).toBeNull();
+  });
+});
+
 describe('sectionOf and titleOf', () => {
-  it('puts a project and the archive under Projects', () => {
+  it('puts a project and the archive under Projects, a meeting under Meetings', () => {
     expect(sectionOf({ name: 'project', id: 'p' })).toBe('projects');
     expect(sectionOf({ name: 'archive' })).toBe('projects');
     expect(sectionOf({ name: 'meetings' })).toBe('meetings');
+    expect(sectionOf({ name: 'meeting', id: 'e' })).toBe('meetings');
     expect(sectionOf(parseRoute('/events'))).toBe('meetings');
   });
 
@@ -154,6 +177,8 @@ describe('sectionOf and titleOf', () => {
     expect(titleOf({ name: 'meetings' })).toBe('Meetings');
     expect(titleOf({ name: 'project', id: 'p' }, 'Alpha')).toBe('Alpha');
     expect(titleOf({ name: 'project', id: 'p' })).toBe('Project');
+    expect(titleOf({ name: 'meeting', id: 'e' }, 'Standup')).toBe('Standup');
+    expect(titleOf({ name: 'meeting', id: 'e' })).toBe('Meeting');
     expect(titleOf({ name: 'digest' })).toBe('Weekly digest');
     expect(titleOf({ name: 'people', person: 'p' })).toBe('People');
     expect(titleOf({ name: 'orgs' })).toBe('Orgs');

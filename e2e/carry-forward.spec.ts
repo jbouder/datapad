@@ -67,12 +67,6 @@ function meetingRow(page: Page, id: string) {
   return page.locator(`[data-meeting-id="${id}"]`);
 }
 
-function titles(page: Page, id: string) {
-  return meetingRow(page, id)
-    .getByRole('list', { name: 'Topics for “Shield review”' })
-    .locator('[data-topic-title]');
-}
-
 test('a new meeting in the series carries the uncovered topics', async ({
   page,
   request,
@@ -133,9 +127,11 @@ test('a new meeting in the series carries the uncovered topics', async ({
     'Carried topic "North ridge" forward to "shield REVIEW"',
   ]);
 
-  // The carried ones say where they came from.
-  const row = meetingRow(page, added?.id ?? '');
-  const list = row.getByRole('list', { name: 'Topics for “shield REVIEW”' });
+  // The carried ones say where they came from, on its page.
+  await meetingRow(page, added?.id ?? '')
+    .getByRole('link', { name: 'shield REVIEW', exact: true })
+    .click();
+  const list = page.getByRole('list', { name: 'Topics for “shield REVIEW”' });
   await expect(list.locator('[data-topic-carried]')).toHaveText([
     `carried forward from ${formatDay(today, today)}`,
     `carried forward from ${formatDay(today, today)}`,
@@ -201,18 +197,8 @@ test('Carry forward moves them to the next meeting, and Undo takes it back', asy
     meetingRow(page, 'e-1').locator('[data-topic-count]'),
   ).toHaveText('3 of 3 topics');
   await expect(
-    meetingRow(page, 'e-1').locator('[data-topic-outcome]'),
-  ).toHaveText(['Approved', 'Carried forward', 'Carried forward']);
-  await expect(titles(page, 'e-5')).toHaveText([
-    'North ridge',
-    'Probe droid sightings',
-  ]);
-  await expect(
-    meetingRow(page, 'e-5').locator('[data-topic-carried]'),
-  ).toHaveText([
-    `carried forward from ${formatDay(today, today)}`,
-    `carried forward from ${formatDay(today, today)}`,
-  ]);
+    meetingRow(page, 'e-5').locator('[data-topic-count]'),
+  ).toHaveText('0 of 2 topics');
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
 
@@ -230,7 +216,7 @@ test('Carry forward moves them to the next meeting, and Undo takes it back', asy
     meetingRow(page, 'e-1').locator('[data-topic-count]'),
   ).toHaveText('1 of 3 topics');
   await expect(
-    meetingRow(page, 'e-5').locator('[data-topic-title]'),
+    meetingRow(page, 'e-5').locator('[data-topic-count]'),
   ).toHaveCount(0);
   await expectSaved(page);
   data = await stored(request);

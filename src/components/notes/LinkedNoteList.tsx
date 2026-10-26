@@ -30,6 +30,7 @@ export function LinkedNoteList({
   people,
   label,
   draftKey,
+  headingLevel = 3,
 }: {
   /** The thing's notes, newest first (`notesOfTask`, `notesOfMeeting`). */
   notes: Note[];
@@ -39,7 +40,10 @@ export function LinkedNoteList({
   /** The composer's accessible name, e.g. New note on “Shield review”. */
   label: string;
   draftKey: string;
+  /** 2 on a meeting's page; 3 in a panel. */
+  headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const { hidden } = useNotes();
   const [composing, setComposing] = useState(false);
   const composer = useRef<InlineNoteComposerHandle>(null);
@@ -61,9 +65,9 @@ export function LinkedNoteList({
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 id={headingId} className="text-xs font-medium">
+        <Heading id={headingId} className="text-xs font-medium">
           Notes
-        </h3>
+        </Heading>
         <Button
           ref={addButton}
           type="button"

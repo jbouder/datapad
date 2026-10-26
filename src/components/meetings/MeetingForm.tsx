@@ -446,7 +446,7 @@ export function MeetingForm({
         </div>
       )}
       {meeting ? (
-        <MeetingTopics meeting={state?.meetings[meeting.id] ?? meeting} panel />
+        <MeetingTopics meeting={state?.meetings[meeting.id] ?? meeting} />
       ) : (
         <PendingTopics
           id="meeting-topics"

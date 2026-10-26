@@ -57,12 +57,13 @@ test('Calendar: open a day, add a meeting, see it in List', async ({
   await expect(form).toBeHidden();
   await expect(page.getByRole('button', { name: /Hangar tour/ })).toBeVisible();
 
-  // The chip opens the meeting.
+  // The chip opens the meeting's page; Back returns to the Calendar.
   await page.getByRole('button', { name: /Hangar tour/ }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit Hangar tour' });
-  await expect(edit).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(edit).toBeHidden();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Hangar tour' }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/view=calendar/);
 
   await pick(page, 'List');
   await expect(
@@ -137,10 +138,9 @@ test('Timeline: a lane per project, meetings listed for assistive tech', async (
   await shield.focus();
   await expect(list).toBeVisible();
   await shield.press('Enter');
-  const edit = page.getByRole('dialog', { name: 'Edit Shield review' });
-  await expect(edit).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(edit).toBeHidden();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/view=timeline/);
 
   // The project filter applies here too.
   await page.getByRole('combobox', { name: 'Project' }).click();

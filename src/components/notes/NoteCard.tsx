@@ -17,7 +17,6 @@ import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { taskTitleFrom } from '#shared/notes';
 import type { Note, Snapshot } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
-import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
@@ -75,7 +74,6 @@ export function NoteCard({
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
   const { openTask } = useTaskPanels();
-  const { openMeeting } = useMeetingForm();
   const { show } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -238,9 +236,8 @@ export function NoteCard({
             <span className="border border-dashed px-1.5 py-0.5">General</span>
           ))}
         {meeting && (
-          <button
-            type="button"
-            onClick={() => openMeeting(meeting.id)}
+          <a
+            {...linkProps({ name: 'meeting', id: meeting.id })}
             className="press inline-flex max-w-full min-h-11 items-center gap-1 desk:min-h-0"
           >
             <span className="inline-flex min-w-0 items-center gap-1 bg-accent px-1.5 py-0.5 text-accent-foreground hover:underline">
@@ -248,7 +245,7 @@ export function NoteCard({
               <span className="sr-only">Meeting: </span>
               <span className="truncate">{meeting.title}</span>
             </span>
-          </button>
+          </a>
         )}
         {note.taskId &&
           (task ? (
