@@ -106,7 +106,10 @@ as it is (migrated on the way in, below):
   date, 50 at most); a deadline is its `targetDate`.
 - A meeting may carry `topics` (`[{ "id", "title", "done", "outcome" }]`,
   in agenda order, 50 at most, outcomes 300 characters); a file without
-  them reads as none.
+  them, or from before topics (M11), imports with none. A topic carried
+  forward from an earlier meeting also has `carriedFrom`, the day
+  (`YYYY-MM-DD`) it was first raised; `done` and `outcome` may be left
+  out and read as `false` and `''`.
 - A file from before meetings (the artifact's, or an older Datapad
   export or backup) has `events` instead of `meetings`, and notes with
   `eventId`. It imports as it is, migrated on the way in
