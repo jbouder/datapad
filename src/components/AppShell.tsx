@@ -15,9 +15,9 @@ import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { DecisionsPage } from '@/pages/DecisionsPage';
 import { DigestPage } from '@/pages/DigestPage';
-import { EventsPage } from '@/pages/EventsPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { MeetingsPage } from '@/pages/MeetingsPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { OrgsPage } from '@/pages/OrgsPage';
@@ -187,8 +187,8 @@ function Page({ route }: { route: Route }) {
       return <TasksPage />;
     case 'notes':
       return <NotesPage />;
-    case 'events':
-      return <EventsPage />;
+    case 'meetings':
+      return <MeetingsPage />;
     case 'decisions':
       return <DecisionsPage />;
     case 'digest':

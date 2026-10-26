@@ -3,13 +3,13 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { namesToTokens } from '#shared/mentions';
 import type { Meeting, NotePhase, Person } from '#shared/types';
+import { Field } from '@/components/Field';
 import {
   accepts,
-  type EventNoteIntent,
+  type MeetingNoteIntent,
   type NoteTarget,
-  useEventNotes,
-} from '@/components/events/EventNotesProvider';
-import { Field } from '@/components/Field';
+  useMeetingNotes,
+} from '@/components/meetings/MeetingNotesProvider';
 import { NoteComposer } from '@/components/NoteComposer';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,8 @@ export const PHASE_LABELS: Record<NotePhase, string> = {
 };
 
 /** "## Prep: Shield review — Tue 27 Oct", a linked note's first line. */
-export function seedLine(event: Meeting, phase: NotePhase, today: string) {
-  return `## ${PHASE_LABELS[phase]}: ${event.title} — ${formatDay(event.date, today)}`;
+export function seedLine(meeting: Meeting, phase: NotePhase, today: string) {
+  return `## ${PHASE_LABELS[phase]}: ${meeting.title} — ${formatDay(meeting.date, today)}`;
 }
 
 /**
@@ -67,8 +67,8 @@ export function useNoteCommands(
  * is kept per project; adding clears it and keeps the focus for the next
  * one. `/task` makes a task in the same project.
  *
- * An event's Prep note / Debrief note lands here (EventNotesProvider):
- * the note is linked to the event, its project picked, and the seed line
+ * A meeting's Prep note / Debrief note lands here (MeetingNotesProvider):
+ * the note is linked to the meeting, its project picked, and the seed line
  * written into an empty draft or added after what is already there.
  */
 export function NoteForm({
@@ -81,24 +81,24 @@ export function NoteForm({
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const { register, pending, clearPending } = useEventNotes();
+  const { register, pending, clearPending } = useMeetingNotes();
   const [picked, setPicked] = useState<string | null>(null);
   const projectId = fixed === undefined ? picked : fixed;
   const [text, setText] = useState('');
-  const [link, setLink] = useState<EventNoteIntent | null>(null);
+  const [link, setLink] = useState<MeetingNoteIntent | null>(null);
   const id = useId();
   const textRef = useRef(text);
   textRef.current = text;
   const linked = link ? state?.meetings[link.meetingId] : undefined;
 
   const prefill = useRef<NoteTarget['prefill']>(() => {});
-  prefill.current = (event, phase) => {
-    const seed = seedLine(event, phase, localDate(new Date()));
+  prefill.current = (meeting, phase) => {
+    const seed = seedLine(meeting, phase, localDate(new Date()));
     const draft = textRef.current.replace(/\s+$/, '');
     setText(draft ? `${draft}\n${seed}\n` : `${seed}\n`);
-    setLink({ meetingId: event.id, phase });
-    if (fixed === undefined) setPicked(event.projectId);
-    if (draft) show(`Linked to “${event.title}”`);
+    setLink({ meetingId: meeting.id, phase });
+    if (fixed === undefined) setPicked(meeting.projectId);
+    if (draft) show(`Linked to “${meeting.title}”`);
     // Once the new text is on screen: the caret at its end, in view.
     requestAnimationFrame(() => {
       const area = document.getElementById(id) as HTMLTextAreaElement | null;
@@ -113,7 +113,7 @@ export function NoteForm({
     () =>
       register({
         projectId: fixed,
-        prefill: (event, phase) => prefill.current(event, phase),
+        prefill: (meeting, phase) => prefill.current(meeting, phase),
       }),
     [register, fixed],
   );
@@ -121,16 +121,16 @@ export function NoteForm({
   // Arriving from elsewhere with a parked Prep / Debrief note.
   useEffect(() => {
     if (!pending || !state) return;
-    const event = state.meetings[pending.meetingId];
-    if (!event) {
+    const meeting = state.meetings[pending.meetingId];
+    if (!meeting) {
       clearPending();
       return;
     }
-    if (!accepts({ projectId: fixed, prefill: () => {} }, event)) return;
+    if (!accepts({ projectId: fixed, prefill: () => {} }, meeting)) return;
     clearPending();
     // After the composer has put back any draft, which the seed follows.
     // Not canceled: clearing `pending` re-runs this effect.
-    window.setTimeout(() => prefill.current(event, pending.phase));
+    window.setTimeout(() => prefill.current(meeting, pending.phase));
   }, [pending, state, fixed, clearPending]);
 
   /** The id the note will have, known before it is added. */
@@ -168,9 +168,9 @@ export function NoteForm({
   const add = () => {
     const body = namesToTokens(text, people).trim();
     if (!body) return;
-    const event = linked ? { meetingId: linked.id, phase: link?.phase } : {};
+    const linkage = linked ? { meetingId: linked.id, phase: link?.phase } : {};
     if (
-      actions.addNote({ id: noteId.current, projectId, body, ...event }) ===
+      actions.addNote({ id: noteId.current, projectId, body, ...linkage }) ===
       null
     ) {
       return;
@@ -240,7 +240,7 @@ export function NoteForm({
           draftKey={`datapad:draft:note:${fixed === undefined ? 'notes' : (fixed ?? 'general')}`}
           onSubmit={add}
           data={{
-            'data-event': linked?.id,
+            'data-meeting': linked?.id,
             'data-phase': linked ? link?.phase : undefined,
           }}
           {...commands}

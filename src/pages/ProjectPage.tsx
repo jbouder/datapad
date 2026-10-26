@@ -14,12 +14,12 @@ import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { DecisionList } from '@/components/decisions/DecisionList';
-import { useEventForm } from '@/components/events/EventFormProvider';
-import { EventList } from '@/components/events/EventList';
 import { Initials } from '@/components/Initials';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
+import { MeetingList } from '@/components/meetings/MeetingList';
 import { NoteCard } from '@/components/notes/NoteCard';
 import { NoteForm } from '@/components/notes/NoteForm';
 import { useNotes } from '@/components/notes/NotesProvider';
@@ -52,7 +52,7 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One project, where most entry happens: the header with its facts and
  * actions, the description, the current state line, then Tasks on the
- * left with Events under them, Notes and Activity on the right (3:2
+ * left with Meetings under them, Notes and Activity on the right (3:2
  * above 820px, one column below). Sections remember open or closed per
  * project.
  */
@@ -61,7 +61,7 @@ export function ProjectPage({ id }: { id: string }) {
   const { openProjectForm } = useProjectForm();
   const { summarize } = useSummaries();
   const { newTemplate } = useTemplateForm();
-  const { newEvent } = useEventForm();
+  const { newMeeting } = useMeetingForm();
   const { show } = useToast();
   const project = state?.projects[id];
   const [taskView, setTaskView] = useView(
@@ -91,7 +91,7 @@ export function ProjectPage({ id }: { id: string }) {
     [state?.notes, id, hidden],
   );
 
-  const events = useMemo(
+  const meetings = useMemo(
     () => projectMeetings(state?.meetings ?? {}, id),
     [state?.meetings, id],
   );
@@ -356,23 +356,25 @@ export function ProjectPage({ id }: { id: string }) {
             </div>
           </Section>
           <Section
-            title="Events"
-            count={events.filter((e) => e.date >= today).length}
-            storageKey={key('events')}
+            title="Meetings"
+            count={meetings.filter((e) => e.date >= today).length}
+            storageKey={key('meetings')}
             actions={
               <Button
                 variant="outline"
                 className="press h-11 desk:h-8"
-                onClick={() => newEvent({ projectId: id, fixedProject: true })}
+                onClick={() =>
+                  newMeeting({ projectId: id, fixedProject: true })
+                }
               >
                 <PlusIcon />
-                Add event
+                Add meeting
               </Button>
             }
           >
             <div className="pt-2">
-              <EventList
-                events={events}
+              <MeetingList
+                meetings={meetings}
                 state={state}
                 today={today}
                 showProject={false}

@@ -2,29 +2,29 @@ import { CaretRightIcon } from '@phosphor-icons/react';
 import { useId, useMemo, useRef, useState } from 'react';
 import { monthLabel, splitByMonth } from '#shared/meetings';
 import type { Meeting, Snapshot } from '#shared/types';
-import { EventRow } from '@/components/events/EventRow';
+import { MeetingRow } from '@/components/meetings/MeetingRow';
 import { withViewTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
 
 /**
- * Events (soonest first) as upcoming months, then Past (newest first,
+ * Meetings (soonest first) as upcoming months, then Past (newest first,
  * collapsed until asked for). Rows that arrive after the list first drew
  * come in with `.enter`; opening Past is a `filter` transition.
  */
-export function EventList({
-  events,
+export function MeetingList({
+  meetings,
   state,
   today,
   showProject = true,
   headingLevel = 2,
   empty,
 }: {
-  events: Meeting[];
+  meetings: Meeting[];
   state: Snapshot;
   today: string;
   showProject?: boolean;
-  /** The month headings' level: 2 on the Events page, 3 in a section. */
+  /** The month headings' level: 2 on the Meetings page, 3 in a section. */
   headingLevel?: 2 | 3;
   empty: string;
 }) {
@@ -32,20 +32,20 @@ export function EventList({
   const id = useId();
   const [pastOpen, setPastOpen] = useState(false);
   const { upcoming, past } = useMemo(
-    () => splitByMonth(events, today),
-    [events, today],
+    () => splitByMonth(meetings, today),
+    [meetings, today],
   );
 
   // What was there at first stays still; anything added later enters.
   const seen = useRef<Set<string> | null>(null);
-  if (seen.current === null) seen.current = new Set(events.map((e) => e.id));
+  if (seen.current === null) seen.current = new Set(meetings.map((e) => e.id));
   const fresh = (e: Meeting) => !seen.current?.has(e.id);
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
   const row = (e: Meeting) => (
-    <EventRow
+    <MeetingRow
       key={e.id}
-      event={e}
+      meeting={e}
       state={state}
       today={today}
       showProject={showProject}

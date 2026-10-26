@@ -34,7 +34,7 @@ export function Rail({ route }: { route: Route }) {
         b.later.length +
         b.noDate.length,
       tasks: [...open.values()].reduce((a, n) => a + n, 0),
-      events: agenda(state.meetings, state.projects, today).length,
+      meetings: agenda(state.meetings, state.projects, today).length,
       open,
     };
   }, [state, today]);
@@ -55,7 +55,7 @@ export function Rail({ route }: { route: Route }) {
   const anyProjects = state ? Object.keys(state.projects).length > 0 : false;
 
   const countFor = (name: string): number | undefined =>
-    name === 'focus' || name === 'tasks' || name === 'events'
+    name === 'focus' || name === 'tasks' || name === 'meetings'
       ? counts?.[name]
       : undefined;
 
@@ -91,7 +91,7 @@ export function Rail({ route }: { route: Route }) {
                     <span className="count text-xs text-muted-foreground tabular-nums">
                       {count}
                       <span className="sr-only">
-                        {to.name === 'events' ? ' this week' : ' open'}
+                        {to.name === 'meetings' ? ' this week' : ' open'}
                       </span>
                     </span>
                   )}

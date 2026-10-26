@@ -8,7 +8,7 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * Stored Markdown (`#shared/markdown`) as React: notes, project
- * descriptions, event-linked notes and summaries all render through here
+ * descriptions, meeting-linked notes and summaries all render through here
  * and share the `.prose-note` text styles. Mentions show the person's
  * current name. With `onToggle`, checklist items are checkboxes that hand
  * back the line to flip; without it they are read-only marks. `highlight`

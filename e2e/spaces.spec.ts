@@ -377,7 +377,7 @@ test.describe('Settings → Spaces', () => {
     await expect(panel).toBeVisible();
     await expect(
       panel.getByText(
-        'This deletes Outpost and everything in it: 0 projects, 0 tasks, 0 notes, 0 events, 0 people',
+        'This deletes Outpost and everything in it: 0 projects, 0 tasks, 0 notes, 0 meetings, 0 people',
       ),
     ).toBeVisible();
     const confirm = panel.getByRole('textbox', {
@@ -443,7 +443,7 @@ test.describe('Settings → Spaces', () => {
     const panel = page.getByRole('dialog', { name: 'Delete Personal?' });
     // The open space is counted from what is loaded.
     await expect(
-      panel.getByText('0 projects, 0 tasks, 0 notes, 0 events, 0 people', {
+      panel.getByText('0 projects, 0 tasks, 0 notes, 0 meetings, 0 people', {
         exact: false,
       }),
     ).toBeVisible();

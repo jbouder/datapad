@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 /**
- * The slide-over every editor uses (task, project, event, person,
+ * The slide-over every editor uses (task, project, meeting, person,
  * summary): 460px from the right, the whole screen on phones, a scrim
  * behind. Focus goes to the first field on open and back to whatever
  * opened it on close; the page behind does not scroll. Esc, the scrim and

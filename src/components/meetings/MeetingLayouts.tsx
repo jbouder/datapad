@@ -4,67 +4,67 @@ import {
   RowsIcon,
 } from '@phosphor-icons/react';
 import type { DateString, Meeting, Snapshot } from '#shared/types';
-import { useEventForm } from '@/components/events/EventFormProvider';
-import { EventList } from '@/components/events/EventList';
-import { EventRow } from '@/components/events/EventRow';
 import { Calendar } from '@/components/layouts/Calendar';
 import { Timeline } from '@/components/layouts/Timeline';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
+import { MeetingList } from '@/components/meetings/MeetingList';
+import { MeetingRow } from '@/components/meetings/MeetingRow';
 
-export type EventView = 'list' | 'calendar' | 'timeline';
+export type MeetingView = 'list' | 'calendar' | 'timeline';
 
-export const EVENT_VIEWS: readonly ViewOption<EventView>[] = [
+export const MEETING_VIEWS: readonly ViewOption<MeetingView>[] = [
   { id: 'list', label: 'List', icon: RowsIcon },
   { id: 'calendar', label: 'Calendar', icon: CalendarBlankIcon },
   { id: 'timeline', label: 'Timeline', icon: ChartBarHorizontalIcon },
 ];
 
 interface Props {
-  view: EventView;
+  view: MeetingView;
   /** Already filtered, soonest first. */
-  events: Meeting[];
+  meetings: Meeting[];
   state: Snapshot;
   today: DateString;
-  /** The project a new event starts in (the page's filter). */
+  /** The project a new meeting starts in (the page's filter). */
   projectId: string | null;
   empty: string;
 }
 
 /**
- * The same events as a List (by month, Past collapsed), a Calendar (a
+ * The same meetings as a List (by month, Past collapsed), a Calendar (a
  * month, or a week on phones; click a day to add) or a Timeline (a lane
  * per project). The page's filters apply to all three.
  */
-export function EventLayouts({
+export function MeetingLayouts({
   view,
-  events,
+  meetings,
   state,
   today,
   projectId,
   empty,
 }: Props) {
-  const { openEvent, newEvent } = useEventForm();
+  const { openMeeting, newMeeting } = useMeetingForm();
 
   if (view === 'calendar') {
-    const byId = new Map(events.map((e) => [e.id, e]));
+    const byId = new Map(meetings.map((e) => [e.id, e]));
     return (
       <Calendar
-        label="Events calendar"
-        noun="event"
-        items={events.map((e) => ({
+        label="Meetings calendar"
+        noun="meeting"
+        items={meetings.map((e) => ({
           id: e.id,
           date: e.date,
           time: e.time,
           label: e.title,
           className: 'bg-muted',
         }))}
-        onOpen={openEvent}
-        onAddDay={(date) => newEvent({ projectId, date })}
+        onOpen={openMeeting}
+        onAddDay={(date) => newMeeting({ projectId, date })}
         renderDay={(_day, ids) =>
           ids.map((id) => {
             const e = byId.get(id);
             return e ? (
-              <EventRow key={id} event={e} state={state} today={today} />
+              <MeetingRow key={id} meeting={e} state={state} today={today} />
             ) : null;
           })
         }
@@ -75,7 +75,7 @@ export function EventLayouts({
   if (view === 'timeline') {
     const lanes = [
       ...Object.values(state.projects)
-        .filter((p) => events.some((e) => e.projectId === p.id))
+        .filter((p) => meetings.some((e) => e.projectId === p.id))
         .sort(
           (a, b) =>
             Number(a.archived) - Number(b.archived) ||
@@ -85,19 +85,19 @@ export function EventLayouts({
           id: p.id,
           label: p.archived ? `${p.name} (archived)` : p.name,
         })),
-      ...(events.some((e) => e.projectId === null)
+      ...(meetings.some((e) => e.projectId === null)
         ? [{ id: 'general', label: 'General' }]
         : []),
     ];
     return (
       <Timeline
-        label="Events over time"
+        label="Meetings over time"
         defaultZoom="month"
         rows={lanes.map((lane) => ({
           id: lane.id,
           label: lane.label,
           noBar: true,
-          points: events
+          points: meetings
             .filter((e) => (e.projectId ?? 'general') === lane.id)
             .map((e) => ({
               id: e.id,
@@ -105,15 +105,20 @@ export function EventLayouts({
               time: e.time || undefined,
               end: e.end || undefined,
               label: e.title,
-              kind: 'event' as const,
+              kind: 'meeting' as const,
             })),
         }))}
-        onOpenPoint={(_lane, id) => openEvent(id)}
+        onOpenPoint={(_lane, id) => openMeeting(id)}
       />
     );
   }
 
   return (
-    <EventList events={events} state={state} today={today} empty={empty} />
+    <MeetingList
+      meetings={meetings}
+      state={state}
+      today={today}
+      empty={empty}
+    />
   );
 }

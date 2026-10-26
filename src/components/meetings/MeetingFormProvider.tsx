@@ -6,45 +6,51 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { EventForm, type EventPreset } from '@/components/events/EventForm';
+import {
+  MeetingForm,
+  type MeetingPreset,
+} from '@/components/meetings/MeetingForm';
 import { useDatapad } from '@/hooks/useDatapad';
 
-interface EventFormContext {
-  /** Edit the event with `id`. */
-  openEvent: (id: string) => void;
-  /** A new event, with its project and day filled in. */
-  newEvent: (preset: EventPreset) => void;
+interface MeetingFormContext {
+  /** Edit the meeting with `id`. */
+  openMeeting: (id: string) => void;
+  /** A new meeting, with its project and day filled in. */
+  newMeeting: (preset: MeetingPreset) => void;
 }
 
-const Context = createContext<EventFormContext | null>(null);
+const Context = createContext<MeetingFormContext | null>(null);
 
 type Session = { key: number; open: boolean } & (
   | { id: string }
-  | { preset: EventPreset }
+  | { preset: MeetingPreset }
 );
 
-/** One event form for the app, opened from rows, day cells and Add event. */
-export function EventFormProvider({ children }: { children: ReactNode }) {
+/** One meeting form for the app, opened from rows, day cells and Add meeting. */
+export function MeetingFormProvider({ children }: { children: ReactNode }) {
   const { state } = useDatapad();
   // A new session each time, so the form reads its values afresh.
   const [session, setSession] = useState<Session | null>(null);
-  const openEvent = useCallback((id: string) => {
+  const openMeeting = useCallback((id: string) => {
     setSession({ key: Date.now(), id, open: true });
   }, []);
-  const newEvent = useCallback((preset: EventPreset) => {
+  const newMeeting = useCallback((preset: MeetingPreset) => {
     setSession({ key: Date.now(), preset, open: true });
   }, []);
-  const value = useMemo(() => ({ openEvent, newEvent }), [openEvent, newEvent]);
-  const event =
+  const value = useMemo(
+    () => ({ openMeeting, newMeeting }),
+    [openMeeting, newMeeting],
+  );
+  const meeting =
     session && 'id' in session ? state?.meetings[session.id] : undefined;
 
   return (
     <Context.Provider value={value}>
       {children}
-      {session && ('preset' in session || event) && (
-        <EventForm
+      {session && ('preset' in session || meeting) && (
+        <MeetingForm
           key={session.key}
-          event={event}
+          meeting={meeting}
           preset={'preset' in session ? session.preset : undefined}
           open={session.open}
           onClose={() => setSession((s) => (s ? { ...s, open: false } : s))}
@@ -55,8 +61,8 @@ export function EventFormProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useEventForm(): EventFormContext {
+export function useMeetingForm(): MeetingFormContext {
   const value = useContext(Context);
-  if (!value) throw new Error('useEventForm needs EventFormProvider');
+  if (!value) throw new Error('useMeetingForm needs MeetingFormProvider');
   return value;
 }

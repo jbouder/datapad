@@ -13,7 +13,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 }
 
 function row(page: Page, title: string) {
-  return page.locator('[data-event-id]').filter({ hasText: title });
+  return page.locator('[data-meeting-id]').filter({ hasText: title });
 }
 
 const today = localDate(new Date());
@@ -25,19 +25,19 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-test('adds a meeting from a project, edits it, sees it on Events, deletes it', async ({
+test('adds a meeting from a project, edits it, sees it on Meetings, deletes it', async ({
   page,
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add event' }).click();
-  const form = page.getByRole('dialog', { name: 'New event' });
+  await page.getByRole('button', { name: 'Add meeting' }).click();
+  const form = page.getByRole('dialog', { name: 'New meeting' });
   // Bound to the project: no picker.
   await expect(form.getByRole('combobox', { name: 'Project' })).toHaveCount(0);
 
   // Title and date are required; Save points at the first gap.
-  await form.getByRole('button', { name: 'Add event' }).click();
-  await expect(form.getByText('Give the event a title')).toBeVisible();
+  await form.getByRole('button', { name: 'Add meeting' }).click();
+  await expect(form.getByText('Give the meeting a title')).toBeVisible();
   await expect(form.getByLabel('Title')).toBeFocused();
 
   await form.getByLabel('Title').fill('Hangar walkthrough');
@@ -48,7 +48,7 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
   await form.getByLabel('End', { exact: true }).press('Tab');
   await expect(form.getByLabel('Time', { exact: true })).toHaveValue('09:30');
   await form.locator('label').filter({ hasText: 'Han Solo' }).click();
-  await form.getByRole('button', { name: 'Add event' }).click();
+  await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
   const added = row(page, 'Hangar walkthrough');
@@ -76,8 +76,8 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
     'Added meeting "Hangar walkthrough"',
   ]);
 
-  // On Events, under its month, with its project.
-  await page.goto('/events');
+  // On Meetings, under its month, with its project.
+  await page.goto('/meetings');
   const there = row(page, 'Hangar walkthrough');
   await expect(there).toContainText('14:00–15:00');
   await expect(
@@ -92,7 +92,7 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   const ask = shield.getByRole('alertdialog');
   await expect(ask).toContainText('Its note is kept.');
-  await ask.getByRole('button', { name: 'Delete event' }).click();
+  await ask.getByRole('button', { name: 'Delete meeting' }).click();
   await expect(shield).toHaveCount(0);
 
   await expectSaved(page);
@@ -107,11 +107,11 @@ test('adds a meeting from a project, edits it, sees it on Events, deletes it', a
 test('filters by project and General, and keeps archived projects under Past', async ({
   page,
 }) => {
-  await openLive(page, '/events');
+  await openLive(page, '/meetings');
   await expect(row(page, 'Shield review')).toBeVisible();
   await expect(row(page, 'Quarterly planning')).toBeVisible();
 
-  // An archived project's event is still here, under its project.
+  // An archived project's meeting is still here, under its project.
   await page.getByRole('button', { name: /^Past/ }).click();
   await expect(
     row(page, 'Medal ceremony').getByRole('link', {
@@ -126,7 +126,7 @@ test('filters by project and General, and keeps archived projects under Past', a
   await page.getByRole('combobox', { name: 'Project' }).click();
   await page.getByRole('option', { name: 'General', exact: true }).click();
   await expect(page).toHaveURL(/project=general/);
-  await expect(page.locator('[data-event-id]')).toHaveCount(1);
+  await expect(page.locator('[data-meeting-id]')).toHaveCount(1);
   await expect(row(page, 'Quarterly planning')).toContainText('General');
 
   await page.getByRole('combobox', { name: 'Project' }).click();
@@ -135,9 +135,47 @@ test('filters by project and General, and keeps archived projects under Past', a
   await expect(row(page, 'Quarterly planning')).toHaveCount(0);
   await expect(row(page, 'Shield review')).toBeVisible();
 
-  // Add event from a project filter starts in that project.
-  await page.getByRole('button', { name: 'Add event' }).click();
+  // Add meeting from a project filter starts in that project.
+  await page.getByRole('button', { name: 'Add meeting' }).click();
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Project' }),
   ).toHaveValue('Echo Base relocation');
+});
+
+test('the old Events address lands on Meetings, query and all', async ({
+  page,
+}) => {
+  await openLive(page, '/events?view=list&event=e-1');
+  await expect(page).toHaveURL(/\/meetings\?view=list&meeting=e-1$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Meetings' }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle('Meetings · Datapad');
+  await expect(row(page, 'Shield review')).toHaveAttribute('data-highlighted');
+
+  // Other parameters come along unchanged.
+  await page.goto('/events?project=p-echo&view=calendar');
+  await expect(page).toHaveURL(/\/meetings\?project=p-echo&view=calendar$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Meetings' }),
+  ).toBeVisible();
+});
+
+test('empty states tell none yet from none that match', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/meetings?project=p-falcon');
+  await expect(page.getByText('No meetings match.')).toBeVisible();
+  // Only past meetings: nothing coming up, and Past is still there.
+  await page.goto('/meetings?project=p-yavin');
+  await expect(page.getByText('Nothing coming up that matches.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Past/ })).toBeVisible();
+
+  const issued = await request.get('/api/erase-token');
+  const { token } = (await issued.json()) as { token: string };
+  const erased = await request.post('/api/erase', { data: { token } });
+  expect(erased.ok()).toBe(true);
+  await openLive(page, '/meetings');
+  await expect(page.getByText('No meetings yet. Add a meeting.')).toBeVisible();
 });

@@ -13,10 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
 
-/** Where a new event starts: its project (fixed or picked) and day. */
-export interface EventPreset {
+/** Where a new meeting starts: its project (fixed or picked) and day. */
+export interface MeetingPreset {
   projectId: string | null;
-  /** A project page's Add event: the project is not asked for. */
+  /** A project page's Add meeting: the project is not asked for. */
   fixedProject?: boolean;
   date?: string;
 }
@@ -32,16 +32,19 @@ interface Values {
   note: string;
 }
 
-function valuesOf(event: Meeting | undefined, preset?: EventPreset): Values {
+function valuesOf(
+  meeting: Meeting | undefined,
+  preset?: MeetingPreset,
+): Values {
   return {
-    title: event?.title ?? '',
-    projectId: event ? event.projectId : (preset?.projectId ?? null),
-    date: event?.date ?? preset?.date ?? '',
-    time: event?.time ?? '',
-    end: event?.end ?? '',
-    attendees: event?.attendees ?? [],
-    link: event?.link ?? '',
-    note: event?.note ?? '',
+    title: meeting?.title ?? '',
+    projectId: meeting ? meeting.projectId : (preset?.projectId ?? null),
+    date: meeting?.date ?? preset?.date ?? '',
+    time: meeting?.time ?? '',
+    end: meeting?.end ?? '',
+    attendees: meeting?.attendees ?? [],
+    link: meeting?.link ?? '',
+    note: meeting?.note ?? '',
   };
 }
 
@@ -83,28 +86,28 @@ function TimeInput({
 }
 
 /**
- * Create or edit an event in the side panel. Title and date are all it
+ * Create or edit a meeting in the side panel. Title and date are all it
  * needs; the values are read once when it opens. Save moves focus to the
  * first problem instead of being disabled. Delete asks first and keeps
- * the event's notes.
+ * the meeting's notes.
  */
-export function EventForm({
-  event,
+export function MeetingForm({
+  meeting,
   preset,
   open,
   onClose,
   onExited,
 }: {
-  /** Absent: a new event. */
-  event?: Meeting;
-  preset?: EventPreset;
+  /** Absent: a new meeting. */
+  meeting?: Meeting;
+  preset?: MeetingPreset;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const [initial] = useState(() => valuesOf(event, preset));
+  const [initial] = useState(() => valuesOf(meeting, preset));
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Partial<Record<keyof Values, string>>>(
     {},
@@ -129,7 +132,7 @@ export function EventForm({
 
   const check = (): Partial<Record<keyof Values, string>> => {
     const found: Partial<Record<keyof Values, string>> = {};
-    if (!values.title.trim()) found.title = 'Give the event a title';
+    if (!values.title.trim()) found.title = 'Give the meeting a title';
     if (dateInvalid) found.date = 'Try a date like fri, 10/31 or +3d';
     else if (!values.date) found.date = 'Pick a day';
     const time = parseTime(values.time);
@@ -146,7 +149,7 @@ export function EventForm({
     const first = (Object.keys(found) as (keyof Values)[])[0];
     if (first) {
       setErrors(found);
-      document.getElementById(`event-${first}`)?.focus();
+      document.getElementById(`meeting-${first}`)?.focus();
       return;
     }
     const fields = {
@@ -159,14 +162,14 @@ export function EventForm({
       link: values.link.trim(),
       note: values.note.trim(),
     };
-    if (!event) {
+    if (!meeting) {
       const id = actions.addMeeting(fields);
       if (!id) return;
       onClose();
       show(`Added “${fields.title}”`);
       return;
     }
-    const before = valuesOf(event);
+    const before = valuesOf(meeting);
     const patch: Record<string, unknown> = Object.fromEntries(
       Object.entries(fields).filter(
         ([key, value]) =>
@@ -175,22 +178,23 @@ export function EventForm({
       ),
     );
     if (Object.keys(patch).length > 0) {
-      if (!actions.editMeeting({ id: event.id, patch })) return;
+      if (!actions.editMeeting({ id: meeting.id, patch })) return;
       show(`Saved “${fields.title}”`);
     }
     onClose();
   };
 
   const remove = () => {
-    if (!event) return;
-    if (!actions.deleteMeeting({ id: event.id })) return;
+    if (!meeting) return;
+    if (!actions.deleteMeeting({ id: meeting.id })) return;
     onClose();
-    show(`Deleted “${event.title}”`);
+    show(`Deleted “${meeting.title}”`);
   };
 
-  const linked = event
-    ? Object.values(state?.notes ?? {}).filter((n) => n.meetingId === event.id)
-        .length
+  const linked = meeting
+    ? Object.values(state?.notes ?? {}).filter(
+        (n) => n.meetingId === meeting.id,
+      ).length
     : 0;
 
   return (
@@ -198,18 +202,18 @@ export function EventForm({
       open={open}
       onClose={onClose}
       onExited={onExited}
-      title={event ? `Edit ${event.title}` : 'New event'}
+      title={meeting ? `Edit ${meeting.title}` : 'New meeting'}
       dirty={dirty}
       onSubmit={save}
       footer={
-        confirmingDelete && event ? (
+        confirmingDelete && meeting ? (
           <div
             role="alertdialog"
-            aria-labelledby="event-delete-question"
+            aria-labelledby="meeting-delete-question"
             className="flex w-full flex-wrap items-center gap-2"
           >
-            <p id="event-delete-question" className="flex-1 text-sm">
-              {deleteEventQuestion(event.title, linked)}
+            <p id="meeting-delete-question" className="flex-1 text-sm">
+              {deleteMeetingQuestion(meeting.title, linked)}
             </p>
             <Button
               type="button"
@@ -226,12 +230,12 @@ export function EventForm({
               className="press"
               onClick={remove}
             >
-              Delete event
+              Delete meeting
             </Button>
           </div>
         ) : (
           <>
-            {event && (
+            {meeting && (
               <Button
                 type="button"
                 variant="ghost"
@@ -244,7 +248,7 @@ export function EventForm({
             <span className="flex-1" />
             <SidePanelCancel />
             <Button type="submit" className="press">
-              {event ? 'Save' : 'Add event'}
+              {meeting ? 'Save' : 'Add meeting'}
             </Button>
           </>
         )
@@ -252,7 +256,7 @@ export function EventForm({
     >
       <Field label="Title" required error={errors.title}>
         <Input
-          id="event-title"
+          id="meeting-title"
           ref={titleRef}
           value={values.title}
           maxLength={LIMITS.titleMax}
@@ -262,7 +266,7 @@ export function EventForm({
           onChange={(e) => set('title', e.target.value)}
         />
       </Field>
-      {!(preset?.fixedProject && !event) && (
+      {!(preset?.fixedProject && !meeting) && (
         <Field label="Project">
           <ProjectPicker
             value={values.projectId}
@@ -277,7 +281,7 @@ export function EventForm({
         hint="today, fri, next tue, +3d, 10/31"
       >
         <DatePicker
-          id="event-date"
+          id="meeting-date"
           value={values.date}
           onChange={(date) => set('date', date)}
           onInvalidChange={setDateInvalid}
@@ -286,14 +290,14 @@ export function EventForm({
       <div className="grid grid-cols-2 gap-4">
         <Field label="Time" error={errors.time}>
           <TimeInput
-            id="event-time"
+            id="meeting-time"
             value={values.time}
             onChange={(text) => set('time', text)}
           />
         </Field>
         <Field label="End" error={errors.end}>
           <TimeInput
-            id="event-end"
+            id="meeting-end"
             value={values.end}
             onChange={(text) => set('end', text)}
           />
@@ -307,7 +311,7 @@ export function EventForm({
       />
       <Field label="Link" hint="The meeting room, the doc, the release">
         <Input
-          id="event-link"
+          id="meeting-link"
           type="url"
           value={values.link}
           maxLength={LIMITS.urlMax}
@@ -319,7 +323,7 @@ export function EventForm({
       </Field>
       <Field label="Agenda" hint="Plain text">
         <Textarea
-          id="event-note"
+          id="meeting-note"
           value={values.note}
           maxLength={LIMITS.meetingNoteMax}
           rows={3}
@@ -332,7 +336,7 @@ export function EventForm({
 }
 
 /** "Delete Shield review? Its 2 notes are kept." */
-export function deleteEventQuestion(title: string, notes: number): string {
+export function deleteMeetingQuestion(title: string, notes: number): string {
   if (notes === 0) return `Delete ${title}?`;
   return `Delete ${title}? ${notes === 1 ? 'Its note is' : `Its ${notes} notes are`} kept.`;
 }

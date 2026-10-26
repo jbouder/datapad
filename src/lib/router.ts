@@ -1,4 +1,10 @@
 import { useSyncExternalStore } from 'react';
+import {
+  canonicalQuery,
+  parseRoute,
+  type Route,
+  routePath,
+} from '#shared/routes';
 
 /**
  * A small `history.pushState` router, holocron's. Route changes go through
@@ -11,123 +17,22 @@ import { useSyncExternalStore } from 'react';
  * changing one is not a page change.
  */
 
-export type Route =
-  | { name: 'focus' }
-  | { name: 'projects' }
-  | { name: 'archive' }
-  | { name: 'project'; id: string }
-  | { name: 'tasks' }
-  | { name: 'notes' }
-  | { name: 'events' }
-  | { name: 'decisions' }
-  | { name: 'digest' }
-  /** `person` is the one selected (`/people/:id`). */
-  | { name: 'people'; person?: string }
-  /** `org` is the one open (`/orgs/:id`). */
-  | { name: 'orgs'; org?: string }
-  | { name: 'settings'; section: SettingsSection }
-  | { name: 'help'; section?: string }
-  /** Every shared input, for eyeballing (dev and e2e builds only). */
-  | { name: 'devComponents' }
-  | { name: 'notFound' };
+export {
+  type Route,
+  type RouteName,
+  SETTINGS_SECTIONS,
+  type SettingsSection,
+} from '#shared/routes';
 
 /** `/dev/components` exists in `vite dev` and in the e2e build only. */
 export const DEV_ROUTES: boolean = __DEV_ROUTES__;
 
-export type RouteName = Route['name'];
-
-/** The Settings page's sections, each its own address. */
-export const SETTINGS_SECTIONS = [
-  'appearance',
-  'templates',
-  'summaries',
-  'spaces',
-  'data',
-  'account',
-] as const;
-export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
-
-const SIMPLE = new Set<RouteName>([
-  'projects',
-  'archive',
-  'tasks',
-  'notes',
-  'events',
-  'decisions',
-  'digest',
-]);
-
 export function parse(pathname: string, hash = ''): Route {
-  const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-  if (clean === '/' || clean === '/focus') {
-    return { name: 'focus' };
-  }
-  // People and orgs lived under Settings until #93; the old addresses
-  // still get there.
-  const people = /^(?:\/settings)?\/people(?:\/([^/]+))?$/.exec(clean);
-  if (people) {
-    return people[1]
-      ? { name: 'people', person: decodeURIComponent(people[1]) }
-      : { name: 'people' };
-  }
-  const orgs = /^(?:\/settings)?\/orgs(?:\/([^/]+))?$/.exec(clean);
-  if (orgs) {
-    return orgs[1]
-      ? { name: 'orgs', org: decodeURIComponent(orgs[1]) }
-      : { name: 'orgs' };
-  }
-  const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
-  if (settings) {
-    const section = (settings[1] ?? 'appearance') as SettingsSection;
-    return SETTINGS_SECTIONS.includes(section)
-      ? { name: 'settings', section }
-      : { name: 'notFound' };
-  }
-  if (clean === '/help') {
-    const section = decodeURIComponent(hash.replace(/^#/, ''));
-    return section ? { name: 'help', section } : { name: 'help' };
-  }
-  if (DEV_ROUTES && clean === '/dev/components') {
-    return { name: 'devComponents' };
-  }
-  const project = /^\/projects\/([^/]+)$/.exec(clean);
-  if (project?.[1]) {
-    return { name: 'project', id: decodeURIComponent(project[1]) };
-  }
-  const name = clean.slice(1) as RouteName;
-  if (SIMPLE.has(name)) {
-    return { name } as Route;
-  }
-  return { name: 'notFound' };
+  return parseRoute(pathname, hash, DEV_ROUTES);
 }
 
 export function pathFor(route: Route): string {
-  switch (route.name) {
-    case 'focus':
-      return '/';
-    case 'people':
-      return route.person
-        ? `/people/${encodeURIComponent(route.person)}`
-        : '/people';
-    case 'orgs':
-      return route.org ? `/orgs/${encodeURIComponent(route.org)}` : '/orgs';
-    case 'settings':
-      return route.section === 'appearance'
-        ? '/settings'
-        : `/settings/${route.section}`;
-    case 'project':
-      return `/projects/${encodeURIComponent(route.id)}`;
-    case 'help':
-      return route.section
-        ? `/help#${encodeURIComponent(route.section)}`
-        : '/help';
-    case 'devComponents':
-      return '/dev/components';
-    case 'notFound':
-      return window.location.pathname;
-    default:
-      return `/${route.name}`;
-  }
+  return routePath(route) ?? window.location.pathname;
 }
 
 /**
@@ -151,7 +56,8 @@ function here(): string {
 let current: Route = parse(window.location.pathname, window.location.hash);
 
 // Old addresses settle on their canonical one: /focus is /,
-// /settings/people is /people.
+// /settings/people is /people, /events?event=<id> is /meetings?meeting=<id>.
+let search = canonicalQuery(window.location.pathname, window.location.search);
 if (
   current.name !== 'notFound' &&
   pathFor(current) !== window.location.pathname &&
@@ -160,10 +66,9 @@ if (
   window.history.replaceState(
     null,
     '',
-    pathFor(current) + window.location.search + window.location.hash,
+    pathFor(current) + search + window.location.hash,
   );
 }
-let search = window.location.search;
 const listeners = new Set<() => void>();
 
 type Transition = (update: () => void) => void;

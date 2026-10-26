@@ -157,7 +157,7 @@ export function NewSpaceProvider({ children }: { children: ReactNode }) {
             <DialogHeader>
               <DialogTitle>New space</DialogTitle>
               <DialogDescription>
-                A separate Datapad: its own projects, tasks, notes, events and
+                A separate Datapad: its own projects, tasks, notes, meetings and
                 people.
               </DialogDescription>
             </DialogHeader>
