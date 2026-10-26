@@ -15,7 +15,7 @@ import {
  */
 async function animationsDuring(
   page: Page,
-  act: 'route' | 'theme' | 'closeTask' | 'openPanel',
+  act: 'route' | 'theme' | 'closeTask' | 'openPanel' | 'openDone',
 ): Promise<string[]> {
   await settle(page);
   return page.evaluate(
@@ -31,7 +31,10 @@ async function animationsDuring(
               : a instanceof CSSTransition
                 ? `transition:${a.transitionProperty}`
                 : a.id || 'animation';
-          return `${name} on ${target?.tagName.toLowerCase() ?? '?'}${effect?.pseudoElement ?? ''}`;
+          const where = target?.closest('[aria-label="Done tasks"]')
+            ? ' in Done'
+            : '';
+          return `${name} on ${target?.tagName.toLowerCase() ?? '?'}${effect?.pseudoElement ?? ''}${where}`;
         };
         const end = performance.now() + 1000;
         const tick = () => {
@@ -48,6 +51,12 @@ async function animationsDuring(
             document.querySelector(
               '[data-task-id] [data-task-title]',
             ) as HTMLElement
+          ).click();
+        } else if (kind === 'openDone') {
+          (
+            [
+              ...document.querySelectorAll('button[aria-expanded="false"]'),
+            ].find((b) => b.textContent?.startsWith('Done')) as HTMLElement
           ).click();
         } else if (kind === 'closeTask') {
           (
@@ -124,6 +133,27 @@ test.describe('closing a task', () => {
       expect(seen).toMatch(/transition:(scale|opacity) on svg/);
       // The rows below slide up into the gap (WAAPI FLIP).
       expect(seen).toMatch(/animation on li/);
+    });
+
+    test('opening Done does not slide its rows in from the corner', async ({
+      page,
+      request,
+    }) => {
+      await projectWithTasks(page, request);
+      // The checkbox is sr-only: click it as its label would.
+      await page
+        .locator('[data-task-id] input[type="checkbox"]')
+        .first()
+        .evaluate((el) => (el as HTMLElement).click());
+      const done = page.getByRole('button', { name: /^Done/, expanded: false });
+      await expect(done).toBeVisible();
+      // The rows were hidden, so they have no old position to slide from.
+      // (Sections below Done may still move down to make room.)
+      const seen = await animationsDuring(page, 'openDone');
+      expect(seen.filter((s) => s.endsWith(' in Done'))).toEqual([]);
+      await expect(
+        page.getByRole('list', { name: 'Done tasks' }),
+      ).toBeVisible();
     });
   });
 });
