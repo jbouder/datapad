@@ -159,18 +159,10 @@ export function topicCount(topics: readonly Topic[]): string {
   return `${covered} of ${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}`;
 }
 
-/** The meeting form's Topics field: one per line, trimmed, blanks dropped. */
-export function topicLines(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
-}
-
 /**
- * What is wrong with the Topics field's lines, or null: a line longer than
- * a title may be, or more topics than a meeting holds (counting the
- * `existing` ones the lines are added to).
+ * What is wrong with a new meeting's pending topics, or null: one longer
+ * than a title may be, or more topics than a meeting holds (counting the
+ * `existing` ones, carried forward, they are added after).
  */
 export function checkTopicLines(
   lines: readonly string[],
@@ -189,7 +181,7 @@ export function checkTopicLines(
 }
 
 /**
- * The lines as `addTopic` ops on the meeting, in order (each appends), to
+ * The titles as `addTopic` ops on the meeting, in order (each appends), to
  * go in the same batch as the meeting op. `newId` makes each topic's id.
  */
 export function topicOps(

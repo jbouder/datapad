@@ -224,8 +224,11 @@ export function HelpPage({ section }: { section?: string }) {
         </p>
         <p className="text-sm">
           <strong>Topics</strong> are a meeting’s agenda, one line each. Add
-          them in the meeting’s form (one per line) or in the field under the
-          meeting, or with Add topic in its menu. Tick a topic when it has been
+          them with <strong>Add topic</strong> in the meeting’s panel (Enter
+          adds one and keeps the field open for the next; Esc closes it), in the
+          field under the meeting, or with Add topic in its menu. In the panel
+          of a meeting you have saved, topics change at once, as its notes do; a
+          new meeting’s are saved with it. Tick a topic when it has been
           covered, and use <strong>Outcome</strong> to note what came of it in a
           line; ticking and the outcome are separate. Click a title or an
           outcome to change it. Drag to reorder, or use Move up and Move down in

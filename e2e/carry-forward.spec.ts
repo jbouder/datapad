@@ -96,7 +96,9 @@ test('a new meeting in the series carries the uncovered topics', async ({
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
 
-  await form.getByRole('textbox', { name: 'Topics' }).fill('Hangar doors');
+  await form.getByRole('button', { name: 'Add topic' }).click();
+  await form.getByRole('textbox', { name: 'Add a topic' }).fill('Hangar doors');
+  await form.getByRole('textbox', { name: 'Add a topic' }).press('Enter');
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 

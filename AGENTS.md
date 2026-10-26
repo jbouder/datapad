@@ -49,7 +49,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts, linked notes,
-  the meeting note composer and the Focus agenda strip;
+  the topics (`MeetingTopics` on the row and in the panel,
+  `PendingTopics` for a new meeting's), the meeting note composer and
+  the Focus agenda strip;
   `notes/LinkedNoteList` is the Notes section a task's and a meeting's
   panel share), `pages/*`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,

@@ -6,14 +6,13 @@ import {
   checkTopicLines,
   parseTime,
   previousMeeting,
-  topicLines,
   topicOps,
   topicsNoun,
   topicsToCarry,
 } from '#shared/meetings';
 import type { OpOf } from '#shared/protocol';
 import { notesOfMeeting } from '#shared/select';
-import { type Meeting, topicsOf } from '#shared/types';
+import type { Meeting } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { MemberChips } from '@/components/inputs/MemberChips';
@@ -21,6 +20,10 @@ import {
   meetingDraftKey,
   meetingNoteLabel,
 } from '@/components/meetings/MeetingNoteComposer';
+import {
+  MeetingTopics,
+  PendingTopics,
+} from '@/components/meetings/MeetingTopics';
 import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
@@ -50,8 +53,11 @@ interface Values {
   attendees: string[];
   link: string;
   note: string;
-  /** Topics to add, one per line (an existing meeting's are on its row). */
-  topics: string;
+  /**
+   * A new meeting's topics, saved with it. An existing meeting's are
+   * changed in place in the panel, as ops, like its notes.
+   */
+  topics: string[];
 }
 
 type MeetingOp = OpOf<'addMeeting'> | OpOf<'editMeeting'>;
@@ -69,7 +75,7 @@ function valuesOf(
     attendees: meeting?.attendees ?? [],
     link: meeting?.link ?? '',
     note: meeting?.note ?? '',
-    topics: '',
+    topics: [],
   };
 }
 
@@ -114,8 +120,9 @@ function TimeInput({
  * Create or edit a meeting in the side panel. Title and date are all it
  * needs; the values are read once when it opens. Save moves focus to the
  * first problem instead of being disabled. Delete asks first and keeps
- * the meeting's notes. An existing meeting's notes are listed at the end,
- * added and edited in place as a task's are; they save on their own.
+ * the meeting's notes. An existing meeting's topics and notes are listed
+ * at the end, added and edited in place (a task's notes are too); they
+ * save on their own. A new meeting's topics wait and go with it.
  */
 export function MeetingForm({
   meeting,
@@ -200,10 +207,9 @@ export function MeetingForm({
     if (end === null) found.end = 'Try a time like 10, 10:30 or 3pm';
     else if (end && !time) found.end = 'Give a start time first';
     else if (end && time && end <= time) found.end = 'End after it starts';
-    const topics = checkTopicLines(
-      topicLines(values.topics),
-      meeting ? topicsOf(meeting).length : carrying ? carried.length : 0,
-    );
+    const topics = meeting
+      ? null
+      : checkTopicLines(values.topics, carrying ? carried.length : 0);
     if (topics) found.topics = topics;
     return found;
   };
@@ -226,8 +232,8 @@ export function MeetingForm({
       link: values.link.trim(),
       note: values.note.trim(),
     };
-    // The meeting op, then one addTopic per line, as one batch (or the
-    // meeting op alone when there are no lines).
+    // The meeting op, then one addTopic per pending topic, as one batch
+    // (or the meeting op alone when there are none).
     const id = meeting?.id ?? newId();
     let op: MeetingOp | null = null;
     if (!meeting) {
@@ -247,10 +253,14 @@ export function MeetingForm({
     }
     // Carried topics first (they were on the agenda already), then the
     // typed ones.
-    const topics = [
-      ...(carrying && previous ? carryOps(previous, carried, id, newId) : []),
-      ...topicOps(id, topicLines(values.topics), newId),
-    ];
+    const topics = meeting
+      ? []
+      : [
+          ...(carrying && previous
+            ? carryOps(previous, carried, id, newId)
+            : []),
+          ...topicOps(id, values.topics, newId),
+        ];
     if (op || topics.length > 0) {
       const ok =
         topics.length > 0
@@ -435,16 +445,17 @@ export function MeetingForm({
           </p>
         </div>
       )}
-      <Field label="Topics" hint={topicsHint(meeting)} error={errors.topics}>
-        <Textarea
+      {meeting ? (
+        <MeetingTopics meeting={state?.meetings[meeting.id] ?? meeting} panel />
+      ) : (
+        <PendingTopics
           id="meeting-topics"
-          value={values.topics}
-          rows={3}
-          placeholder={'Power budget\nNorth ridge'}
-          className="text-base desk:text-sm"
-          onChange={(e) => set('topics', e.target.value)}
+          titles={values.topics}
+          onChange={(topics) => set('topics', topics)}
+          existing={carrying ? carried.length : 0}
+          error={errors.topics}
         />
-      </Field>
+      )}
       {meeting && state && (
         <LinkedNoteList
           notes={notesOfMeeting(state.notes, meeting.id)}
@@ -456,16 +467,6 @@ export function MeetingForm({
       )}
     </SidePanel>
   );
-}
-
-/**
- * The Topics field's hint. Its lines are always added: an existing
- * meeting's topics are checked off, edited and ordered on its row.
- */
-function topicsHint(meeting: Meeting | undefined): string {
-  const n = meeting ? topicsOf(meeting).length : 0;
-  if (n === 0) return 'One per line';
-  return `One per line, added after its ${n === 1 ? 'topic' : `${n} topics`} (edit those on the meeting)`;
 }
 
 /** "Delete Shield review? Its 2 notes are kept." */
