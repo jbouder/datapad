@@ -2,6 +2,7 @@ import {
   ArrowSquareOutIcon,
   ClipboardTextIcon,
   DotsThreeIcon,
+  ListPlusIcon,
   NotePencilIcon,
   PencilSimpleIcon,
   SparkleIcon,
@@ -9,13 +10,19 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
-import { timeRange } from '#shared/meetings';
-import type { Meeting, Person, Snapshot } from '#shared/types';
+import { timeRange, topicCount } from '#shared/meetings';
+import {
+  type Meeting,
+  type Person,
+  type Snapshot,
+  topicsOf,
+} from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { LinkedNotes } from '@/components/meetings/LinkedNotes';
 import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
+import { MeetingTopics } from '@/components/meetings/MeetingTopics';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,6 +86,10 @@ export function MeetingRow({
     .map((id) => state.people[id])
     .filter((p): p is Person => Boolean(p));
   const range = timeRange(meeting);
+  const topics = topicsOf(meeting);
+  const count = topicCount(topics);
+  // The menu's Add topic: shows the list (even empty) and focuses its field.
+  const [addingTopic, setAddingTopic] = useState(0);
   const notes = Object.values(state.notes).filter(
     (n) => n.meetingId === meeting.id,
   ).length;
@@ -118,8 +129,16 @@ export function MeetingRow({
               {meeting.title}
             </button>
           </span>
-          {(showProject || attendees.length > 0) && (
+          {(showProject || attendees.length > 0 || count) && (
             <span className="flex min-w-0 flex-wrap items-center gap-2 @xl/row:shrink-0 @xl/row:flex-nowrap">
+              {count && (
+                <span
+                  data-topic-count
+                  className="count text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+                >
+                  {count}
+                </span>
+              )}
               {showProject &&
                 (project ? (
                   <a
@@ -204,6 +223,10 @@ export function MeetingRow({
               <NotePencilIcon />
               Debrief note
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setAddingTopic((n) => n + 1)}>
+              <ListPlusIcon />
+              Add topic
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openMeeting(meeting.id)}>
               <PencilSimpleIcon />
               Edit
@@ -222,6 +245,15 @@ export function MeetingRow({
         <p className="pb-2 text-xs whitespace-pre-line text-muted-foreground @xl/row:pl-43">
           {meeting.note}
         </p>
+      )}
+      {(topics.length > 0 || addingTopic > 0) && (
+        <MeetingTopics
+          meeting={meeting}
+          focusAdd={addingTopic}
+          onAddBlur={() => {
+            if (topics.length === 0) setAddingTopic(0);
+          }}
+        />
       )}
       <LinkedNotes meeting={meeting} state={state} />
       {confirming && (

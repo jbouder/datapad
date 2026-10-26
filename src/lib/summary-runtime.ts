@@ -17,6 +17,8 @@ interface FakeModel {
   /** Between chunks, so Stop has something to stop. */
   delayMs?: number;
   cached?: boolean;
+  /** The last request it was sent, for a spec to read what it was shown. */
+  lastRequest?: unknown;
 }
 
 function fakeModel(): FakeModel | undefined {
@@ -82,7 +84,8 @@ function scripted(fake: FakeModel): EngineFactory {
       },
       chat: {
         completions: {
-          create: async () => {
+          create: async (request: unknown) => {
+            fake.lastRequest = request;
             interrupted = false;
             return (async function* () {
               for (const chunk of fake.chunks) {

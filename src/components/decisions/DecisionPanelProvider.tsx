@@ -16,12 +16,18 @@ type Session =
       key: number;
       projectId: string | null;
       title?: string;
+      deciders?: string[];
       open: boolean;
     };
 
 interface DecisionPanels {
   openDecision: (id: string) => void;
-  newDecision: (projectId: string | null, title?: string) => void;
+  /** A new decision, its title and deciders (person ids) prefilled. */
+  newDecision: (
+    projectId: string | null,
+    title?: string,
+    deciders?: string[],
+  ) => void;
 }
 
 const Context = createContext<DecisionPanels | null>(null);
@@ -34,12 +40,13 @@ export function DecisionPanelProvider({ children }: { children: ReactNode }) {
     setSession({ kind: 'edit', key: Date.now(), id, open: true });
   }, []);
   const newDecision = useCallback(
-    (projectId: string | null, title?: string) => {
+    (projectId: string | null, title?: string, deciders?: string[]) => {
       setSession({
         kind: 'new',
         key: Date.now(),
         projectId,
         title,
+        deciders,
         open: true,
       });
     },
@@ -69,7 +76,11 @@ export function DecisionPanelProvider({ children }: { children: ReactNode }) {
       {session?.kind === 'new' && (
         <DecisionPanel
           key={session.key}
-          preset={{ projectId: session.projectId, title: session.title }}
+          preset={{
+            projectId: session.projectId,
+            title: session.title,
+            deciders: session.deciders,
+          }}
           open={session.open}
           onClose={close}
           onExited={exited}

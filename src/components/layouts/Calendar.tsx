@@ -23,6 +23,8 @@ export interface CalendarItem {
   /** `HH:MM` or empty. */
   time?: string;
   label: string;
+  /** A short muted note after the label (a meeting's topics, "1/3"). */
+  meta?: ReactNode;
   /** The chip's colors (a meeting's project, say). */
   className?: string;
 }
@@ -131,6 +133,11 @@ export function Calendar({
     >
       {item.time && <span className="mr-1 tabular-nums">{item.time}</span>}
       {item.label}
+      {item.meta && (
+        <span className="count ml-1 text-muted-foreground tabular-nums">
+          {item.meta}
+        </span>
+      )}
     </button>
   );
 

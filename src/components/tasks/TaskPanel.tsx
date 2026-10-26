@@ -382,11 +382,14 @@ export function TaskPanel({
  */
 export function NewTaskPanel({
   projectId,
+  title = '',
   open,
   onClose,
   onExited,
 }: {
   projectId: string | null;
+  /** Prefilled (a meeting topic's Make a task). */
+  title?: string;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
@@ -395,7 +398,7 @@ export function NewTaskPanel({
   const { show } = useToast();
   const people = state?.people ?? {};
   const [initial] = useState(() => ({
-    title: '',
+    title,
     projectId,
     priority: 'none' as Priority,
     due: '',

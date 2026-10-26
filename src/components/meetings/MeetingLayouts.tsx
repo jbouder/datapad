@@ -3,7 +3,13 @@ import {
   ChartBarHorizontalIcon,
   RowsIcon,
 } from '@phosphor-icons/react';
-import type { DateString, Meeting, Snapshot } from '#shared/types';
+import { topicCount } from '#shared/meetings';
+import {
+  type DateString,
+  type Meeting,
+  type Snapshot,
+  topicsOf,
+} from '#shared/types';
 import { Calendar } from '@/components/layouts/Calendar';
 import { Timeline } from '@/components/layouts/Timeline';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
@@ -18,6 +24,21 @@ export const MEETING_VIEWS: readonly ViewOption<MeetingView>[] = [
   { id: 'calendar', label: 'Calendar', icon: CalendarBlankIcon },
   { id: 'timeline', label: 'Timeline', icon: ChartBarHorizontalIcon },
 ];
+
+/** A calendar chip's topic count: "1/3" shown, "1 of 3 topics" read. */
+function topicMeta(meeting: Meeting) {
+  const topics = topicsOf(meeting);
+  if (topics.length === 0) return undefined;
+  const covered = topics.filter((t) => t.done).length;
+  return (
+    <>
+      <span aria-hidden>
+        {covered}/{topics.length}
+      </span>
+      <span className="sr-only">, {topicCount(topics)}</span>
+    </>
+  );
+}
 
 interface Props {
   view: MeetingView;
@@ -56,6 +77,7 @@ export function MeetingLayouts({
           date: e.date,
           time: e.time,
           label: e.title,
+          meta: topicMeta(e),
           className: 'bg-muted',
         }))}
         onOpen={openMeeting}

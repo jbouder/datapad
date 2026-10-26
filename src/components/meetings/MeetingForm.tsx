@@ -1,7 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
-import { parseTime } from '#shared/meetings';
-import type { Meeting } from '#shared/types';
+import {
+  checkTopicLines,
+  parseTime,
+  topicLines,
+  topicOps,
+} from '#shared/meetings';
+import type { OpOf } from '#shared/protocol';
+import { type Meeting, topicsOf } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { MemberChips } from '@/components/inputs/MemberChips';
@@ -11,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useDatapad } from '@/hooks/useDatapad';
+import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
 
 /** Where a new meeting starts: its project (fixed or picked) and day. */
@@ -30,7 +37,11 @@ interface Values {
   attendees: string[];
   link: string;
   note: string;
+  /** Topics to add, one per line (an existing meeting's are on its row). */
+  topics: string;
 }
+
+type MeetingOp = OpOf<'addMeeting'> | OpOf<'editMeeting'>;
 
 function valuesOf(
   meeting: Meeting | undefined,
@@ -45,6 +56,7 @@ function valuesOf(
     attendees: meeting?.attendees ?? [],
     link: meeting?.link ?? '',
     note: meeting?.note ?? '',
+    topics: '',
   };
 }
 
@@ -141,6 +153,11 @@ export function MeetingForm({
     if (end === null) found.end = 'Try a time like 10, 10:30 or 3pm';
     else if (end && !time) found.end = 'Give a start time first';
     else if (end && time && end <= time) found.end = 'End after it starts';
+    const topics = checkTopicLines(
+      topicLines(values.topics),
+      meeting ? topicsOf(meeting).length : 0,
+    );
+    if (topics) found.topics = topics;
     return found;
   };
 
@@ -162,24 +179,35 @@ export function MeetingForm({
       link: values.link.trim(),
       note: values.note.trim(),
     };
+    // The meeting op, then one addTopic per line, as one batch (or the
+    // meeting op alone when there are no lines).
+    const id = meeting?.id ?? newId();
+    let op: MeetingOp | null = null;
     if (!meeting) {
-      const id = actions.addMeeting(fields);
-      if (!id) return;
-      onClose();
-      show(`Added “${fields.title}”`);
-      return;
+      op = { type: 'addMeeting', id, ...fields };
+    } else {
+      const before = valuesOf(meeting);
+      const patch: Record<string, unknown> = Object.fromEntries(
+        Object.entries(fields).filter(
+          ([key, value]) =>
+            JSON.stringify(value) !==
+            JSON.stringify(before[key as keyof typeof fields]),
+        ),
+      );
+      if (Object.keys(patch).length > 0) {
+        op = { type: 'editMeeting', id, patch };
+      }
     }
-    const before = valuesOf(meeting);
-    const patch: Record<string, unknown> = Object.fromEntries(
-      Object.entries(fields).filter(
-        ([key, value]) =>
-          JSON.stringify(value) !==
-          JSON.stringify(before[key as keyof typeof fields]),
-      ),
-    );
-    if (Object.keys(patch).length > 0) {
-      if (!actions.editMeeting({ id: meeting.id, patch })) return;
-      show(`Saved “${fields.title}”`);
+    const topics = topicOps(id, topicLines(values.topics), newId);
+    if (op || topics.length > 0) {
+      const ok =
+        topics.length > 0
+          ? actions.batch({ ops: op ? [op, ...topics] : topics })
+          : op?.type === 'addMeeting'
+            ? actions.addMeeting(op) !== null
+            : op?.type === 'editMeeting' && actions.editMeeting(op);
+      if (!ok) return;
+      show(`${meeting ? 'Saved' : 'Added'} “${fields.title}”`);
     }
     onClose();
   };
@@ -331,8 +359,28 @@ export function MeetingForm({
           onChange={(e) => set('note', e.target.value)}
         />
       </Field>
+      <Field label="Topics" hint={topicsHint(meeting)} error={errors.topics}>
+        <Textarea
+          id="meeting-topics"
+          value={values.topics}
+          rows={3}
+          placeholder={'Power budget\nNorth ridge'}
+          className="text-base desk:text-sm"
+          onChange={(e) => set('topics', e.target.value)}
+        />
+      </Field>
     </SidePanel>
   );
+}
+
+/**
+ * The Topics field's hint. Its lines are always added: an existing
+ * meeting's topics are checked off, edited and ordered on its row.
+ */
+function topicsHint(meeting: Meeting | undefined): string {
+  const n = meeting ? topicsOf(meeting).length : 0;
+  if (n === 0) return 'One per line';
+  return `One per line, added after its ${n === 1 ? 'topic' : `${n} topics`} (edit those on the meeting)`;
 }
 
 /** "Delete Shield review? Its 2 notes are kept." */

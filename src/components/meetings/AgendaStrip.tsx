@@ -1,6 +1,6 @@
 import { describeDay } from '#shared/dates';
-import { timeRange } from '#shared/meetings';
-import type { Meeting, Snapshot } from '#shared/types';
+import { timeRange, topicCount } from '#shared/meetings';
+import { type Meeting, type Snapshot, topicsOf } from '#shared/types';
 import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
@@ -55,6 +55,9 @@ export function AgendaStrip({
               </a>
               <span className="truncate text-xs text-muted-foreground">
                 {project?.name ?? 'General'}
+                {topicCount(topicsOf(e)) && (
+                  <span className="count"> · {topicCount(topicsOf(e))}</span>
+                )}
               </span>
               <span className="relative -mx-1 -mb-1 flex gap-1">
                 <Button
