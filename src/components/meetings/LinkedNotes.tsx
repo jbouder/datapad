@@ -16,7 +16,7 @@ const GROUPS = [
   { phase: null, label: 'Notes' },
 ] as const;
 
-/** An event's notes: Prep, then Debrief, then the rest, oldest first. */
+/** A meeting's notes: Prep, then Debrief, then the rest, oldest first. */
 export function linkedNotes(
   notes: Snapshot['notes'],
   meetingId: string,
@@ -32,20 +32,20 @@ export function linkedNotes(
 }
 
 /**
- * The notes linked to an event, under its row: grouped Prep, Debrief and
+ * The notes linked to a meeting, under its row: grouped Prep, Debrief and
  * Notes, oldest first, each with its first line, when, and Edit (which
  * goes to the note). Past three, the rest wait behind "Show all".
  */
 export function LinkedNotes({
-  event,
+  meeting,
   state,
 }: {
-  event: Meeting;
+  meeting: Meeting;
   state: Snapshot;
 }) {
   const { hidden } = useNotes();
   const [all, setAll] = useState(false);
-  const notes = linkedNotes(state.notes, event.id, hidden);
+  const notes = linkedNotes(state.notes, meeting.id, hidden);
   if (notes.length === 0) return null;
   const shown = all ? notes : notes.slice(0, SHOWN);
   const now = new Date();
@@ -58,7 +58,7 @@ export function LinkedNotes({
         return (
           <section
             key={g.label}
-            aria-label={`${g.label} notes for “${event.title}”`}
+            aria-label={`${g.label} notes for “${meeting.title}”`}
           >
             <h4 className="text-[11px] font-medium text-muted-foreground uppercase">
               {g.label}

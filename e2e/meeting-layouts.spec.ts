@@ -28,34 +28,36 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-test('Calendar: open a day, add an event, see it in List', async ({ page }) => {
-  await openLive(page, '/events');
+test('Calendar: open a day, add a meeting, see it in List', async ({
+  page,
+}) => {
+  await openLive(page, '/meetings');
   await pick(page, 'Calendar');
   await expect(page).toHaveURL(/view=calendar/);
 
   const label = longDay(day, today);
   if (!isMobile(page)) {
     const cell = page.getByRole('cell', {
-      name: new RegExp(`^${label}, 1 event`),
+      name: new RegExp(`^${label}, 1 meeting`),
     });
     await expect(
       cell.getByRole('button', { name: /Shield review/ }),
     ).toBeVisible();
   } else {
     await expect(
-      page.getByRole('listitem', { name: new RegExp(`^${label}, 1 event`) }),
+      page.getByRole('listitem', { name: new RegExp(`^${label}, 1 meeting`) }),
     ).toBeVisible();
   }
 
-  await page.getByRole('button', { name: `Add an event on ${label}` }).click();
-  const form = page.getByRole('dialog', { name: 'New event' });
+  await page.getByRole('button', { name: `Add a meeting on ${label}` }).click();
+  const form = page.getByRole('dialog', { name: 'New meeting' });
   await expect(form.getByLabel('Date')).toHaveValue(day);
   await form.getByLabel('Title').fill('Hangar tour');
-  await form.getByRole('button', { name: 'Add event' }).click();
+  await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
   await expect(page.getByRole('button', { name: /Hangar tour/ })).toBeVisible();
 
-  // The chip opens the event.
+  // The chip opens the meeting.
   await page.getByRole('button', { name: /Hangar tour/ }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Hangar tour' });
   await expect(edit).toBeVisible();
@@ -64,7 +66,7 @@ test('Calendar: open a day, add an event, see it in List', async ({ page }) => {
 
   await pick(page, 'List');
   await expect(
-    page.locator('[data-event-id]').filter({ hasText: 'Hangar tour' }),
+    page.locator('[data-meeting-id]').filter({ hasText: 'Hangar tour' }),
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
 });
@@ -73,11 +75,11 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
   page,
   request,
 }) => {
-  test.skip(isMobile(page), 'Phones list every event in the week strip.');
+  test.skip(isMobile(page), 'Phones list every meeting in the week strip.');
   const seed = structuredClone(SEED);
-  const events = seed.meetings as Record<string, object>;
+  const meetings = seed.meetings as Record<string, object>;
   for (const n of [1, 2, 3, 4]) {
-    events[`e-x${n}`] = {
+    meetings[`e-x${n}`] = {
       ...seed.meetings['e-1'],
       id: `e-x${n}`,
       title: `Drill ${n}`,
@@ -86,14 +88,14 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
     };
   }
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/events?view=calendar');
+  await openLive(page, '/meetings?view=calendar');
   const cell = page.getByRole('cell', {
-    name: `${longDay(today, today)}, 4 events`,
+    name: `${longDay(today, today)}, 4 meetings`,
   });
   await expect(cell).toHaveAttribute('aria-current', 'date');
   await cell.getByRole('button', { name: /^\+1 more/ }).click();
   const pop = page.getByRole('dialog');
-  await expect(pop.locator('[data-event-id]')).toHaveCount(4);
+  await expect(pop.locator('[data-meeting-id]')).toHaveCount(4);
   await expect(
     pop.getByRole('button', { name: 'More for “Drill 4”' }),
   ).toBeVisible();
@@ -118,11 +120,13 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
   await expect(cell).toHaveAttribute('aria-current', 'date');
 });
 
-test('Timeline: a lane per project, events listed for assistive tech', async ({
+test('Timeline: a lane per project, meetings listed for assistive tech', async ({
   page,
 }) => {
-  await openLive(page, '/events?view=timeline');
-  const list = page.getByRole('list', { name: 'Events over time, as a list' });
+  await openLive(page, '/meetings?view=timeline');
+  const list = page.getByRole('list', {
+    name: 'Meetings over time, as a list',
+  });
   await expect(list).toContainText('Echo Base relocation');
   await expect(list).toContainText('General');
   // Keyboard focus shows the list.

@@ -11,11 +11,11 @@ import { useEffect, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { timeRange } from '#shared/meetings';
 import type { Meeting, Person, Snapshot } from '#shared/types';
-import { deleteEventQuestion } from '@/components/events/EventForm';
-import { useEventForm } from '@/components/events/EventFormProvider';
-import { useEventNotes } from '@/components/events/EventNotesProvider';
-import { LinkedNotes } from '@/components/events/LinkedNotes';
 import { Initials } from '@/components/Initials';
+import { LinkedNotes } from '@/components/meetings/LinkedNotes';
+import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
+import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,22 +33,22 @@ const MENU_TRIGGER =
   'press flex size-11 shrink-0 items-center justify-center outline-ring/50 hover:bg-accent focus-visible:outline-2 data-popup-open:bg-accent desk:size-8';
 
 /**
- * One event: its day and times, type pill, title (opens the form),
+ * One meeting: its day and times, title (opens the form),
  * project chip, attendees, link, and the actions: Prep note and Debrief
  * note (beside the row on desktop, in its menu everywhere), Edit, Delete.
- * Delete asks in the row first; the event's notes are kept. Its linked
+ * Delete asks in the row first; the meeting's notes are kept. Its linked
  * notes follow underneath. It lays out by its own width (a container
  * query), so it stacks in a narrow column or popover as on a phone.
  */
-export function EventRow({
-  event,
+export function MeetingRow({
+  meeting,
   state,
   today,
   showProject = true,
   className,
   style,
 }: {
-  event: Meeting;
+  meeting: Meeting;
   state: Snapshot;
   today: string;
   showProject?: boolean;
@@ -56,47 +56,47 @@ export function EventRow({
   style?: React.CSSProperties;
 }) {
   const { actions } = useDatapad();
-  const { openEvent } = useEventForm();
-  const { startNote } = useEventNotes();
+  const { openMeeting } = useMeetingForm();
+  const { startNote } = useMeetingNotes();
   const { summarize } = useSummaries();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
   const row = useRef<HTMLDivElement>(null);
-  const target = useQuery().get('event');
+  const target = useQuery().get('meeting');
   const [flash, setFlash] = useState(false);
 
   // Arriving from Focus's agenda or search: bring the row into view.
   useEffect(() => {
-    if (target !== event.id || !row.current) return;
+    if (target !== meeting.id || !row.current) return;
     row.current.scrollIntoView({ block: 'center' });
     row.current.focus({ preventScroll: true });
     setFlash(true);
     const timer = window.setTimeout(() => setFlash(false), 2400);
     return () => window.clearTimeout(timer);
-  }, [target, event.id]);
-  const project = event.projectId ? state.projects[event.projectId] : null;
-  const attendees = event.attendees
+  }, [target, meeting.id]);
+  const project = meeting.projectId ? state.projects[meeting.projectId] : null;
+  const attendees = meeting.attendees
     .map((id) => state.people[id])
     .filter((p): p is Person => Boolean(p));
-  const range = timeRange(event);
+  const range = timeRange(meeting);
   const notes = Object.values(state.notes).filter(
-    (n) => n.meetingId === event.id,
+    (n) => n.meetingId === meeting.id,
   ).length;
 
   const remove = () => {
-    if (!actions.deleteMeeting({ id: event.id })) return;
-    show(`Deleted “${event.title}”`);
+    if (!actions.deleteMeeting({ id: meeting.id })) return;
+    show(`Deleted “${meeting.title}”`);
   };
 
   return (
     <div
       ref={row}
       tabIndex={-1}
-      data-event-id={event.id}
-      data-layout-id={event.id}
+      data-meeting-id={meeting.id}
+      data-layout-id={meeting.id}
       data-highlighted={flash || undefined}
       className={cn(
-        'event-row @container/row flex flex-col border-b outline-none',
+        'meeting-row @container/row flex flex-col border-b outline-none',
         className,
       )}
       style={style}
@@ -105,17 +105,17 @@ export function EventRow({
         <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1 @xl/row:flex-row @xl/row:items-center @xl/row:gap-3 @xl/row:pt-0">
           <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted-foreground tabular-nums @xl/row:w-40">
             <span className="text-foreground">
-              {formatDay(event.date, today)}
+              {formatDay(meeting.date, today)}
             </span>
             {range && <span>{range}</span>}
           </span>
           <span className="flex min-w-0 items-center gap-2 @xl/row:flex-1 @xl/row:gap-3">
             <button
               type="button"
-              onClick={() => openEvent(event.id)}
+              onClick={() => openMeeting(meeting.id)}
               className="min-w-0 text-left text-sm font-medium underline-offset-4 outline-ring/50 hover:underline focus-visible:outline-2 @xl/row:flex-1 @xl/row:truncate"
             >
-              {event.title}
+              {meeting.title}
             </button>
           </span>
           {(showProject || attendees.length > 0) && (
@@ -147,16 +147,16 @@ export function EventRow({
             </span>
           )}
         </div>
-        {event.link && (
+        {meeting.link && (
           <a
-            href={event.link}
+            href={meeting.link}
             target="_blank"
             rel="noopener noreferrer"
             className="press flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground desk:size-8"
           >
             <ArrowSquareOutIcon aria-hidden />
             <span className="sr-only">
-              Link for “{event.title}” (opens in a new tab)
+              Link for “{meeting.title}” (opens in a new tab)
             </span>
           </a>
         )}
@@ -166,45 +166,45 @@ export function EventRow({
             variant="ghost"
             size="sm"
             className="press h-8 px-2 text-xs"
-            onClick={() => startNote(event, 'pre')}
+            onClick={() => startNote(meeting, 'pre')}
           >
             Prep
-            <span className="sr-only"> note for “{event.title}”</span>
+            <span className="sr-only"> note for “{meeting.title}”</span>
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="press h-8 px-2 text-xs"
-            onClick={() => startNote(event, 'post')}
+            onClick={() => startNote(meeting, 'post')}
           >
             Debrief
-            <span className="sr-only"> note for “{event.title}”</span>
+            <span className="sr-only"> note for “{meeting.title}”</span>
           </Button>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger
             className={MENU_TRIGGER}
-            aria-label={`More for “${event.title}”`}
+            aria-label={`More for “${meeting.title}”`}
           >
             <DotsThreeIcon weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
-              onClick={() => summarize({ kind: 'meeting', id: event.id })}
+              onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
             >
               <SparkleIcon />
               Summarize
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote(event, 'pre')}>
+            <DropdownMenuItem onClick={() => startNote(meeting, 'pre')}>
               <ClipboardTextIcon />
               Prep note
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote(event, 'post')}>
+            <DropdownMenuItem onClick={() => startNote(meeting, 'post')}>
               <NotePencilIcon />
               Debrief note
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openEvent(event.id)}>
+            <DropdownMenuItem onClick={() => openMeeting(meeting.id)}>
               <PencilSimpleIcon />
               Edit
             </DropdownMenuItem>
@@ -218,20 +218,20 @@ export function EventRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {event.note && (
+      {meeting.note && (
         <p className="pb-2 text-xs whitespace-pre-line text-muted-foreground @xl/row:pl-43">
-          {event.note}
+          {meeting.note}
         </p>
       )}
-      <LinkedNotes event={event} state={state} />
+      <LinkedNotes meeting={meeting} state={state} />
       {confirming && (
         <div
           role="alertdialog"
-          aria-labelledby={`delete-${event.id}`}
+          aria-labelledby={`delete-${meeting.id}`}
           className="flex flex-wrap items-center gap-2 bg-muted px-2 py-2"
         >
-          <p id={`delete-${event.id}`} className="flex-1 text-sm">
-            {deleteEventQuestion(event.title, notes)}
+          <p id={`delete-${meeting.id}`} className="flex-1 text-sm">
+            {deleteMeetingQuestion(meeting.title, notes)}
           </p>
           <Button
             type="button"
@@ -248,7 +248,7 @@ export function EventRow({
             className="press h-11 desk:h-8"
             onClick={remove}
           >
-            Delete event
+            Delete meeting
           </Button>
         </div>
       )}

@@ -3,7 +3,7 @@ import { describeDay } from '#shared/dates';
 import { timeRange } from '#shared/meetings';
 import type { AgendaItem } from '#shared/select';
 import type { Snapshot } from '#shared/types';
-import { useEventNotes } from '@/components/events/EventNotesProvider';
+import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
 
@@ -25,7 +25,7 @@ export function AgendaStrip({
   state: Snapshot;
   today: string;
 }) {
-  const { startNote } = useEventNotes();
+  const { startNote } = useMeetingNotes();
   return (
     <section aria-labelledby="agenda-title" className="flex min-w-0 flex-col">
       <h2 id="agenda-title" className="pb-1 font-heading text-sm font-semibold">
@@ -85,7 +85,10 @@ export function AgendaStrip({
                 {range && <span>{range}</span>}
               </span>
               <a
-                {...linkProps({ name: 'events' }, `view=list&event=${e.id}`)}
+                {...linkProps(
+                  { name: 'meetings' },
+                  `view=list&meeting=${e.id}`,
+                )}
                 className="line-clamp-2 text-sm font-medium outline-none after:absolute after:inset-0"
               >
                 {e.title}

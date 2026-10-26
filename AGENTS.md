@@ -5,7 +5,7 @@ Guidance for AI agents working in this repository.
 ## What this is
 
 A private, single-user project tracker for an engineering leader: projects,
-tasks, notes, events, people, cross-project views, search and on-device
+tasks, notes, meetings and milestones, people, cross-project views, search and on-device
 summaries. Built the way [holocron](https://github.com/jbouder/holocron) is
 built. Runs entirely on Cloudflare: Cloudflare Access sits in front of the
 hostname, a Worker verifies the Access JWT on every request and serves the
@@ -27,7 +27,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
-  (the ⌘K index and ranking), `spaces.ts` (space names and order, and the
+  (the ⌘K index and ranking), `routes.ts` (the app's addresses, pure:
+  parse, paths, old addresses such as `/events`, titles), `spaces.ts` (space names and order, and the
   pure halves of moving a project between spaces).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the

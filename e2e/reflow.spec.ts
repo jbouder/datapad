@@ -22,7 +22,7 @@ for (const width of [320, 1280]) {
         const rail = page.getByRole('complementary', { name: 'Datapad' });
         const tabs = page
           .getByRole('navigation', { name: 'Sections' })
-          .filter({ has: page.getByRole('link', { name: 'Events' }) })
+          .filter({ has: page.getByRole('link', { name: 'Meetings' }) })
           .last();
         if (width >= 820) {
           await expect(rail).toBeVisible();
@@ -51,7 +51,7 @@ test.describe('on a phone', () => {
       banner.getByRole('button', { name: 'Add task' }),
       banner.getByRole('button', { name: 'Write a note' }),
       banner.getByRole('link', { name: 'Help' }),
-      ...['Focus', 'Projects', 'Tasks', 'Events', 'Notes'].map((name) =>
+      ...['Focus', 'Projects', 'Tasks', 'Meetings', 'Notes'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })
           .last()

@@ -23,7 +23,7 @@ export interface CalendarItem {
   /** `HH:MM` or empty. */
   time?: string;
   label: string;
-  /** The chip's colors (an event's type, say). */
+  /** The chip's colors (a meeting's project, say). */
   className?: string;
 }
 
@@ -69,7 +69,7 @@ function count(n: number, noun: string): string {
 
 /**
  * A month on desktop, as a real table: a header per weekday and a label
- * per day ("Tuesday 28 October, 2 events"). Up to three chips a day, then
+ * per day ("Tuesday 28 October, 2 meetings"). Up to three chips a day, then
  * "+N more", which opens the day in a popover (`renderDay`, or the chips).
  * On phones, a week strip of the same days. With `onAddDay`, each day's
  * number (or a click in its empty space) adds an item on that day.
@@ -86,7 +86,7 @@ export function Calendar({
   items: CalendarItem[];
   onOpen?: (id: string) => void;
   onAddDay?: (day: DateString) => void;
-  /** What an item is called: "2 events", "Add an event". */
+  /** What an item is called: "2 meetings", "Add a meeting". */
   noun?: string;
   /** A day's full list, in its popover. */
   renderDay?: (day: DateString, ids: string[]) => ReactNode;

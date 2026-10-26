@@ -10,9 +10,9 @@ import {
   meId,
 } from '#shared/select';
 import type { Task } from '#shared/types';
-import { AgendaStrip } from '@/components/events/AgendaStrip';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { SelectField } from '@/components/inputs/SelectField';
+import { AgendaStrip } from '@/components/meetings/AgendaStrip';
 import { Section } from '@/components/Section';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
@@ -39,7 +39,7 @@ const BUCKETS: { key: BucketKey; title: string; collapsed?: boolean }[] = [
 ];
 
 /**
- * Focus, the morning view: the next seven days of events, then every open
+ * Focus, the morning view: the next seven days of meetings, then every open
  * task outside the archive bucketed Overdue / Today / This week, with
  * Later and No date collapsed. The buckets follow the local date and roll
  * over at midnight. The assignee filter (`m` toggles Mine) lives in the

@@ -23,7 +23,7 @@ const shieldDay = addDays(today, 3);
 const planningDay = addDays(today, 2);
 
 function row(page: Page, title: string) {
-  return page.locator('[data-event-id]').filter({ hasText: title }).first();
+  return page.locator('[data-meeting-id]').filter({ hasText: title }).first();
 }
 
 async function action(page: Page, title: string, name: string) {
@@ -38,18 +38,18 @@ function composer(page: Page) {
 }
 
 test.beforeEach(async ({ request }) => {
-  // The seed's dates are fixed; bring two events into the coming week.
+  // The seed's dates are fixed; bring two meetings into the coming week.
   const seed = structuredClone(SEED);
   seed.meetings['e-1'].date = shieldDay;
   seed.meetings['e-4'].date = planningDay;
   await request.post('/api/import', { data: seed });
 });
 
-test('Prep note from Events goes to the project and links the note', async ({
+test('Prep note from Meetings goes to the project and links the note', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/events');
+  await openLive(page, '/meetings');
   await action(page, 'Shield review', 'Prep note');
 
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
@@ -58,7 +58,7 @@ test('Prep note from Events goes to the project and links the note', async ({
   await expect(box).toHaveValue(
     `## Prep: Shield review — ${formatDay(shieldDay, today)}\n`,
   );
-  await expect(box).toHaveAttribute('data-event', 'e-1');
+  await expect(box).toHaveAttribute('data-meeting', 'e-1');
   await expect(box).toHaveAttribute('data-phase', 'pre');
   await expect(page.getByText('Prep · Shield review').first()).toBeVisible();
 
@@ -66,7 +66,7 @@ test('Prep note from Events goes to the project and links the note', async ({
   await page.keyboard.type('Ask about the ridge');
   await page.getByRole('button', { name: 'Add note' }).click();
   await expect(box).toHaveValue('');
-  await expect(box).not.toHaveAttribute('data-event');
+  await expect(box).not.toHaveAttribute('data-meeting');
 
   await expectSaved(page);
   const added = Object.values((await stored(request)).notes).find((n) =>
@@ -78,7 +78,7 @@ test('Prep note from Events goes to the project and links the note', async ({
     projectId: 'p-echo',
   });
 
-  // Under the event row, grouped and oldest first, with Edit.
+  // Under the meeting row, grouped and oldest first, with Edit.
   const prep = row(page, 'Shield review').getByRole('region', {
     name: 'Prep notes for “Shield review”',
   });
@@ -106,7 +106,7 @@ test('Debrief note on a page with a composer appends to the draft', async ({
   await expect(page.getByText('Linked to “Shield review”')).toBeVisible();
 });
 
-test('from the Focus agenda: a project event and a General one', async ({
+test('from the Focus agenda: a project meeting and a General one', async ({
   page,
 }) => {
   await openLive(page, '/');
@@ -149,7 +149,7 @@ test('more than three linked notes wait behind Show all', async ({
     };
   }
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/events');
+  await openLive(page, '/meetings');
   const shield = row(page, 'Shield review');
   await expect(shield.getByRole('listitem')).toHaveCount(3);
   await shield.getByRole('button', { name: 'Show all 4' }).click();

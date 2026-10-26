@@ -126,7 +126,7 @@ export async function deleteSpace(id: string, token: string): Promise<void> {
 }
 
 /**
- * Move a project, with its tasks, notes, events, decisions and log, from
+ * Move a project, with its tasks, notes, meetings, decisions and log, from
  * one space to another; its people and org are copied. Both spaces'
  * sockets get a fresh snapshot. The error carries the reason.
  */

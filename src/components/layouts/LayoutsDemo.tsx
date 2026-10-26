@@ -201,7 +201,7 @@ export function LayoutsDemo() {
       )}
       {view === 'calendar' && (
         <Calendar
-          label="Events"
+          label="Meetings"
           items={Object.values(state.meetings).map((e) => ({
             id: e.id,
             date: e.date,

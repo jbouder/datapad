@@ -23,7 +23,7 @@ const ROUTES = [
   { path: '/archive', heading: 'Archived' },
   { path: '/tasks', heading: 'Tasks' },
   { path: '/notes', heading: 'Notes' },
-  { path: '/events', heading: 'Events' },
+  { path: '/meetings', heading: 'Meetings' },
   { path: '/settings', heading: 'Settings' },
   { path: '/people', heading: 'People' },
   { path: '/orgs', heading: 'Orgs' },
@@ -151,18 +151,21 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
-    test('the Events view with data, Past open', async ({ page, request }) => {
+    test('the Meetings view with data, Past open', async ({
+      page,
+      request,
+    }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/events');
+      await page.goto('/meetings');
       await page.getByRole('button', { name: /^Past/ }).click();
-      await expect(page.locator('[data-event-id]').first()).toBeVisible();
+      await expect(page.locator('[data-meeting-id]').first()).toBeVisible();
       await expectAccessible(page);
     });
 
     for (const view of ['calendar', 'timeline']) {
-      test(`the Events ${view}`, async ({ page, request }) => {
+      test(`the Meetings ${view}`, async ({ page, request }) => {
         await request.post('/api/import', { data: SEED });
-        await page.goto(`/events?view=${view}`);
+        await page.goto(`/meetings?view=${view}`);
         await expect(
           page.getByRole('radio', {
             name: view === 'calendar' ? 'Calendar' : 'Timeline',
@@ -172,12 +175,12 @@ for (const theme of CHECKED) {
       });
     }
 
-    test('with the event form open', async ({ page, request }) => {
+    test('with the meeting form open', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/events');
-      await page.getByRole('button', { name: 'Add event' }).click();
+      await page.goto('/meetings');
+      await page.getByRole('button', { name: 'Add meeting' }).click();
       await expect(
-        page.getByRole('dialog', { name: 'New event' }),
+        page.getByRole('dialog', { name: 'New meeting' }),
       ).toBeVisible();
       await expectAccessible(page);
     });

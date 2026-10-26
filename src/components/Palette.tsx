@@ -39,7 +39,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'project', heading: 'Projects', icon: FolderIcon },
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
-  { kind: 'meeting', heading: 'Events', icon: CalendarBlankIcon },
+  { kind: 'meeting', heading: 'Meetings', icon: CalendarBlankIcon },
   { kind: 'decision', heading: 'Decisions', icon: GavelIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
@@ -212,7 +212,7 @@ export function Palette({
         );
       case 'meeting':
         return choose(() =>
-          navigate({ name: 'events' }, { query: `view=list&event=${id}` }),
+          navigate({ name: 'meetings' }, { query: `view=list&meeting=${id}` }),
         );
       case 'decision':
         return choose(() => openDecision(id));
@@ -257,8 +257,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, events, decisions, orgs, people and actions.
-            Arrow keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, meetings, decisions, orgs, people and
+            actions. Arrow keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">
@@ -269,7 +269,7 @@ export function Palette({
               <Command.Input
                 value={query}
                 onValueChange={setQuery}
-                placeholder="Search projects, tasks, notes, events, people…"
+                placeholder="Search projects, tasks, notes, meetings, people…"
                 className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground desk:text-sm"
               />
             </div>

@@ -117,7 +117,7 @@ export function NoteComposer({
   className?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
-  /** `data-*` attributes for the textarea (a linked event, its phase). */
+  /** `data-*` attributes for the textarea (a linked meeting, its phase). */
   data?: Record<`data-${string}`, string | undefined>;
 }) {
   const listId = useId();

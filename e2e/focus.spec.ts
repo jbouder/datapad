@@ -9,7 +9,7 @@ const tomorrowBucket = tomorrow <= endOfWeek(today) ? 'This week' : 'Later';
 
 /**
  * The seed with dates around today: one task in each bucket, and an
- * event tomorrow for the agenda.
+ * meeting tomorrow for the agenda.
  */
 function seed() {
   const s = structuredClone(SEED);
@@ -111,13 +111,13 @@ test('Mine is one keypress, lives in the URL and assigns quick-adds', async ({
   await expect(page.getByText('6 open tasks')).toBeVisible();
 });
 
-test('each agenda card links to its event', async ({ page }) => {
+test('each agenda card links to its meeting', async ({ page }) => {
   await openLive(page);
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
   await expect(agenda.getByRole('listitem')).toHaveCount(1);
   await agenda.getByRole('link', { name: 'Shield review' }).click();
-  await expect(page).toHaveURL(/\/events\?view=list&event=e-1$/);
-  await expect(page.locator('[data-event-id="e-1"]')).toHaveAttribute(
+  await expect(page).toHaveURL(/\/meetings\?view=list&meeting=e-1$/);
+  await expect(page.locator('[data-meeting-id="e-1"]')).toHaveAttribute(
     'data-highlighted',
   );
 });

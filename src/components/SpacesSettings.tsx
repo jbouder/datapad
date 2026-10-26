@@ -96,7 +96,7 @@ export function SpacesSettings() {
     <>
       <p className="text-sm text-muted-foreground">
         Each space is a separate Datapad: its own projects, tasks, notes,
-        events, people, templates and backups. The switcher lists them in this
+        meetings, people, templates and backups. The switcher lists them in this
         order.
       </p>
       <Button

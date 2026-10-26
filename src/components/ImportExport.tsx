@@ -43,7 +43,7 @@ import { useToast } from '@/providers/ToastProvider';
  * server). The import accepts the artifact's `ledger-*.json` unchanged.
  */
 
-/** "14 projects, 212 tasks, 96 notes, 31 events, 9 people". */
+/** "14 projects, 212 tasks, 96 notes, 31 meetings, 9 people". */
 export function describeCounts(counts: Counts): string {
   const n = (count: number, one: string, many: string) =>
     `${count} ${count === 1 ? one : many}`;
@@ -51,7 +51,7 @@ export function describeCounts(counts: Counts): string {
     n(counts.projects, 'project', 'projects'),
     n(counts.tasks, 'task', 'tasks'),
     n(counts.notes, 'note', 'notes'),
-    n(counts.meetings, 'event', 'events'),
+    n(counts.meetings, 'meeting', 'meetings'),
     n(counts.people, 'person', 'people'),
   ].join(', ');
 }

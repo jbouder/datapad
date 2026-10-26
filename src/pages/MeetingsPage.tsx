@@ -2,10 +2,13 @@ import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import { localDate } from '#shared/dates';
 import { type MeetingFilters, selectMeetings } from '#shared/meetings';
-import { useEventForm } from '@/components/events/EventFormProvider';
-import { EVENT_VIEWS, EventLayouts } from '@/components/events/EventLayouts';
 import { SelectField } from '@/components/inputs/SelectField';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
+import {
+  MEETING_VIEWS,
+  MeetingLayouts,
+} from '@/components/meetings/MeetingLayouts';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -14,7 +17,7 @@ import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 
 /** The view's controls, from the URL so Back restores them. */
-function useEventFilters(): MeetingFilters {
+function useMeetingFilters(): MeetingFilters {
   const value = useQuery().toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
@@ -23,17 +26,17 @@ function useEventFilters(): MeetingFilters {
 }
 
 /**
- * Every event as a List (upcoming by month, then Past, collapsed), a
- * Calendar or a Timeline. Add event (any project, or General) and a
+ * Every meeting as a List (upcoming by month, then Past, collapsed), a
+ * Calendar or a Timeline. Add meeting (any project, or General) and a
  * project filter; the filter and layout live in the URL.
  */
-export function EventsPage() {
-  usePageTitle('Events');
+export function MeetingsPage() {
+  usePageTitle('Meetings');
   const { state } = useDatapad();
-  const { newEvent } = useEventForm();
+  const { newMeeting } = useMeetingForm();
   const { active } = useMotion();
-  const filters = useEventFilters();
-  const [view, setView] = useView('events', EVENT_VIEWS, 'list');
+  const filters = useMeetingFilters();
+  const [view, setView] = useView('meetings', MEETING_VIEWS, 'list');
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>) =>
@@ -43,7 +46,7 @@ export function EventsPage() {
     [active],
   );
 
-  const events = useMemo(
+  const meetings = useMemo(
     () => (state ? selectMeetings(state.meetings, filters) : []),
     [state, filters],
   );
@@ -63,20 +66,20 @@ export function EventsPage() {
 
   return (
     <section
-      aria-labelledby="events-title"
+      aria-labelledby="meetings-title"
       className="enter flex flex-col gap-4"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <h1 id="events-title" className="text-page-title flex-1">
-          Events
+        <h1 id="meetings-title" className="text-page-title flex-1">
+          Meetings
         </h1>
-        <ViewSwitcher views={EVENT_VIEWS} value={view} onChange={setView} />
+        <ViewSwitcher views={MEETING_VIEWS} value={view} onChange={setView} />
         <Button
           className="press h-11 desk:h-8"
-          onClick={() => newEvent({ projectId: filterProject })}
+          onClick={() => newMeeting({ projectId: filterProject })}
         >
           <PlusIcon />
-          Add event
+          Add meeting
         </Button>
       </div>
 
@@ -96,16 +99,20 @@ export function EventsPage() {
         />
       </div>
 
-      <EventLayouts
+      <MeetingLayouts
         view={view}
-        events={events}
+        meetings={meetings}
         state={state}
         today={today}
         projectId={filterProject}
         empty={
-          filtered
-            ? 'Nothing coming up that matches.'
-            : 'Nothing coming up. Add a meeting.'
+          meetings.length === 0
+            ? filtered
+              ? 'No meetings match.'
+              : 'No meetings yet. Add a meeting.'
+            : filtered
+              ? 'Nothing coming up that matches.'
+              : 'Nothing coming up.'
         }
       />
     </section>

@@ -28,7 +28,7 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * Orgs: the default org, every org as a record (kind, project
  * count) and, at `/orgs/:id`, one org's page: its projects,
- * contacts, upcoming events, notes and links. Until orgs are organized,
+ * contacts, upcoming meetings, notes and links. Until orgs are organized,
  * projects carry plain org text; "Organize orgs" turns that into records.
  */
 export function OrgsView({ selected }: { selected?: string }) {
@@ -188,7 +188,7 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
   if (!state) return null;
   const projects = orgProjects(state.projects, state.orgs).get(org.id) ?? [];
   const ids = new Set(projects.map((p) => p.id));
-  const events = Object.values(state.meetings)
+  const meetings = Object.values(state.meetings)
     .filter((e) => e.projectId && ids.has(e.projectId) && e.date >= today)
     .sort(byWhen)
     .slice(0, 5);
@@ -325,17 +325,17 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
         )}
       </section>
 
-      <section aria-labelledby="org-events" className="flex flex-col gap-2">
-        <h3 id="org-events" className="font-heading text-sm font-semibold">
+      <section aria-labelledby="org-meetings" className="flex flex-col gap-2">
+        <h3 id="org-meetings" className="font-heading text-sm font-semibold">
           Coming up
         </h3>
-        {events.length === 0 ? (
+        {meetings.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing scheduled on its projects.
           </p>
         ) : (
           <ul className="flex flex-col border-t">
-            {events.map((e) => (
+            {meetings.map((e) => (
               <li
                 key={e.id}
                 className="row flex items-center gap-3 border-b text-sm"
@@ -344,7 +344,10 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
                   {formatDay(e.date, today)}
                 </span>
                 <a
-                  {...linkProps({ name: 'events' }, `view=list&event=${e.id}`)}
+                  {...linkProps(
+                    { name: 'meetings' },
+                    `view=list&meeting=${e.id}`,
+                  )}
                   className="min-w-0 flex-1 truncate hover:underline hover:underline-offset-4"
                 >
                   {e.title}
