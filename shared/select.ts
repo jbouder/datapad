@@ -55,6 +55,25 @@ export const openCounts = lastCall((tasks: Tasks): Map<string, number> => {
   return counts;
 });
 
+/** How many running notes each task has (tasks with none are absent). */
+export const taskNoteCounts = lastCall(
+  (notes: Snapshot['notes']): Map<string, number> => {
+    const counts = new Map<string, number>();
+    for (const n of Object.values(notes)) {
+      if (!n.taskId) continue;
+      counts.set(n.taskId, (counts.get(n.taskId) ?? 0) + 1);
+    }
+    return counts;
+  },
+);
+
+/** A task's running notes, newest first. */
+export function notesOfTask(notes: Snapshot['notes'], taskId: string): Note[] {
+  return Object.values(notes)
+    .filter((n) => n.taskId === taskId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 /** Distinct orgs across projects, for autocomplete, sorted. */
 export const orgs = lastCall(
   (projects: Projects, records: Snapshot['orgs'] = {}): string[] =>

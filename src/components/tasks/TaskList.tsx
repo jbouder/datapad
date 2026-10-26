@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
+import { taskNoteCounts } from '#shared/select';
 import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { Section } from '@/components/Section';
@@ -196,6 +197,7 @@ export function TaskList({
           onOpen={onOpen ?? openFromRow}
           onEdit={onEdit}
           reorder={reorder}
+          noteCount={taskNoteCounts(state.notes).get(task.id)}
         />
       </li>
     );

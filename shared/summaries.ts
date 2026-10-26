@@ -328,8 +328,8 @@ export function projectContext(projectId: string, state: Snapshot): string {
 }
 
 /**
- * A task: its fields, details, link labels, and the note it was made
- * from, if any.
+ * A task: its fields, details, link labels, the note it was made from,
+ * if any, and its running notes, oldest first (the last 20).
  */
 export function taskContext(
   task: Task,
@@ -362,15 +362,35 @@ export function taskContext(
       tokensToNames(source.body, state.people).trim(),
     );
   }
+  const notes = Object.values(state.notes)
+    .filter((n) => n.taskId === task.id)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .slice(-SUMMARY_LIMITS.notes);
+  if (notes.length > 0) {
+    lines.push('', 'Notes, oldest first:');
+    for (const n of notes) {
+      lines.push(
+        `[note] ${noteDay(n)}`,
+        tokensToNames(n.body, state.people).trim(),
+        '',
+      );
+    }
+    lines.pop();
+  }
   return lines.join('\n');
 }
 
-/** A note: its date, project, the meeting it belongs to, and the body. */
+/**
+ * A note: its date, project, the meeting or task it belongs to, and the
+ * body.
+ */
 export function noteContext(
   note: Note,
-  state: Pick<Snapshot, 'projects' | 'people' | 'meetings'>,
+  state: Pick<Snapshot, 'projects' | 'people' | 'meetings'> &
+    Partial<Pick<Snapshot, 'tasks'>>,
 ): string {
   const meeting = note.meetingId ? state.meetings[note.meetingId] : undefined;
+  const task = note.taskId ? state.tasks?.[note.taskId] : undefined;
   const lines = [
     `Note of ${noteDay(note)}`,
     `Project: ${projectName(state, note.projectId)}`,
@@ -384,6 +404,7 @@ export function noteContext(
           : 'about';
     lines.push(`Meeting: ${role} ${meeting.title} on ${day(meeting.date)}`);
   }
+  if (task) lines.push(`Task: ${task.title}`);
   lines.push('', tokensToNames(note.body, state.people).trim());
   return lines.join('\n');
 }

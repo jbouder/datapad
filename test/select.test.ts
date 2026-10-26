@@ -13,10 +13,12 @@ import {
   meId,
   mentionsOf,
   nextMilestones,
+  notesOfTask,
   openCounts,
   orgs,
   peopleStats,
   statsFor,
+  taskNoteCounts,
 } from '#shared/select';
 import {
   emptySnapshot,
@@ -170,6 +172,35 @@ describe('other selectors', () => {
     expect(counts.get('p-falcon')).toBe(1);
     expect(counts.get(GENERAL_KEY)).toBe(1);
     expect(counts.get('p-yavin')).toBeUndefined();
+  });
+
+  it('counts and lists a task’s notes, newest first', () => {
+    let state = withTasks({ id: 'a' }, { id: 'b' });
+    const ops = [
+      { id: 'n1', taskId: 'a', at: '2026-10-23T10:00:00.000Z' },
+      { id: 'n2', taskId: 'a', at: '2026-10-23T11:00:00.000Z' },
+      { id: 'n3', taskId: undefined, at: '2026-10-23T12:00:00.000Z' },
+    ];
+    for (const o of ops) {
+      state = reduce(
+        state,
+        {
+          type: 'addNote',
+          id: o.id,
+          projectId: null,
+          body: o.id,
+          taskId: o.taskId,
+        },
+        o.at,
+      ).state;
+    }
+    const counts = taskNoteCounts(state.notes);
+    expect(counts.get('a')).toBe(2);
+    expect(counts.has('b')).toBe(false);
+    expect(notesOfTask(state.notes, 'a').map((n) => n.id)).toEqual([
+      'n2',
+      'n1',
+    ]);
   });
 
   it('lists distinct orgs, sorted', () => {

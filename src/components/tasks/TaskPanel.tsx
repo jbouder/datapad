@@ -24,6 +24,7 @@ import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { useSummaries } from '@/components/summary/SummaryProvider';
+import { TaskNotes } from '@/components/tasks/TaskNotes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -90,7 +91,12 @@ export function TaskPanel({
   const [dateInvalid, setDateInvalid] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const dirty = useDirty(values, base.values);
-  const changedElsewhere = task.updatedAt !== base.task.updatedAt;
+  // A note added to the task bumps only its `updatedAt`: not a change to
+  // what is being edited here.
+  const changedElsewhere =
+    task.updatedAt !== base.task.updatedAt &&
+    JSON.stringify({ ...task, updatedAt: '' }) !==
+      JSON.stringify({ ...base.task, updatedAt: '' });
 
   const set = <K extends keyof Values>(key: K, value: Values[K]) =>
     setValues((v) => ({ ...v, [key]: value }));
@@ -333,6 +339,7 @@ export function TaskPanel({
           rows={6}
         />
       </Field>
+      {state && <TaskNotes task={task} state={state} />}
       <LinksEditor
         value={values.links}
         onChange={(links) => set('links', links)}

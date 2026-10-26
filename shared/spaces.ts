@@ -143,6 +143,7 @@ export function projectSubtree(
     texts.push(t.desc);
   }
   for (const [id, n] of mine(state.notes)) {
+    // Its tasks' running notes too, `taskId` and all.
     out.notes[id] = n;
     texts.push(n.body);
   }

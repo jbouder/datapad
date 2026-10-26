@@ -8,6 +8,7 @@ import {
   type FocusBuckets,
   focusBuckets,
   meId,
+  taskNoteCounts,
 } from '#shared/select';
 import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
@@ -133,6 +134,7 @@ export function FocusPage() {
             onToggle={toggle}
             onOpen={onOpen}
             onEdit={onEdit}
+            noteCount={taskNoteCounts(state.notes).get(task.id)}
           />
         </li>
       ))}

@@ -79,6 +79,24 @@ describe('search', () => {
     expect(ids(search(indexOf(s), 'han').person)).toEqual(['u-han', 'u-mon']);
   });
 
+  it('finds a task’s note as a note, in the task’s project', () => {
+    const s = reduce(
+      seeded(),
+      {
+        type: 'addNote',
+        id: 'n-t',
+        projectId: null,
+        body: 'Pinged legal, waiting on the redline',
+        taskId: 't-1',
+      },
+      '2026-10-24T09:00:00.000Z',
+    ).state;
+    const r = search(indexOf(s), 'redline');
+    expect(ids(r.note)).toEqual(['n-t']);
+    expect(r.note[0]?.entry.projectId).toBe(s.tasks['t-1']?.projectId);
+    expect(r.task).toEqual([]);
+  });
+
   it('marks and ranks archived items after the rest', () => {
     const r = search(indexOf(seeded()), 'yavin');
     expect(r.project[0]).toMatchObject({

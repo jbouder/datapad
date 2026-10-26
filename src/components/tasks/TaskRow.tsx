@@ -5,6 +5,7 @@ import {
   DotsSixVerticalIcon,
   DotsThreeIcon,
   LockSimpleIcon,
+  NoteIcon,
 } from '@phosphor-icons/react';
 import { memo, useState } from 'react';
 import {
@@ -57,6 +58,8 @@ export interface TaskRowProps {
   reorder?: RowReorder;
   /** A select box for bulk actions (Shift extends a range). */
   select?: { selected: boolean; onToggle: (range: boolean) => void };
+  /** How many running notes it has (`taskNoteCounts`); none shows nothing. */
+  noteCount?: number;
 }
 
 export interface RowReorder {
@@ -72,6 +75,34 @@ export interface RowReorder {
 
 const POPOVER_TRIGGER =
   'press flex min-h-8 items-center justify-center px-1 outline-ring/50 hover:bg-accent focus-visible:outline-2 data-popup-open:bg-accent';
+
+/** A task's running notes, as a small count; nothing when it has none. */
+export function NoteCount({
+  count,
+  className,
+}: {
+  count: number | undefined;
+  className?: string;
+}) {
+  if (!count) return null;
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground',
+        className,
+      )}
+      title={count === 1 ? '1 note' : `${count} notes`}
+    >
+      <NoteIcon aria-hidden />
+      <span aria-hidden className="count">
+        {count}
+      </span>
+      <span className="sr-only">
+        {count === 1 ? ', 1 note' : `, ${count} notes`}
+      </span>
+    </span>
+  );
+}
 
 /**
  * One task, wherever tasks are listed: circular checkbox, priority dot,
@@ -136,6 +167,7 @@ export const TaskRow = memo(function TaskRow({
   onEdit,
   reorder,
   select,
+  noteCount,
 }: TaskRowProps) {
   const project = task.projectId ? projects[task.projectId] : undefined;
   const assignee = task.assignee ? people[task.assignee] : undefined;
@@ -231,6 +263,8 @@ export const TaskRow = memo(function TaskRow({
           task.title
         )}
       </span>
+
+      <NoteCount count={noteCount} className="px-1" />
 
       {blocked && (
         <button

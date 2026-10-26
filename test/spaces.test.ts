@@ -13,6 +13,7 @@ import {
   type Decision,
   emptySnapshot,
   MAIN_SPACE,
+  type Note,
   type Person,
   type Snapshot,
   type SpaceInfo,
@@ -285,6 +286,21 @@ describe('projectSubtree', () => {
       orgId: 'o-rebels',
       updatedAt: later,
     });
+  });
+
+  it('carries a task’s notes with their task link', () => {
+    const state = source();
+    const n1 = state.notes['n-1'] as Note;
+    state.notes = {
+      ...state.notes,
+      'n-t': { ...n1, id: 'n-t', taskId: 't-1' },
+    };
+    const subtree = projectSubtree(state, 'p-echo', emptySnapshot(), arrival);
+    expect(subtree?.notes['n-t']).toMatchObject({
+      projectId: 'p-echo',
+      taskId: 't-1',
+    });
+    expect(subtree?.tasks['t-1']).toBeDefined();
   });
 
   it('takes people mentioned in the description and the org’s notes', () => {
