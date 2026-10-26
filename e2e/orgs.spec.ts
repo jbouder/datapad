@@ -110,7 +110,9 @@ test('a new org from the project form becomes a record and is linked', async ({
   const org = panel.getByRole('combobox', { name: 'Org' });
   await org.click();
   await org.fill('Mon Cala Shipyards');
-  await page.getByRole('option', { name: 'Add “Mon Cala Shipyards”' }).click();
+  await page
+    .getByRole('option', { name: 'Add “Mon Cala Shipyards” as an org' })
+    .click();
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel).toBeHidden();
   await expectSaved(page);

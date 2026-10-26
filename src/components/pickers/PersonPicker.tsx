@@ -4,17 +4,21 @@ import { useDatapad } from '@/hooks/useDatapad';
 
 /**
  * A person, or Unassigned (`''`). With `allowCreate`, a name that matches
- * nobody can be added to People on the spot.
+ * nobody can be added to People on the spot. With `onAddPerson`, an
+ * "Add a person…" option is always listed and calls it (to open a name
+ * field).
  */
 export function PersonPicker({
   value,
   onChange,
   allowCreate = false,
   noneLabel = 'Unassigned',
+  onAddPerson,
   ...rest
-}: Omit<PickerProps, 'options' | 'create'> & {
+}: Omit<PickerProps, 'options' | 'create' | 'action'> & {
   allowCreate?: boolean;
   noneLabel?: string;
+  onAddPerson?: () => void;
 }) {
   const { state, actions } = useDatapad();
   const options = useMemo(
@@ -42,6 +46,11 @@ export function PersonPicker({
               label: (text) => `Add “${text}” to People`,
               onCreate: (name) => actions.addPerson({ name }),
             }
+          : undefined
+      }
+      action={
+        onAddPerson
+          ? { label: 'Add a person…', onSelect: onAddPerson }
           : undefined
       }
     />

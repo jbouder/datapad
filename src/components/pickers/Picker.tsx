@@ -14,7 +14,9 @@ import { cn } from '@/lib/utils';
 /**
  * A typeahead combobox over a fixed list, keyboard operable (↑ ↓ move,
  * Enter picks, Esc closes), the shape every picker shares. With `create`,
- * text that matches nothing offers "Add “…”" as the last option.
+ * text that matches nothing (ignoring case) offers "Add “…”", last or
+ * `first`. With `action`, one more option is always listed last, and
+ * picking it runs the action instead of changing the value.
  */
 
 export interface PickerOption {
@@ -32,7 +34,13 @@ interface CreateOption {
   text: string;
 }
 
-type Item = (PickerOption & { kind?: undefined }) | CreateOption;
+interface ActionOption {
+  kind: 'action';
+  id: string;
+  label: string;
+}
+
+type Item = (PickerOption & { kind?: undefined }) | CreateOption | ActionOption;
 
 export interface PickerProps {
   options: PickerOption[];
@@ -43,7 +51,11 @@ export interface PickerProps {
   create?: {
     label: (text: string) => string;
     onCreate: (text: string) => string | null;
+    /** List "Add “…”" before the options rather than after. */
+    first?: boolean;
   };
+  /** An option that does something else, like opening a name field. */
+  action?: { label: string; onSelect: () => void };
   id?: string;
   className?: string;
   'aria-describedby'?: string;
@@ -52,6 +64,7 @@ export interface PickerProps {
 }
 
 const CREATE_ID = '\u0000create';
+const ACTION_ID = '\u0000action';
 
 export function Picker({
   options,
@@ -59,6 +72,7 @@ export function Picker({
   onChange,
   placeholder,
   create,
+  action,
   className,
   ...aria
 }: PickerProps) {
@@ -70,14 +84,22 @@ export function Picker({
     const exact = options.some(
       (o) => o.label.toLowerCase() === text.toLowerCase(),
     );
+    const extra: Item[] = action
+      ? [{ kind: 'action', id: ACTION_ID, label: action.label }]
+      : [];
     if (!create || !text || exact) {
-      return options;
+      return [...options, ...extra];
     }
-    return [
-      ...options,
-      { kind: 'create', id: CREATE_ID, label: create.label(text), text },
-    ];
-  }, [options, query, create]);
+    const made: Item = {
+      kind: 'create',
+      id: CREATE_ID,
+      label: create.label(text),
+      text,
+    };
+    return create.first
+      ? [made, ...options, ...extra]
+      : [...options, made, ...extra];
+  }, [options, query, create, action]);
 
   return (
     <Combobox<Item>
@@ -85,6 +107,10 @@ export function Picker({
       value={selected}
       onValueChange={(item) => {
         if (!item) return;
+        if (item.kind === 'action') {
+          action?.onSelect();
+          return;
+        }
         if (item.kind === 'create') {
           const id = create?.onCreate(item.text);
           if (id) onChange(id);
@@ -93,10 +119,10 @@ export function Picker({
         onChange(item.id);
       }}
       onInputValueChange={setQuery}
-      itemToStringLabel={(item) => (item.kind === 'create' ? '' : item.label)}
+      itemToStringLabel={(item) => (item.kind ? '' : item.label)}
       isItemEqualToValue={(a, b) => a.id === b.id}
       filter={(item, text) =>
-        item.kind === 'create' ||
+        item.kind !== undefined ||
         item.label.toLowerCase().includes(text.trim().toLowerCase())
       }
       autoHighlight
@@ -130,7 +156,7 @@ export function Picker({
               className="min-h-11 desk:min-h-8"
             >
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {item.kind !== 'create' && item.hint && (
+              {!item.kind && item.hint && (
                 <span className="text-muted-foreground">{item.hint}</span>
               )}
             </ComboboxItem>
