@@ -630,9 +630,17 @@ function apply(d: Draft, op: Op, now: string) {
         title: op.title,
         done: false,
         outcome: '',
+        ...(op.carriedFrom ? { carriedFrom: op.carriedFrom } : {}),
       };
       setTopics(d, m, [...list.slice(0, at), added, ...list.slice(at)], now);
-      log(d, m.projectId, `Added topic "${op.title}" to "${m.title}"`, now);
+      log(
+        d,
+        m.projectId,
+        op.carriedFrom
+          ? `Carried topic "${op.title}" forward to "${m.title}"`
+          : `Added topic "${op.title}" to "${m.title}"`,
+        now,
+      );
       return;
     }
     case 'editTopic': {

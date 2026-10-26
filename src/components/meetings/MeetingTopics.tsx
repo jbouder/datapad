@@ -10,6 +10,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, useState } from 'react';
+import { formatDay } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { restoredOrder } from '#shared/meetings';
 import type { Op } from '#shared/protocol';
@@ -25,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
+import { useToday } from '@/hooks/useNow';
 import { dropIndex, moveItem } from '@/lib/reorder';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
@@ -301,6 +303,7 @@ function TopicRow({
   const { state, actions } = useDatapad();
   const { newTask } = useTaskPanels();
   const { newDecision } = useDecisionPanel();
+  const today = useToday();
   const [editing, setEditing] = useState<'title' | 'outcome' | null>(null);
   const titleButton = useRef<HTMLButtonElement>(null);
   const outcomeButton = useRef<HTMLButtonElement>(null);
@@ -400,19 +403,30 @@ function TopicRow({
             onBlur={(e) => finish('title', e.currentTarget.value, false)}
           />
         ) : (
-          <button
-            type="button"
-            data-topic-title
-            onClick={() => setEditing('title')}
-            className={cn(
-              'flex min-h-11 min-w-0 items-center text-left break-words outline-ring/50 focus-visible:outline-2 desk:min-h-7',
-              topic.done && 'text-muted-foreground',
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+            <button
+              type="button"
+              data-topic-title
+              onClick={() => setEditing('title')}
+              className={cn(
+                'flex min-h-11 min-w-0 items-center text-left break-words outline-ring/50 focus-visible:outline-2 desk:min-h-7',
+                topic.done && 'text-muted-foreground',
+              )}
+              ref={titleButton}
+              aria-label={`${topic.title}, edit`}
+            >
+              <span className="min-w-0">{topic.title}</span>
+            </button>
+            {topic.carriedFrom && (
+              <span
+                data-topic-carried
+                className="text-xs whitespace-nowrap text-muted-foreground"
+              >
+                <span className="sr-only">carried forward </span>from{' '}
+                {formatDay(topic.carriedFrom, today)}
+              </span>
             )}
-            ref={titleButton}
-            aria-label={`${topic.title}, edit`}
-          >
-            <span className="min-w-0">{topic.title}</span>
-          </button>
+          </span>
         )}
         {editing === 'outcome' ? (
           <input

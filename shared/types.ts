@@ -182,6 +182,11 @@ export interface Topic {
   done: boolean;
   /** One line on what came of it, or empty. */
   outcome: string;
+  /**
+   * Carried forward: the day of the meeting it was first raised in (it
+   * keeps that day as it rolls on). Absent on a topic raised here.
+   */
+  carriedFrom?: DateString;
 }
 
 /** Why something was decided, kept so it can be found and cited later. */

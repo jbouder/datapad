@@ -1,4 +1,5 @@
 import {
+  ArrowBendDownRightIcon,
   ArrowSquareOutIcon,
   ClipboardTextIcon,
   DotsThreeIcon,
@@ -8,9 +9,16 @@ import {
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
-import { timeRange, topicCount } from '#shared/meetings';
+import {
+  carryForward,
+  nextMeeting,
+  timeRange,
+  topicCount,
+  topicsNoun,
+  topicsToCarry,
+} from '#shared/meetings';
 import {
   type Meeting,
   type Person,
@@ -32,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDatapad } from '@/hooks/useDatapad';
+import { newId } from '@/lib/ids';
 import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
@@ -93,6 +102,22 @@ export function MeetingRow({
   const notes = Object.values(state.notes).filter(
     (n) => n.meetingId === meeting.id,
   ).length;
+  // Carry forward: the next meeting in the series, when there are
+  // uncovered topics it does not have yet.
+  const next = useMemo(
+    () => nextMeeting(state.meetings, meeting),
+    [state.meetings, meeting],
+  );
+  const canCarry = next !== null && topicsToCarry(meeting, next).length > 0;
+
+  const carry = () => {
+    if (!next) return;
+    const { ops, undo, count } = carryForward(meeting, next, newId);
+    if (count === 0 || !actions.batch({ ops })) return;
+    show(`Carried ${topicsNoun(count)} to ${formatDay(next.date, today)}`, () =>
+      actions.batch({ ops: undo }),
+    );
+  };
 
   const remove = () => {
     if (!actions.deleteMeeting({ id: meeting.id })) return;
@@ -227,6 +252,12 @@ export function MeetingRow({
               <ListPlusIcon />
               Add topic
             </DropdownMenuItem>
+            {canCarry && (
+              <DropdownMenuItem onClick={carry}>
+                <ArrowBendDownRightIcon />
+                Carry forward
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => openMeeting(meeting.id)}>
               <PencilSimpleIcon />
               Edit

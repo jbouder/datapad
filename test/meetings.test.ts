@@ -1,18 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
+  CARRIED_OUTCOME,
+  carryForward,
+  carryOps,
   checkTopicLines,
   describeWhen,
   monthLabel,
+  nextMeeting,
   parseTime,
+  previousMeeting,
   projectMeetings,
   restoredOrder,
+  sameSeries,
   selectMeetings,
   splitByMonth,
   timeRange,
   topicCount,
   topicLines,
   topicOps,
+  topicsToCarry,
   uncoveredTopicList,
 } from '#shared/meetings';
 import { byDate, nextMilestone } from '#shared/milestones';
@@ -258,5 +265,196 @@ describe('topics on the row and in notes', () => {
       'b',
       'd',
     ]);
+  });
+});
+
+describe('carrying topics forward', () => {
+  const series = (id: string, date: string, patch: Partial<Meeting> = {}) =>
+    meeting(id, {
+      projectId: 'p1',
+      title: '1:1 with Sam',
+      attendees: ['sam', 'me'],
+      date,
+      ...patch,
+    });
+  const topics = [
+    { id: 'a', title: 'Power budget', done: true, outcome: 'Approved' },
+    { id: 'b', title: 'North ridge', done: false, outcome: '' },
+    {
+      id: 'c',
+      title: 'Hoth weather',
+      done: false,
+      outcome: 'Pending',
+      carriedFrom: '2026-10-06',
+    },
+  ];
+  const meetings = {
+    old: series('old', '2026-10-06'),
+    last: series('last', '2026-10-13', { topics }),
+    // Not the series: another project, title, attendees.
+    other: series('other', '2026-10-15', { projectId: 'p2' }),
+    renamed: series('renamed', '2026-10-15', { title: 'Sync with Sam' }),
+    more: series('more', '2026-10-15', { attendees: ['sam', 'me', 'kai'] }),
+    next: series('next', '2026-10-20'),
+    later: series('later', '2026-10-27'),
+  };
+
+  it('finds the most recent earlier meeting of the series', () => {
+    const draft = {
+      projectId: 'p1',
+      title: '  1:1 WITH sam ',
+      attendees: ['me', 'sam'],
+      date: '2026-10-20',
+      time: '' as const,
+    };
+    expect(previousMeeting(meetings, draft)?.id).toBe('last');
+    expect(
+      previousMeeting(meetings, { ...draft, date: '2026-10-13' })?.id,
+    ).toBe('old');
+    expect(
+      previousMeeting(meetings, { ...draft, date: '2026-10-06' }),
+    ).toBeNull();
+    // A saved meeting is not its own previous one.
+    expect(previousMeeting(meetings, meetings.next)?.id).toBe('last');
+    expect(previousMeeting(meetings, { ...draft, date: '' })).toBeNull();
+    expect(previousMeeting(meetings, { ...draft, projectId: null })).toBeNull();
+    expect(
+      previousMeeting(meetings, { ...draft, attendees: ['sam'] }),
+    ).toBeNull();
+    expect(previousMeeting(meetings, { ...draft, title: '  ' })).toBeNull();
+  });
+
+  it('orders by time on the same day', () => {
+    const day = {
+      morning: series('morning', '2026-10-20', { time: '09:00' }),
+      noon: series('noon', '2026-10-20', { time: '12:00' }),
+    };
+    expect(previousMeeting(day, day.noon)?.id).toBe('morning');
+    expect(previousMeeting(day, day.morning)).toBeNull();
+    expect(nextMeeting(day, day.morning)?.id).toBe('noon');
+  });
+
+  it('finds the soonest later meeting of the series', () => {
+    expect(nextMeeting(meetings, meetings.last)?.id).toBe('next');
+    expect(nextMeeting(meetings, meetings.later)).toBeNull();
+    expect(
+      sameSeries(meetings.last, { ...meetings.next, attendees: ['me', 'sam'] }),
+    ).toBe(true);
+  });
+
+  it('carries the uncovered ones, less any already there', () => {
+    expect(topicsToCarry(meetings.last).map((t) => t.id)).toEqual(['b', 'c']);
+    const there = series('x', '2026-10-20', {
+      topics: [{ id: 'z', title: 'north RIDGE', done: false, outcome: '' }],
+    });
+    expect(topicsToCarry(meetings.last, there).map((t) => t.id)).toEqual(['c']);
+    expect(topicsToCarry(meetings.old)).toEqual([]);
+  });
+
+  it('copies them with new ids, uncovered, and the day first raised', () => {
+    let n = 0;
+    const ops = carryOps(
+      meetings.last,
+      topicsToCarry(meetings.last),
+      'new',
+      () => `t${++n}`,
+    );
+    expect(ops).toEqual([
+      {
+        type: 'addTopic',
+        meetingId: 'new',
+        id: 't1',
+        title: 'North ridge',
+        carriedFrom: '2026-10-13',
+      },
+      {
+        type: 'addTopic',
+        meetingId: 'new',
+        id: 't2',
+        title: 'Hoth weather',
+        carriedFrom: '2026-10-06',
+      },
+    ]);
+    // In one batch with the new meeting.
+    const { state } = reduce(
+      emptySnapshot(),
+      OpSchema.parse({
+        type: 'batch',
+        ops: [
+          {
+            type: 'addMeeting',
+            id: 'new',
+            projectId: null,
+            title: 'S',
+            date: '2026-10-20',
+          },
+          ...ops,
+        ],
+      }),
+      '2026-10-20T10:00:00.000Z',
+    );
+    const m = state.meetings.new;
+    expect(m && topicsOf(m)).toEqual([
+      {
+        id: 't1',
+        title: 'North ridge',
+        done: false,
+        outcome: '',
+        carriedFrom: '2026-10-13',
+      },
+      {
+        id: 't2',
+        title: 'Hoth weather',
+        done: false,
+        outcome: '',
+        carriedFrom: '2026-10-06',
+      },
+    ]);
+  });
+
+  it('carries to the next meeting and covers them here, undoably', () => {
+    const now = '2026-10-20T10:00:00.000Z';
+    const start = {
+      ...emptySnapshot(),
+      meetings: { last: meetings.last, next: meetings.next },
+    };
+    let n = 0;
+    const { ops, undo, count } = carryForward(
+      meetings.last,
+      meetings.next,
+      () => `t${++n}`,
+    );
+    expect(count).toBe(2);
+    const { state } = reduce(
+      start,
+      OpSchema.parse({ type: 'batch', ops }),
+      now,
+    );
+    const of = (id: string) => topicsOf(state.meetings[id] as Meeting);
+    expect(of('last')).toEqual([
+      topics[0],
+      { ...topics[1], done: true, outcome: CARRIED_OUTCOME },
+      { ...topics[2], done: true, outcome: CARRIED_OUTCOME },
+    ]);
+    expect(of('next').map((t) => [t.title, t.carriedFrom, t.done])).toEqual([
+      ['North ridge', '2026-10-13', false],
+      ['Hoth weather', '2026-10-06', false],
+    ]);
+    // Nothing is left to carry, so a second time adds nothing.
+    expect(
+      carryForward(
+        state.meetings.last as Meeting,
+        state.meetings.next as Meeting,
+        () => 'x',
+      ).count,
+    ).toBe(0);
+    // Undo puts both back as they were.
+    const { state: back } = reduce(
+      state,
+      OpSchema.parse({ type: 'batch', ops: undo }),
+      now,
+    );
+    expect(topicsOf(back.meetings.last as Meeting)).toEqual(topics);
+    expect(topicsOf(back.meetings.next as Meeting)).toEqual([]);
   });
 });

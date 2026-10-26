@@ -1,10 +1,15 @@
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
+import { formatDay } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import {
+  carryOps,
   checkTopicLines,
   parseTime,
+  previousMeeting,
   topicLines,
   topicOps,
+  topicsNoun,
+  topicsToCarry,
 } from '#shared/meetings';
 import type { OpOf } from '#shared/protocol';
 import { type Meeting, topicsOf } from '#shared/types';
@@ -14,9 +19,11 @@ import { MemberChips } from '@/components/inputs/MemberChips';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -128,6 +135,39 @@ export function MeetingForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const dirty = useDirty(values, initial);
+  const today = useToday();
+  const carryId = useId();
+  /** The carry-forward line's checkbox (on by default). */
+  const [carry, setCarry] = useState(true);
+
+  // A new meeting in a series: the last one's uncovered topics, to carry.
+  const meetings = state?.meetings;
+  const previous = useMemo(
+    () =>
+      meeting || !meetings
+        ? null
+        : previousMeeting(meetings, {
+            projectId: values.projectId,
+            title: values.title,
+            attendees: values.attendees,
+            date: values.date,
+            time: parseTime(values.time) ?? '',
+          }),
+    [
+      meeting,
+      meetings,
+      values.projectId,
+      values.title,
+      values.attendees,
+      values.date,
+      values.time,
+    ],
+  );
+  const carried = useMemo(
+    () => (previous ? topicsToCarry(previous) : []),
+    [previous],
+  );
+  const carrying = carry && previous !== null && carried.length > 0;
 
   const set = <K extends keyof Values>(key: K, value: Values[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -155,7 +195,7 @@ export function MeetingForm({
     else if (end && time && end <= time) found.end = 'End after it starts';
     const topics = checkTopicLines(
       topicLines(values.topics),
-      meeting ? topicsOf(meeting).length : 0,
+      meeting ? topicsOf(meeting).length : carrying ? carried.length : 0,
     );
     if (topics) found.topics = topics;
     return found;
@@ -198,7 +238,12 @@ export function MeetingForm({
         op = { type: 'editMeeting', id, patch };
       }
     }
-    const topics = topicOps(id, topicLines(values.topics), newId);
+    // Carried topics first (they were on the agenda already), then the
+    // typed ones.
+    const topics = [
+      ...(carrying && previous ? carryOps(previous, carried, id, newId) : []),
+      ...topicOps(id, topicLines(values.topics), newId),
+    ];
     if (op || topics.length > 0) {
       const ok =
         topics.length > 0
@@ -359,6 +404,30 @@ export function MeetingForm({
           onChange={(e) => set('note', e.target.value)}
         />
       </Field>
+      {previous && carried.length > 0 && (
+        <div className="flex flex-col">
+          <label
+            htmlFor={carryId}
+            data-carry-forward
+            className="flex min-h-11 items-center gap-2 text-sm desk:min-h-8"
+          >
+            <Checkbox
+              id={carryId}
+              checked={carry}
+              aria-describedby={`${carryId}-list`}
+              onCheckedChange={(on) => setCarry(on === true)}
+            />
+            Carry forward {topicsNoun(carried.length)} from{' '}
+            {formatDay(previous.date, today)}
+          </label>
+          <p
+            id={`${carryId}-list`}
+            className="pl-6 text-xs break-words text-muted-foreground"
+          >
+            {carried.map((t) => t.title).join(' · ')}
+          </p>
+        </div>
+      )}
       <Field label="Topics" hint={topicsHint(meeting)} error={errors.topics}>
         <Textarea
           id="meeting-topics"
