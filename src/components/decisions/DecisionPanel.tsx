@@ -47,8 +47,8 @@ export function DecisionPanel({
 }: {
   /** Absent: a new decision. */
   decision?: Decision;
-  /** A new one's project and title. */
-  preset?: { projectId: string | null; title?: string };
+  /** A new one's project, title and deciders. */
+  preset?: { projectId: string | null; title?: string; deciders?: string[] };
   open: boolean;
   onClose: () => void;
   onExited: () => void;
@@ -62,7 +62,7 @@ export function DecisionPanel({
     projectId: decision ? decision.projectId : (preset?.projectId ?? null),
     status: decision?.status ?? 'proposed',
     decidedAt: decision?.decidedAt ?? '',
-    deciders: decision?.deciders ?? [],
+    deciders: decision?.deciders ?? preset?.deciders ?? [],
     rationale: decision ? tokensToNames(decision.rationale, people) : '',
     links: decision?.links ?? [],
   }));

@@ -1,5 +1,14 @@
 import { formatDay } from './dates';
-import type { DateString, Meeting, Snapshot, TimeString } from './types';
+import { LIMITS } from './limits';
+import type { OpOf } from './protocol';
+import {
+  type DateString,
+  type Meeting,
+  type Snapshot,
+  type TimeString,
+  type Topic,
+  topicsOf,
+} from './types';
 
 /**
  * The Meetings view's selection and the small rules meetings share: reading
@@ -139,4 +148,86 @@ export function splitByMonth(
   }
   past.reverse();
   return { upcoming, past };
+}
+
+/* ---- topics -------------------------------------------------------------- */
+
+/** "3 of 5 topics" (covered of all), or `''` for a meeting without any. */
+export function topicCount(topics: readonly Topic[]): string {
+  if (topics.length === 0) return '';
+  const covered = topics.filter((t) => t.done).length;
+  return `${covered} of ${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}`;
+}
+
+/** The meeting form's Topics field: one per line, trimmed, blanks dropped. */
+export function topicLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+}
+
+/**
+ * What is wrong with the Topics field's lines, or null: a line longer than
+ * a title may be, or more topics than a meeting holds (counting the
+ * `existing` ones the lines are added to).
+ */
+export function checkTopicLines(
+  lines: readonly string[],
+  existing = 0,
+): string | null {
+  const long = lines.findIndex((l) => l.length > LIMITS.titleMax);
+  if (long >= 0) {
+    return `Line ${long + 1} is too long (${LIMITS.titleMax} characters at most)`;
+  }
+  if (existing + lines.length > LIMITS.topicsMax) {
+    return existing > 0
+      ? `A meeting has ${LIMITS.topicsMax} topics at most; it has ${existing}`
+      : `A meeting has ${LIMITS.topicsMax} topics at most`;
+  }
+  return null;
+}
+
+/**
+ * The lines as `addTopic` ops on the meeting, in order (each appends), to
+ * go in the same batch as the meeting op. `newId` makes each topic's id.
+ */
+export function topicOps(
+  meetingId: string,
+  lines: readonly string[],
+  newId: () => string,
+): OpOf<'addTopic'>[] {
+  return lines.map((title) => ({
+    type: 'addTopic',
+    meetingId,
+    id: newId(),
+    title,
+  }));
+}
+
+/**
+ * The meeting's uncovered topics as a Markdown bulleted list, for a Prep
+ * note to start from; `''` when there are none.
+ */
+export function uncoveredTopicList(meeting: Pick<Meeting, 'topics'>): string {
+  return topicsOf(meeting)
+    .filter((t) => !t.done)
+    .map((t) => `- ${t.title}`)
+    .join('\n');
+}
+
+/**
+ * Undoing a deleted topic: the order to put it back in. Every id in
+ * `current` (plus `restored`) once; those that were there before keep
+ * their old order (`before`), any added since go at the end.
+ */
+export function restoredOrder(
+  before: readonly string[],
+  current: readonly string[],
+  restored: string,
+): string[] {
+  const now = new Set([...current, restored]);
+  const kept = before.filter((id) => now.has(id));
+  const known = new Set(kept);
+  return [...kept, ...current.filter((id) => !known.has(id))];
 }

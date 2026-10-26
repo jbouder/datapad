@@ -1,6 +1,7 @@
 import { LinkBreakIcon, PlusIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
+import { uncoveredTopicList } from '#shared/meetings';
 import { namesToTokens } from '#shared/mentions';
 import type { Meeting, NotePhase, Person } from '#shared/types';
 import { Field } from '@/components/Field';
@@ -25,6 +26,13 @@ export const PHASE_LABELS: Record<NotePhase, string> = {
 /** "## Prep: Shield review — Tue 27 Oct", a linked note's first line. */
 export function seedLine(meeting: Meeting, phase: NotePhase, today: string) {
   return `## ${PHASE_LABELS[phase]}: ${meeting.title} — ${formatDay(meeting.date, today)}`;
+}
+
+/** The seed line, and for a Prep note the uncovered topics under it. */
+export function seedText(meeting: Meeting, phase: NotePhase, today: string) {
+  const line = seedLine(meeting, phase, today);
+  const topics = phase === 'pre' ? uncoveredTopicList(meeting) : '';
+  return topics ? `${line}\n${topics}` : line;
 }
 
 /**
@@ -93,7 +101,7 @@ export function NoteForm({
 
   const prefill = useRef<NoteTarget['prefill']>(() => {});
   prefill.current = (meeting, phase) => {
-    const seed = seedLine(meeting, phase, localDate(new Date()));
+    const seed = seedText(meeting, phase, localDate(new Date()));
     const draft = textRef.current.replace(/\s+$/, '');
     setText(draft ? `${draft}\n${seed}\n` : `${seed}\n`);
     setLink({ meetingId: meeting.id, phase });
