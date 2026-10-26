@@ -91,7 +91,7 @@ export function HelpPage({ section }: { section?: string }) {
             at once.
           </Term>
           <Term name="Events">
-            Meetings, milestones, deadlines and demos, as a list, a month
+            Meetings, with their prep and debrief notes, as a list, a month
             calendar or a timeline.
           </Term>
           <Term name="Notes">

@@ -72,7 +72,7 @@ for (const theme of CHECKED) {
       seed.tasks['t-1'].due = addDays(today, -1);
       seed.tasks['t-4'].due = today;
       seed.tasks['t-5'].due = addDays(today, 30);
-      seed.events['e-1'].date = addDays(today, 1);
+      seed.meetings['e-1'].date = addDays(today, 1);
       await request.post('/api/import', { data: seed });
       await page.goto('/');
       for (const name of [/^Later/, /^No date/]) {

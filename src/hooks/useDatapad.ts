@@ -68,7 +68,8 @@ const CREATES = {
   addTask: true,
   createProject: true,
   addNote: true,
-  addEvent: true,
+  addMeeting: true,
+  addMilestone: true,
   addPerson: true,
   addDecision: true,
   addOrg: true,
@@ -114,9 +115,12 @@ const OP_TYPES = {
   editNote: true,
   pinNote: true,
   deleteNote: true,
-  addEvent: true,
-  editEvent: true,
-  deleteEvent: true,
+  addMeeting: true,
+  editMeeting: true,
+  deleteMeeting: true,
+  addMilestone: true,
+  editMilestone: true,
+  deleteMilestone: true,
   addPerson: true,
   editPerson: true,
   removePerson: true,
@@ -462,7 +466,14 @@ export function useDatapadConnection(
     let canceled = false;
     idbGet<Cached>(keyFor(CACHE_KEY, space))
       .then((value) => {
-        if (!canceled && value?.email === email && value.state) {
+        // A snapshot cached before meetings (it has `events`) is from a
+        // shape the app no longer reads: drop it and wait for the socket.
+        if (
+          !canceled &&
+          value?.email === email &&
+          value.state &&
+          'meetings' in value.state
+        ) {
           setCached(value);
           // Offline, the switcher still knows the spaces' names.
           if (value.spaces) {

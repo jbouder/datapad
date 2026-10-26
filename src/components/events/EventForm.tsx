@@ -1,11 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
-import { EVENT_TYPE_LABELS, parseTime } from '#shared/events';
 import { LIMITS } from '#shared/limits';
-import { EVENT_TYPES, type Event, type EventType } from '#shared/types';
+import { parseTime } from '#shared/meetings';
+import type { Meeting } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { MemberChips } from '@/components/inputs/MemberChips';
-import { Segmented } from '@/components/inputs/Segmented';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,6 @@ export interface EventPreset {
 interface Values {
   title: string;
   projectId: string | null;
-  type: EventType;
   date: string;
   time: string;
   end: string;
@@ -34,11 +32,10 @@ interface Values {
   note: string;
 }
 
-function valuesOf(event: Event | undefined, preset?: EventPreset): Values {
+function valuesOf(event: Meeting | undefined, preset?: EventPreset): Values {
   return {
     title: event?.title ?? '',
     projectId: event ? event.projectId : (preset?.projectId ?? null),
-    type: event?.type ?? 'meeting',
     date: event?.date ?? preset?.date ?? '',
     time: event?.time ?? '',
     end: event?.end ?? '',
@@ -99,7 +96,7 @@ export function EventForm({
   onExited,
 }: {
   /** Absent: a new event. */
-  event?: Event;
+  event?: Meeting;
   preset?: EventPreset;
   open: boolean;
   onClose: () => void;
@@ -163,18 +160,13 @@ export function EventForm({
       note: values.note.trim(),
     };
     if (!event) {
-      const { projectId, ...rest } = fields;
-      const id = actions.addEvent({
-        ...rest,
-        projectId,
-        eventType: values.type,
-      });
+      const id = actions.addMeeting(fields);
       if (!id) return;
       onClose();
       show(`Added “${fields.title}”`);
       return;
     }
-    const before = { ...valuesOf(event), type: undefined };
+    const before = valuesOf(event);
     const patch: Record<string, unknown> = Object.fromEntries(
       Object.entries(fields).filter(
         ([key, value]) =>
@@ -182,9 +174,8 @@ export function EventForm({
           JSON.stringify(before[key as keyof typeof fields]),
       ),
     );
-    if (values.type !== event.type) patch.type = values.type;
     if (Object.keys(patch).length > 0) {
-      if (!actions.editEvent({ id: event.id, patch })) return;
+      if (!actions.editMeeting({ id: event.id, patch })) return;
       show(`Saved “${fields.title}”`);
     }
     onClose();
@@ -192,13 +183,13 @@ export function EventForm({
 
   const remove = () => {
     if (!event) return;
-    if (!actions.deleteEvent({ id: event.id })) return;
+    if (!actions.deleteMeeting({ id: event.id })) return;
     onClose();
     show(`Deleted “${event.title}”`);
   };
 
   const linked = event
-    ? Object.values(state?.notes ?? {}).filter((n) => n.eventId === event.id)
+    ? Object.values(state?.notes ?? {}).filter((n) => n.meetingId === event.id)
         .length
     : 0;
 
@@ -279,16 +270,6 @@ export function EventForm({
           />
         </Field>
       )}
-      <Segmented
-        legend="Type"
-        wrap
-        value={values.type}
-        onChange={(type) => set('type', type)}
-        options={EVENT_TYPES.map((t) => ({
-          value: t,
-          label: EVENT_TYPE_LABELS[t],
-        }))}
-      />
       <Field
         label="Date"
         required
@@ -340,7 +321,7 @@ export function EventForm({
         <Textarea
           id="event-note"
           value={values.note}
-          maxLength={LIMITS.eventNoteMax}
+          maxLength={LIMITS.meetingNoteMax}
           rows={3}
           className="text-base desk:text-sm"
           onChange={(e) => set('note', e.target.value)}

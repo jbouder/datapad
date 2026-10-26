@@ -1,5 +1,4 @@
 import { formatDay } from './dates';
-import { EVENT_TYPE_LABELS } from './events';
 import type { DateString, Snapshot, Timestamp } from './types';
 
 /**
@@ -14,7 +13,7 @@ export interface DigestRange {
   from: Timestamp;
   /** Exclusive, ISO 8601: the start of the day after the last. */
   to: Timestamp;
-  /** The same week as local dates, for events and decisions. */
+  /** The same week as local dates, for meetings and decisions. */
   fromDay: DateString;
   toDay: DateString;
 }
@@ -30,8 +29,8 @@ export interface ProjectDigest {
   state: string | null;
   /** "Status changed to paused", "Health set to red", in order. */
   changes: string[];
-  /** "Mon 19 Oct: Shield review (Meeting)". */
-  events: string[];
+  /** "Mon 19 Oct: Shield review". */
+  meetings: string[];
   /** "Decided: Move to Hoth". */
   decisions: string[];
 }
@@ -80,7 +79,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
         notes: 0,
         state: null,
         changes: [],
-        events: [],
+        meetings: [],
         decisions: [],
       };
       groups.set(id, g);
@@ -97,12 +96,12 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
   for (const n of Object.values(state.notes)) {
     if (inRange(n.createdAt, range)) group(n.projectId).notes += 1;
   }
-  for (const e of Object.values(state.events).sort((a, b) =>
+  for (const m of Object.values(state.meetings).sort((a, b) =>
     (a.date + a.time).localeCompare(b.date + b.time),
   )) {
-    if (inDays(e.date, range)) {
-      group(e.projectId).events.push(
-        `${formatDay(e.date, '0000-01-01')}: ${e.title} (${EVENT_TYPE_LABELS[e.type]})`,
+    if (inDays(m.date, range)) {
+      group(m.projectId).meetings.push(
+        `${formatDay(m.date, '0000-01-01')}: ${m.title}`,
       );
     }
   }
@@ -134,7 +133,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
           g.added.length +
           g.notes +
           g.changes.length +
-          g.events.length +
+          g.meetings.length +
           g.decisions.length >
           0 || g.state !== null,
     )
@@ -181,7 +180,7 @@ export function digestMarkdown(digest: Digest): string {
     if (g.closed.length) lines.push(`- **Closed:** ${g.closed.join('; ')}`);
     if (g.added.length) lines.push(`- **Added:** ${g.added.join('; ')}`);
     for (const d of g.decisions) lines.push(`- ${d}`);
-    for (const e of g.events) lines.push(`- ${e}`);
+    for (const m of g.meetings) lines.push(`- ${m}`);
     if (g.notes) lines.push(`- ${plural(g.notes, 'note', 'notes')} written`);
   }
   return lines.join('\n');

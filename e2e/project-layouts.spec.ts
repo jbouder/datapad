@@ -25,6 +25,7 @@ const MORE = {
     name: 'Hoth comms array',
     targetDate: '2026-11-02',
     priority: 'low',
+    milestones: [],
   },
 };
 

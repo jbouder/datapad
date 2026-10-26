@@ -21,14 +21,18 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   collections), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoizable selectors), `dates.ts`, `markdown.ts`, `events.ts`,
+  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts`,
+  `milestones.ts` (they live on the project), `migrate.ts` (events from
+  before meetings → meetings and milestones; every import and the DO's
+  schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `spaces.ts` (space names and order, and the
   pure halves of moving a project between spaces).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
-  `DatapadObject` Durable Object: per-space state and seq, the space RPCs,
+  `DatapadObject` Durable Object: per-space state and seq, the schema
+  migrations in `ensureTables()`, the space RPCs,
   its nightly R2 backup alarm), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces` among them),

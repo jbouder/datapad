@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react';
 import { useCallback, useMemo, useState } from 'react';
 import { localDate } from '#shared/dates';
-import type { Task } from '#shared/types';
+import { milestonesOf, type Task } from '#shared/types';
 import { Board } from '@/components/layouts/Board';
 import { Calendar } from '@/components/layouts/Calendar';
 import { CardGrid } from '@/components/layouts/CardGrid';
@@ -184,31 +184,31 @@ export function LayoutsDemo() {
             start: p.createdAt.slice(0, 10),
             end: p.targetDate || undefined,
             open: !p.targetDate,
-            points: Object.values(state.events)
-              .filter((e) => e.projectId === p.id)
-              .map((e) => ({
-                id: e.id,
-                date: e.date,
-                label: e.title,
-                kind: e.type === 'deadline' ? 'deadline' : 'milestone',
-              })),
+            points: milestonesOf(p).map((m) => ({
+              id: m.id,
+              date: m.date,
+              label: m.title,
+              kind: 'milestone' as const,
+            })),
           }))}
           onOpenRow={(id) => show(`Would open ${projects[id]?.name}`)}
-          onOpenPoint={(_r, id) =>
-            show(`Would open ${state.events[id]?.title}`)
+          onOpenPoint={(r, id) =>
+            show(
+              `Would open ${milestonesOf(projects[r] ?? {}).find((m) => m.id === id)?.title}`,
+            )
           }
         />
       )}
       {view === 'calendar' && (
         <Calendar
           label="Events"
-          items={Object.values(state.events).map((e) => ({
+          items={Object.values(state.meetings).map((e) => ({
             id: e.id,
             date: e.date,
             time: e.time,
             label: e.title,
           }))}
-          onOpen={(id) => show(`Would open ${state.events[id]?.title}`)}
+          onOpen={(id) => show(`Would open ${state.meetings[id]?.title}`)}
         />
       )}
     </section>

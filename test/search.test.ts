@@ -15,7 +15,7 @@ const indexOf = (s: Snapshot) =>
     s.projects,
     s.tasks,
     s.notes,
-    s.events,
+    s.meetings,
     s.people,
     s.decisions,
     s.orgs,

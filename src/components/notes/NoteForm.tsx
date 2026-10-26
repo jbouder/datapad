@@ -2,7 +2,7 @@ import { LinkBreakIcon, PlusIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import { namesToTokens } from '#shared/mentions';
-import type { Event, NotePhase, Person } from '#shared/types';
+import type { Meeting, NotePhase, Person } from '#shared/types';
 import {
   accepts,
   type EventNoteIntent,
@@ -23,7 +23,7 @@ export const PHASE_LABELS: Record<NotePhase, string> = {
 };
 
 /** "## Prep: Shield review — Tue 27 Oct", a linked note's first line. */
-export function seedLine(event: Event, phase: NotePhase, today: string) {
+export function seedLine(event: Meeting, phase: NotePhase, today: string) {
   return `## ${PHASE_LABELS[phase]}: ${event.title} — ${formatDay(event.date, today)}`;
 }
 
@@ -89,14 +89,14 @@ export function NoteForm({
   const id = useId();
   const textRef = useRef(text);
   textRef.current = text;
-  const linked = link ? state?.events[link.eventId] : undefined;
+  const linked = link ? state?.meetings[link.meetingId] : undefined;
 
   const prefill = useRef<NoteTarget['prefill']>(() => {});
   prefill.current = (event, phase) => {
     const seed = seedLine(event, phase, localDate(new Date()));
     const draft = textRef.current.replace(/\s+$/, '');
     setText(draft ? `${draft}\n${seed}\n` : `${seed}\n`);
-    setLink({ eventId: event.id, phase });
+    setLink({ meetingId: event.id, phase });
     if (fixed === undefined) setPicked(event.projectId);
     if (draft) show(`Linked to “${event.title}”`);
     // Once the new text is on screen: the caret at its end, in view.
@@ -121,7 +121,7 @@ export function NoteForm({
   // Arriving from elsewhere with a parked Prep / Debrief note.
   useEffect(() => {
     if (!pending || !state) return;
-    const event = state.events[pending.eventId];
+    const event = state.meetings[pending.meetingId];
     if (!event) {
       clearPending();
       return;
@@ -168,7 +168,7 @@ export function NoteForm({
   const add = () => {
     const body = namesToTokens(text, people).trim();
     if (!body) return;
-    const event = linked ? { eventId: linked.id, phase: link?.phase } : {};
+    const event = linked ? { meetingId: linked.id, phase: link?.phase } : {};
     if (
       actions.addNote({ id: noteId.current, projectId, body, ...event }) ===
       null

@@ -36,7 +36,7 @@ export function EventFormProvider({ children }: { children: ReactNode }) {
   }, []);
   const value = useMemo(() => ({ openEvent, newEvent }), [openEvent, newEvent]);
   const event =
-    session && 'id' in session ? state?.events[session.id] : undefined;
+    session && 'id' in session ? state?.meetings[session.id] : undefined;
 
   return (
     <Context.Provider value={value}>

@@ -1,8 +1,7 @@
 import { describeDay } from '#shared/dates';
-import { timeRange } from '#shared/events';
-import type { Event, Snapshot } from '#shared/types';
+import { timeRange } from '#shared/meetings';
+import type { Meeting, Snapshot } from '#shared/types';
 import { useEventNotes } from '@/components/events/EventNotesProvider';
-import { TypePill } from '@/components/events/TypePill';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
 
@@ -16,7 +15,7 @@ export function AgendaStrip({
   state,
   today,
 }: {
-  events: Event[];
+  events: Meeting[];
   state: Snapshot;
   today: string;
 }) {
@@ -51,11 +50,8 @@ export function AgendaStrip({
               >
                 {e.title}
               </a>
-              <span className="flex min-w-0 items-center gap-2">
-                <TypePill type={e.type} />
-                <span className="truncate text-xs text-muted-foreground">
-                  {project?.name ?? 'General'}
-                </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {project?.name ?? 'General'}
               </span>
               <span className="relative -mx-1 -mb-1 flex gap-1">
                 <Button

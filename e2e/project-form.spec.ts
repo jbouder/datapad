@@ -191,6 +191,6 @@ test('archive with undo, then delete with the counts', async ({
     ),
   ).toEqual([]);
   expect(data.activity['p-echo']).toBeUndefined();
-  // Its events moved to General.
-  expect(data.events['e-1'].projectId).toBeNull();
+  // Its meetings moved to General.
+  expect(data.meetings['e-1'].projectId).toBeNull();
 });

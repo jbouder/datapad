@@ -1,9 +1,11 @@
 import { addDays, endOfWeek } from './dates';
+import { nextMilestone } from './milestones';
 import {
   blockedOf,
   type DateString,
   type Decision,
-  type Event,
+  type Meeting,
+  type Milestone,
   type Note,
   type Person,
   type Project,
@@ -179,36 +181,30 @@ export const focusBuckets = lastCall(
   },
 );
 
-const MARKERS = new Set<Event['type']>(['milestone', 'deadline']);
-
-/** Each project's next milestone or deadline on or after `today`. */
-export const nextMarkers = lastCall(
-  (events: Snapshot['events'], today: DateString): Map<string, Event> => {
-    const next = new Map<string, Event>();
-    for (const e of Object.values(events)) {
-      if (!e.projectId || !MARKERS.has(e.type) || e.date < today) continue;
-      const current = next.get(e.projectId);
-      if (
-        !current ||
-        e.date < current.date ||
-        (e.date === current.date && e.time < current.time)
-      ) {
-        next.set(e.projectId, e);
-      }
+/** Each project's next milestone on or after `today`, by project id. */
+export const nextMilestones = lastCall(
+  (projects: Projects, today: DateString): Map<string, Milestone> => {
+    const next = new Map<string, Milestone>();
+    for (const p of Object.values(projects)) {
+      const m = nextMilestone(p, today);
+      if (m) next.set(p.id, m);
     }
     return next;
   },
 );
 
-/** Events in the next seven days (today included), outside archived projects. */
+/**
+ * Meetings in the next seven days (today included), outside archived
+ * projects.
+ */
 export const agenda = lastCall(
   (
-    events: Snapshot['events'],
+    meetings: Snapshot['meetings'],
     projects: Projects,
     today: DateString,
-  ): Event[] => {
+  ): Meeting[] => {
     const last = addDays(today, 6);
-    return Object.values(events)
+    return Object.values(meetings)
       .filter(
         (e) =>
           e.date >= today &&

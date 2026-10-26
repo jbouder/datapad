@@ -39,7 +39,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'project', heading: 'Projects', icon: FolderIcon },
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
-  { kind: 'event', heading: 'Events', icon: CalendarBlankIcon },
+  { kind: 'meeting', heading: 'Events', icon: CalendarBlankIcon },
   { kind: 'decision', heading: 'Decisions', icon: GavelIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
@@ -92,7 +92,7 @@ export function Palette({
         state.projects,
         state.tasks,
         state.notes,
-        state.events,
+        state.meetings,
         state.people,
         state.decisions,
         state.orgs,
@@ -210,7 +210,7 @@ export function Palette({
         return choose(() =>
           navigate({ name: 'notes' }, { query: `note=${id}` }),
         );
-      case 'event':
+      case 'meeting':
         return choose(() =>
           navigate({ name: 'events' }, { query: `view=list&event=${id}` }),
         );

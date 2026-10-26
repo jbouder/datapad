@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
+import { migrate } from './migrate';
 import {
   type Activity,
   type COLLECTIONS,
@@ -7,10 +8,10 @@ import {
   DEFAULT_SETTINGS,
   type Decision,
   DOC_COLLECTIONS,
-  EVENT_TYPES,
-  type Event,
   type ExportFile,
   type Link,
+  type Meeting,
+  type Milestone,
   NOTE_PHASES,
   type Note,
   ORG_KINDS,
@@ -79,7 +80,6 @@ const links = z.array(LinkSchema).max(LIMITS.linksMax);
 const projectStatus = z.enum(PROJECT_STATUSES);
 const projectHealth = z.enum(PROJECT_HEALTHS);
 const priority = z.enum(PRIORITIES);
-const eventType = z.enum(EVENT_TYPES);
 const phase = z.enum(NOTE_PHASES).nullable();
 
 /* ---------- documents ---------- */
@@ -90,6 +90,12 @@ const phase = z.enum(NOTE_PHASES).nullable();
  * still imports. Fields an older export may lack get their empty value;
  * names, titles, dates and timestamps it must have.
  */
+
+export const MilestoneSchema = z.object({
+  id,
+  title: z.string().min(1).max(LIMITS.titleMax),
+  date,
+}) satisfies z.ZodType<Milestone, unknown>;
 
 export const ProjectSchema = z.object({
   id,
@@ -109,6 +115,8 @@ export const ProjectSchema = z.object({
   state: text(LIMITS.stateMax).default(''),
   members: people.default([]),
   links: links.default([]),
+  /** Absent in older exports; `milestonesOf()` reads that as none. */
+  milestones: z.array(MilestoneSchema).max(LIMITS.milestonesMax).optional(),
   archived: z.boolean().default(false),
   createdAt: timestamp,
   updatedAt: timestamp,
@@ -144,26 +152,25 @@ export const NoteSchema = z.object({
   projectId: nullableId.default(null),
   body: text(LIMITS.bodyMax),
   pinned: z.boolean().default(false),
-  eventId: nullableId.default(null),
+  meetingId: nullableId.default(null),
   phase: phase.default(null),
   createdAt: timestamp,
   editedAt: timestamp.optional(),
 }) satisfies z.ZodType<Note, unknown>;
 
-export const EventSchema = z.object({
+export const MeetingSchema = z.object({
   id,
   projectId: nullableId.default(null),
   title: z.string().min(1).max(LIMITS.titleMax),
-  type: eventType.default('other'),
   date,
   time: timeOrEmpty.default(''),
   end: timeOrEmpty.default(''),
   attendees: people.default([]),
   link: text(LIMITS.urlMax).default(''),
-  note: text(LIMITS.eventNoteMax).default(''),
+  note: text(LIMITS.meetingNoteMax).default(''),
   createdAt: timestamp,
   updatedAt: timestamp,
-}) satisfies z.ZodType<Event, unknown>;
+}) satisfies z.ZodType<Meeting, unknown>;
 
 const templateTask = z.object({
   title: required(LIMITS.titleMax),
@@ -235,7 +242,7 @@ export const DocumentSchemas = {
   projects: ProjectSchema,
   tasks: TaskSchema,
   notes: NoteSchema,
-  events: EventSchema,
+  meetings: MeetingSchema,
   people: PersonSchema,
   decisions: DecisionSchema,
   orgs: OrgSchema,
@@ -307,24 +314,29 @@ function keyedCollection<S extends z.ZodType>(schema: S) {
 
 /**
  * Datapad's export and the artifact's `ledger-*.json`, unchanged. Missing
- * collections are empty; unknown top-level keys are ignored.
+ * collections are empty; unknown top-level keys are ignored. A file from
+ * before meetings (with `events`) is migrated first (`shared/migrate.ts`),
+ * so what comes out is always the current shape.
  */
-export const ExportSchema = z.object({
-  exportedAt: timestamp.optional(),
-  projects: collectionOf(ProjectSchema),
-  tasks: collectionOf(TaskSchema),
-  notes: collectionOf(NoteSchema),
-  events: collectionOf(EventSchema),
-  people: collectionOf(PersonSchema),
-  /** Datapad only; older exports and the artifact have none. */
-  decisions: collectionOf(DecisionSchema),
-  /** Datapad only (M7); older files carry orgs as project text. */
-  orgs: collectionOf(OrgSchema),
-  /** Datapad only (M7). */
-  templates: collectionOf(TemplateSchema),
-  activity: keyedCollection(ActivitySchema),
-  settings: keyedCollection(SettingsSchema),
-});
+export const ExportSchema = z.preprocess(
+  migrate,
+  z.object({
+    exportedAt: timestamp.optional(),
+    projects: collectionOf(ProjectSchema),
+    tasks: collectionOf(TaskSchema),
+    notes: collectionOf(NoteSchema),
+    meetings: collectionOf(MeetingSchema),
+    people: collectionOf(PersonSchema),
+    /** Datapad only; older exports and the artifact have none. */
+    decisions: collectionOf(DecisionSchema),
+    /** Datapad only (M7); older files carry orgs as project text. */
+    orgs: collectionOf(OrgSchema),
+    /** Datapad only (M7). */
+    templates: collectionOf(TemplateSchema),
+    activity: keyedCollection(ActivitySchema),
+    settings: keyedCollection(SettingsSchema),
+  }),
+);
 
 export type ParsedExport = z.output<typeof ExportSchema>;
 
@@ -353,7 +365,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     projects: Object.keys(snapshot.projects).length,
     tasks: Object.keys(snapshot.tasks).length,
     notes: Object.keys(snapshot.notes).length,
-    events: Object.keys(snapshot.events).length,
+    meetings: Object.keys(snapshot.meetings).length,
     people: Object.keys(snapshot.people).length,
     decisions: Object.keys(snapshot.decisions).length,
     orgs: Object.keys(snapshot.orgs).length,
@@ -467,16 +479,20 @@ const projectFields = {
   links,
 };
 
-const eventFields = {
+const meetingFields = {
   projectId: nullableId,
   title: required(LIMITS.titleMax),
-  type: eventType,
   date,
   time: timeOrEmpty,
   end: timeOrEmpty,
   attendees: people,
   link: z.string().trim().max(LIMITS.urlMax),
-  note: text(LIMITS.eventNoteMax),
+  note: text(LIMITS.meetingNoteMax),
+};
+
+const milestoneFields = {
+  title: required(LIMITS.titleMax),
+  date,
 };
 
 const orgFields = {
@@ -531,8 +547,8 @@ const PutSchema = z.discriminatedUnion('col', [
   }),
   z.object({
     type: z.literal('put'),
-    col: z.literal('events'),
-    doc: EventSchema,
+    col: z.literal('meetings'),
+    doc: MeetingSchema,
   }),
   z.object({
     type: z.literal('put'),
@@ -638,7 +654,10 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setHealth'), id, health: projectHealth }),
   z.object({ type: z.literal('archiveProject'), id }),
   z.object({ type: z.literal('unarchiveProject'), id }),
-  /** Deletes its tasks, notes and activity; its events move to General. */
+  /**
+   * Deletes its tasks, notes, milestones (they live on it) and activity;
+   * its meetings and decisions move to General.
+   */
   z.object({ type: z.literal('deleteProject'), id }),
 
   /* notes */
@@ -647,7 +666,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     id,
     projectId: nullableId,
     body: required(LIMITS.bodyMax),
-    eventId: nullableId.optional(),
+    meetingId: nullableId.optional(),
     phase: phase.optional(),
     /** A saved summary: logs "Saved a summary as a note". */
     summary: z.boolean().optional(),
@@ -656,24 +675,41 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pinNote'), id, pinned: z.boolean() }),
   z.object({ type: z.literal('deleteNote'), id }),
 
-  /* events */
+  /* meetings */
   z.object({
-    type: z.literal('addEvent'),
+    type: z.literal('addMeeting'),
     id,
-    projectId: eventFields.projectId,
-    title: eventFields.title,
-    /** The event's `type`; that key is taken by the op's own. */
-    eventType: eventFields.type,
-    date: eventFields.date,
-    time: eventFields.time.optional(),
-    end: eventFields.end.optional(),
-    attendees: eventFields.attendees.optional(),
-    link: eventFields.link.optional(),
-    note: eventFields.note.optional(),
+    projectId: meetingFields.projectId,
+    title: meetingFields.title,
+    date: meetingFields.date,
+    time: meetingFields.time.optional(),
+    end: meetingFields.end.optional(),
+    attendees: meetingFields.attendees.optional(),
+    link: meetingFields.link.optional(),
+    note: meetingFields.note.optional(),
   }),
-  z.object({ type: z.literal('editEvent'), id, patch: patch(eventFields) }),
-  /** Keeps the event's notes. */
-  z.object({ type: z.literal('deleteEvent'), id }),
+  z.object({
+    type: z.literal('editMeeting'),
+    id,
+    patch: patch(meetingFields),
+  }),
+  /** Keeps the meeting's notes. */
+  z.object({ type: z.literal('deleteMeeting'), id }),
+
+  /* milestones (they live on their project) */
+  z.object({
+    type: z.literal('addMilestone'),
+    projectId: id,
+    id,
+    ...milestoneFields,
+  }),
+  z.object({
+    type: z.literal('editMilestone'),
+    projectId: id,
+    id,
+    patch: patch(milestoneFields),
+  }),
+  z.object({ type: z.literal('deleteMilestone'), projectId: id, id }),
 
   /* templates (not logged: they are not project work) */
   z.object({
@@ -851,7 +887,7 @@ const LABELS: Record<string, string> = {
   startDate: 'Start date',
   targetDate: 'Target date',
   projectId: 'Project',
-  eventId: 'Event',
+  meetingId: 'Meeting',
   sourceNoteId: 'Source note',
   createdAt: 'Created',
   updatedAt: 'Updated',
@@ -859,7 +895,6 @@ const LABELS: Record<string, string> = {
   editedAt: 'Edited',
   desc: 'Description',
   state: 'Current state',
-  eventType: 'Type',
   t: 'Time',
 };
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_MODEL,
-  eventContext,
   findModel,
+  meetingContext,
   noteContext,
   projectContext,
   REQUEST_SETTINGS,
@@ -14,19 +14,18 @@ import {
   taskContext,
 } from '#shared/summaries';
 import {
-  type Event,
   emptySnapshot,
+  type Meeting,
   type Note,
   type Project,
   type Snapshot,
   type Task,
 } from '#shared/types';
 
-const event: Event = {
+const meeting: Meeting = {
   id: 'e1',
   projectId: 'p1',
   title: 'Shield review',
-  type: 'meeting',
   date: '2026-10-27',
   time: '14:00',
   end: '15:00',
@@ -43,16 +42,16 @@ function note(id: string, patch: Partial<Note>): Note {
     projectId: 'p1',
     body: id,
     pinned: false,
-    eventId: 'e1',
+    meetingId: 'e1',
     phase: null,
     createdAt: '2026-10-21T09:00:00.000Z',
     ...patch,
   };
 }
 
-describe('eventContext', () => {
+describe('meetingContext', () => {
   it('labels linked notes [prep] and [debrief], oldest first, names for mentions', () => {
-    const text = eventContext(event, {
+    const text = meetingContext(meeting, {
       projects: { p1: { id: 'p1', name: 'Echo Base' } as Project },
       people: { leia: { id: 'leia', name: 'Leia Organa', role: '', me: true } },
       notes: {
@@ -63,13 +62,12 @@ describe('eventContext', () => {
         }),
         a: note('a', { phase: 'pre', body: 'Bring the numbers' }),
         c: note('c', { createdAt: '2026-10-28T08:00:00.000Z' }),
-        other: note('other', { eventId: 'e2', body: 'Not this one' }),
+        other: note('other', { meetingId: 'e2', body: 'Not this one' }),
       },
     });
     expect(text).toBe(
       [
-        'Event: Shield review',
-        'Type: Meeting',
+        'Meeting: Shield review',
         'Date: Tue 27 Oct 2026, 14:00–15:00',
         'Project: Echo Base',
         'Attendees: Leia Organa',
@@ -89,8 +87,8 @@ describe('eventContext', () => {
   });
 
   it('says General and no attendees when there are none', () => {
-    const text = eventContext(
-      { ...event, projectId: null, attendees: [], note: '' },
+    const text = meetingContext(
+      { ...meeting, projectId: null, attendees: [], note: '' },
       { projects: {}, people: {}, notes: {} },
     );
     expect(text).toContain('Project: General');
@@ -142,13 +140,20 @@ function world(): Snapshot {
   state.projects.p1 = project;
   state.people.leia = { id: 'leia', name: 'Leia Organa', role: '', me: true };
   state.people.han = { id: 'han', name: 'Han Solo', role: '', me: false };
-  state.events.e1 = event;
+  state.meetings.e1 = meeting;
   return state;
 }
 
 describe('projectContext', () => {
-  it('has the fields, open tasks with details, events, notes and activity', () => {
+  it('has the fields, open tasks with details, milestones, meetings, notes and activity', () => {
     const state = world();
+    state.projects.p1 = {
+      ...project,
+      milestones: [
+        { id: 'm1', title: 'Shields up', date: '2026-11-14' },
+        { id: 'm2', title: 'Evacuation drill', date: '2026-11-18' },
+      ],
+    };
     state.tasks.a = task('Calibrate shields', {
       priority: 'high',
       due: '2026-10-30',
@@ -163,7 +168,7 @@ describe('projectContext', () => {
     });
     state.tasks.elsewhere = task('Not mine', { projectId: 'p2' });
     state.notes.n1 = note('n1', {
-      eventId: null,
+      meetingId: null,
       body: 'Power is low',
       createdAt: '2026-10-22T09:00:00.000Z',
     });
@@ -198,8 +203,12 @@ describe('projectContext', () => {
         'Recently done tasks:',
         '- Old thing, closed Sat 10 Oct 2026',
         '',
-        'Events:',
-        '- Tue 27 Oct 2026 14:00–15:00: Shield review (Meeting)',
+        'Milestones:',
+        '- Sat 14 Nov 2026: Shields up',
+        '- Wed 18 Nov 2026: Evacuation drill',
+        '',
+        'Meetings:',
+        '- Tue 27 Oct 2026 14:00–15:00: Shield review',
         '',
         'Notes, newest first:',
         '[prep] Fri 23 Oct 2026',
@@ -225,7 +234,7 @@ describe('projectContext', () => {
     }
     for (let i = 0; i < 30; i += 1) {
       state.notes[`n${i}`] = note(`n${i}`, {
-        eventId: null,
+        meetingId: null,
         body: `note ${i}`,
         createdAt: new Date(Date.UTC(2026, 9, 1, i)).toISOString(),
       });
@@ -287,7 +296,7 @@ describe('taskContext', () => {
   it('has the fields, details, link labels and the source note', () => {
     const state = world();
     state.notes.src = note('src', {
-      eventId: null,
+      meetingId: null,
       body: 'From the review with @{han}',
     });
     const text = taskContext(
@@ -326,7 +335,7 @@ describe('taskContext', () => {
 });
 
 describe('noteContext', () => {
-  it('has the date, project, event and body', () => {
+  it('has the date, project, meeting and body', () => {
     const text = noteContext(
       note('x', { phase: 'post', body: 'Ask @{leia}' }),
       world(),
@@ -335,7 +344,7 @@ describe('noteContext', () => {
       [
         'Note of Wed 21 Oct 2026',
         'Project: Echo Base',
-        'Event: debrief of Shield review on Tue 27 Oct 2026',
+        'Meeting: debrief of Shield review on Tue 27 Oct 2026',
         '',
         'Ask @Leia Organa',
       ].join('\n'),
@@ -350,17 +359,17 @@ describe('summaryRequest', () => {
     expect(summaryRequest({ kind: 'project', id: 'p1' }, state)).toMatchObject({
       label: 'Echo Base',
       projectId: 'p1',
-      eventId: null,
+      meetingId: null,
     });
     expect(summaryRequest({ kind: 'task', id: 't' }, state)).toMatchObject({
       label: 'Calibrate shields',
       projectId: null,
-      eventId: null,
+      meetingId: null,
     });
-    expect(summaryRequest({ kind: 'event', id: 'e1' }, state)).toMatchObject({
+    expect(summaryRequest({ kind: 'meeting', id: 'e1' }, state)).toMatchObject({
       label: 'Shield review',
       projectId: 'p1',
-      eventId: 'e1',
+      meetingId: 'e1',
     });
     expect(summaryRequest({ kind: 'task', id: 'gone' }, state)).toBeNull();
   });

@@ -404,19 +404,25 @@ describe('projects', () => {
     }
   });
 
-  it('deleteProject deletes tasks, notes and activity; events go to General', () => {
+  it('deleteProject deletes tasks, notes, milestones and activity; meetings go to General', () => {
     const state = run(
       base(),
       { type: 'createProject', id: 'p2', name: 'Falcon' },
       { type: 'addTask', id: 'f1', projectId: 'p2', title: 'Keep me' },
       { type: 'addNote', id: 'n1', projectId: 'p1', body: 'Bye' },
       {
-        type: 'addEvent',
+        type: 'addMeeting',
         id: 'e1',
         projectId: 'p1',
         title: 'Review',
-        eventType: 'meeting',
         date: '2026-10-27',
+      },
+      {
+        type: 'addMilestone',
+        projectId: 'p1',
+        id: 'm1',
+        title: 'Launch',
+        date: '2026-11-14',
       },
     );
     const { state: next, changed } = at(state, {
@@ -428,12 +434,12 @@ describe('projects', () => {
     expect(next.tasks.t2).toBeUndefined();
     expect(next.notes.n1).toBeUndefined();
     expect(next.activity.p1).toBeUndefined();
-    expect(next.events.e1).toMatchObject({ projectId: null, updatedAt: T1 });
+    expect(next.meetings.e1).toMatchObject({ projectId: null, updatedAt: T1 });
     expect(next.tasks.f1).toBeDefined();
     expect(next.projects.p2).toBeDefined();
     expect(sorted(changed)).toEqual([
       { col: 'activity', id: 'p1', deleted: true },
-      { col: 'events', id: 'e1' },
+      { col: 'meetings', id: 'e1' },
       { col: 'notes', id: 'n1', deleted: true },
       { col: 'projects', id: 'p1', deleted: true },
       { col: 'tasks', id: 't1', deleted: true },
@@ -461,7 +467,7 @@ describe('notes', () => {
       projectId: 'p1',
       body: 'Standup',
       pinned: false,
-      eventId: null,
+      meetingId: null,
       phase: null,
       createdAt: T1,
     });
@@ -493,13 +499,12 @@ describe('notes', () => {
     expect(lastLog(state, 'p1')).toBe('Saved a summary as a note');
   });
 
-  it('links a note to an event with its phase', () => {
+  it('links a note to a meeting with its phase', () => {
     const state = run(base(), {
-      type: 'addEvent',
+      type: 'addMeeting',
       id: 'e1',
       projectId: 'p1',
       title: 'Review',
-      eventType: 'meeting',
       date: '2026-10-27',
     });
     const { state: next } = at(state, {
@@ -507,19 +512,19 @@ describe('notes', () => {
       id: 'n1',
       projectId: 'p1',
       body: 'Prep: Review',
-      eventId: 'e1',
+      meetingId: 'e1',
       phase: 'pre',
     });
-    expect(next.notes.n1).toMatchObject({ eventId: 'e1', phase: 'pre' });
+    expect(next.notes.n1).toMatchObject({ meetingId: 'e1', phase: 'pre' });
     expect(() =>
       at(state, {
         type: 'addNote',
         id: 'n2',
         projectId: 'p1',
         body: 'x',
-        eventId: 'e9',
+        meetingId: 'e9',
       }),
-    ).toThrow('That event no longer exists');
+    ).toThrow('That meeting no longer exists');
   });
 
   it('pinNote is not logged', () => {
@@ -539,24 +544,22 @@ describe('notes', () => {
   });
 });
 
-describe('events', () => {
+describe('meetings', () => {
   const add: Op = {
-    type: 'addEvent',
+    type: 'addMeeting',
     id: 'e1',
     projectId: 'p1',
     title: 'Review',
-    eventType: 'meeting',
     date: '2026-10-27',
     time: '14:00',
   };
 
-  it('addEvent, editEvent and deleteEvent log their text', () => {
+  it('addMeeting, editMeeting and deleteMeeting log their text', () => {
     let { state } = at(base(), add);
-    expect(state.events.e1).toEqual({
+    expect(state.meetings.e1).toEqual({
       id: 'e1',
       projectId: 'p1',
       title: 'Review',
-      type: 'meeting',
       date: '2026-10-27',
       time: '14:00',
       end: '',
@@ -569,29 +572,173 @@ describe('events', () => {
     expect(lastLog(state, 'p1')).toBe('Added meeting "Review"');
     expect(state.projects.p1?.updatedAt).toBe(T1);
 
-    state = at(state, {
-      type: 'editEvent',
-      id: 'e1',
-      patch: { type: 'milestone', title: 'Launch' },
-    }).state;
-    expect(lastLog(state, 'p1')).toBe('Edited milestone "Launch"');
+    const T2 = '2026-10-23T11:00:00.000Z';
+    state = reduce(
+      state,
+      { type: 'editMeeting', id: 'e1', patch: { title: 'Launch review' } },
+      T2,
+    ).state;
+    expect(state.meetings.e1).toMatchObject({
+      title: 'Launch review',
+      updatedAt: T2,
+    });
+    expect(lastLog(state, 'p1')).toBe('Edited meeting "Launch review"');
+    expect(state.projects.p1?.updatedAt).toBe(T2);
 
-    state = at(state, { type: 'deleteEvent', id: 'e1' }).state;
-    expect(state.events.e1).toBeUndefined();
-    expect(lastLog(state, 'p1')).toBe('Deleted event "Launch"');
+    state = at(state, { type: 'deleteMeeting', id: 'e1' }).state;
+    expect(state.meetings.e1).toBeUndefined();
+    expect(lastLog(state, 'p1')).toBe('Deleted meeting "Launch review"');
   });
 
-  it('deleting an event keeps its notes', () => {
+  it('has no type, and refuses a meeting that is gone', () => {
+    const { state } = at(base(), add);
+    expect(state.meetings.e1).not.toHaveProperty('type');
+    expect(() =>
+      at(base(), { type: 'editMeeting', id: 'e9', patch: { title: 'x' } }),
+    ).toThrow('That meeting no longer exists');
+    expect(() => at(base(), { type: 'deleteMeeting', id: 'e9' })).toThrow(
+      'That meeting no longer exists',
+    );
+  });
+
+  it('moving a meeting logs in its new project and bumps both', () => {
+    const state = run(base(), add, {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Falcon',
+    });
+    const T2 = '2026-10-23T11:00:00.000Z';
+    const { state: next } = reduce(
+      state,
+      { type: 'editMeeting', id: 'e1', patch: { projectId: 'p2' } },
+      T2,
+    );
+    expect(next.meetings.e1?.projectId).toBe('p2');
+    expect(lastLog(next, 'p2')).toBe('Edited meeting "Review"');
+    expect(next.projects.p1?.updatedAt).toBe(T2);
+    expect(next.projects.p2?.updatedAt).toBe(T2);
+  });
+
+  it('deleting a meeting keeps its notes', () => {
     const state = run(base(), add, {
       type: 'addNote',
       id: 'n1',
       projectId: 'p1',
       body: 'Prep',
-      eventId: 'e1',
+      meetingId: 'e1',
       phase: 'pre',
     });
-    const { state: next } = at(state, { type: 'deleteEvent', id: 'e1' });
-    expect(next.notes.n1).toMatchObject({ eventId: 'e1', phase: 'pre' });
+    const { state: next } = at(state, { type: 'deleteMeeting', id: 'e1' });
+    expect(next.notes.n1).toMatchObject({ meetingId: 'e1', phase: 'pre' });
+  });
+});
+
+describe('milestones', () => {
+  const add = (id: string, title: string, date: string): Op => ({
+    type: 'addMilestone',
+    projectId: 'p1',
+    id,
+    title,
+    date,
+  });
+
+  it('addMilestone, editMilestone and deleteMilestone log their text', () => {
+    let { state, changed } = at(base(), add('m1', 'Launch', '2026-11-14'));
+    expect(state.projects.p1?.milestones).toEqual([
+      { id: 'm1', title: 'Launch', date: '2026-11-14' },
+    ]);
+    expect(lastLog(state, 'p1')).toBe(
+      'Added milestone "Launch" (Sat 14 Nov 2026)',
+    );
+    expect(state.projects.p1?.updatedAt).toBe(T1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'projects', id: 'p1' },
+    ]);
+
+    const T2 = '2026-10-23T11:00:00.000Z';
+    state = reduce(
+      state,
+      {
+        type: 'editMilestone',
+        projectId: 'p1',
+        id: 'm1',
+        patch: { title: 'Go live', date: '2026-11-20' },
+      },
+      T2,
+    ).state;
+    expect(state.projects.p1?.milestones).toEqual([
+      { id: 'm1', title: 'Go live', date: '2026-11-20' },
+    ]);
+    expect(lastLog(state, 'p1')).toBe('Edited milestone "Go live"');
+    expect(state.projects.p1?.updatedAt).toBe(T2);
+
+    const T3 = '2026-10-23T12:00:00.000Z';
+    ({ state, changed } = reduce(
+      state,
+      { type: 'deleteMilestone', projectId: 'p1', id: 'm1' },
+      T3,
+    ));
+    expect(state.projects.p1?.milestones).toEqual([]);
+    expect(lastLog(state, 'p1')).toBe('Deleted milestone "Go live"');
+    expect(state.projects.p1?.updatedAt).toBe(T3);
+  });
+
+  it('keeps them by date, then title, through adds and edits', () => {
+    let state = run(
+      base(),
+      add('m1', 'Beta', '2026-12-01'),
+      add('m2', 'Alpha', '2026-11-01'),
+      add('m3', 'Also beta', '2026-12-01'),
+    );
+    const ids = () => state.projects.p1?.milestones?.map((m) => m.id);
+    expect(ids()).toEqual(['m2', 'm3', 'm1']);
+    state = at(state, {
+      type: 'editMilestone',
+      projectId: 'p1',
+      id: 'm2',
+      patch: { date: '2027-01-01' },
+    }).state;
+    expect(ids()).toEqual(['m3', 'm1', 'm2']);
+  });
+
+  it('reads a project without milestones as none, and refuses what is not there', () => {
+    const state = base();
+    expect(state.projects.p1).not.toHaveProperty('milestones');
+    expect(() =>
+      at(state, {
+        type: 'editMilestone',
+        projectId: 'p1',
+        id: 'm9',
+        patch: { title: 'x' },
+      }),
+    ).toThrow('That milestone no longer exists');
+    expect(() =>
+      at(state, { type: 'deleteMilestone', projectId: 'p1', id: 'm9' }),
+    ).toThrow('That milestone no longer exists');
+    expect(() =>
+      at(state, {
+        type: 'addMilestone',
+        projectId: 'p9',
+        id: 'm1',
+        title: 'x',
+        date: '2026-11-01',
+      }),
+    ).toThrow('That project no longer exists');
+    const once = run(state, add('m1', 'Launch', '2026-11-14'));
+    expect(() => at(once, add('m1', 'Again', '2026-11-15'))).toThrow(
+      'That milestone already exists',
+    );
+  });
+
+  it(`caps a project at ${LIMITS.milestonesMax}`, () => {
+    let state = base();
+    for (let i = 0; i < LIMITS.milestonesMax; i += 1) {
+      state = reduce(state, add(`m${i}`, `M${i}`, '2026-11-01'), T1).state;
+    }
+    expect(() => at(state, add('one-more', 'Too many', '2026-11-02'))).toThrow(
+      `A project has ${LIMITS.milestonesMax} milestones at most`,
+    );
   });
 });
 
@@ -881,11 +1028,10 @@ describe('people', () => {
       { type: 'editTask', id: 't2', patch: { assignee: 'u2' } },
       { type: 'editProject', id: 'p1', patch: { members: ['u1', 'u2'] } },
       {
-        type: 'addEvent',
+        type: 'addMeeting',
         id: 'e1',
         projectId: 'p1',
         title: 'Briefing',
-        eventType: 'meeting',
         date: '2026-10-27',
         attendees: ['u2', 'u1'],
       },
@@ -895,7 +1041,7 @@ describe('people', () => {
     expect(next.tasks.t1).toMatchObject({ assignee: '', desc: 'Ask @{u1}' });
     expect(next.tasks.t2?.assignee).toBe('u2');
     expect(next.projects.p1?.members).toEqual(['u2']);
-    expect(next.events.e1?.attendees).toEqual(['u2']);
+    expect(next.meetings.e1?.attendees).toEqual(['u2']);
   });
 });
 

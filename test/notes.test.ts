@@ -15,7 +15,7 @@ function note(id: string, patch: Partial<Note>): Note {
     projectId: null,
     body: id,
     pinned: false,
-    eventId: null,
+    meetingId: null,
     phase: null,
     createdAt: '2026-10-20T10:00:00.000Z',
     ...patch,

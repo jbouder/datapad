@@ -18,7 +18,7 @@ function seed() {
   s.tasks['t-5'].due = tomorrow; // This week, or Later on a Sunday
   s.tasks['t-6'].due = addDays(today, 30); // Later
   // t-2 has no date.
-  s.events['e-1'].date = tomorrow;
+  s.meetings['e-1'].date = tomorrow;
   return s;
 }
 

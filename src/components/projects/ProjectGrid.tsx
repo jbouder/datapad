@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { localDate } from '#shared/dates';
-import { nextMarkers, openCounts } from '#shared/select';
+import { nextMilestones, openCounts } from '#shared/select';
 import type { Project } from '#shared/types';
 import { ProjectCard } from '@/components/projects/ProjectCard';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -21,7 +21,7 @@ export function ProjectGrid({
   const today = localDate(new Date());
   if (!state) return null;
   const open = openCounts(state.tasks);
-  const next = nextMarkers(state.events, today);
+  const next = nextMilestones(state.projects, today);
   return (
     <ul
       aria-label={label}

@@ -84,18 +84,19 @@ const CARRIED = [
   'projects',
   'tasks',
   'notes',
-  'events',
+  'meetings',
   'decisions',
   'activity',
 ] as const satisfies readonly Collection[];
 
 /**
  * Everything a project takes to another space, as an import of it: the
- * project, its tasks, notes, events and decisions (unlike deleting, its
- * events and decisions go with it rather than to General), its log with
+ * project (its milestones inside it), its tasks, notes, meetings and
+ * decisions (unlike deleting, its meetings and decisions go with it rather
+ * than to General), its log with
  * "Moved from <space>" on top, and copies of the people and org it
  * refers to, so names resolve in the target. People: its members, its
- * tasks' assignees and who they are blocked on, its events' attendees,
+ * tasks' assignees and who they are blocked on, its meetings' attendees,
  * its decisions' deciders, its org's contacts, and everyone mentioned in
  * its description, its tasks' descriptions, its notes, its decisions'
  * rationales and its org's notes. Its org: `orgId`, else the org its
@@ -120,7 +121,7 @@ export function projectSubtree(
     projects: {},
     tasks: {},
     notes: {},
-    events: {},
+    meetings: {},
     people: {},
     decisions: {},
     orgs: {},
@@ -145,9 +146,9 @@ export function projectSubtree(
     out.notes[id] = n;
     texts.push(n.body);
   }
-  for (const [id, e] of mine(state.events)) {
-    out.events[id] = e;
-    for (const a of e.attendees) people.add(a);
+  for (const [id, m] of mine(state.meetings)) {
+    out.meetings[id] = m;
+    for (const a of m.attendees) people.add(a);
   }
   for (const [id, x] of mine(state.decisions)) {
     out.decisions[id] = x;
@@ -202,7 +203,7 @@ export function projectSubtree(
 
 /**
  * The source's side of a move: `state` without the documents `subtree`
- * carries away (the project, its tasks, notes, events, decisions and
+ * carries away (the project, its tasks, notes, meetings, decisions and
  * log). People and orgs stay: other projects may still need them.
  * Returns every row it deleted, for the Durable Object to write. Pure,
  * and the counterpart of `merge()` on the target, which is why it is not

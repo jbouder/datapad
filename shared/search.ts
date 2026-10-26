@@ -12,7 +12,7 @@ export const SEARCH_KINDS = [
   'project',
   'task',
   'note',
-  'event',
+  'meeting',
   'decision',
   'org',
   'person',
@@ -53,7 +53,7 @@ export const searchIndex = lastCall(
     projects: Snapshot['projects'],
     tasks: Snapshot['tasks'],
     notes: Snapshot['notes'],
-    events: Snapshot['events'],
+    meetings: Snapshot['meetings'],
     people: Snapshot['people'],
     decisions: Snapshot['decisions'],
     orgs: Snapshot['orgs'],
@@ -112,15 +112,15 @@ export const searchIndex = lastCall(
           updatedAt: n.editedAt ?? n.createdAt,
         });
       }),
-      event: Object.values(events).map((e) =>
+      meeting: Object.values(meetings).map((m) =>
         entry({
-          kind: 'event',
-          id: e.id,
-          title: e.title,
-          body: flat(e.note),
-          projectId: e.projectId,
-          archived: archived(e.projectId),
-          updatedAt: e.updatedAt,
+          kind: 'meeting',
+          id: m.id,
+          title: m.title,
+          body: flat(m.note),
+          projectId: m.projectId,
+          archived: archived(m.projectId),
+          updatedAt: m.updatedAt,
         }),
       ),
       decision: Object.values(decisions).map((x) =>

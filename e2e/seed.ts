@@ -12,7 +12,7 @@ export const SEED_COUNTS = {
   projects: Object.keys(seed.projects).length,
   tasks: Object.keys(seed.tasks).length,
   notes: Object.keys(seed.notes).length,
-  events: Object.keys(seed.events).length,
+  meetings: Object.keys(seed.meetings).length,
   people: Object.keys(seed.people).length,
   activity: Object.keys(seed.activity).length,
   // The artifact's export has no settings.

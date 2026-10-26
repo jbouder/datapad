@@ -1,7 +1,7 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { useId, useMemo, useRef, useState } from 'react';
-import { monthLabel, splitByMonth } from '#shared/events';
-import type { Event, Snapshot } from '#shared/types';
+import { monthLabel, splitByMonth } from '#shared/meetings';
+import type { Meeting, Snapshot } from '#shared/types';
 import { EventRow } from '@/components/events/EventRow';
 import { withViewTransition } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ export function EventList({
   headingLevel = 2,
   empty,
 }: {
-  events: Event[];
+  events: Meeting[];
   state: Snapshot;
   today: string;
   showProject?: boolean;
@@ -39,10 +39,10 @@ export function EventList({
   // What was there at first stays still; anything added later enters.
   const seen = useRef<Set<string> | null>(null);
   if (seen.current === null) seen.current = new Set(events.map((e) => e.id));
-  const fresh = (e: Event) => !seen.current?.has(e.id);
+  const fresh = (e: Meeting) => !seen.current?.has(e.id);
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
-  const row = (e: Event) => (
+  const row = (e: Meeting) => (
     <EventRow
       key={e.id}
       event={e}
@@ -70,7 +70,7 @@ export function EventList({
             >
               {monthLabel(m.month)}
             </Heading>
-            {m.events.map(row)}
+            {m.meetings.map(row)}
           </section>
         ))
       )}

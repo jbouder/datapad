@@ -25,7 +25,7 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText(
-    'Import 3 projects, 7 tasks, 4 notes, 4 events, 4 people; same ids are replaced',
+    'Import 3 projects, 7 tasks, 4 notes, 3 events, 4 people; same ids are replaced',
   );
   await dialog.getByRole('button', { name: 'Import' }).click();
   await expect(dialog).toBeHidden();

@@ -14,6 +14,7 @@ import { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
 import fixture from './fixtures/export.json';
+import legacy from './fixtures/legacy-export.json';
 
 const bindings = env as unknown as Bindings;
 
@@ -192,7 +193,8 @@ describe('DatapadObject storage', () => {
         const file = await revived.export(MAIN_SPACE);
         expect(file.tasks['t-1']).toEqual(task);
         expect(Object.keys(file.projects)).toEqual([project?.id]);
-        expect(await revived.stats()).toMatchObject({ docs: 2, seq: 7 });
+        // 7, plus one for the meetings migration (schema 3), once.
+        expect(await revived.stats()).toMatchObject({ docs: 2, seq: 8 });
         const { spaces } = await revived.listSpaces();
         expect(spaces.map((s) => [s.id, s.name])).toEqual([
           [MAIN_SPACE, 'Main'],
@@ -208,8 +210,109 @@ describe('DatapadObject storage', () => {
       ).toEqual([]);
       expect(
         sql.exec<{ seq: number }>('SELECT seq FROM spaces').one().seq,
-      ).toBe(7);
+      ).toBe(8);
     });
+  });
+
+  it('turns events into meetings and milestones at schema 3, bumping each space once', async () => {
+    const stub = bindings.DATAPAD.getByName('schema2@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      // Storage as schema 2 left it: `events` rows, notes with `eventId`.
+      sql.exec('DELETE FROM docs');
+      sql.exec('DELETE FROM spaces');
+      sql.exec(
+        "INSERT INTO spaces VALUES ('main', 'Main', 0, 5, '2026-10-01T00:00:00.000Z')",
+      );
+      sql.exec(
+        "INSERT INTO spaces VALUES ('work', 'Work', 1, 2, '2026-10-01T00:00:00.000Z')",
+      );
+      sql.exec(
+        "INSERT INTO spaces VALUES ('empty', 'Empty', 2, 0, '2026-10-01T00:00:00.000Z')",
+      );
+      sql.exec("UPDATE meta SET value = '2' WHERE key = 'schema_version'");
+      const put = (space: string, col: string, doc: { id: string } & object) =>
+        sql.exec(
+          "INSERT INTO docs VALUES (?, ?, ?, ?, '2026-10-01')",
+          space,
+          col,
+          doc.id,
+          JSON.stringify(doc),
+        );
+      for (const p of Object.values(legacy.projects))
+        put('main', 'projects', p);
+      for (const n of Object.values(legacy.notes)) put('main', 'notes', n);
+      for (const e of Object.values(legacy.events)) put('main', 'events', e);
+      for (const t of Object.values(legacy.tasks)) put('main', 'tasks', t);
+      const general = { ...legacy.events['e-1'], projectId: null };
+      put('work', 'events', general);
+
+      for (let i = 0; i < 2; i += 1) {
+        const revived = new DatapadObject(state, bindings);
+        await state.blockConcurrencyWhile(async () => {});
+        const main = await revived.export(MAIN_SPACE);
+        expect(Object.keys(main.meetings).sort()).toEqual([
+          'e-1',
+          'e-3',
+          'e-4',
+        ]);
+        expect(main.meetings['e-1']).not.toHaveProperty('type');
+        expect(main.meetings['e-4']?.title).toBe(
+          'Deadline: Quarterly planning',
+        );
+        expect(main.projects['p-echo']?.milestones).toEqual([
+          { id: 'e-2', title: 'Base operational', date: '2026-11-14' },
+        ]);
+        expect(main.notes['n-2']).toMatchObject({
+          meetingId: 'e-1',
+          phase: 'pre',
+        });
+        expect(main.notes['n-2']).not.toHaveProperty('eventId');
+        expect(main.tasks['t-1']).toEqual(legacy.tasks['t-1']);
+        const work = await revived.export('work');
+        expect(Object.keys(work.meetings)).toEqual(['e-1']);
+      }
+      expect(
+        sql.exec("SELECT id FROM docs WHERE col = 'events'").toArray(),
+      ).toEqual([]);
+      const seqs = sql
+        .exec<{ id: string; seq: number }>(
+          'SELECT id, seq FROM spaces ORDER BY position',
+        )
+        .toArray()
+        .map((r) => [r.id, r.seq]);
+      // Once each, not once per wake; a space that never changed keeps 0.
+      expect(seqs).toEqual([
+        ['main', 6],
+        ['work', 3],
+        ['empty', 0],
+      ]);
+    });
+  });
+
+  it('stores meetings rows in a fresh object', async () => {
+    const email = 'fresh-meetings@example.com';
+    const stub = bindings.DATAPAD.getByName(email);
+    expect(await stub.stats()).toMatchObject({ seq: 0 });
+    const inbox = await openSocket(as(email));
+    await inbox.snapshot();
+    inbox.send({
+      type: 'addMeeting',
+      id: 'm-1',
+      projectId: null,
+      title: 'Standup',
+      date: '2026-10-27',
+    });
+    expect(await inbox.next()).toMatchObject({ type: 'op' });
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      expect(
+        state.storage.sql
+          .exec<{ col: string; id: string }>('SELECT col, id FROM docs')
+          .toArray()
+          .filter((r) => r.col !== 'activity'),
+      ).toEqual([{ col: 'meetings', id: 'm-1' }]);
+    });
+    inbox.ws.close();
   });
 
   it('keeps each user in their own object', async () => {
@@ -562,7 +665,7 @@ describe('export and import', () => {
         projects: 3,
         tasks: 7,
         notes: 4,
-        events: 4,
+        meetings: 3,
         people: 4,
         activity: 4,
         settings: 0,
@@ -584,7 +687,7 @@ describe('export and import', () => {
       'notes',
       'people',
       'activity',
-      'events',
+      'meetings',
       'settings',
       'decisions',
       'orgs',
@@ -607,7 +710,7 @@ describe('export and import', () => {
     await post(email, '/api/import', fixture);
     await post(email, '/api/import', fixture);
     const stats = await bindings.DATAPAD.getByName(email).stats();
-    expect(stats.docs).toBe(26);
+    expect(stats.docs).toBe(25);
   });
 
   it('sends open sockets a fresh snapshot after an import', async () => {
@@ -692,7 +795,7 @@ describe('erase', () => {
     expect((await post(email, '/api/erase', { token: 'guess' })).status).toBe(
       403,
     );
-    expect((await stub.stats()).docs).toBe(26);
+    expect((await stub.stats()).docs).toBe(25);
 
     const { token } = (await (await get(email, '/api/erase-token')).json()) as {
       token: string;
@@ -716,7 +819,7 @@ describe('erase', () => {
     };
     expect((await post(email, '/api/erase', { token: 'x' })).status).toBe(403);
     expect((await post(email, '/api/erase', { token })).status).toBe(403);
-    expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(26);
+    expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(25);
   });
 });
 
@@ -856,7 +959,7 @@ describe('spaces', () => {
     const stub = await addSpace(email, 'hoth');
     await post(email, '/api/import', fixture);
     await post(email, '/api/import?space=hoth', fixture);
-    expect((await stub.stats()).docs).toBe(52);
+    expect((await stub.stats()).docs).toBe(50);
 
     // A token issued for main cannot erase hoth.
     const issued = (await (await get(email, '/api/erase-token')).json()) as {
@@ -866,14 +969,14 @@ describe('spaces', () => {
       token: issued.token,
     });
     expect(wrong.status).toBe(403);
-    expect((await stub.stats()).docs).toBe(52);
+    expect((await stub.stats()).docs).toBe(50);
 
     const { token } = (await (
       await get(email, '/api/erase-token?space=hoth')
     ).json()) as { token: string };
     const erased = await post(email, '/api/erase?space=hoth', { token });
     expect(erased.status).toBe(200);
-    expect((await stub.stats()).docs).toBe(26);
+    expect((await stub.stats()).docs).toBe(25);
     expect((await stub.export('hoth')).projects).toEqual({});
     expect(Object.keys((await stub.export(MAIN_SPACE)).projects)).toHaveLength(
       3,
@@ -1066,7 +1169,7 @@ describe('the list of spaces', () => {
     const { id } = await createSpace(email, 'Kessel');
     await post(email, '/api/import', fixture);
     await post(email, `/api/import?space=${id}`, fixture);
-    expect((await stub.stats()).docs).toBe(52);
+    expect((await stub.stats()).docs).toBe(50);
     const { exportedAt: _before, ...mainBefore } =
       await stub.export(MAIN_SPACE);
 
@@ -1093,7 +1196,7 @@ describe('the list of spaces', () => {
       token: guessed,
     });
     expect(late.status).toBe(403);
-    expect((await stub.stats()).docs).toBe(52);
+    expect((await stub.stats()).docs).toBe(50);
 
     const onKessel = await openSocket(
       as(email),
@@ -1121,7 +1224,7 @@ describe('the list of spaces', () => {
 
     expect(await listed(email)).toEqual(['Main']);
     expect(await stub.hasSpace(id)).toBe(false);
-    expect((await stub.stats()).docs).toBe(26);
+    expect((await stub.stats()).docs).toBe(25);
     const { exportedAt: _after, ...mainAfter } = await stub.export(MAIN_SPACE);
     expect(mainAfter).toEqual(mainBefore);
     await runInDurableObject(stub, async (_o: DatapadObject, state) => {
@@ -1241,7 +1344,11 @@ describe('moving a project', () => {
       't-4',
     ]);
     expect(Object.keys(moved.notes).sort()).toEqual(['n-1', 'n-2']);
-    expect(Object.keys(moved.events).sort()).toEqual(['e-1', 'e-2']);
+    expect(Object.keys(moved.meetings)).toEqual(['e-1']);
+    // Its milestones travel inside the project.
+    expect(moved.projects['p-echo']?.milestones?.map((m) => m.id)).toEqual([
+      'e-2',
+    ]);
     expect(moved.activity['p-echo']?.events[0]?.text).toBe('Moved from Main');
     expect(moved.activity['p-echo']?.events.slice(1)).toEqual(
       fixture.activity['p-echo'].events,
@@ -1263,7 +1370,7 @@ describe('moving a project', () => {
     expect(main.state.projects['p-echo']).toBeUndefined();
     expect(Object.keys(main.state.tasks).sort()).toEqual(['t-5', 't-6', 't-7']);
     expect(Object.keys(main.state.notes).sort()).toEqual(['n-3', 'n-4']);
-    expect(Object.keys(main.state.events).sort()).toEqual(['e-3', 'e-4']);
+    expect(Object.keys(main.state.meetings).sort()).toEqual(['e-3', 'e-4']);
     expect(main.state.activity['p-echo']).toBeUndefined();
     expect(Object.keys(main.state.people)).toHaveLength(4);
     expect(main.state.people['u-leia']?.me).toBe(true);

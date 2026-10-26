@@ -23,22 +23,27 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 ### Project
 
-| Field                | Type                               | Notes                                                           |
-| -------------------- | ---------------------------------- | --------------------------------------------------------------- |
-| id                   | string                             |                                                                 |
-| name                 | string                             | required                                                        |
-| org                  | string                             | client or org; free text with autocomplete from existing values |
-| status               | `active` \| `paused` \| `done`     |                                                                 |
-| priority             | `none` \| `low` \| `med` \| `high` |                                                                 |
-| startDate            | date or empty                      | optional; not after targetDate; timeline falls back to created  |
-| targetDate           | date or empty                      |                                                                 |
-| tags                 | string[]                           |                                                                 |
-| desc                 | string                             | markdown                                                        |
-| state                | string                             | the one-line "current state" shown on the card                  |
-| members              | personId[]                         |                                                                 |
-| links                | Link[]                             |                                                                 |
-| archived             | boolean                            | archived projects leave default views but stay searchable       |
-| createdAt, updatedAt | timestamp                          | updatedAt also bumps on task, note, and event changes           |
+| Field                | Type                               | Notes                                                             |
+| -------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| id                   | string                             |                                                                   |
+| name                 | string                             | required                                                          |
+| org                  | string                             | client or org; free text with autocomplete from existing values   |
+| status               | `active` \| `paused` \| `done`     |                                                                   |
+| priority             | `none` \| `low` \| `med` \| `high` |                                                                   |
+| startDate            | date or empty                      | optional; not after targetDate; timeline falls back to created    |
+| targetDate           | date or empty                      |                                                                   |
+| tags                 | string[]                           |                                                                   |
+| desc                 | string                             | markdown                                                          |
+| state                | string                             | the one-line "current state" shown on the card                    |
+| members              | personId[]                         |                                                                   |
+| links                | Link[]                             |                                                                   |
+| milestones           | Milestone[], optional              | by date then title, 50 at most; absent reads as none              |
+| archived             | boolean                            | archived projects leave default views but stay searchable         |
+| createdAt, updatedAt | timestamp                          | updatedAt also bumps on task, note, meeting and milestone changes |
+
+### Milestone (embedded in projects)
+
+`{id: string, title: string, date: date}`: a dated marker on the project. A deadline is the project's `targetDate`, not a milestone.
 
 ### Task
 
@@ -66,25 +71,26 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 | projectId | string or null          | null = General                             |
 | body      | string                  | markdown; mentions stored as `@{personId}` |
 | pinned    | boolean                 | pinned notes sort first within a project   |
-| eventId   | string or null          | links the note to an event                 |
-| phase     | `pre` \| `post` \| null | prep or debrief note for that event        |
+| meetingId | string or null          | links the note to a meeting                |
+| phase     | `pre` \| `post` \| null | prep or debrief note for that meeting      |
 | createdAt | timestamp               |                                            |
 | editedAt  | timestamp, optional     |                                            |
 
-### Event
+### Meeting
 
-| Field                | Type                                                        | Notes                            |
-| -------------------- | ----------------------------------------------------------- | -------------------------------- |
-| id                   | string                                                      |                                  |
-| projectId            | string or null                                              | null = General                   |
-| title                | string                                                      | required                         |
-| type                 | `meeting` \| `milestone` \| `deadline` \| `demo` \| `other` |                                  |
-| date                 | date                                                        | required                         |
-| time, end            | time or empty                                               |                                  |
-| attendees            | personId[]                                                  |                                  |
-| link                 | string                                                      | URL                              |
-| note                 | string                                                      | short agenda/context, plain text |
-| createdAt, updatedAt | timestamp                                                   |                                  |
+The only kind of event (the collection is `meetings`). Older files carry `events` with a `type`; import migrates them (see [data.md](data.md#the-format)).
+
+| Field                | Type           | Notes                            |
+| -------------------- | -------------- | -------------------------------- |
+| id                   | string         |                                  |
+| projectId            | string or null | null = General                   |
+| title                | string         | required                         |
+| date                 | date           | required                         |
+| time, end            | time or empty  |                                  |
+| attendees            | personId[]     |                                  |
+| link                 | string         | URL                              |
+| note                 | string         | short agenda/context, plain text |
+| createdAt, updatedAt | timestamp      |                                  |
 
 ### Person
 
@@ -109,7 +115,7 @@ One document per project, keyed by projectId, plus one keyed `general`.
 
 ### Relationships
 
-task → project (optional), task → assignee, task → source note; note → project (optional), note → event (optional); event → project (optional), event → attendees; project → members. Deleting a project deletes its tasks, notes, and activity. Deleting an event keeps its notes. Deleting a person leaves mentions rendering as "@unknown".
+task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting (optional); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes. Deleting a person leaves mentions rendering as "@unknown".
 
 ## Views
 
@@ -265,21 +271,22 @@ Added in the rebuild (M9). A space is a complete, separate Datapad under the one
 
 One log per project plus one for General. Entries are `{t, text}`, prepended, capped at 150; the project page shows the latest 40 in a collapsed Activity section, and project summaries read the latest 25.
 
-| Trigger                        | Text                                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Task created                   | Added task "<title>"                                                                             |
-| Task closed / reopened         | Closed "<title>" / Reopened "<title>"                                                            |
-| Task edited                    | Edited task "<title>"                                                                            |
-| Task moved                     | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project) |
-| Task deleted                   | Deleted task "<title>"                                                                           |
-| Note added / deleted           | Added a note / Deleted a note                                                                    |
-| Summary saved                  | Saved a Claude summary as a note                                                                 |
-| State line changed             | Updated current state                                                                            |
-| Project created / edited       | Created project / Edited project details                                                         |
-| Status changed                 | Status changed to <status>                                                                       |
-| Archived / restored            | Archived project / Unarchived project                                                            |
-| Event added / edited / deleted | Added <type> "<title>" / Edited … / Deleted event "<title>"                                      |
-| Project moved in from a space  | Moved from <space> (rebuild only, in the target space)                                           |
+| Trigger                            | Text                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Task created                       | Added task "<title>"                                                                             |
+| Task closed / reopened             | Closed "<title>" / Reopened "<title>"                                                            |
+| Task edited                        | Edited task "<title>"                                                                            |
+| Task moved                         | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project) |
+| Task deleted                       | Deleted task "<title>"                                                                           |
+| Note added / deleted               | Added a note / Deleted a note                                                                    |
+| Summary saved                      | Saved a Claude summary as a note                                                                 |
+| State line changed                 | Updated current state                                                                            |
+| Project created / edited           | Created project / Edited project details                                                         |
+| Status changed                     | Status changed to <status>                                                                       |
+| Archived / restored                | Archived project / Unarchived project                                                            |
+| Meeting added / edited / deleted   | Added meeting "<title>" / Edited meeting "<title>" / Deleted meeting "<title>"                   |
+| Milestone added / edited / deleted | Added milestone "<title>" (<day>) / Edited milestone "<title>" / Deleted milestone "<title>"     |
+| Project moved in from a space      | Moved from <space> (rebuild only, in the target space)                                           |
 
 Pinning a note and reordering tasks are not logged. The log is the data source for the deferred weekly digest.
 
