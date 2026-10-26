@@ -24,25 +24,27 @@ text pair drops below 4.5:1. Datapad adds two pairs to holocron's set:
 
 ## Mapping the spec onto tokens
 
-| Spec element    | Value     | Token                                                                               |
-| --------------- | --------- | ----------------------------------------------------------------------------------- |
-| Priority dot    | high      | `destructive`                                                                       |
-|                 | med       | `warn`                                                                              |
-|                 | low       | `muted-foreground`                                                                  |
-|                 | none      | `border`                                                                            |
-| Status pill     | active    | `accent` fill, `accent-foreground` text                                             |
-|                 | paused    | dashed `border`, `muted-foreground` text                                            |
-|                 | done      | `ok` fill, `ok-foreground` text                                                     |
-| Project health  | green     | `ok` left edge and dot, the word "Green"                                            |
-|                 | yellow    | `warn` left edge and dot, "Yellow"                                                  |
-|                 | red       | `destructive` left edge and dot, "Red"                                              |
-|                 | none      | no edge, nothing shown on cards                                                     |
-| Event type pill | milestone | `accent` fill                                                                       |
-|                 | deadline  | `destructive` outline and text                                                      |
-|                 | demo      | `ok` outline and text                                                               |
-| Blocked task    | blocked   | `warn` lock glyph, waiting-on initials, the words "Blocked on …" for screen readers |
-| Due date        | overdue   | `destructive`, with the word "Overdue"                                              |
-|                 | today     | `warn`, with the word "Today"                                                       |
+| Spec element   | Value    | Token                                                                               |
+| -------------- | -------- | ----------------------------------------------------------------------------------- |
+| Priority dot   | high     | `destructive`                                                                       |
+|                | med      | `warn`                                                                              |
+|                | low      | `muted-foreground`                                                                  |
+|                | none     | `border`                                                                            |
+| Status pill    | active   | `accent` fill, `accent-foreground` text                                             |
+|                | paused   | dashed `border`, `muted-foreground` text                                            |
+|                | done     | `ok` fill, `ok-foreground` text                                                     |
+| Project health | green    | `ok` left edge and dot, the word "Green"                                            |
+|                | yellow   | `warn` left edge and dot, "Yellow"                                                  |
+|                | red      | `destructive` left edge and dot, "Red"                                              |
+|                | none     | no edge, nothing shown on cards                                                     |
+| Milestone      | upcoming | flag glyph (filled diamond on timelines), `foreground`                              |
+|                | past     | `muted-foreground`, with the words "Past:" for screen readers                       |
+| Blocked task   | blocked  | `warn` lock glyph, waiting-on initials, the words "Blocked on …" for screen readers |
+| Due date       | overdue  | `destructive`, with the word "Overdue"                                              |
+|                | today    | `warn`, with the word "Today"                                                       |
+
+Meetings have no type, so there is no type pill; a milestone is its own
+thing on the project, marked by the flag.
 
 State is never shown by color alone: dots have a text label for screen
 readers and a tooltip, and dates carry words.
@@ -63,7 +65,7 @@ stock components keep their sizes).
 
 ## Text styles
 
-Rendered Markdown (notes, project descriptions, event-linked notes,
+Rendered Markdown (notes, project descriptions, meeting-linked notes,
 summaries) uses one set of styles, `.prose-note` in `src/index.css`, through
 `src/components/Markdown.tsx`. The parser is `shared/markdown.ts`; storage
 stays plain Markdown.

@@ -9,10 +9,10 @@ Datapad is a single-user project tracker for an engineering leader who runs seve
 What it is:
 - Projects with metadata, an org/client, team members, and a one-line "current state"
 - Tasks that are open or done, inside a project or in a General bucket
-- Notes (markdown, @mentions) on projects, events, or General
-- Events (meetings, milestones, deadlines) with prep and debrief notes
+- Notes (markdown, @mentions) on projects, meetings, or General
+- Meetings with prep and debrief notes, and dated milestones on each project
 - A people list used for assignment, membership, and mentions
-- Cross-project views: Focus, Tasks, Notes, Events, People, Search
+- Cross-project views: Focus, Tasks, Notes, Meetings, People, Search
 - Claude-generated summaries of any item
 
 What it is not: multi-user collaboration, recurring tasks, subtasks, time tracking, notifications, or calendar sync. Those were deliberately deferred (see Known gaps).
@@ -78,19 +78,24 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 ### Meeting
 
-The only kind of event (the collection is `meetings`). Older files carry `events` with a `type`; import migrates them (see [data.md](data.md#the-format)).
+A dated meeting, in a project or General (the collection is `meetings`). Milestones are not meetings: they live on their project, and a deadline is the project's `targetDate`. Files from before meetings carry the old typed collection instead; import migrates them (see [data.md](data.md#the-format)).
 
-| Field                | Type           | Notes                            |
-| -------------------- | -------------- | -------------------------------- |
-| id                   | string         |                                  |
-| projectId            | string or null | null = General                   |
-| title                | string         | required                         |
-| date                 | date           | required                         |
-| time, end            | time or empty  |                                  |
-| attendees            | personId[]     |                                  |
-| link                 | string         | URL                              |
-| note                 | string         | short agenda/context, plain text |
-| createdAt, updatedAt | timestamp      |                                  |
+| Field                | Type              | Notes                                             |
+| -------------------- | ----------------- | ------------------------------------------------- |
+| id                   | string            |                                                   |
+| projectId            | string or null    | null = General                                    |
+| title                | string            | required                                          |
+| date                 | date              | required                                          |
+| time, end            | time or empty     |                                                   |
+| attendees            | personId[]        |                                                   |
+| link                 | string            | URL                                               |
+| note                 | string            | short agenda/context, plain text                  |
+| topics               | Topic[], optional | in agenda order, 50 at most; absent reads as none |
+| createdAt, updatedAt | timestamp         |                                                   |
+
+### Topic (embedded in meetings)
+
+`{id: string, title: string, done: boolean, outcome: string}`: one item on the meeting's agenda, whether it was covered, and a one-line outcome (300 characters at most). `done` defaults to false and `outcome` to empty. Adding, editing, ticking, reordering and removing a topic bumps the meeting's and its project's `updatedAt`; a reorder must name every topic exactly once or nothing changes. A topic is not searched on its own; its title counts toward its meeting's match.
 
 ### Person
 
@@ -119,23 +124,23 @@ task → project (optional), task → assignee, task → source note; note → p
 
 ## Views
 
-Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#notes`, `#events`, `#people`, `#project-<id>`. Desktop has a left rail (nav with counts, active project list, Archived if any, Export/Import and sync status). Mobile hides the rail and shows a bottom tab bar: Focus, Projects, Tasks, Notes, Events, People. A top bar carries the current title, a search button, a + button that opens the new-task panel preset to the current project, and a Write a note button that opens the new-note panel, preset the same way.
+Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#notes`, `#meetings`, `#people`, `#project-<id>`. Desktop has a left rail (nav with counts, active project list, Archived if any, Export/Import and sync status). Mobile hides the rail and shows a bottom tab bar: Focus, Projects, Tasks, Notes, Meetings, People. A top bar carries the current title, a search button, a + button that opens the new-task panel preset to the current project, and a Write a note button that opens the new-note panel, preset the same way.
 
-| View           | Shows                                                                                                                                                                                                                                                                                                                                          | Controls                                                                                                                                       | Empty state                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Focus          | Open tasks across all projects bucketed Overdue / Today / This week, with Later and No date collapsed; an Agenda strip of events in the next 7 days (excluding archived projects)                                                                                                                                                              | Quick-add with project picker; assignee filter (Anyone / Mine / Unassigned / each person)                                                      | "Nothing open. Add a task above or open a project."       |
-| Projects       | Card grid: org, status pill, priority dot, name (serif), current state (italic serif), open count, target date, next milestone or deadline, member initials                                                                                                                                                                                    | Status segment (Active / Paused / Done / All, default Active); org dropdown; sort (Recently updated, Priority, Name, Target date); New project | Distinguishes "no projects yet" from "none match filters" |
-| Archived       | Same cards for archived projects                                                                                                                                                                                                                                                                                                               | none                                                                                                                                           | "Nothing archived."                                       |
-| Project detail | Header: org, name, status, priority, target, members, tags, links, Summarize / Edit / Archive; description (markdown); current-state input. Two columns: left = Tasks (quick-add, open list with drag reorder, Done collapsed) then Events (upcoming, Past collapsed); right = Notes (composer + list, pinned first) then Activity (collapsed) | All inline                                                                                                                                     | Per section                                               |
-| Tasks          | Every task                                                                                                                                                                                                                                                                                                                                     | Quick-add with project picker; Open / Done / All; group by Project, Due date, or Assignee; assignee filter                                     | "No tasks here."                                          |
-| Notes          | Every note grouped by day, newest first, each linking to its project or General                                                                                                                                                                                                                                                                | Composer with project picker (defaults General); project filter; Pinned toggle; text filter                                                    | Distinguishes none vs. no match                           |
-| Events         | Upcoming events grouped by month, Past collapsed; each row shows project, type, date/time, attendees, link, prep/debrief actions, Summarize, linked notes inline                                                                                                                                                                               | Add event (with project picker); project filter; type segment                                                                                  | Distinguishes none vs. no match                           |
-| People         | List (name, role, "you" tag) and a detail pane: projects they're on, open tasks assigned, every note and task that mentions them                                                                                                                                                                                                               | Add / Edit / Remove person; "This is me" checkbox                                                                                              | Prompts to add team members                               |
-| Search         | ⌘K palette: Projects (recent when query empty), Tasks, Notes, Events, People; arrow keys and Enter                                                                                                                                                                                                                                             | Opens the item: project page, task panel, notes page, events page, or person                                                                   | "Nothing matches."                                        |
+| View           | Shows                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Controls                                                                                                                                                       | Empty state                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Focus          | Open tasks across all projects bucketed Overdue / Today / This week, with Later and No date collapsed; an Agenda strip of meetings and milestones in the next 7 days, by day with all-day items first (excluding archived projects)                                                                                                                                                                                                                   | Quick-add with project picker; assignee filter (Anyone / Mine / Unassigned / each person)                                                                      | "Nothing open. Add a task above or open a project."       |
+| Projects       | Card grid: org, status pill, priority dot, name (serif), current state (italic serif), open count, target date, next milestone (nothing when none is ahead), member initials                                                                                                                                                                                                                                                                          | Status segment (Active / Paused / Done / All, default Active); org dropdown; sort (Recently updated, Priority, Name, Target date, Next milestone); New project | Distinguishes "no projects yet" from "none match filters" |
+| Archived       | Same cards for archived projects                                                                                                                                                                                                                                                                                                                                                                                                                      | none                                                                                                                                                           | "Nothing archived."                                       |
+| Project detail | Header: org, name, status, priority, target, members, tags, links, Summarize / Edit / Archive; description (markdown); current-state input. Two columns: left = Tasks (quick-add, open list with drag reorder, Done collapsed), then Milestones (title and date to add; by date, past ones muted; edit in place; delete with Undo), then Meetings (upcoming, Past collapsed); right = Notes (composer + list, pinned first) then Activity (collapsed) | All inline                                                                                                                                                     | Per section                                               |
+| Tasks          | Every task                                                                                                                                                                                                                                                                                                                                                                                                                                            | Quick-add with project picker; Open / Done / All; group by Project, Due date, or Assignee; assignee filter                                                     | "No tasks here."                                          |
+| Notes          | Every note grouped by day, newest first, each linking to its project or General                                                                                                                                                                                                                                                                                                                                                                       | Composer with project picker (defaults General); project filter; Pinned toggle; text filter                                                                    | Distinguishes none vs. no match                           |
+| Meetings       | Upcoming meetings grouped by month, Past collapsed; each row shows project, date/time, attendees, link, prep/debrief actions, Summarize, linked notes inline                                                                                                                                                                                                                                                                                          | Add meeting (with project picker); project filter                                                                                                              | Distinguishes none vs. no match                           |
+| People         | List (name, role, "you" tag) and a detail pane: projects they're on, open tasks assigned, every note and task that mentions them                                                                                                                                                                                                                                                                                                                      | Add / Edit / Remove person; "This is me" checkbox                                                                                                              | Prompts to add team members                               |
+| Search         | ⌘K palette: Projects (recent when query empty), Tasks, Notes, Meetings, People; arrow keys and Enter                                                                                                                                                                                                                                                                                                                                                  | Opens the item: project page, task panel, notes page, meetings page, or person                                                                                 | "Nothing matches."                                        |
 
 Task row (shared by Focus, Tasks, project detail, People): drag handle (desktop, project detail only), circular checkbox, priority dot, title (click opens panel), project chip (hidden on mobile and when grouped by project), assignee initials, due date colored red when overdue and amber when today. Done rows strike through.
 
-Project card ordering by priority uses high → med → low → none, then name. "Recently updated" uses `updatedAt`, which bumps when tasks, notes, or events in the project change.
+Project card ordering by priority uses high → med → low → none, then name. "Recently updated" uses `updatedAt`, which bumps when tasks, notes, meetings, or milestones in the project change.
 
 ## Interactions
 
@@ -151,7 +156,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **New note panel** (the top bar's Write a note button, Shift+N, or New note in ⌘K): the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
 
-**Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms and removes tasks, notes, and activity; Archive is the non-destructive alternative in the header.
+**Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header.
 
 **Current state line.** A single input under the project header. Enter blurs; blur saves if changed and logs "Updated current state".
 
@@ -183,7 +188,7 @@ Panels and palette share a scrim; clicking it closes the panel. Toasts are botto
 
 **Autocomplete.** Typing `@` followed by up to 30 letters, digits, or spaces at the caret opens a popup under the textarea listing up to 8 people whose names start with the query (case-insensitive), with role in small text. Arrow keys move, Enter or Tab accepts and inserts `@Name ` (trailing space), Escape closes, blur closes after 120 ms so clicks register. Mentions are extracted with `/@\{([^}]+)\}/g` for the People view.
 
-**Markdown subset.** Rendered in note bodies, event-linked notes, project descriptions, and Claude summaries. Parsing is line-based; everything is HTML-escaped first.
+**Markdown subset.** Rendered in note bodies, meeting-linked notes, project descriptions, and Claude summaries. Parsing is line-based; everything is HTML-escaped first.
 
 | Syntax                             | Renders                                                |
 | ---------------------------------- | ------------------------------------------------------ |
@@ -200,37 +205,41 @@ Panels and palette share a scrim; clicking it closes the panel. Toasts are botto
 
 Not supported and not needed yet: nested lists, block quotes, fenced code, images, tables. Checklists are display-only; ticking happens by editing the note.
 
-## Events and notes linkage
+## Meetings and notes linkage
 
-Every event row offers **Prep note** and **Debrief note**. Either one routes to a notes composer, prefilled, and tags the resulting note with `eventId` and `phase`.
-1. If the current page has a composer (project detail or Notes page), it is prefilled in place: the textarea gets `data-event` and `data-phase`, the body is seeded with `Prep: <title> — <date>` or `Debrief: <title> — <date>` on its own line if empty, the project picker (when present) is set to the event's project, and the textarea is focused and scrolled into view.
-2. If not (Events page, Focus agenda), the intent is parked as `ui.pendingEv = {id, phase}`, the app navigates to the event's project page (or the Notes page for General events), and the next render applies step 1.
-3. On add, the note is written with `eventId`, `phase` (`pre` | `post` | null) and the composer is cleared by the re-render.
+Every meeting row offers **Prep note** and **Debrief note**. Either one routes to a notes composer, prefilled, and tags the resulting note with `meetingId` and `phase`.
+1. If the current page has a composer (project detail or Notes page) that can take the meeting's project, it is prefilled in place: the textarea gets `data-meeting` and `data-phase`, the body is seeded with `Prep: <title> — <date>` or `Debrief: <title> — <date>` on its own line if empty, the project picker (when present) is set to the meeting's project, and the textarea is focused and scrolled into view.
+2. If not (Meetings page, Focus agenda), the intent is parked as pending `{meetingId, phase}`, the app navigates to the meeting's project page (or the Notes page for General meetings), and the composer there applies step 1 when it mounts.
+3. On add, the note is written with `meetingId`, `phase` (`pre` | `post` | null) and the composer is cleared.
 
 Display rules:
-- Under each event row, linked notes render inline, grouped **Prep**, **Debrief**, then **Notes** (phase-less), oldest first, each with a timestamp and an Edit link. This appears on both the project page and the Events page.
-- In the Notes page and project notes list, a linked note shows a tag `Prep · <event title>` or `Debrief · <event title>`.
-- Claude summaries of an event include its linked notes labeled `[prep]` or `[debrief]`.
-- Deleting an event keeps the notes; the tag disappears because the lookup fails.
+- Under each meeting row, linked notes render inline, grouped **Prep**, **Debrief**, then **Notes** (phase-less), oldest first, each with a timestamp and an Edit link. This appears on both the project page and the Meetings page.
+- In the Notes page and project notes list, a linked note shows a tag `Prep · <meeting title>` or `Debrief · <meeting title>`.
+- Claude summaries of a meeting include its linked notes labeled `[prep]` or `[debrief]`.
+- Deleting a meeting keeps the notes; the tag disappears because the lookup fails.
 
-Events are created from a project page (project fixed) or the Events page (project picker, General allowed). Required: title and date. Editing re-opens the same form; deleting asks for confirmation. Creating, editing, and deleting log activity on the event's project (or General).
+Meetings are created from a project page (project fixed) or the Meetings page (project picker, General allowed). Required: title and date. Editing re-opens the same form; deleting asks for confirmation. Creating, editing, and deleting log activity on the meeting's project (or General).
+
+### Milestones
+
+Milestones are added, edited and deleted only in the project page's Milestones section: a title and a date (the shared date field, so `fri` and `+3d` work); Enter adds and keeps focus in the title, Esc clears. Edit changes title and date in place (Enter saves, Esc cancels). Delete has no confirm step; the toast offers Undo, which re-adds the milestone with the same id. Each change logs activity on the project. A milestone shows on the project card (the next one on or after today), on the Projects Timeline as a point with its title and day on hover or keyboard focus, on the Focus agenda, and in the weekly digest (the digest week and the 7 days after it). Clicking one on the Timeline or the agenda opens the project page with `?milestone=<id>`, which opens the section, scrolls to the row and highlights it. Search does not index milestones. A project has at most 50.
 
 ## Claude summaries
 
-A **Summarize** action exists on four item types: project (header), task (panel footer), event (row), note (footer). It is hidden when no model is available. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
+A **Summarize** action exists on four item types: project (header), task (panel footer), meeting (row), note (footer). It is hidden when no model is available. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
 
 **Flow.** Click opens the side panel titled `Summary · <item>` showing "Thinking…", with Stop, Copy (disabled until text arrives), and Save as note. Output streams in and is rendered with the markdown subset. On completion Stop is disabled and Copy / Save enable. Closing the panel aborts the request. Errors: `not_granted` hides the feature for the session; `canceled` keeps partial text and appends "Stopped."; `rate_limited` shows a toast; anything else shows partial text or a one-line failure message.
 
-**Save as note** writes a note to the item's project (or General) with body `Summary of <item>` followed by the markdown, converts any `@Name` back to mention tokens, links it to the event when summarizing an event, and logs activity.
+**Save as note** writes a note to the item's project (or General) with body `Summary of <item>` followed by the markdown, converts any `@Name` back to mention tokens, links it to the meeting when summarizing a meeting, and logs activity.
 
 **Context assembled per item** (plain text, labeled sections):
 
-| Item    | Included                                                                                                                                                                                                                                     |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project | name, org, status, priority, target date, team names, current state, description; open tasks with priority/due/assignee/details; last 15 done tasks; all events; last 20 notes newest first with prep/debrief labels; last 25 activity lines |
-| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any                                                                                                                                         |
-| Event   | title, type, date and times, project, attendees, agenda note, all linked notes with phase                                                                                                                                                    |
-| Note    | date, project, event title if linked, body                                                                                                                                                                                                   |
+| Item    | Included                                                                                                                                                                                                                                                                                                                    |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project | name, org, status, priority, target date, team names, current state, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first with prep/debrief labels; last 25 activity lines |
+| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any                                                                                                                                                                                                                        |
+| Meeting | title, date and times, project, attendees, agenda note, topics (`[x]`/`[ ]`, outcome when set), all linked notes with phase                                                                                                                                                                                                 |
+| Note    | date, project, meeting title if linked, body                                                                                                                                                                                                                                                                                |
 
 Mentions are expanded to names before sending. Nothing outside the item is included.
 
@@ -242,7 +251,7 @@ Model tier is the default (not the quick tier); the artifact caches identical re
 
 ## Persistence, sync, import/export
 
-**Store shape.** In-memory state is `{projects, tasks, notes, people, activity, events}`, each a map by id. All views are pure renders of that state; the whole main region re-renders on every change (cheap at this scale; a rebuilt app should use a reactive store).
+**Store shape.** In-memory state is `{projects, tasks, notes, people, activity, meetings}`, each a map by id. All views are pure renders of that state; the whole main region re-renders on every change (cheap at this scale; a rebuilt app should use a reactive store).
 
 **Write path.** `write(col, id, doc)` applies optimistically to memory, re-renders, then persists; `remove(col, id)` likewise. Failures toast and the next snapshot corrects the view. Whole-document writes only.
 
@@ -250,45 +259,46 @@ Model tier is the default (not the quick tier); the artifact caches identical re
 
 **Read-only.** If the platform reports the viewer cannot write, `readOnly` hides every mutating control (quick-adds, buttons, composers, drag) and shows a banner; Summarize remains available.
 
-**Export** writes `{exportedAt, projects, tasks, notes, people, activity, events}` as pretty JSON named `ledger-YYYY-MM-DD.json` through a download, falling back to the clipboard. **Import** reads such a file, confirms, and merges by id (same id replaces). This JSON is also the migration path from the artifact to the new app.
+**Export** writes `{exportedAt, projects, tasks, notes, people, activity, meetings}` as pretty JSON named `ledger-YYYY-MM-DD.json` through a download, falling back to the clipboard. **Import** reads such a file, confirms, and merges by id (same id replaces). This JSON is also the migration path from the artifact to the new app; the artifact's file has the older typed collection in place of `meetings`, and import migrates it.
 
 **Caps to respect** when designing the remote store: documents under 256 KiB (activity logs are capped at 150 entries for this reason), collections scanned without indexes (keep to low thousands of documents), last-writer-wins with no transactions.
 
 ## Spaces
 
-Added in the rebuild (M9). A space is a complete, separate Datapad under the one signed-in user: its own projects, tasks, notes, events, people, orgs, decisions, templates, settings and activity. Nothing is shared or searched across spaces; every view, count, summary and ⌘K result is the open space's.
+Added in the rebuild (M9). A space is a complete, separate Datapad under the one signed-in user: its own projects, tasks, notes, meetings, people, orgs, decisions, templates, settings and activity. Nothing is shared or searched across spaces; every view, count, summary and ⌘K result is the open space's.
 
-| Topic     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Model     | `{id, name, position, createdAt}`. Every user starts with Main (`main`), which holds any data from before spaces. Names are trimmed, not empty, at most 40 characters and unique ignoring case; at most 12 spaces. `position` is the switcher order.                                                                                                                                                                                         |
-| Switching | The rail header (desktop), the account menu (every width; the switcher on phones) and ⌘K list the spaces, with New space…; the rail and the account menu also have Manage spaces. The choice is remembered per device, not in the URL. Switching from a project, person or org page goes to Focus; section pages stay. The page and rail crossfade. With more than one space, the tab title carries its name ("Tasks · Personal · Datapad"). |
-| Settings  | Settings → Spaces (`/settings/spaces`) lists them in switcher order: rename in place (Enter saves, Esc or leaving the field reverts), Move up / Move down, New space, Delete…. Settings → Data acts on the open space: Export <space>, Import into <space>, Backups of <space>.                                                                                                                                                              |
-| Moving    | Move to… on a project page (with more than one space). The project goes with its tasks, notes, events, decisions and activity log; the people it refers to and its org are copied, and the source keeps its copies. A same-named org in the target is reused; a copied person is not `me` if the target has one. The log gains "Moved from <space>". One transaction across both spaces; not undoable from the toast, but moving back works. |
-| Deleting  | Delete… asks for the space's name typed exactly, then deletes it with a one-time token issued for that space (good for five minutes). The last space cannot be deleted; Main can, once another exists. Tabs open on it go to the first space left. Its nightly backups stay in R2 but are no longer listed in the app.                                                                                                                       |
-| Backups   | Nightly, per space, 30 kept each: Main at `<email>/datapad-YYYY-MM-DD.json` as before, others at `<email>/<spaceId>/datapad-YYYY-MM-DD.json`.                                                                                                                                                                                                                                                                                                |
+| Topic     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Model     | `{id, name, position, createdAt}`. Every user starts with Main (`main`), which holds any data from before spaces. Names are trimmed, not empty, at most 40 characters and unique ignoring case; at most 12 spaces. `position` is the switcher order.                                                                                                                                                                                                                           |
+| Switching | The rail header (desktop), the account menu (every width; the switcher on phones) and ⌘K list the spaces, with New space…; the rail and the account menu also have Manage spaces. The choice is remembered per device, not in the URL. Switching from a project, person or org page goes to Focus; section pages stay. The page and rail crossfade. With more than one space, the tab title carries its name ("Tasks · Personal · Datapad").                                   |
+| Settings  | Settings → Spaces (`/settings/spaces`) lists them in switcher order: rename in place (Enter saves, Esc or leaving the field reverts), Move up / Move down, New space, Delete…. Settings → Data acts on the open space: Export <space>, Import into <space>, Backups of <space>.                                                                                                                                                                                                |
+| Moving    | Move to… on a project page (with more than one space). The project goes with its tasks, notes, meetings (with their topics), milestones, decisions and activity log; the people it refers to and its org are copied, and the source keeps its copies. A same-named org in the target is reused; a copied person is not `me` if the target has one. The log gains "Moved from <space>". One transaction across both spaces; not undoable from the toast, but moving back works. |
+| Deleting  | Delete… asks for the space's name typed exactly, then deletes it with a one-time token issued for that space (good for five minutes). The last space cannot be deleted; Main can, once another exists. Tabs open on it go to the first space left. Its nightly backups stay in R2 but are no longer listed in the app.                                                                                                                                                         |
+| Backups   | Nightly, per space, 30 kept each: Main at `<email>/datapad-YYYY-MM-DD.json` as before, others at `<email>/<spaceId>/datapad-YYYY-MM-DD.json`.                                                                                                                                                                                                                                                                                                                                  |
 
 ## Activity log
 
 One log per project plus one for General. Entries are `{t, text}`, prepended, capped at 150; the project page shows the latest 40 in a collapsed Activity section, and project summaries read the latest 25.
 
-| Trigger                            | Text                                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Task created                       | Added task "<title>"                                                                             |
-| Task closed / reopened             | Closed "<title>" / Reopened "<title>"                                                            |
-| Task edited                        | Edited task "<title>"                                                                            |
-| Task moved                         | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project) |
-| Task deleted                       | Deleted task "<title>"                                                                           |
-| Note added / deleted               | Added a note / Deleted a note                                                                    |
-| Summary saved                      | Saved a Claude summary as a note                                                                 |
-| State line changed                 | Updated current state                                                                            |
-| Project created / edited           | Created project / Edited project details                                                         |
-| Status changed                     | Status changed to <status>                                                                       |
-| Archived / restored                | Archived project / Unarchived project                                                            |
-| Meeting added / edited / deleted   | Added meeting "<title>" / Edited meeting "<title>" / Deleted meeting "<title>"                   |
-| Milestone added / edited / deleted | Added milestone "<title>" (<day>) / Edited milestone "<title>" / Deleted milestone "<title>"     |
-| Project moved in from a space      | Moved from <space> (rebuild only, in the target space)                                           |
+| Trigger                            | Text                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Task created                       | Added task "<title>"                                                                                                  |
+| Task closed / reopened             | Closed "<title>" / Reopened "<title>"                                                                                 |
+| Task edited                        | Edited task "<title>"                                                                                                 |
+| Task moved                         | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project)                      |
+| Task deleted                       | Deleted task "<title>"                                                                                                |
+| Note added / deleted               | Added a note / Deleted a note                                                                                         |
+| Summary saved                      | Saved a Claude summary as a note                                                                                      |
+| State line changed                 | Updated current state                                                                                                 |
+| Project created / edited           | Created project / Edited project details                                                                              |
+| Status changed                     | Status changed to <status>                                                                                            |
+| Archived / restored                | Archived project / Unarchived project                                                                                 |
+| Meeting added / edited / deleted   | Added meeting "<title>" / Edited meeting "<title>" / Deleted meeting "<title>"                                        |
+| Milestone added / edited / deleted | Added milestone "<title>" (<day>) / Edited milestone "<title>" / Deleted milestone "<title>"                          |
+| Topic added / removed              | Added topic "<title>" to "<meeting>" / Removed topic "<title>" from "<meeting>" (on the meeting's project or General) |
+| Project moved in from a space      | Moved from <space> (rebuild only, in the target space)                                                                |
 
-Pinning a note and reordering tasks are not logged. The log is the data source for the deferred weekly digest.
+Pinning a note, reordering tasks, and editing, ticking or reordering topics are not logged. The log is the data source for the deferred weekly digest.
 
 ## Design system
 
@@ -315,7 +325,7 @@ Quiet, dense, cool-neutral. The one expressive element is the serif used for pro
 | warn        | #B7791F | #E3B45A |
 | ok          | #1E7A4A | #6FCB95 |
 
-Dark mode follows the OS by default and can be forced by `data-theme` on the root. Radius 10px on cards and panels, 8px on controls, pills fully round. Priority dots: high = danger, med = warn, low = ink3, none = line. Status pills: active = accent-soft fill, paused = dashed border, done = ok tint. Event type pills: milestone = accent-soft, deadline = danger outline, demo = ok outline.
+Dark mode follows the OS by default and can be forced by `data-theme` on the root. Radius 10px on cards and panels, 8px on controls, pills fully round. Priority dots: high = danger, med = warn, low = ink3, none = line. Status pills: active = accent-soft fill, paused = dashed border, done = ok tint. Meetings carry no type pill; a milestone is marked by a flag glyph (a filled diamond on timelines), and past milestones are muted.
 
 **Layout.** Desktop: 232px rail + fluid main, content max-width 1040px; project detail is a 3:2 two-column grid. Breakpoint 820px: rail hidden, bottom tab bar, single column, project chips and drag handles hidden, task rows at least 44px tall. Safe-area insets respected top and bottom. Reduced-motion disables transitions. Visible focus rings in accent.
 
@@ -336,10 +346,10 @@ Keep the product exactly as specified above and change only the plumbing.
 | `storage/`    | `StorageAdapter` interface: `load()`, `subscribe(col, cb)`, `set(col, id, doc)`, `delete(col, id)`; adapters: `local` (IndexedDB via idb-keyval or localStorage) and `remote` (Supabase/Postgres, Firestore, or a small API over SQLite) |
 | `markdown/`   | the line-based renderer and the `@{id}` ↔ `@Name` conversions; unit-test against the table in Mentions and markdown                                                                                                                      |
 | `summaries/`  | context builders per item type (pure functions over state) and a server route that calls the Messages API with the prompt above and streams back                                                                                         |
-| `views/`      | Focus, Projects, ProjectDetail, Tasks, Notes, Events, People, Archive                                                                                                                                                                    |
-| `components/` | TaskRow, QuickAdd, NoteCard, NoteComposer (mentions + list continuation), EventRow, SidePanel, Palette, Toast                                                                                                                            |
+| `views/`      | Focus, Projects, ProjectDetail, Tasks, Notes, Meetings, People, Archive                                                                                                                                                                  |
+| `components/` | TaskRow, QuickAdd, NoteCard, NoteComposer (mentions + list continuation), MeetingRow, Milestones, SidePanel, Palette, Toast                                                                                                              |
 
-**Order of work.** 1) model + store + local adapter + JSON import so existing data loads on day one; 2) Projects, ProjectDetail, Tasks with quick-add and close; 3) Notes and mentions; 4) Events with prep/debrief; 5) Focus, People, Search; 6) remote adapter and summaries; 7) polish items from Known gaps.
+**Order of work.** 1) model + store + local adapter + JSON import so existing data loads on day one; 2) Projects, ProjectDetail, Tasks with quick-add and close; 3) Notes and mentions; 4) Meetings with prep/debrief, and milestones; 5) Focus, People, Search; 6) remote adapter and summaries; 7) polish items from Known gaps.
 
 **Migration.** Export from the artifact (sidebar footer), import into the new app. Ids, mention tokens, and `order` values carry over unchanged. Keep the `links[]` field even though nothing writes typed links yet; it is where meetings and issues from external systems will attach.
 
@@ -360,6 +370,6 @@ Features discussed and intentionally deferred, roughly by value:
 2. Weekly digest view built from the activity logs: per project, tasks closed, notes added, state changes.
 3. Blocked / waiting-on flag on tasks with an optional person, surfaced at the top of Focus.
 4. Project templates: a saved kickoff checklist applied on project creation.
-5. Reminders: in-app due reminders and an .ics export per task or event; true push notifications need a native or server component.
+5. Reminders: in-app due reminders and an .ics export per task, meeting or milestone; true push notifications need a native or server component.
 6. Snooze a task to a date; a per-project "next up" marker shown on the card.
 7. Recurring tasks, subtasks, time tracking, and comments on tasks were considered and rejected for now.
