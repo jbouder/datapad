@@ -12,6 +12,8 @@ export type Route =
   | { name: 'tasks' }
   | { name: 'notes' }
   | { name: 'meetings' }
+  /** One meeting's page (`/meetings/:id`). */
+  | { name: 'meeting'; id: string }
   | { name: 'decisions' }
   | { name: 'digest' }
   /** Settings → People; `person` is the one selected (`/settings/people/:id`). */
@@ -101,6 +103,10 @@ export function parseRoute(
   if (project?.[1]) {
     return { name: 'project', id: decodeURIComponent(project[1]) };
   }
+  const meeting = /^\/meetings\/([^/]+)$/.exec(clean);
+  if (meeting?.[1]) {
+    return { name: 'meeting', id: decodeURIComponent(meeting[1]) };
+  }
   const name = clean.slice(1) as RouteName;
   if (SIMPLE.has(name)) {
     return { name } as Route;
@@ -127,6 +133,8 @@ export function routePath(route: Route): string | null {
         : `/settings/${route.section}`;
     case 'project':
       return `/projects/${encodeURIComponent(route.id)}`;
+    case 'meeting':
+      return `/meetings/${encodeURIComponent(route.id)}`;
     case 'help':
       return route.section
         ? `/help#${encodeURIComponent(route.section)}`
@@ -156,9 +164,21 @@ export function canonicalQuery(pathname: string, search: string): string {
   return `?${params.toString()}`;
 }
 
+/**
+ * The meeting an old link opens: `/meetings?meeting=<id>` (and so
+ * `/events?event=<id>`) went to its row until meetings had a page of their
+ * own; now it is that page. `null` for any other address.
+ */
+export function linkedMeeting(pathname: string, search: string): string | null {
+  const route = parseRoute(pathname);
+  if (route.name !== 'meetings') return null;
+  return new URLSearchParams(canonicalQuery(pathname, search)).get('meeting');
+}
+
 /** The top-level section a route belongs to, for `aria-current` in the nav. */
 export function sectionOf(route: Route): RouteName {
   if (route.name === 'project' || route.name === 'archive') return 'projects';
+  if (route.name === 'meeting') return 'meetings';
   if (route.name === 'people' || route.name === 'orgs') return 'settings';
   return route.name;
 }
@@ -194,8 +214,9 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notFound: 'Not found',
 };
 
-/** The top bar's title; a project page passes its name. */
-export function titleOf(route: Route, projectName?: string): string {
-  if (route.name === 'project') return projectName ?? 'Project';
+/** The top bar's title; a project or meeting page passes its name. */
+export function titleOf(route: Route, name?: string): string {
+  if (route.name === 'project') return name ?? 'Project';
+  if (route.name === 'meeting') return name ?? 'Meeting';
   return TITLES[route.name] ?? 'Datapad';
 }

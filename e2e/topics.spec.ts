@@ -48,14 +48,15 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
+/** Shield review's page, where its topics are worked. */
+const SHIELD = '/meetings/e-1';
+
 function row(page: Page, title: string) {
   return page.locator('[data-meeting-id]').filter({ hasText: title }).first();
 }
 
 function topicList(page: Page, meeting = 'Shield review') {
-  return row(page, meeting).getByRole('list', {
-    name: `Topics for “${meeting}”`,
-  });
+  return page.getByRole('list', { name: `Topics for “${meeting}”` });
 }
 
 function titles(page: Page) {
@@ -69,12 +70,19 @@ async function topicAction(page: Page, topic: string, name: string) {
   await page.getByRole('menuitem', { name }).click();
 }
 
-test('shows topics and their count on the meeting row', async ({ page }) => {
+test('the row counts the topics; the page lists them', async ({ page }) => {
   await openLive(page, '/meetings');
   const shield = row(page, 'Shield review');
   await expect(shield.locator('[data-topic-count]')).toHaveText(
     '1 of 3 topics',
   );
+  // The list itself is on the meeting's page, not the row.
+  await expect(topicList(page)).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await shield
+    .getByRole('link', { name: 'Shield review', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
   await expect(titles(page)).toHaveText([
     'Power budget',
     'North ridge',
@@ -144,6 +152,9 @@ test('adds topics in the new meeting panel, in one batch with it', async ({
 
   const added = row(page, 'Hangar walkthrough');
   await expect(added.locator('[data-topic-count]')).toHaveText('0 of 3 topics');
+  await added
+    .getByRole('link', { name: 'Hangar walkthrough', exact: true })
+    .click();
   await expect(
     topicList(page, 'Hangar walkthrough').locator('[data-topic-title]'),
   ).toHaveText(['Door insulation', 'Tauntaun stalls', 'Snowspeeder bays']);
@@ -175,8 +186,9 @@ test('the panel lists an existing meeting’s topics, changed in place', async (
   await openLive(page, '/meetings');
   const shield = row(page, 'Shield review');
   await shield
-    .getByRole('button', { name: 'Shield review', exact: true })
+    .getByRole('button', { name: 'More for “Shield review”' })
     .click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Shield review' });
   const list = edit.getByRole('list', { name: 'Topics for “Shield review”' });
   await expect(list.locator('[data-topic-title]')).toHaveText([
@@ -242,33 +254,35 @@ test('the panel lists an existing meeting’s topics, changed in place', async (
   ]);
 });
 
-test('inline: add, toggle, record an outcome, rename', async ({
+test('on the page: add, toggle, record an outcome, rename', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/meetings');
-  const shield = row(page, 'Shield review');
-  const add = shield.getByRole('textbox', {
+  await openLive(page, SHIELD);
+  const section = page.getByRole('region', {
+    name: 'Topics for “Shield review”',
+  });
+  await section.getByRole('button', { name: 'Add topic' }).click();
+  const add = page.getByRole('textbox', {
     name: 'Add a topic to “Shield review”',
   });
+  await expect(add).toBeFocused();
   await add.fill('Hoth weather');
   await add.press('Enter');
   await expect(add).toHaveValue('');
   await expect(add).toBeFocused();
   await expect(titles(page)).toHaveCount(4);
   await expect(titles(page).last()).toHaveText('Hoth weather');
-  // Escape clears without adding.
+  // Escape closes the field without adding.
   await add.fill('Never mind');
   await add.press('Escape');
-  await expect(add).toHaveValue('');
+  await expect(add).toHaveCount(0);
   await expect(titles(page)).toHaveCount(4);
 
   const check = page.getByRole('checkbox', { name: 'Covered: “North ridge”' });
   await topicList(page).locator('label', { has: check }).click();
   await expect(topicList(page).locator(check)).toBeChecked();
-  await expect(shield.locator('[data-topic-count]')).toHaveText(
-    '2 of 4 topics',
-  );
+  await expect(section).toContainText('2 of 4 topics');
 
   await topicList(page)
     .getByRole('button', { name: 'Outcome for “North ridge”' })
@@ -318,21 +332,25 @@ test('inline: add, toggle, record an outcome, rename', async ({
   ]);
 });
 
-test('a meeting without topics gets them from its menu', async ({ page }) => {
+test('a meeting without topics gets them on its page', async ({ page }) => {
   await openLive(page, '/meetings');
   await page.getByRole('button', { name: 'Past' }).click();
   const medal = row(page, 'Medal ceremony');
   await expect(medal.locator('[data-topic-count]')).toHaveCount(0);
   await medal
-    .getByRole('button', { name: 'More for “Medal ceremony”' })
+    .getByRole('link', { name: 'Medal ceremony', exact: true })
     .click();
-  await page.getByRole('menuitem', { name: 'Add topic' }).click();
-  const add = medal.getByRole('textbox', {
+  await expect(page.getByText('No topics yet')).toBeVisible();
+  await page.getByRole('button', { name: 'Add topic' }).click();
+  const add = page.getByRole('textbox', {
     name: 'Add a topic to “Medal ceremony”',
   });
   await expect(add).toBeFocused();
   await add.fill('Who gets a medal');
   await add.press('Enter');
+  await expect(page.getByRole('main')).toContainText('0 of 1 topic');
+  await page.goBack();
+  await page.getByRole('button', { name: 'Past' }).click();
   await expect(medal.locator('[data-topic-count]')).toHaveText('0 of 1 topic');
 });
 
@@ -340,7 +358,7 @@ test('reorder by keyboard: the menu, and Alt+arrows', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/meetings');
+  await openLive(page, SHIELD);
   const more = topicList(page).getByRole('button', {
     name: 'More for topic “Power budget”',
   });
@@ -380,7 +398,7 @@ test('reorder by keyboard: the menu, and Alt+arrows', async ({
 
 test('reorder by dragging the handle', async ({ page }) => {
   test.skip(isMobile(page), 'Drag is the desktop path.');
-  await openLive(page, '/meetings');
+  await openLive(page, SHIELD);
   const items = topicList(page).locator('li');
   const handle = items.nth(2).locator('[title="Drag to reorder"]');
   await handle.hover();
@@ -395,15 +413,13 @@ test('reorder by dragging the handle', async ({ page }) => {
 });
 
 test('delete, then Undo puts it back as it was', async ({ page, request }) => {
-  await openLive(page, '/meetings');
+  await openLive(page, SHIELD);
   await topicAction(page, 'Power budget', 'Delete');
   await expect(titles(page)).toHaveText([
     'North ridge',
     'Probe droid sightings',
   ]);
-  await expect(
-    row(page, 'Shield review').locator('[data-topic-count]'),
-  ).toHaveText('0 of 2 topics');
+  await expect(page.getByRole('main')).toContainText('0 of 2 topics');
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(titles(page)).toHaveText([
     'Power budget',
@@ -418,7 +434,7 @@ test('Make a task and Record a decision start from the topic', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/meetings');
+  await openLive(page, SHIELD);
   await topicAction(page, 'North ridge', 'Make a task');
   const task = page.getByRole('dialog', { name: 'New task' });
   await expect(task.getByLabel('Title')).toHaveValue('North ridge');
@@ -468,10 +484,8 @@ test('Make a task and Record a decision start from the topic', async ({
 
 test('the Calendar counts a meeting’s topics', async ({ page }) => {
   // Today, so it is in this week's strip on a phone too.
-  await openLive(page, '/meetings');
-  await row(page, 'Shield review')
-    .getByRole('button', { name: 'Shield review', exact: true })
-    .click();
+  await openLive(page, SHIELD);
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Shield review' });
   await edit.getByLabel('Date').fill('today');
   await edit.getByLabel('Date').press('Tab');

@@ -211,9 +211,7 @@ export function Palette({
           navigate({ name: 'notes' }, { query: `note=${id}` }),
         );
       case 'meeting':
-        return choose(() =>
-          navigate({ name: 'meetings' }, { query: `view=list&meeting=${id}` }),
-        );
+        return choose(() => navigate({ name: 'meeting', id }));
       case 'decision':
         return choose(() => openDecision(id));
       case 'org':

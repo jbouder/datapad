@@ -22,6 +22,7 @@ import { DecisionsPage } from '@/pages/DecisionsPage';
 import { DigestPage } from '@/pages/DigestPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { MeetingPage } from '@/pages/MeetingPage';
 import { MeetingsPage } from '@/pages/MeetingsPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -51,8 +52,12 @@ export function AppShell() {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
   }, [active]);
 
-  const projectName =
-    route.name === 'project' ? state?.projects[route.id]?.name : undefined;
+  const pageName =
+    route.name === 'project'
+      ? state?.projects[route.id]?.name
+      : route.name === 'meeting'
+        ? state?.meetings[route.id]?.title
+        : undefined;
 
   // + opens the new-task panel, preset to the project you are on.
   const currentProject = route.name === 'project' ? route.id : null;
@@ -138,7 +143,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           route={route}
-          title={titleOf(route, projectName)}
+          title={titleOf(route, pageName)}
           pageKey={pageKey(route)}
           email={email}
           onAddTask={addTask}
@@ -172,6 +177,7 @@ const DevComponentsPage = __DEV_ROUTES__
 
 function pageKey(route: Route): string {
   if (route.name === 'project') return `project:${route.id}`;
+  if (route.name === 'meeting') return `meeting:${route.id}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
 }
@@ -194,6 +200,8 @@ function Page({ route }: { route: Route }) {
       return <NotesPage />;
     case 'meetings':
       return <MeetingsPage />;
+    case 'meeting':
+      return <MeetingPage id={route.id} />;
     case 'decisions':
       return <DecisionsPage />;
     case 'digest':

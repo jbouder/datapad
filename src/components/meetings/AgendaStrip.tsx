@@ -100,10 +100,7 @@ export function AgendaStrip({
                 {range && <span>{range}</span>}
               </span>
               <a
-                {...linkProps(
-                  { name: 'meetings' },
-                  `view=list&meeting=${e.id}`,
-                )}
+                {...linkProps({ name: 'meeting', id: e.id })}
                 className="line-clamp-2 text-sm font-medium outline-none after:absolute after:inset-0"
               >
                 {e.title}

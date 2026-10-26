@@ -2,13 +2,12 @@ import {
   ArrowBendDownRightIcon,
   ArrowSquareOutIcon,
   DotsThreeIcon,
-  ListPlusIcon,
   NotePencilIcon,
   PencilSimpleIcon,
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import {
   carryForward,
@@ -25,11 +24,9 @@ import {
   topicsOf,
 } from '#shared/types';
 import { Initials } from '@/components/Initials';
-import { LinkedNotes } from '@/components/meetings/LinkedNotes';
 import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
-import { MeetingTopics } from '@/components/meetings/MeetingTopics';
 import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
@@ -41,7 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
-import { linkProps, useQuery } from '@/lib/router';
+import { linkProps } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -49,13 +46,14 @@ const MENU_TRIGGER =
   'press flex size-11 shrink-0 items-center justify-center outline-ring/50 hover:bg-accent focus-visible:outline-2 data-popup-open:bg-accent desk:size-8';
 
 /**
- * One meeting: its day and times, title (opens the form),
- * project chip, attendees, link, and the actions: Add note (beside the
- * row on desktop, in its menu everywhere), Edit, Delete.
- * Delete asks in the row first; the meeting's notes are kept. A note is
- * written in place, in a composer under the row (one at a time), and its
- * linked notes follow underneath. It lays out by its own width (a container
- * query), so it stacks in a narrow column or popover as on a phone.
+ * One meeting: its day and times, title (goes to the meeting's page),
+ * topic count, project chip, attendees, link, and the actions: Add note
+ * (beside the row on desktop, in its menu everywhere), Edit (the panel),
+ * Delete. Delete asks in the row first; the meeting's notes are kept. A
+ * note is written in place, in a composer under the row (one at a time);
+ * the topics and notes themselves are on the page. It lays out by its own
+ * width (a container query), so it stacks in a narrow column or popover as
+ * on a phone.
  */
 export function MeetingRow({
   meeting,
@@ -85,27 +83,12 @@ export function MeetingRow({
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
   const row = useRef<HTMLDivElement>(null);
-  const target = useQuery().get('meeting');
-  const [flash, setFlash] = useState(false);
-
-  // Arriving from Focus's agenda or search: bring the row into view.
-  useEffect(() => {
-    if (target !== meeting.id || !row.current) return;
-    row.current.scrollIntoView({ block: 'center' });
-    row.current.focus({ preventScroll: true });
-    setFlash(true);
-    const timer = window.setTimeout(() => setFlash(false), 2400);
-    return () => window.clearTimeout(timer);
-  }, [target, meeting.id]);
   const project = meeting.projectId ? state.projects[meeting.projectId] : null;
   const attendees = meeting.attendees
     .map((id) => state.people[id])
     .filter((p): p is Person => Boolean(p));
   const range = timeRange(meeting);
-  const topics = topicsOf(meeting);
-  const count = topicCount(topics);
-  // The menu's Add topic: shows the list (even empty) and focuses its field.
-  const [addingTopic, setAddingTopic] = useState(0);
+  const count = topicCount(topicsOf(meeting));
   const notes = Object.values(state.notes).filter(
     (n) => n.meetingId === meeting.id,
   ).length;
@@ -137,7 +120,6 @@ export function MeetingRow({
       tabIndex={-1}
       data-meeting-id={meeting.id}
       data-layout-id={meeting.id}
-      data-highlighted={flash || undefined}
       className={cn(
         'meeting-row @container/row flex flex-col border-b outline-none',
         className,
@@ -153,13 +135,12 @@ export function MeetingRow({
             {range && <span>{range}</span>}
           </span>
           <span className="flex min-w-0 items-center gap-2 @xl/row:flex-1 @xl/row:gap-3">
-            <button
-              type="button"
-              onClick={() => openMeeting(meeting.id)}
+            <a
+              {...linkProps({ name: 'meeting', id: meeting.id })}
               className="min-w-0 text-left text-sm font-medium underline-offset-4 outline-ring/50 hover:underline focus-visible:outline-2 @xl/row:flex-1 @xl/row:truncate"
             >
               {meeting.title}
-            </button>
+            </a>
           </span>
           {(showProject || attendees.length > 0 || count) && (
             <span className="flex min-w-0 flex-wrap items-center gap-2 @xl/row:shrink-0 @xl/row:flex-nowrap">
@@ -240,10 +221,6 @@ export function MeetingRow({
               <NotePencilIcon />
               Add note
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setAddingTopic((n) => n + 1)}>
-              <ListPlusIcon />
-              Add topic
-            </DropdownMenuItem>
             {canCarry && (
               <DropdownMenuItem onClick={carry}>
                 <ArrowBendDownRightIcon />
@@ -269,28 +246,19 @@ export function MeetingRow({
           {meeting.note}
         </p>
       )}
-      {(topics.length > 0 || addingTopic > 0) && (
-        <MeetingTopics
-          meeting={meeting}
-          focusAdd={addingTopic}
-          onAddBlur={() => {
-            if (topics.length === 0) setAddingTopic(0);
-          }}
-        />
-      )}
       {composing && (
         <MeetingNoteComposer
           ref={composer}
           meeting={meeting}
           people={state.people}
-          onDone={() => {
+          onDone={(noteId) => {
             setComposing(false);
             row.current?.focus({ preventScroll: true });
+            if (noteId) show(`Added a note to “${meeting.title}”`);
           }}
           className="pb-2 @xl/row:pl-43"
         />
       )}
-      <LinkedNotes meeting={meeting} state={state} />
       {confirming && (
         <div
           role="alertdialog"

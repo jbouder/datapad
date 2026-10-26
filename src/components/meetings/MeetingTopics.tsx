@@ -11,7 +11,7 @@ import {
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react';
-import { type Ref, useEffect, useId, useRef, useState } from 'react';
+import { type Ref, useId, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { restoredOrder, topicCount } from '#shared/meetings';
@@ -44,32 +44,25 @@ const INLINE_INPUT =
   'h-11 w-full min-w-0 border bg-transparent px-2 text-base outline-ring/50 focus-visible:outline-2 desk:h-8 desk:text-sm';
 
 /**
- * A meeting's topics, under its details: a checkbox (covered), the title
- * (click to edit), the outcome when there is one (muted; click to edit),
- * an Outcome button that opens a one-line input, and a menu with Make a
- * task, Record a decision, Move up / Move down and Delete (Undo in the
- * toast). Drag the handle to reorder with a mouse; touch and keyboard
- * move from the menu (or Alt+↑ / Alt+↓). The add field at the bottom
- * takes a title: Enter adds, Escape clears.
+ * A meeting's topics, on its page and in its panel: a checkbox (covered),
+ * the title (click to edit), the outcome when there is one (muted; click
+ * to edit), an Outcome button that opens a one-line input, and a menu
+ * with Make a task, Record a decision, Move up / Move down and Delete
+ * (Undo in the toast). Drag the handle to reorder with a mouse; touch and
+ * keyboard move from the menu (or Alt+↑ / Alt+↓).
  *
- * In the meeting's panel (`panel`) the heading has the count and an Add
- * topic button, as the Notes section has Add note: the field shows only
- * once it is pressed, stays open for the next title after Enter, and
- * Escape closes it. Every change is an op at once, as on the row.
+ * The heading has the count and an Add topic button, as the Notes
+ * section has Add note: the field shows only once it is pressed, stays
+ * open for the next title after Enter, and Escape closes it. Every change
+ * is an op at once.
  */
 export function MeetingTopics({
   meeting,
-  focusAdd = 0,
-  onAddBlur,
-  panel = false,
+  headingLevel = 3,
 }: {
   meeting: Meeting;
-  /** Bumped to put the focus in the add field (the row menu's Add topic). */
-  focusAdd?: number;
-  /** The add field was left empty (the row hides an empty list then). */
-  onAddBlur?: () => void;
-  /** In the meeting's panel: a heading with Add topic, the field on demand. */
-  panel?: boolean;
+  /** 2 on the meeting's page; 3 in its panel. */
+  headingLevel?: 2 | 3;
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
@@ -92,16 +85,6 @@ export function MeetingTopics({
   // What was there at first stays still; anything added later enters.
   const seen = useRef<Set<string> | null>(null);
   if (seen.current === null) seen.current = new Set(topics.map((t) => t.id));
-
-  useEffect(() => {
-    if (focusAdd === 0) return;
-    // After the menu that asked has closed and handed focus back.
-    const timer = window.setTimeout(() => {
-      addRef.current?.focus({ preventScroll: true });
-      addRef.current?.scrollIntoView({ block: 'nearest' });
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [focusAdd]);
 
   const open = () => {
     if (adding) addRef.current?.focus();
@@ -186,29 +169,18 @@ export function MeetingTopics({
   return (
     <section
       aria-labelledby={headingId}
-      className={cn(
-        'flex min-w-0 flex-col',
-        panel ? 'gap-2' : 'pb-2 @xl/row:pl-43',
-      )}
+      className="flex min-w-0 flex-col gap-2"
     >
-      {panel ? (
-        <TopicsHeading
-          id={headingId}
-          title={meeting.title}
-          count={topicCount(topics)}
-          adding={adding}
-          onAdd={open}
-          buttonRef={addButton}
-        />
-      ) : (
-        <h4
-          id={headingId}
-          className="text-[11px] font-medium text-muted-foreground uppercase"
-        >
-          Topics<span className="sr-only"> for “{meeting.title}”</span>
-        </h4>
-      )}
-      {panel && topics.length === 0 && !adding && (
+      <TopicsHeading
+        id={headingId}
+        title={meeting.title}
+        count={topicCount(topics)}
+        adding={adding}
+        onAdd={open}
+        buttonRef={addButton}
+        level={headingLevel}
+      />
+      {topics.length === 0 && !adding && (
         <p className="text-sm text-muted-foreground">No topics yet</p>
       )}
       {topics.length > 0 && (
@@ -290,18 +262,15 @@ export function MeetingTopics({
           ))}
         </ul>
       )}
-      {(!panel || adding) && (
+      {adding && (
         <TopicInput
           ref={addRef}
           value={draft}
           label={`Add a topic to “${meeting.title}”`}
-          autoFocus={panel}
+          autoFocus
           onChange={setDraft}
           onEnter={add}
-          onEscape={panel ? close : draft ? () => setDraft('') : undefined}
-          onBlur={() => {
-            if (!draft.trim()) onAddBlur?.();
-          }}
+          onEscape={close}
         />
       )}
       <p role="status" aria-live="polite" className="sr-only">
@@ -325,6 +294,7 @@ function TopicsHeading({
   buttonRef,
   buttonId,
   describedBy,
+  level = 3,
 }: {
   id: string;
   /** The meeting's title, for the list's accessible name. */
@@ -336,14 +306,16 @@ function TopicsHeading({
   buttonRef: Ref<HTMLButtonElement>;
   buttonId?: string;
   describedBy?: string;
+  level?: 2 | 3;
 }) {
+  const Heading = level === 2 ? 'h2' : 'h3';
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="flex min-w-0 items-baseline gap-2">
-        <h3 id={id} className="text-xs font-medium">
+        <Heading id={id} className="text-xs font-medium">
           Topics
           <span className="sr-only">{title ? ` for “${title}”` : ''}</span>
-        </h3>
+        </Heading>
         {count && (
           <span className="text-xs text-muted-foreground tabular-nums">
             {count}
@@ -379,7 +351,6 @@ function TopicInput({
   onChange,
   onEnter,
   onEscape,
-  onBlur,
 }: {
   ref?: Ref<HTMLInputElement>;
   value: string;
@@ -388,7 +359,6 @@ function TopicInput({
   onChange: (value: string) => void;
   onEnter: () => void;
   onEscape?: () => void;
-  onBlur?: () => void;
 }) {
   return (
     <input
@@ -418,7 +388,6 @@ function TopicInput({
           onEscape();
         }
       }}
-      onBlur={onBlur}
     />
   );
 }

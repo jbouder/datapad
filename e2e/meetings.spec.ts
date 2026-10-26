@@ -56,8 +56,9 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
 
   // Edit the time: `2pm` reads as 14:00, and the end must come after.
   await added
-    .getByRole('button', { name: 'Hangar walkthrough', exact: true })
+    .getByRole('button', { name: 'More for “Hangar walkthrough”' })
     .click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Hangar walkthrough' });
   await edit.getByLabel('Time', { exact: true }).fill('2pm');
   await edit.getByRole('button', { name: 'Save' }).click();
@@ -142,16 +143,22 @@ test('filters by project and General, and keeps archived projects under Past', a
   ).toHaveValue('Echo Base relocation');
 });
 
-test('the old Events address lands on Meetings, query and all', async ({
+test('old addresses land on Meetings, or on the meeting they opened', async ({
   page,
 }) => {
   await openLive(page, '/events?view=list&event=e-1');
-  await expect(page).toHaveURL(/\/meetings\?view=list&meeting=e-1$/);
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Meetings' }),
+    page.getByRole('heading', { level: 1, name: 'Shield review' }),
   ).toBeVisible();
-  await expect(page).toHaveTitle('Meetings · Datapad');
-  await expect(row(page, 'Shield review')).toHaveAttribute('data-highlighted');
+  await expect(page).toHaveTitle('Shield review · Datapad');
+
+  // A meeting's row was /meetings?meeting=<id> until it had a page.
+  await page.goto('/meetings?view=list&meeting=e-1');
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Shield review' }),
+  ).toBeVisible();
 
   // Other parameters come along unchanged.
   await page.goto('/events?project=p-echo&view=calendar');
