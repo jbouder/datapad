@@ -53,6 +53,12 @@ export function useFlip(
       if (!id) {
         continue;
       }
+      if (el.getClientRects().length === 0) {
+        // Not rendered (inside a collapsed section): it has no position
+        // to remember, and remembering 0,0 would slide it in from the
+        // corner of the viewport when the section opens.
+        continue;
+      }
       const slide = sliding.current.get(el);
       const offset =
         slide && slide.playState === 'running'
