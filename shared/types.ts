@@ -165,8 +165,23 @@ export interface Meeting {
   link: string;
   /** Short agenda or context, plain text. */
   note: string;
+  /**
+   * The agenda as discrete items, in order. Absent on documents written
+   * before topics: read it with `topicsOf()`.
+   */
+  topics?: Topic[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/** One thing to raise in a meeting: covered or not, and what came of it. */
+export interface Topic {
+  id: string;
+  title: string;
+  /** Covered. */
+  done: boolean;
+  /** One line on what came of it, or empty. */
+  outcome: string;
 }
 
 /** Why something was decided, kept so it can be found and cited later. */
@@ -253,6 +268,11 @@ export function milestonesOf(
   project: Pick<Project, 'milestones'>,
 ): Milestone[] {
   return project.milestones ?? [];
+}
+
+/** A meeting's topics, empty on documents written before they existed. */
+export function topicsOf(meeting: Pick<Meeting, 'topics'>): Topic[] {
+  return meeting.topics ?? [];
 }
 
 /** A task's blocked flag, null when it is not blocked. */

@@ -633,6 +633,226 @@ describe('meetings', () => {
   });
 });
 
+describe('topics', () => {
+  const meeting: Op = {
+    type: 'addMeeting',
+    id: 'e1',
+    projectId: 'p1',
+    title: 'Review',
+    date: '2026-10-27',
+  };
+  const add = (id: string, title: string, after?: string): Op => ({
+    type: 'addTopic',
+    meetingId: 'e1',
+    id,
+    title,
+    ...(after ? { after } : {}),
+  });
+  const T2 = '2026-10-24T09:00:00.000Z';
+  /** A meeting `e1` on `p1` with topics a, b and c, in that order. */
+  const three = () =>
+    run(
+      base(),
+      meeting,
+      add('a', 'Shields'),
+      add('b', 'Doors'),
+      add('c', 'Power'),
+    );
+  const ids = (state: Snapshot) => state.meetings.e1?.topics?.map((t) => t.id);
+  /** Every op bumps the meeting and its project, nothing else in the log. */
+  const bumped = (state: Snapshot) => {
+    expect(state.meetings.e1?.updatedAt).toBe(T2);
+    expect(state.projects.p1?.updatedAt).toBe(T2);
+  };
+
+  it('addTopic appends, logs its text and bumps the meeting and project', () => {
+    const before = run(base(), meeting);
+    expect(before.meetings.e1).not.toHaveProperty('topics');
+    const { state, changed } = reduce(freeze(before), add('a', 'Shields'), T2);
+    expect(state.meetings.e1?.topics).toEqual([
+      { id: 'a', title: 'Shields', done: false, outcome: '' },
+    ]);
+    expect(lastLog(state, 'p1')).toBe('Added topic "Shields" to "Review"');
+    bumped(state);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'meetings', id: 'e1' },
+      { col: 'projects', id: 'p1' },
+    ]);
+  });
+
+  it('addTopic with `after` inserts right after that topic', () => {
+    let state = run(three(), add('d', 'Comms', 'a'));
+    expect(ids(state)).toEqual(['a', 'd', 'b', 'c']);
+    state = run(state, add('e', 'Exit', 'c'));
+    expect(ids(state)).toEqual(['a', 'd', 'b', 'c', 'e']);
+    expect(() => at(state, add('f', 'Lost', 'zz'))).toThrow(
+      'That topic no longer exists',
+    );
+  });
+
+  it('addTopic refuses a duplicate id, a missing meeting and topic 51', () => {
+    const state = three();
+    expect(() => at(state, add('a', 'Again'))).toThrow(
+      'That topic already exists',
+    );
+    expect(() =>
+      at(state, { type: 'addTopic', meetingId: 'e9', id: 'x', title: 'X' }),
+    ).toThrow('That meeting no longer exists');
+    const full = run(
+      base(),
+      meeting,
+      ...Array.from({ length: LIMITS.topicsMax }, (_, i) =>
+        add(`t${i}`, `Topic ${i}`),
+      ),
+    );
+    expect(full.meetings.e1?.topics).toHaveLength(LIMITS.topicsMax);
+    expect(() => at(full, add('over', 'One more'))).toThrow(
+      `A meeting has ${LIMITS.topicsMax} topics at most`,
+    );
+  });
+
+  it('editTopic changes the title or outcome, silently', () => {
+    const state = three();
+    const { state: next } = reduce(
+      freeze(state),
+      {
+        type: 'editTopic',
+        meetingId: 'e1',
+        id: 'b',
+        patch: { title: 'Blast doors', outcome: 'Fixed by Friday' },
+      },
+      T2,
+    );
+    expect(next.meetings.e1?.topics?.[1]).toEqual({
+      id: 'b',
+      title: 'Blast doors',
+      done: false,
+      outcome: 'Fixed by Friday',
+    });
+    expect(next.activity.p1).toBe(state.activity.p1);
+    bumped(next);
+    expect(() =>
+      at(state, {
+        type: 'editTopic',
+        meetingId: 'e1',
+        id: 'zz',
+        patch: { title: 'X' },
+      }),
+    ).toThrow('That topic no longer exists');
+  });
+
+  it('toggleTopic says the outcome, silently, and is idempotent', () => {
+    const state = three();
+    const op: Op = {
+      type: 'toggleTopic',
+      meetingId: 'e1',
+      id: 'c',
+      done: true,
+    };
+    const { state: next } = reduce(freeze(state), op, T2);
+    expect(next.meetings.e1?.topics?.map((t) => t.done)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    expect(next.activity.p1).toBe(state.activity.p1);
+    bumped(next);
+    const again = reduce(freeze(next), op, T1);
+    expect(again.state).toBe(next);
+    expect(again.changed).toEqual([]);
+    const back = reduce(next, { ...op, done: false }, T1).state;
+    expect(back.meetings.e1?.topics?.[2]?.done).toBe(false);
+  });
+
+  it('reorderTopics takes every id in the new order, silently', () => {
+    const state = three();
+    const { state: next } = reduce(
+      freeze(state),
+      { type: 'reorderTopics', meetingId: 'e1', ids: ['c', 'a', 'b'] },
+      T2,
+    );
+    expect(ids(next)).toEqual(['c', 'a', 'b']);
+    expect(next.activity.p1).toBe(state.activity.p1);
+    bumped(next);
+    const same = at(next, {
+      type: 'reorderTopics',
+      meetingId: 'e1',
+      ids: ['c', 'a', 'b'],
+    });
+    expect(same.state).toBe(next);
+  });
+
+  it('reorderTopics refuses a list that omits, repeats or invents an id', () => {
+    const state = freeze(three());
+    for (const list of [
+      ['c', 'a'],
+      ['c', 'a', 'a'],
+      ['c', 'a', 'b', 'z'],
+      ['c', 'a', 'z'],
+    ]) {
+      expect(() =>
+        reduce(
+          state,
+          { type: 'reorderTopics', meetingId: 'e1', ids: list },
+          T2,
+        ),
+      ).toThrow(OpError);
+    }
+    expect(ids(state)).toEqual(['a', 'b', 'c']);
+    expect(state.meetings.e1?.updatedAt).not.toBe(T2);
+  });
+
+  it('deleteTopic logs its text and bumps the meeting and project', () => {
+    const { state } = reduce(
+      freeze(three()),
+      { type: 'deleteTopic', meetingId: 'e1', id: 'b' },
+      T2,
+    );
+    expect(ids(state)).toEqual(['a', 'c']);
+    expect(lastLog(state, 'p1')).toBe('Removed topic "Doors" from "Review"');
+    bumped(state);
+    expect(() =>
+      at(state, { type: 'deleteTopic', meetingId: 'e1', id: 'b' }),
+    ).toThrow('That topic no longer exists');
+  });
+
+  it('logs in General for a meeting without a project', () => {
+    const state = run(
+      emptySnapshot(),
+      { ...meeting, projectId: null } as Op,
+      add('a', 'Shields'),
+    );
+    expect(lastLog(state, GENERAL)).toBe('Added topic "Shields" to "Review"');
+  });
+
+  it('deleteMeeting takes its topics with it', () => {
+    const { state, changed } = at(three(), { type: 'deleteMeeting', id: 'e1' });
+    expect(state.meetings.e1).toBeUndefined();
+    expect(changed).toContainEqual({
+      col: 'meetings',
+      id: 'e1',
+      deleted: true,
+    });
+  });
+
+  it('merge() replaces a meeting, topics and all, by id', () => {
+    const state = three();
+    const e1 = state.meetings.e1;
+    if (!e1) throw new Error('No meeting');
+    const incoming = ExportSchema.parse({
+      exportedAt: T2,
+      meetings: {
+        e1: { ...e1, topics: [{ id: 'z', title: 'Only this', done: true }] },
+      },
+    });
+    const { state: next } = merge(state, incoming);
+    expect(next.meetings.e1?.topics).toEqual([
+      { id: 'z', title: 'Only this', done: true, outcome: '' },
+    ]);
+  });
+});
+
 describe('milestones', () => {
   const add = (id: string, title: string, date: string): Op => ({
     type: 'addMilestone',

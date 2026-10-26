@@ -23,6 +23,10 @@ export const LIMITS = {
   stateMax: 300,
   /** A meeting's short agenda or context note. */
   meetingNoteMax: 2_000,
+  /** Topics on one meeting (their titles use `titleMax`). */
+  topicsMax: 50,
+  /** A topic's one-line outcome. */
+  topicOutcomeMax: 300,
   /** Milestones on one project. */
   milestonesMax: 50,
   tagsMax: 20,

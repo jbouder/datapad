@@ -1,6 +1,6 @@
 import { tokensToNames } from './mentions';
 import { lastCall } from './select';
-import type { Snapshot } from './types';
+import { type Snapshot, topicsOf } from './types';
 
 /**
  * Search everything (the ⌘K palette). The index is a selector: one entry
@@ -112,16 +112,22 @@ export const searchIndex = lastCall(
           updatedAt: n.editedAt ?? n.createdAt,
         });
       }),
+      // A topic is found through its meeting, not as a result of its own.
       meeting: Object.values(meetings).map((m) =>
-        entry({
-          kind: 'meeting',
-          id: m.id,
-          title: m.title,
-          body: flat(m.note),
-          projectId: m.projectId,
-          archived: archived(m.projectId),
-          updatedAt: m.updatedAt,
-        }),
+        entry(
+          {
+            kind: 'meeting',
+            id: m.id,
+            title: m.title,
+            body: flat(m.note),
+            projectId: m.projectId,
+            archived: archived(m.projectId),
+            updatedAt: m.updatedAt,
+          },
+          topicsOf(m)
+            .map((t) => t.title)
+            .join(' '),
+        ),
       ),
       decision: Object.values(decisions).map((x) =>
         entry({

@@ -104,6 +104,9 @@ as it is:
   `meetingId` / `phase`, `archived` and `links[]` carry over untouched.
 - A project may carry `milestones` (`[{ "id", "title", "date" }]`, by
   date, 50 at most); a deadline is its `targetDate`.
+- A meeting may carry `topics` (`[{ "id", "title", "done", "outcome" }]`,
+  in agenda order, 50 at most, outcomes 300 characters); a file without
+  them reads as none.
 - A file from before meetings (the artifact's, or an older Datapad
   export or backup) has `events` instead of `meetings`, and notes with
   `eventId`. It imports as it is, migrated on the way in
@@ -170,7 +173,7 @@ the bucket in the dashboard). A space's id is in the `/api/spaces` list.
 ## Moving a project to another space
 
 With more than one space, a project page's menu has **Move to…**. The
-project goes with its tasks, notes, meetings, milestones, decisions and
+project goes with its tasks, notes, meetings (and their topics), milestones, decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it
 refers to (members, assignees, who its tasks are blocked on, event

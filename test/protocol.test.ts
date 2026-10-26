@@ -12,6 +12,7 @@ import {
   RenameSpaceSchema,
   ReorderSpacesSchema,
   SpaceSchema,
+  TopicSchema,
 } from '#shared/protocol';
 import { COLLECTIONS, MAIN_SPACE } from '#shared/types';
 import fixture from './fixtures/export.json';
@@ -412,6 +413,101 @@ describe('ops and messages', () => {
         type: 'put',
         col: 'events',
         doc: cases.meetings.valid,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('carries topics on a meeting, within their limits', () => {
+    const meeting = DocumentSchemas.meetings;
+    // An older meeting has none, and gains no empty list.
+    expect(meeting.parse(cases.meetings.valid)).not.toHaveProperty('topics');
+    expect(TopicSchema.parse({ id: 'tp-1', title: 'Shields' })).toEqual({
+      id: 'tp-1',
+      title: 'Shields',
+      done: false,
+      outcome: '',
+    });
+    const topic = (i: number) => ({
+      id: `tp-${i}`,
+      title: `Topic ${i}`,
+      done: i % 2 === 0,
+      outcome: '',
+    });
+    const full = Array.from({ length: LIMITS.topicsMax }, (_, i) => topic(i));
+    expect(
+      meeting.parse({ ...cases.meetings.valid, topics: full }).topics,
+    ).toEqual(full);
+    expect(
+      meeting.safeParse({
+        ...cases.meetings.valid,
+        topics: [...full, topic(LIMITS.topicsMax)],
+      }).success,
+    ).toBe(false);
+    expect(
+      TopicSchema.safeParse({
+        ...topic(1),
+        outcome: 'x'.repeat(LIMITS.topicOutcomeMax + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      TopicSchema.safeParse({
+        ...topic(1),
+        title: 'x'.repeat(LIMITS.titleMax + 1),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('has the topic ops', () => {
+    expect(
+      OpSchema.parse({
+        type: 'addTopic',
+        meetingId: 'e-1',
+        id: 'tp-1',
+        title: '  Shields ',
+        after: 'tp-0',
+      }),
+    ).toMatchObject({ title: 'Shields', after: 'tp-0' });
+    expect(
+      OpSchema.safeParse({
+        type: 'addTopic',
+        meetingId: 'e-1',
+        id: 'tp-1',
+        title: '   ',
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.parse({
+        type: 'editTopic',
+        meetingId: 'e-1',
+        id: 'tp-1',
+        patch: { outcome: ' Holding ' },
+      }),
+    ).toMatchObject({ patch: { outcome: 'Holding' } });
+    for (const patch of [
+      {},
+      { outcome: 'x'.repeat(LIMITS.topicOutcomeMax + 1) },
+    ]) {
+      expect(
+        OpSchema.safeParse({
+          type: 'editTopic',
+          meetingId: 'e-1',
+          id: 'tp-1',
+          patch,
+        }).success,
+      ).toBe(false);
+    }
+    for (const op of [
+      { type: 'toggleTopic', meetingId: 'e-1', id: 'tp-1', done: true },
+      { type: 'reorderTopics', meetingId: 'e-1', ids: ['tp-2', 'tp-1'] },
+      { type: 'deleteTopic', meetingId: 'e-1', id: 'tp-1' },
+    ]) {
+      expect(OpSchema.safeParse(op).success).toBe(true);
+    }
+    expect(
+      OpSchema.safeParse({
+        type: 'reorderTopics',
+        meetingId: 'e-1',
+        ids: Array.from({ length: LIMITS.topicsMax + 1 }, (_, i) => `tp-${i}`),
       }).success,
     ).toBe(false);
   });

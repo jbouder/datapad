@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   GENERAL,
   healthOf,
+  type Meeting,
   type Milestone,
   milestonesOf,
   type Person,
@@ -17,6 +18,8 @@ import {
   SETTINGS_ID,
   type Snapshot,
   type Task,
+  type Topic,
+  topicsOf,
 } from './types';
 
 /**
@@ -138,6 +141,16 @@ function task(d: Draft, id: string): Task {
 
 function meeting(d: Draft, id: string) {
   return d.get('meetings', id) ?? fail('That meeting no longer exists');
+}
+
+function topic(list: Topic[], id: string): Topic {
+  return list.find((t) => t.id === id) ?? fail('That topic no longer exists');
+}
+
+/** A meeting's topics changed: bump it and its project. */
+function setTopics(d: Draft, m: Meeting, list: Topic[], now: string) {
+  d.set('meetings', m.id, { ...m, topics: list, updatedAt: now });
+  touch(d, m.projectId, now);
 }
 
 function milestone(list: Milestone[], id: string): Milestone {
@@ -594,6 +607,91 @@ function apply(d: Draft, op: Op, now: string) {
       d.delete('meetings', m.id);
       log(d, m.projectId, `Deleted meeting "${m.title}"`, now);
       touch(d, m.projectId, now);
+      return;
+    }
+
+    /*
+     * topics: on the meeting, so each one bumps its `updatedAt` and its
+     * project's. Adding and deleting log; edit, toggle and reorder do not.
+     */
+    case 'addTopic': {
+      const m = meeting(d, op.meetingId);
+      const list = topicsOf(m);
+      if (list.some((t) => t.id === op.id)) fail('That topic already exists');
+      if (list.length >= LIMITS.topicsMax) {
+        fail(`A meeting has ${LIMITS.topicsMax} topics at most`);
+      }
+      const at =
+        op.after === undefined
+          ? list.length
+          : list.indexOf(topic(list, op.after)) + 1;
+      const added: Topic = {
+        id: op.id,
+        title: op.title,
+        done: false,
+        outcome: '',
+      };
+      setTopics(d, m, [...list.slice(0, at), added, ...list.slice(at)], now);
+      log(d, m.projectId, `Added topic "${op.title}" to "${m.title}"`, now);
+      return;
+    }
+    case 'editTopic': {
+      const m = meeting(d, op.meetingId);
+      const list = topicsOf(m);
+      const t = topic(list, op.id);
+      const next = { ...t, ...op.patch };
+      setTopics(
+        d,
+        m,
+        list.map((x) => (x.id === t.id ? next : x)),
+        now,
+      );
+      return;
+    }
+    case 'toggleTopic': {
+      const m = meeting(d, op.meetingId);
+      const list = topicsOf(m);
+      const t = topic(list, op.id);
+      if (t.done === op.done) return;
+      setTopics(
+        d,
+        m,
+        list.map((x) => (x.id === t.id ? { ...t, done: op.done } : x)),
+        now,
+      );
+      return;
+    }
+    case 'reorderTopics': {
+      const m = meeting(d, op.meetingId);
+      const list = topicsOf(m);
+      const byId = new Map(list.map((t) => [t.id, t]));
+      if (
+        op.ids.length !== list.length ||
+        new Set(op.ids).size !== op.ids.length ||
+        op.ids.some((id) => !byId.has(id))
+      ) {
+        fail('The topics changed; try again');
+      }
+      if (op.ids.every((id, i) => list[i]?.id === id)) return;
+      setTopics(
+        d,
+        m,
+        op.ids.flatMap((id) => byId.get(id) ?? []),
+        now,
+      );
+      return;
+    }
+    case 'deleteTopic': {
+      const m = meeting(d, op.meetingId);
+      const list = topicsOf(m);
+      const t = topic(list, op.id);
+      setTopics(
+        d,
+        m,
+        list.filter((x) => x.id !== t.id),
+        now,
+      );
+      log(d, m.projectId, `Removed topic "${t.title}" from "${m.title}"`, now);
       return;
     }
 

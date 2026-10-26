@@ -27,6 +27,7 @@ import {
   TASK_STATUSES,
   type Task,
   type Template,
+  type Topic,
 } from './types';
 
 /**
@@ -158,6 +159,13 @@ export const NoteSchema = z.object({
   editedAt: timestamp.optional(),
 }) satisfies z.ZodType<Note, unknown>;
 
+export const TopicSchema = z.object({
+  id,
+  title: z.string().min(1).max(LIMITS.titleMax),
+  done: z.boolean().default(false),
+  outcome: text(LIMITS.topicOutcomeMax).default(''),
+}) satisfies z.ZodType<Topic, unknown>;
+
 export const MeetingSchema = z.object({
   id,
   projectId: nullableId.default(null),
@@ -168,6 +176,8 @@ export const MeetingSchema = z.object({
   attendees: people.default([]),
   link: text(LIMITS.urlMax).default(''),
   note: text(LIMITS.meetingNoteMax).default(''),
+  /** Absent in older exports; `topicsOf()` reads that as none. */
+  topics: z.array(TopicSchema).max(LIMITS.topicsMax).optional(),
   createdAt: timestamp,
   updatedAt: timestamp,
 }) satisfies z.ZodType<Meeting, unknown>;
@@ -490,6 +500,11 @@ const meetingFields = {
   note: text(LIMITS.meetingNoteMax),
 };
 
+const topicFields = {
+  title: required(LIMITS.titleMax),
+  outcome: z.string().trim().max(LIMITS.topicOutcomeMax),
+};
+
 const milestoneFields = {
   title: required(LIMITS.titleMax),
   date,
@@ -696,6 +711,36 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   /** Keeps the meeting's notes. */
   z.object({ type: z.literal('deleteMeeting'), id }),
 
+  /* topics (they live on their meeting) */
+  /** Appends, or inserts right after the topic `after`. */
+  z.object({
+    type: z.literal('addTopic'),
+    meetingId: id,
+    id,
+    title: topicFields.title,
+    after: id.optional(),
+  }),
+  z.object({
+    type: z.literal('editTopic'),
+    meetingId: id,
+    id,
+    patch: patch(topicFields),
+  }),
+  /** Covered (`done: true`) or not. Says the outcome, so it is idempotent. */
+  z.object({
+    type: z.literal('toggleTopic'),
+    meetingId: id,
+    id,
+    done: z.boolean(),
+  }),
+  /** Every topic id of the meeting, each once, in the new order. */
+  z.object({
+    type: z.literal('reorderTopics'),
+    meetingId: id,
+    ids: z.array(id).max(LIMITS.topicsMax),
+  }),
+  z.object({ type: z.literal('deleteTopic'), meetingId: id, id }),
+
   /* milestones (they live on their project) */
   z.object({
     type: z.literal('addMilestone'),
@@ -888,6 +933,7 @@ const LABELS: Record<string, string> = {
   targetDate: 'Target date',
   projectId: 'Project',
   meetingId: 'Meeting',
+  topics: 'Topics',
   sourceNoteId: 'Source note',
   createdAt: 'Created',
   updatedAt: 'Updated',
