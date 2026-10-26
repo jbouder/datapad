@@ -12,6 +12,7 @@ import {
 } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
+import { InlineAdd } from '@/components/inputs/InlineAdd';
 import { cleanLinks, LinksEditor } from '@/components/inputs/LinksEditor';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -271,13 +272,10 @@ export function TaskPanel({
             onInvalidChange={setDateInvalid}
           />
         </Field>
-        <Field label="Assignee">
-          <PersonPicker
-            value={values.assignee}
-            onChange={(assignee) => set('assignee', assignee)}
-            allowCreate
-          />
-        </Field>
+        <AssigneeField
+          value={values.assignee}
+          onChange={(assignee) => set('assignee', assignee)}
+        />
       </div>
       <fieldset className="flex flex-col gap-3">
         <legend className="sr-only">Blocked</legend>
@@ -493,13 +491,10 @@ export function NewTaskPanel({
             onInvalidChange={setDateInvalid}
           />
         </Field>
-        <Field label="Assignee">
-          <PersonPicker
-            value={values.assignee}
-            onChange={(assignee) => set('assignee', assignee)}
-            allowCreate
-          />
-        </Field>
+        <AssigneeField
+          value={values.assignee}
+          onChange={(assignee) => set('assignee', assignee)}
+        />
       </div>
       <Field label="Details" hint="Markdown; type / for styles, @ to mention">
         <NoteComposer
@@ -510,5 +505,52 @@ export function NewTaskPanel({
         />
       </Field>
     </SidePanel>
+  );
+}
+
+/**
+ * The assignee: a person picker whose "Add a person…" opens a name field
+ * below it; Enter adds the person (or picks the one that name means) and
+ * assigns them, Escape goes back to the picker.
+ */
+function AssigneeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  // Back to the picker before the field goes, so focus never falls out of
+  // the panel.
+  const done = () => {
+    wrap.current
+      ?.querySelector<HTMLInputElement>('input[role="combobox"]')
+      ?.focus();
+    setAdding(false);
+  };
+  return (
+    <div ref={wrap} className="flex flex-col gap-3">
+      <Field label="Assignee">
+        <PersonPicker
+          value={value}
+          onChange={onChange}
+          allowCreate
+          onAddPerson={() => setAdding(true)}
+        />
+      </Field>
+      {adding && (
+        <InlineAdd
+          label="New assignee’s name"
+          className="enter"
+          onAdd={({ id }) => {
+            onChange(id);
+            done();
+          }}
+          onCancel={done}
+        />
+      )}
+    </div>
   );
 }

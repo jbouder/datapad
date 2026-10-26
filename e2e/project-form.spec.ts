@@ -102,7 +102,7 @@ test('edit logs details and status separately; a new org is offered', async ({
   await org.click();
   await org.fill('Kessel Run Ltd');
   await expect(
-    page.getByRole('option', { name: 'Add “Kessel Run Ltd”' }),
+    page.getByRole('option', { name: 'Add “Kessel Run Ltd” as an org' }),
   ).toBeVisible();
   await org.press('Enter');
   await expect(org).toHaveValue('Kessel Run Ltd');
