@@ -116,7 +116,8 @@ the AUD, so a hostname that Access does not cover gets 401.
 
 `.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
 type check, build, Vitest in workerd, then Playwright + axe (desktop and
-phone) against `vite preview`. `.github/workflows/deploy.yml` deploys `main`
+phone) against `vite preview`, split across four runners on the Playwright
+container image. `.github/workflows/deploy.yml` deploys `main`
 after a green CI run.
 1. Create an API token from the **Edit Cloudflare Workers** template.
 2. In the repository: Settings → Secrets and variables → Actions, add
@@ -124,7 +125,9 @@ after a green CI run.
 3. Settings → Environments → create `production` (add yourself as a
    required reviewer if you want a manual gate).
 4. Settings → Branches (or Rules) → protect `main`: require a pull request
-   and the `check` and `e2e` status checks. GitHub only offers a check once
+   and the `check` and `e2e` status checks. The browser suite runs as four
+   `e2e shard n/4` jobs; `e2e` is the one job that passes only when all of
+   them do, so require it, not the shards. GitHub only offers a check once
    it has run.
 
 Without the secret the deploy job is skipped and the run stays green, so
