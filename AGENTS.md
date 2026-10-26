@@ -18,17 +18,17 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 ## Layout
 
 - `shared/` — the domain, used by both sides. `types.ts` (the six
-  collections), `protocol.ts` (zod schemas for documents, the export file,
+  collections; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts`,
-  `milestones.ts` (they live on the project), `migrate.ts` (events from
-  before meetings → meetings and milestones; every import and the DO's
-  schema 3 run it),
+  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order),
+  `milestones.ts` (they live on the project), `migrate.ts` (the typed
+  collection from before meetings → meetings and milestones; every import
+  and the DO's schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `routes.ts` (the app's addresses, pure:
-  parse, paths, old addresses such as `/events`, titles), `spaces.ts` (space names and order, and the
+  parse, paths, redirects from old addresses, titles; `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order, and the
   pure halves of moving a project between spaces).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
@@ -43,7 +43,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`),
   `components/*` (shared layouts in `components/layouts/`: ViewSwitcher,
   DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
-  `SpacesSettings`, `projects/MoveProjectDialog`), `pages/*`.
+  `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
+  `meetings/` holds the meeting form, row, list, layouts, linked notes,
+  the Prep/Debrief routing and the Focus agenda strip), `pages/*`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a
@@ -88,7 +90,10 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   `test/reducer.test.ts` (including its activity text), and add the
   matching action to `useDatapad()`. Never mutate state in the DO or the UI
   directly; no component touches the socket. The reducer stays pure: ids
-  come in the op, the time as `now`. An op changes one space; moving a
+  come in the op, the time as `now`. Milestone ops (`addMilestone`,
+  `editMilestone`, `deleteMilestone`) are project ops: they rewrite the
+  project's `milestones` and bump its `updatedAt`; topic ops rewrite
+  their meeting's `topics` and bump the meeting's and the project's. An op changes one space; moving a
   project spans two, so it is `merge()` plus `removeSubtree()` in one
   transaction (`shared/spaces.ts`), not an op.
 - **The repository is public.** No real data in fixtures, tests or docs;

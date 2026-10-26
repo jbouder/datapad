@@ -1,7 +1,7 @@
 # Datapad
 
 A private project tracker for an engineering leader: projects, tasks, notes,
-events and people in one place, with cross-project views, search and
+meetings, milestones and people in one place, with cross-project views, search and
 summaries that run on your own device. Built for daily use on a laptop and a
 phone.
 
@@ -20,11 +20,13 @@ Under construction. Milestone progress is tracked in the
 | M1        | Data model, sync, import and export                                      |
 | M2        | App shell, Projects, Tasks                                               |
 | M3        | Notes and mentions                                                       |
-| M4        | Events                                                                   |
+| M4        | Meetings, with prep and debrief notes                                    |
 | M5        | Focus, People, ⌘K search                                                 |
 | M6        | On-device summaries, backups, polish                                     |
 | M7        | Health, blocked, decisions, orgs, digest, templates                      |
 | M8        | Quality, security, accessibility and docs pass                           |
+| M9        | Spaces                                                                   |
+| M10       | Meetings and milestones                                                  |
 
 ## Privacy
 
