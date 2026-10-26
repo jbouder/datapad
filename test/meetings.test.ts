@@ -17,7 +17,6 @@ import {
   splitByMonth,
   timeRange,
   topicCount,
-  topicLines,
   topicOps,
   topicsToCarry,
 } from '#shared/meetings';
@@ -166,15 +165,7 @@ describe('milestones', () => {
   });
 });
 
-describe('the meeting form’s Topics field', () => {
-  it('reads one topic per line, trimmed, blanks dropped', () => {
-    expect(topicLines('')).toEqual([]);
-    expect(topicLines('  \n\n ')).toEqual([]);
-    expect(
-      topicLines(' Power budget \r\n\nNorth ridge\n  Hoth weather  '),
-    ).toEqual(['Power budget', 'North ridge', 'Hoth weather']);
-  });
-
+describe('a new meeting’s pending topics', () => {
   it('says what is wrong: a long line, or too many', () => {
     expect(checkTopicLines(['a', 'b'])).toBeNull();
     expect(checkTopicLines(['a', 'x'.repeat(LIMITS.titleMax + 1)])).toBe(
@@ -216,11 +207,7 @@ describe('the meeting form’s Topics field', () => {
           title: 'Shield review',
           date: '2026-10-27',
         },
-        ...topicOps(
-          'm1',
-          topicLines('Power budget\nNorth ridge'),
-          () => `t${++n}`,
-        ),
+        ...topicOps('m1', ['Power budget', 'North ridge'], () => `t${++n}`),
       ],
     });
     const { state } = reduce(emptySnapshot(), op, '2026-10-20T10:00:00.000Z');

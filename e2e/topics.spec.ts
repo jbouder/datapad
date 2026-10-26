@@ -96,7 +96,7 @@ test('shows topics and their count on the meeting row', async ({ page }) => {
   ).toContainText('1 of 3 topics');
 });
 
-test('adds topics from the form, in one batch with the meeting', async ({
+test('adds topics in the new meeting panel, in one batch with it', async ({
   page,
   request,
 }) => {
@@ -106,9 +106,39 @@ test('adds topics from the form, in one batch with the meeting', async ({
   await form.getByLabel('Title').fill('Hangar walkthrough');
   await form.getByLabel('Date').fill('+2d');
   await form.getByLabel('Date').press('Tab');
-  await form
-    .getByLabel('Topics')
-    .fill('Door insulation\n\n  Tauntaun stalls  \nSnowspeeder bays');
+  // No field until Add topic; each Enter adds one and keeps it open.
+  const field = form.getByRole('textbox', { name: 'Add a topic' });
+  await expect(field).toHaveCount(0);
+  await expect(form).toContainText('No topics yet');
+  await form.getByRole('button', { name: 'Add topic' }).click();
+  await expect(field).toBeFocused();
+  for (const title of [
+    'Door insulation',
+    '  Tauntaun stalls  ',
+    'Wrong one',
+    'Snowspeeder bays',
+  ]) {
+    await field.fill(title);
+    await field.press('Enter');
+  }
+  await field.press('Enter'); // blank: nothing
+  await expect(field).toBeFocused();
+  const pending = form.locator('[data-pending-topic]');
+  await expect(pending).toHaveCount(4);
+  await form.getByRole('button', { name: 'Remove “Wrong one”' }).click();
+  await expect(pending).toHaveText([
+    'Door insulation',
+    'Tauntaun stalls',
+    'Snowspeeder bays',
+  ]);
+  // Escape closes the field, not the panel.
+  await form.getByRole('button', { name: 'Add topic' }).click();
+  await field.press('Escape');
+  await expect(field).toHaveCount(0);
+  await expect(form).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Add topic' })).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectAccessible(page);
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
@@ -136,17 +166,80 @@ test('adds topics from the form, in one batch with the meeting', async ({
     'Added topic "Door insulation" to "Hangar walkthrough"',
     'Added meeting "Hangar walkthrough"',
   ]);
+});
 
-  // Editing adds more after the ones it has.
-  await added
-    .getByRole('button', { name: 'Hangar walkthrough', exact: true })
+test('the panel lists an existing meeting’s topics, changed in place', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/meetings');
+  const shield = row(page, 'Shield review');
+  await shield
+    .getByRole('button', { name: 'Shield review', exact: true })
     .click();
-  const edit = page.getByRole('dialog', { name: 'Edit Hangar walkthrough' });
-  await expect(edit.getByLabel('Topics')).toHaveValue('');
-  await edit.getByLabel('Topics').fill('Wampa sightings');
-  await edit.getByRole('button', { name: 'Save' }).click();
+  const edit = page.getByRole('dialog', { name: 'Edit Shield review' });
+  const list = edit.getByRole('list', { name: 'Topics for “Shield review”' });
+  await expect(list.locator('[data-topic-title]')).toHaveText([
+    'Power budget',
+    'North ridge',
+    'Probe droid sightings',
+  ]);
+  await expect(edit).toContainText('1 of 3 topics');
+  const field = edit.getByRole('textbox', {
+    name: 'Add a topic to “Shield review”',
+  });
+  await expect(field).toHaveCount(0);
+
+  // Each change is an op at once: the row behind shows it before Save.
+  await edit.getByRole('button', { name: 'Add topic' }).click();
+  await expect(field).toBeFocused();
+  await field.fill('Wampa sightings');
+  await field.press('Enter');
+  await expect(field).toHaveValue('');
+  await expect(field).toBeFocused();
+  await field.fill('Hoth weather');
+  await field.press('Enter');
+  await field.press('Escape');
+  await expect(field).toHaveCount(0);
+  await expect(edit).toBeVisible();
+  await expect(list.locator('[data-topic-title]')).toHaveCount(5);
+
+  const check = page.getByRole('checkbox', { name: 'Covered: “North ridge”' });
+  await list.locator('label', { has: check }).click();
+  await expect(list.locator(check)).toBeChecked();
+  await expect(edit).toContainText('2 of 5 topics');
+
+  await list.getByRole('button', { name: 'Outcome for “North ridge”' }).click();
+  const outcome = list.getByRole('textbox', {
+    name: 'Outcome of “North ridge”',
+  });
+  await outcome.fill('Shield covers it');
+  await outcome.press('Enter');
+  await expect(list).toContainText('Shield covers it');
+  await expect(edit).toBeVisible();
+
+  await list
+    .getByRole('button', { name: 'More for topic “Hoth weather”' })
+    .click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await expect(list.locator('[data-topic-title]')).toHaveCount(4);
+  await expectNoSidewaysScroll(page);
+  await expectAccessible(page);
+
+  // Nothing to save: Cancel closes without asking.
+  await edit.getByRole('button', { name: 'Cancel' }).click();
   await expect(edit).toBeHidden();
-  await expect(added.locator('[data-topic-count]')).toHaveText('0 of 4 topics');
+  await expect(shield.locator('[data-topic-count]')).toHaveText(
+    '2 of 4 topics',
+  );
+  await expectSaved(page);
+  const topics = (await stored(request)).meetings['e-1']?.topics;
+  expect(topics?.map((t) => [t.title, t.done, t.outcome])).toEqual([
+    ['Power budget', true, 'Approved'],
+    ['North ridge', true, 'Shield covers it'],
+    ['Probe droid sightings', false, ''],
+    ['Wampa sightings', false, ''],
+  ]);
 });
 
 test('inline: add, toggle, record an outcome, rename', async ({

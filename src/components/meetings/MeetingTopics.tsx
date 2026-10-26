@@ -7,16 +7,19 @@ import {
   DotsSixVerticalIcon,
   DotsThreeIcon,
   GavelIcon,
+  PlusIcon,
   TrashIcon,
+  XIcon,
 } from '@phosphor-icons/react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { type Ref, useEffect, useId, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
-import { restoredOrder } from '#shared/meetings';
+import { restoredOrder, topicCount } from '#shared/meetings';
 import type { Op } from '#shared/protocol';
 import { type Meeting, type Topic, topicsOf } from '#shared/types';
 import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,17 +51,25 @@ const INLINE_INPUT =
  * toast). Drag the handle to reorder with a mouse; touch and keyboard
  * move from the menu (or Alt+↑ / Alt+↓). The add field at the bottom
  * takes a title: Enter adds, Escape clears.
+ *
+ * In the meeting's panel (`panel`) the heading has the count and an Add
+ * topic button, as the Notes section has Add note: the field shows only
+ * once it is pressed, stays open for the next title after Enter, and
+ * Escape closes it. Every change is an op at once, as on the row.
  */
 export function MeetingTopics({
   meeting,
   focusAdd = 0,
   onAddBlur,
+  panel = false,
 }: {
   meeting: Meeting;
   /** Bumped to put the focus in the add field (the row menu's Add topic). */
   focusAdd?: number;
   /** The add field was left empty (the row hides an empty list then). */
   onAddBlur?: () => void;
+  /** In the meeting's panel: a heading with Add topic, the field on demand. */
+  panel?: boolean;
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
@@ -68,6 +79,8 @@ export function MeetingTopics({
   useFlip(list, active);
   const headingId = useId();
   const addRef = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [armedId, setArmedId] = useState<string | null>(null);
@@ -89,6 +102,16 @@ export function MeetingTopics({
     }, 50);
     return () => window.clearTimeout(timer);
   }, [focusAdd]);
+
+  const open = () => {
+    if (adding) addRef.current?.focus();
+    else setAdding(true);
+  };
+  const close = () => {
+    setAdding(false);
+    setDraft('');
+    addButton.current?.focus();
+  };
 
   const add = () => {
     const title = draft.trim();
@@ -163,14 +186,31 @@ export function MeetingTopics({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex min-w-0 flex-col pb-2 @xl/row:pl-43"
+      className={cn(
+        'flex min-w-0 flex-col',
+        panel ? 'gap-2' : 'pb-2 @xl/row:pl-43',
+      )}
     >
-      <h4
-        id={headingId}
-        className="text-[11px] font-medium text-muted-foreground uppercase"
-      >
-        Topics<span className="sr-only"> for “{meeting.title}”</span>
-      </h4>
+      {panel ? (
+        <TopicsHeading
+          id={headingId}
+          title={meeting.title}
+          count={topicCount(topics)}
+          adding={adding}
+          onAdd={open}
+          buttonRef={addButton}
+        />
+      ) : (
+        <h4
+          id={headingId}
+          className="text-[11px] font-medium text-muted-foreground uppercase"
+        >
+          Topics<span className="sr-only"> for “{meeting.title}”</span>
+        </h4>
+      )}
+      {panel && topics.length === 0 && !adding && (
+        <p className="text-sm text-muted-foreground">No topics yet</p>
+      )}
       {topics.length > 0 && (
         <ul
           ref={list}
@@ -250,30 +290,258 @@ export function MeetingTopics({
           ))}
         </ul>
       )}
-      <input
-        ref={addRef}
-        value={draft}
-        maxLength={LIMITS.titleMax}
-        autoComplete="off"
-        enterKeyHint="enter"
-        placeholder="Add a topic"
-        aria-label={`Add a topic to “${meeting.title}”`}
-        className={cn(INLINE_INPUT, 'mt-1 border-dashed desk:max-w-md')}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            add();
-          } else if (e.key === 'Escape' && draft) {
-            e.preventDefault();
-            e.stopPropagation();
-            setDraft('');
-          }
+      {(!panel || adding) && (
+        <TopicInput
+          ref={addRef}
+          value={draft}
+          label={`Add a topic to “${meeting.title}”`}
+          autoFocus={panel}
+          onChange={setDraft}
+          onEnter={add}
+          onEscape={panel ? close : draft ? () => setDraft('') : undefined}
+          onBlur={() => {
+            if (!draft.trim()) onAddBlur?.();
+          }}
+        />
+      )}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * The Topics heading in a meeting's panel: the count beside it and an
+ * Add topic button, which stays put while the field is open (pressing it
+ * again goes back to the field), as Add note does.
+ */
+function TopicsHeading({
+  id,
+  title,
+  count,
+  adding,
+  onAdd,
+  buttonRef,
+  buttonId,
+  describedBy,
+}: {
+  id: string;
+  /** The meeting's title, for the list's accessible name. */
+  title: string;
+  /** "1 of 3 topics", or `''`. */
+  count: string;
+  adding: boolean;
+  onAdd: () => void;
+  buttonRef: Ref<HTMLButtonElement>;
+  buttonId?: string;
+  describedBy?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="flex min-w-0 items-baseline gap-2">
+        <h3 id={id} className="text-xs font-medium">
+          Topics
+          <span className="sr-only">{title ? ` for “${title}”` : ''}</span>
+        </h3>
+        {count && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {count}
+          </span>
+        )}
+      </span>
+      <Button
+        ref={buttonRef}
+        id={buttonId}
+        type="button"
+        variant="outline"
+        className="press h-11 desk:h-7"
+        aria-expanded={adding}
+        aria-describedby={describedBy}
+        onClick={onAdd}
+      >
+        <PlusIcon />
+        Add topic
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The one-line field a topic's title is typed into. Enter adds (and the
+ * field stays for the next); Escape is `onEscape`'s (none: the panel's).
+ */
+function TopicInput({
+  ref,
+  value,
+  label,
+  autoFocus,
+  onChange,
+  onEnter,
+  onEscape,
+  onBlur,
+}: {
+  ref?: Ref<HTMLInputElement>;
+  value: string;
+  label: string;
+  autoFocus?: boolean;
+  onChange: (value: string) => void;
+  onEnter: () => void;
+  onEscape?: () => void;
+  onBlur?: () => void;
+}) {
+  return (
+    <input
+      ref={ref}
+      value={value}
+      maxLength={LIMITS.titleMax}
+      autoComplete="off"
+      enterKeyHint="enter"
+      placeholder="Add a topic"
+      aria-label={label}
+      // biome-ignore lint/a11y/noAutofocus: opened by Add topic.
+      autoFocus={autoFocus}
+      className={cn(
+        INLINE_INPUT,
+        'mt-1 border-dashed desk:max-w-md',
+        // Opened on demand (the panel's): it enters.
+        autoFocus && 'enter',
+      )}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          onEnter();
+        } else if (e.key === 'Escape' && onEscape) {
+          e.preventDefault();
+          e.stopPropagation();
+          onEscape();
+        }
+      }}
+      onBlur={onBlur}
+    />
+  );
+}
+
+/**
+ * A new meeting's topics, in its panel: it has no id yet, so they wait
+ * here and are saved with it (the form's batch). The same heading and
+ * field as an existing meeting's; each Enter adds one, and each has a
+ * Remove button. `existing` (the carried ones) counts toward the limit.
+ */
+export function PendingTopics({
+  id,
+  titles,
+  onChange,
+  existing,
+  error,
+}: {
+  /** The Add topic button's, for the form to focus on a problem. */
+  id: string;
+  titles: string[];
+  onChange: (titles: string[]) => void;
+  existing: number;
+  /** The form's, from Save. */
+  error?: string;
+}) {
+  const headingId = useId();
+  const errorId = useId();
+  const addRef = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [full, setFull] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const problem = full ?? error;
+
+  const close = () => {
+    setAdding(false);
+    setDraft('');
+    setFull(null);
+    addButton.current?.focus();
+  };
+  const add = () => {
+    const title = draft.trim();
+    if (!title) return;
+    if (existing + titles.length >= LIMITS.topicsMax) {
+      setFull(`A meeting has ${LIMITS.topicsMax} topics at most`);
+      return;
+    }
+    onChange([...titles, title]);
+    setDraft('');
+    setAnnouncement(`Added “${title}”`);
+  };
+  const remove = (index: number) => {
+    const title = titles[index];
+    onChange(titles.filter((_, i) => i !== index));
+    setFull(null);
+    setAnnouncement(`Removed “${title}”`);
+    addButton.current?.focus();
+  };
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="flex min-w-0 flex-col gap-2"
+    >
+      <TopicsHeading
+        id={headingId}
+        title=""
+        count={titles.length > 0 ? `${titles.length} to add` : ''}
+        adding={adding}
+        onAdd={() => {
+          if (adding) addRef.current?.focus();
+          else setAdding(true);
         }}
-        onBlur={() => {
-          if (!draft.trim()) onAddBlur?.();
-        }}
+        buttonRef={addButton}
+        buttonId={id}
+        describedBy={problem ? errorId : undefined}
       />
+      {titles.length === 0 && !adding && (
+        <p className="text-sm text-muted-foreground">No topics yet</p>
+      )}
+      {titles.length > 0 && (
+        <ul aria-labelledby={headingId} className="flex min-w-0 flex-col">
+          {titles.map((title, index) => (
+            <li
+              // Titles may repeat; the list only grows at the end or loses one.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see above.
+              key={`${index}:${title}`}
+              data-pending-topic
+              className="enter flex min-w-0 items-center border-l pl-3 text-sm"
+            >
+              <span className="min-w-0 flex-1 py-1 break-words">{title}</span>
+              <button
+                type="button"
+                aria-label={`Remove “${title}”`}
+                className={ICON_BUTTON}
+                onClick={() => remove(index)}
+              >
+                <XIcon aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {adding && (
+        <TopicInput
+          ref={addRef}
+          value={draft}
+          label="Add a topic"
+          autoFocus
+          onChange={(value) => {
+            setDraft(value);
+            setFull(null);
+          }}
+          onEnter={add}
+          onEscape={close}
+        />
+      )}
+      {problem && (
+        <p id={errorId} className="text-xs text-destructive">
+          {problem}
+        </p>
+      )}
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
