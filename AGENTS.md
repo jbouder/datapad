@@ -21,7 +21,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   collections; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order),
+  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
+  mapping, counts, the Prep list; a meeting's series and carrying topics
+  forward),
   `milestones.ts` (they live on the project), `migrate.ts` (the typed
   collection from before meetings → meetings and milestones; every import
   and the DO's schema 3 run it),
