@@ -83,7 +83,7 @@ describe('meetingContext', () => {
     ).not.toContain('Topics');
   });
 
-  it('labels linked notes [prep] and [debrief], oldest first, names for mentions', () => {
+  it('labels every linked note [note], legacy phase or not, oldest first, names for mentions', () => {
     const text = meetingContext(meeting, {
       projects: { p1: { id: 'p1', name: 'Echo Base' } as Project },
       people: { leia: { id: 'leia', name: 'Leia Organa', role: '', me: true } },
@@ -107,10 +107,10 @@ describe('meetingContext', () => {
         'Agenda: Power budget.',
         '',
         'Linked notes:',
-        '[prep] Wed 21 Oct 2026',
+        '[note] Wed 21 Oct 2026',
         'Bring the numbers',
         '',
-        '[debrief] Tue 27 Oct 2026',
+        '[note] Tue 27 Oct 2026',
         'Went well, ask @Leia Organa',
         '',
         '[note] Wed 28 Oct 2026',
@@ -244,7 +244,7 @@ describe('projectContext', () => {
         '- Tue 27 Oct 2026 14:00–15:00: Shield review',
         '',
         'Notes, newest first:',
-        '[prep] Fri 23 Oct 2026',
+        '[note] Fri 23 Oct 2026',
         'Bring the numbers',
         '',
         '[note] Thu 22 Oct 2026',
@@ -436,7 +436,7 @@ describe('noteContext', () => {
       [
         'Note of Wed 21 Oct 2026',
         'Project: Echo Base',
-        'Meeting: debrief of Shield review on Tue 27 Oct 2026',
+        'Meeting: Shield review on Tue 27 Oct 2026',
         '',
         'Ask @Leia Organa',
       ].join('\n'),

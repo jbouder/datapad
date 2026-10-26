@@ -69,9 +69,24 @@ export const taskNoteCounts = lastCall(
 
 /** A task's running notes, newest first. */
 export function notesOfTask(notes: Snapshot['notes'], taskId: string): Note[] {
-  return Object.values(notes)
-    .filter((n) => n.taskId === taskId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return newestFirst(Object.values(notes).filter((n) => n.taskId === taskId));
+}
+
+/**
+ * A meeting's notes, newest first: one list, whatever their (legacy)
+ * `phase`.
+ */
+export function notesOfMeeting(
+  notes: Snapshot['notes'],
+  meetingId: string,
+): Note[] {
+  return newestFirst(
+    Object.values(notes).filter((n) => n.meetingId === meetingId),
+  );
+}
+
+function newestFirst(notes: Note[]): Note[] {
+  return notes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /** Distinct orgs across projects, for autocomplete, sorted. */

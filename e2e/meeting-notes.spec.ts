@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, formatDay, localDate } from '../shared/dates';
+import { addDays, localDate } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -30,13 +30,12 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 const today = localDate(new Date());
 const shieldDay = addDays(today, 3);
 const planningDay = addDays(today, 2);
-const shieldLine = (lead: string) =>
-  `## ${lead}Shield review — ${formatDay(shieldDay, today)}`;
 
 function row(page: Page, title: string) {
   return page.locator('[data-meeting-id]').filter({ hasText: title }).first();
 }
 
+/** The row's ⋯ menu item. */
 async function action(page: Page, title: string, name: string) {
   await row(page, title)
     .getByRole('button', { name: `More for “${title}”` })
@@ -44,14 +43,23 @@ async function action(page: Page, title: string, name: string) {
   await page.getByRole('menuitem', { name, exact: true }).click();
 }
 
+/** Add note: beside the row on desktop, in its menu on a phone. */
+async function addNote(page: Page, title: string) {
+  if (isMobile(page)) {
+    await action(page, title, 'Add note');
+  } else {
+    await row(page, title)
+      .getByRole('button', { name: `Add note to “${title}”` })
+      .click();
+  }
+}
+
 function composer(page: Page, title: string) {
   return page.getByRole('combobox', { name: `New note for “${title}”` });
 }
 
-function group(page: Page, title: string, label: string) {
-  return row(page, title).getByRole('region', {
-    name: `${label} notes for “${title}”`,
-  });
+function linked(page: Page, title: string) {
+  return row(page, title).getByRole('list', { name: `Notes for “${title}”` });
 }
 
 test.beforeEach(async ({ request }) => {
@@ -62,18 +70,16 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-/** Write and save one note of each kind on Shield review, in place. */
-async function writeAllThree(page: Page) {
+/** Write and save two notes on Shield review under its row, in place. */
+async function writeTwo(page: Page) {
   const url = page.url();
-  for (const [item, lead, text] of [
-    ['Prep note', 'Prep: ', 'Ask about the ridge'],
-    ['Debrief note', 'Debrief: ', 'Ridge is clear'],
-    ['Note', '', 'Shields hold at ninety'],
-  ] as const) {
-    await action(page, 'Shield review', item);
+  for (const text of ['Ask about the ridge', 'Ridge is clear']) {
+    await addNote(page, 'Shield review');
     const box = composer(page, 'Shield review');
     await expect(box).toBeFocused();
-    await expect(box).toHaveValue(`${shieldLine(lead)}\n`);
+    // No seed and no kind to pick: an empty note.
+    await expect(box).toHaveValue('');
+    await expect(row(page, 'Shield review').getByRole('radio')).toHaveCount(0);
     await page.keyboard.type(text);
     await row(page, 'Shield review')
       .getByRole('button', { name: 'Save note' })
@@ -81,115 +87,170 @@ async function writeAllThree(page: Page) {
     await expect(box).toBeHidden();
     expect(page.url()).toBe(url);
   }
-  await expect(group(page, 'Shield review', 'Prep')).toContainText(
-    'Prep: Shield review',
-  );
-  await expect(
-    group(page, 'Shield review', 'Prep').getByRole('listitem'),
-  ).toHaveCount(2);
-  await expect(group(page, 'Shield review', 'Debrief')).toContainText(
-    'Debrief: Shield review',
-  );
-  // Past three, the plain note waits behind Show all.
-  await row(page, 'Shield review')
-    .getByRole('button', { name: 'Show all 4' })
-    .click();
-  await expect(group(page, 'Shield review', 'Notes')).toContainText(
-    'Shield review',
-  );
+  // One list, newest first, the seed's old Prep note (phase `pre`) last.
+  const items = linked(page, 'Shield review').getByRole('listitem');
+  await expect(items).toHaveCount(3);
+  await expect(items.nth(0)).toContainText('Ridge is clear');
+  await expect(items.nth(1)).toContainText('Ask about the ridge');
+  await expect(items.nth(2)).toContainText('Shield review — 2026-10-27');
 }
 
-async function expectStoredAllThree(request: APIRequestContext) {
+async function expectStoredTwo(request: APIRequestContext) {
   const notes = Object.values((await stored(request)).notes);
   const find = (text: string) => notes.find((n) => n.body.includes(text));
-  expect(find('Ask about the ridge')).toMatchObject({
-    meetingId: 'e-1',
-    phase: 'pre',
-    projectId: 'p-echo',
-  });
-  expect(find('Ridge is clear')).toMatchObject({
-    meetingId: 'e-1',
-    phase: 'post',
-    projectId: 'p-echo',
-  });
-  expect(find('Shields hold at ninety')).toMatchObject({
-    meetingId: 'e-1',
-    phase: null,
-    projectId: 'p-echo',
-  });
+  for (const text of ['Ask about the ridge', 'Ridge is clear']) {
+    expect(find(text)).toEqual(
+      expect.objectContaining({
+        body: text,
+        meetingId: 'e-1',
+        phase: null,
+        projectId: 'p-echo',
+      }),
+    );
+  }
+  // The old phased note is untouched.
+  expect(find('Bring the power budget')).toMatchObject({ phase: 'pre' });
 }
 
-test('Prep, Debrief and a plain note on Meetings, written in place', async ({
+test('notes on a meeting row on Meetings, written in place', async ({
   page,
   request,
 }) => {
   await openLive(page, '/meetings');
-  await writeAllThree(page);
+  await writeTwo(page);
   await expect(page).toHaveURL(/\/meetings/);
+  // No kinds of note to choose from any more.
+  await expect(page.getByRole('button', { name: /Prep|Debrief/ })).toHaveCount(
+    0,
+  );
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
   await expectSaved(page);
-  await expectStoredAllThree(request);
+  await expectStoredTwo(request);
 });
 
-test('Prep, Debrief and a plain note on a project page, in place', async ({
+test('notes on a meeting row on a project page, in place', async ({
   page,
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await writeAllThree(page);
+  await writeTwo(page);
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await expectSaved(page);
-  await expectStoredAllThree(request);
+  await expectStoredTwo(request);
 });
 
-test('the composer: phase picker, one per meeting, Esc and Cancel', async ({
+test('the row’s composer: one per meeting, Esc and Cancel', async ({
   page,
 }) => {
   await openLive(page, '/meetings');
   const shield = row(page, 'Shield review');
-  if (isMobile(page)) {
-    await action(page, 'Shield review', 'Debrief note');
-  } else {
-    await shield
-      .getByRole('button', { name: 'Debrief note for “Shield review”' })
-      .click();
-  }
+  await addNote(page, 'Shield review');
   const box = composer(page, 'Shield review');
   await expect(box).toBeFocused();
-  await expect(box).toHaveAttribute('data-phase', 'post');
-  await expect(shield.getByRole('radio', { name: 'Debrief' })).toBeChecked();
-
-  // Untouched, the seed follows the phase.
-  await shield
-    .getByRole('group', { name: 'Kind of note' })
-    .getByText('Prep', { exact: true })
-    .click();
-  await expect(box).toHaveValue(`${shieldLine('Prep: ')}\n`);
-  await expect(box).toHaveAttribute('data-phase', 'pre');
-
-  // Another action on the same meeting switches the one composer.
-  await box.focus();
-  await page.keyboard.press('End');
   await page.keyboard.type('Bring the charts');
-  await action(page, 'Shield review', 'Note');
+
+  // The menu's Add note goes back to the one composer.
+  await box.blur();
+  await action(page, 'Shield review', 'Add note');
   await expect(
     page.getByRole('combobox', { name: /^New note for/ }),
   ).toHaveCount(1);
-  await expect(shield.getByRole('radio', { name: 'Note' })).toBeChecked();
-  await expect(box).toHaveValue(`${shieldLine('Prep: ')}\nBring the charts`);
+  await expect(box).toBeFocused();
+  await expect(box).toHaveValue('Bring the charts');
 
-  await expectAccessible(page);
-  await expectNoSidewaysScroll(page);
-
-  await box.focus();
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
   await expect(page).toHaveURL(/\/meetings/);
 
-  // Esc dropped the draft: it starts from the seed again.
-  await action(page, 'Shield review', 'Prep note');
-  await expect(box).toHaveValue(`${shieldLine('Prep: ')}\n`);
+  // Esc dropped the draft.
+  await action(page, 'Shield review', 'Add note');
+  await expect(box).toHaveValue('');
   await shield.getByRole('button', { name: 'Cancel' }).click();
   await expect(box).toBeHidden();
+});
+
+test('notes in the meeting’s panel: add, edit and delete', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/meetings');
+  await row(page, 'Shield review')
+    .getByRole('button', { name: 'Shield review', exact: true })
+    .click();
+  const panel = page.getByRole('dialog', { name: 'Edit Shield review' });
+  await expect(panel).toBeVisible();
+  const notes = panel.getByRole('region', { name: 'Notes', exact: true });
+  const items = notes.getByRole('listitem');
+  // The seed's old Prep note (phase `pre`) is listed like any other.
+  await expect(items).toHaveCount(1);
+  await expect(items.nth(0)).toContainText('Bring the power budget');
+
+  // Esc closes the composer, not the panel.
+  await notes.getByRole('button', { name: 'Add note' }).click();
+  const box = panel.getByRole('combobox', {
+    name: 'New note for “Shield review”',
+  });
+  await expect(box).toBeFocused();
+  await expect(box).toHaveValue('');
+  await page.keyboard.press('Escape');
+  await expect(box).toBeHidden();
+  await expect(panel).toBeVisible();
+
+  // ⌘Enter saves the note and leaves the panel open.
+  await notes.getByRole('button', { name: 'Add note' }).click();
+  await expect(box).toBeFocused();
+  await page.keyboard.type('Shields hold at **ninety**');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(box).toBeHidden();
+  await expect(panel).toBeVisible();
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText('Shields hold at ninety');
+  await expect(items.nth(0).locator('strong')).toHaveText('ninety');
+
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // Edit in place.
+  await items.nth(0).getByRole('button', { name: /^Edit/ }).click();
+  const edit = panel.getByRole('combobox', { name: 'Edit note' });
+  await expect(edit).toBeFocused();
+  await edit.fill('Shields hold at ninety-five');
+  await panel.getByRole('button', { name: 'Save note' }).click();
+  await expect(items.nth(0)).toContainText('Shields hold at ninety-five');
+  await expect(items.nth(0)).toContainText('edited');
+
+  // Delete the old one, with Undo offered; Undo brings it back.
+  await items
+    .nth(1)
+    .getByRole('button', { name: /^Delete/ })
+    .click();
+  await expect(items).toHaveCount(1);
+  await page
+    .locator('output.toast')
+    .getByRole('button', { name: 'Undo' })
+    .click();
+  await expect(items).toHaveCount(2);
+
+  // Nothing in the meeting's own fields changed: it closes without asking.
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(linked(page, 'Shield review')).toContainText(
+    'Shields hold at ninety-five',
+  );
+
+  await expectSaved(page);
+  const all = Object.values((await stored(request)).notes).filter(
+    (n) => n.meetingId === 'e-1',
+  );
+  expect(all).toHaveLength(2);
+  expect(all).toContainEqual(
+    expect.objectContaining({
+      body: 'Shields hold at ninety-five',
+      phase: null,
+      projectId: 'p-echo',
+    }),
+  );
 });
 
 test('from the Focus agenda: a project meeting and a General one', async ({
@@ -201,11 +262,11 @@ test('from the Focus agenda: a project meeting and a General one', async ({
   await expect(agenda.getByRole('listitem')).toHaveCount(2);
 
   await agenda
-    .getByRole('button', { name: 'Debrief note for “Shield review”' })
+    .getByRole('button', { name: 'Add note to “Shield review”' })
     .click();
   const box = composer(page, 'Shield review');
   await expect(box).toBeFocused();
-  await expect(box).toHaveValue(`${shieldLine('Debrief: ')}\n`);
+  await expect(box).toHaveValue('');
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
   await page.keyboard.type('Ridge is clear');
@@ -214,12 +275,11 @@ test('from the Focus agenda: a project meeting and a General one', async ({
   await expect(page.getByText('Added a note to “Shield review”')).toBeVisible();
 
   await agenda
-    .getByRole('button', { name: 'Note for “Quarterly planning”', exact: true })
+    .getByRole('button', { name: 'Add note to “Quarterly planning”' })
     .click();
   const general = composer(page, 'Quarterly planning');
-  await expect(general).toHaveValue(
-    `## Quarterly planning — ${formatDay(planningDay, today)}\n`,
-  );
+  await expect(general).toBeFocused();
+  await expect(general).toHaveValue('');
   await page.keyboard.type('Budget first');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(general).toBeHidden();
@@ -227,19 +287,19 @@ test('from the Focus agenda: a project meeting and a General one', async ({
 
   await expectSaved(page);
   const notes = Object.values((await stored(request)).notes);
-  expect(notes.find((n) => n.body.includes('Ridge is clear'))).toMatchObject({
+  expect(notes.find((n) => n.body === 'Ridge is clear')).toMatchObject({
     meetingId: 'e-1',
-    phase: 'post',
+    phase: null,
     projectId: 'p-echo',
   });
-  expect(notes.find((n) => n.body.includes('Budget first'))).toMatchObject({
+  expect(notes.find((n) => n.body === 'Budget first')).toMatchObject({
     meetingId: 'e-4',
     phase: null,
     projectId: null,
   });
 });
 
-test('more than three linked notes wait behind Show all', async ({
+test('more than three linked notes wait behind Show all, newest first', async ({
   page,
   request,
 }) => {
@@ -257,11 +317,28 @@ test('more than three linked notes wait behind Show all', async ({
   }
   await request.post('/api/import', { data: seed });
   await openLive(page, '/meetings');
-  const shield = row(page, 'Shield review');
-  await expect(shield.getByRole('listitem')).toHaveCount(3);
-  await shield.getByRole('button', { name: 'Show all 4' }).click();
-  await expect(shield.getByRole('listitem')).toHaveCount(4);
+  const items = linked(page, 'Shield review').getByRole('listitem');
+  await expect(items).toHaveCount(3);
+  await expect(items.nth(0)).toContainText('Extra 2');
+  await expect(items.nth(2)).toContainText('Extra 0');
+  await row(page, 'Shield review')
+    .getByRole('button', { name: 'Show all 4' })
+    .click();
+  await expect(items).toHaveCount(4);
+  await expect(items.nth(3)).toContainText('Shield review — 2026-10-27');
+});
+
+test('a meeting’s note on Notes shows a chip that opens the meeting', async ({
+  page,
+}) => {
+  await openLive(page, '/notes');
+  const card = page
+    .locator('article[data-note-id]')
+    .filter({ hasText: 'Bring the power budget' });
+  await card.getByRole('button', { name: 'Meeting: Shield review' }).click();
+  const panel = page.getByRole('dialog', { name: 'Edit Shield review' });
+  await expect(panel).toBeVisible();
   await expect(
-    shield.getByRole('region', { name: 'Notes notes for “Shield review”' }),
-  ).toContainText('Extra 2');
+    panel.getByRole('region', { name: 'Notes', exact: true }),
+  ).toContainText('Bring the power budget');
 });

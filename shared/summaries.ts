@@ -91,8 +91,6 @@ export const SUMMARY_LIMITS = {
   decisions: 10,
 } as const;
 
-const PHASE_TAG = { pre: '[prep]', post: '[debrief]' } as const;
-
 const PRIORITY_WORDS = {
   none: 'none',
   low: 'low',
@@ -121,10 +119,6 @@ function day(date: string): string {
   return formatDay(date, '0000-01-01');
 }
 
-function noteTag(note: Note): string {
-  return note.phase ? PHASE_TAG[note.phase] : '[note]';
-}
-
 function noteDay(note: Note): string {
   return day(note.createdAt.slice(0, 10));
 }
@@ -132,7 +126,8 @@ function noteDay(note: Note): string {
 /**
  * A meeting: title, date and times, project, attendees, agenda, its
  * topics in order (`- [x] title — outcome` once covered), and every
- * linked note, oldest first, labeled `[prep]`, `[debrief]` or `[note]`.
+ * linked note, oldest first, each labeled `[note]` (a legacy `phase` is
+ * not shown).
  */
 export function meetingContext(
   meeting: Meeting,
@@ -167,7 +162,7 @@ export function meetingContext(
     lines.push('', 'Linked notes:');
     for (const n of notes) {
       lines.push(
-        `${noteTag(n)} ${noteDay(n)}`,
+        `[note] ${noteDay(n)}`,
         tokensToNames(n.body, state.people).trim(),
         '',
       );
@@ -288,7 +283,7 @@ export function projectContext(projectId: string, state: Snapshot): string {
     lines.push('', 'Notes, newest first:');
     for (const n of notes) {
       lines.push(
-        `${noteTag(n)} ${noteDay(n)}`,
+        `[note] ${noteDay(n)}`,
         tokensToNames(n.body, state.people).trim(),
         '',
       );
@@ -396,13 +391,7 @@ export function noteContext(
     `Project: ${projectName(state, note.projectId)}`,
   ];
   if (meeting) {
-    const role =
-      note.phase === 'pre'
-        ? 'prep for'
-        : note.phase === 'post'
-          ? 'debrief of'
-          : 'about';
-    lines.push(`Meeting: ${role} ${meeting.title} on ${day(meeting.date)}`);
+    lines.push(`Meeting: ${meeting.title} on ${day(meeting.date)}`);
   }
   if (task) lines.push(`Task: ${task.title}`);
   lines.push('', tokensToNames(note.body, state.people).trim());
