@@ -1,11 +1,14 @@
 import { FlagIcon } from '@phosphor-icons/react';
+import { useRef, useState } from 'react';
 import { describeDay } from '#shared/dates';
 import { timeRange, topicCount } from '#shared/meetings';
 import type { AgendaItem } from '#shared/select';
-import { type Snapshot, topicsOf } from '#shared/types';
-import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
+import { type NotePhase, type Snapshot, topicsOf } from '#shared/types';
+import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
+import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
+import { useToast } from '@/providers/ToastProvider';
 
 const CARD =
   'relative flex w-64 shrink-0 snap-start flex-col gap-1.5 border bg-card p-3 text-card-foreground has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-ring hover:bg-accent/40';
@@ -13,8 +16,9 @@ const CARD =
 /**
  * Focus's agenda: the next seven days of meetings and milestones as a
  * strip of cards that scrolls sideways (snapping card by card on phones).
- * A meeting's card links to it on the Meetings page, and Prep and Debrief
- * start its notes; a milestone's card, flagged, opens its project at it.
+ * A meeting's card links to it on the Meetings page, and Prep, Debrief
+ * and Note open a composer for it under the strip, in place; a
+ * milestone's card, flagged, opens its project at it.
  */
 export function AgendaStrip({
   items,
@@ -25,7 +29,21 @@ export function AgendaStrip({
   state: Snapshot;
   today: string;
 }) {
-  const { startNote } = useMeetingNotes();
+  const { show } = useToast();
+  // The note being written, under the strip: one at a time.
+  const [composing, setComposing] = useState<{
+    meetingId: string;
+    phase: NotePhase | null;
+  } | null>(null);
+  const composer = useRef<InlineNoteComposerHandle>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const startNote = (meetingId: string, phase: NotePhase | null) => {
+    opener.current = document.activeElement as HTMLElement | null;
+    if (composing?.meetingId === meetingId) composer.current?.focus();
+    setComposing({ meetingId, phase });
+  };
+  const meeting = composing ? state.meetings[composing.meetingId] : undefined;
+
   return (
     <section aria-labelledby="agenda-title" className="flex min-w-0 flex-col">
       <h2 id="agenda-title" className="pb-1 font-heading text-sm font-semibold">
@@ -105,7 +123,7 @@ export function AgendaStrip({
                   variant="ghost"
                   size="sm"
                   className="press h-11 px-2 text-xs desk:h-8"
-                  onClick={() => startNote(e, 'pre')}
+                  onClick={() => startNote(e.id, 'pre')}
                 >
                   Prep
                   <span className="sr-only"> note for “{e.title}”</span>
@@ -115,16 +133,50 @@ export function AgendaStrip({
                   variant="ghost"
                   size="sm"
                   className="press h-11 px-2 text-xs desk:h-8"
-                  onClick={() => startNote(e, 'post')}
+                  onClick={() => startNote(e.id, 'post')}
                 >
                   Debrief
                   <span className="sr-only"> note for “{e.title}”</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="press h-11 px-2 text-xs desk:h-8"
+                  onClick={() => startNote(e.id, null)}
+                >
+                  Note
+                  <span className="sr-only"> for “{e.title}”</span>
                 </Button>
               </span>
             </li>
           );
         })}
       </ul>
+      {composing && meeting && (
+        <p className="enter pt-1 text-xs text-muted-foreground" aria-hidden>
+          Note for <span className="text-foreground">{meeting.title}</span>
+        </p>
+      )}
+      {composing && meeting && (
+        <MeetingNoteComposer
+          // A different meeting is a different draft.
+          key={meeting.id}
+          ref={composer}
+          meeting={meeting}
+          people={state.people}
+          phase={composing.phase}
+          onPhaseChange={(phase) =>
+            setComposing({ meetingId: meeting.id, phase })
+          }
+          onDone={(noteId) => {
+            setComposing(null);
+            opener.current?.focus({ preventScroll: true });
+            if (noteId) show(`Added a note to “${meeting.title}”`);
+          }}
+          className="pt-1 pb-2"
+        />
+      )}
     </section>
   );
 }

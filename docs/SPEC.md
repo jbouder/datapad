@@ -219,10 +219,12 @@ Not supported and not needed yet: nested lists, block quotes, fenced code, image
 
 ## Meetings and notes linkage
 
-Every meeting row offers **Prep note** and **Debrief note**. Either one routes to a notes composer, prefilled, and tags the resulting note with `meetingId` and `phase`.
-1. If the current page has a composer (project detail or Notes page) that can take the meeting's project, it is prefilled in place: the textarea gets `data-meeting` and `data-phase`, the body is seeded, if empty, with a heading line `## Prep: <title> — <day>` or `## Debrief: <title> — <day>`, and for a Prep note the meeting's uncovered topics as a bulleted list (`- <title>`) under it, the project picker (when present) is set to the meeting's project, and the textarea is focused and scrolled into view.
-2. If not (Meetings page, Focus agenda), the intent is parked as pending `{meetingId, phase}`, the app navigates to the meeting's project page (or the Notes page for General meetings), and the composer there applies step 1 when it mounts.
-3. On add, the note is written with `meetingId`, `phase` (`pre` | `post` | null) and the composer is cleared.
+Notes on a meeting are written on the meeting, never by going somewhere else. Every meeting row offers **Prep**, **Debrief** and **Note** (beside the row on wide screens; **Prep note**, **Debrief note** and **Note** in its ⋯ menu everywhere, which is how a phone reaches them). Each opens an inline composer right under the row, above its linked notes; the URL does not change.
+1. The composer (`InlineNoteComposer`, via `MeetingNoteComposer`) is the notes editor (Markdown, `/` styles, `@` mentions, `/task`, `/decision`) with a phase picker, **Prep · Debrief · Note**, set by the action that opened it and changeable. One composer per meeting: another action on the same meeting switches its phase and focuses it.
+2. An empty draft is seeded with a heading line `## Prep: <title> — <day>`, `## Debrief: <title> — <day>` or, for a plain note, `## <title> — <day>`, and for a Prep note the meeting's uncovered topics as a bulleted list (`- <title>`) under it. While the text is still only the seed, changing the phase changes the seed. The draft is kept per meeting in sessionStorage until Save or Cancel.
+3. **Save note** (or ⌘Enter) sends `addNote` with the meeting's `projectId`, `meetingId` and `phase` (`pre` | `post` | null) and closes the composer; the note appears in its group under the row at once. **Cancel** or Esc closes it and drops the draft.
+4. On Focus, the agenda cards' Prep, Debrief and Note open the same composer under the strip (one at a time); saving confirms with a toast.
+5. The composer opens with `@starting-style` (a panel, not a view transition), so the motion switches apply. On a phone it fits the width, with 44px targets.
 
 Display rules:
 - Under each meeting row, linked notes render inline, grouped **Prep**, **Debrief**, then **Notes** (phase-less), oldest first, each with a timestamp and an Edit link. This appears on both the project page and the Meetings page.
