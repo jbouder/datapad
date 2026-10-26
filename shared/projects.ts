@@ -1,5 +1,7 @@
+import { nextMilestone } from './milestones';
 import { PRIORITY_RANK } from './select';
 import {
+  type DateString,
   healthOf,
   type Project,
   type ProjectHealth,
@@ -13,6 +15,7 @@ export const PROJECT_SORTS = [
   'name',
   'start',
   'target',
+  'milestone',
 ] as const;
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
 
@@ -39,10 +42,10 @@ const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
 
 /**
  * Recently updated (newest first); priority high → med → low → none, then
- * name; name; start or target date (soonest first, undated last, then
- * name).
+ * name; name; start or target date, or the next milestone on or after
+ * `today` (soonest first, undated last, then name).
  */
-export function compareProjects(sort: ProjectSort) {
+export function compareProjects(sort: ProjectSort, today: DateString = '') {
   switch (sort) {
     case 'updated':
       return (a: Project, b: Project) =>
@@ -56,6 +59,8 @@ export function compareProjects(sort: ProjectSort) {
       return byDate((p) => p.startDate ?? '');
     case 'target':
       return byDate((p) => p.targetDate);
+    case 'milestone':
+      return byDate((p) => nextMilestone(p, today)?.date ?? '');
   }
 }
 
@@ -75,6 +80,7 @@ export function selectProjects(
   projects: Record<string, Project>,
   filters: ProjectFilters,
   archived = false,
+  today: DateString = '',
 ): Project[] {
   return Object.values(projects)
     .filter(
@@ -84,5 +90,5 @@ export function selectProjects(
         (archived || !filters.org || p.org === filters.org) &&
         (archived || !filters.health || healthOf(p) === filters.health),
     )
-    .sort(compareProjects(archived ? 'updated' : filters.sort));
+    .sort(compareProjects(archived ? 'updated' : filters.sort, today));
 }

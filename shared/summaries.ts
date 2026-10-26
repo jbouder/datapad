@@ -257,7 +257,7 @@ export function projectContext(projectId: string, state: Snapshot): string {
 
   const milestones = milestonesOf(project);
   if (milestones.length > 0) {
-    lines.push('', 'Milestones:');
+    lines.push('', 'Milestones, by date:');
     for (const m of milestones) lines.push(`- ${day(m.date)}: ${m.title}`);
   }
 

@@ -149,6 +149,38 @@ describe('buildDigest', () => {
     });
   });
 
+  it('lists milestones this week and next, outside the archive', () => {
+    const s = world();
+    s.projects.p1 = {
+      ...(s.projects.p1 as Snapshot['projects'][string]),
+      milestones: [
+        { id: 'm0', title: 'Before', date: '2026-10-18' },
+        { id: 'm1', title: 'Shields up', date: '2026-10-19' },
+        { id: 'm2', title: 'Doors hung', date: '2026-10-28' },
+        { id: 'm3', title: 'Base operational', date: '2026-11-01' },
+        { id: 'm4', title: 'Too far', date: '2026-11-02' },
+      ],
+    };
+    s.projects.p3 = {
+      ...(s.projects.p1 as Snapshot['projects'][string]),
+      id: 'p3',
+      name: 'Archived',
+      archived: true,
+      milestones: [{ id: 'm5', title: 'Hidden', date: '2026-10-20' }],
+    };
+    const digest = buildDigest(s, range);
+    // A project with only milestones still gets its section.
+    expect(digest.projects.map((g) => g.name)).toEqual(['Echo Base']);
+    expect(digest.projects[0]?.milestones).toEqual([
+      'Mon 19 Oct 2026: Shields up',
+      'Wed 28 Oct 2026: Doors hung',
+      'Sun 1 Nov 2026: Base operational',
+    ]);
+    expect(digestMarkdown(digest)).toContain(
+      '- **Milestones:** Mon 19 Oct 2026: Shields up; Wed 28 Oct 2026: Doors hung; Sun 1 Nov 2026: Base operational',
+    );
+  });
+
   it('writes Markdown the renderer reads, and says when nothing happened', () => {
     const s = world();
     s.tasks.t = task('Fix the heaters', {

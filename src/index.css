@@ -271,7 +271,8 @@
 
 /* Arrived at from a link to it ("From note", the agenda, search). */
 .note-card[data-highlighted],
-.meeting-row[data-highlighted] {
+.meeting-row[data-highlighted],
+.milestone-row[data-highlighted] {
   box-shadow: 0 0 0 2px var(--ring);
 }
 
@@ -690,6 +691,17 @@ html[data-vt="space"]::view-transition-new(rail) {
 .count {
   display: inline-block;
   transition: none;
+}
+
+/* A Timeline point's title: fades in while the point is hovered or its
+   entry in the list has keyboard focus. Opacity only. */
+.timeline-point-label {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+.timeline-point:hover + .timeline-point-label,
+.timeline-point-label[data-shown] {
+  opacity: 1;
 }
 
 /* ---- Side panel --------------------------------------------------------- */

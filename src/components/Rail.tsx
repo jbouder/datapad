@@ -34,7 +34,9 @@ export function Rail({ route }: { route: Route }) {
         b.later.length +
         b.noDate.length,
       tasks: [...open.values()].reduce((a, n) => a + n, 0),
-      meetings: agenda(state.meetings, state.projects, today).length,
+      meetings: agenda(state.meetings, state.projects, today).filter(
+        (a) => a.kind === 'meeting',
+      ).length,
       open,
     };
   }, [state, today]);

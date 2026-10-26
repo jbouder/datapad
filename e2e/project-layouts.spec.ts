@@ -74,8 +74,8 @@ test('switch to Table and sort by target date; the sort is shared with Cards', a
 
 test('open a project from a milestone on the timeline', async ({ page }) => {
   await openLive(page, '/projects?view=timeline');
-  await page.locator('button[title^="Base operational"]').click();
-  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  await page.locator('button[data-label^="Base operational"]').click();
+  await expect(page).toHaveURL(/\/projects\/p-echo\?milestone=e-2$/);
 });
 
 test('the archive has the same layouts', async ({ page }) => {

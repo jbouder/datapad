@@ -54,10 +54,14 @@ const SORTABLE: Record<string, ProjectSort> = {
   priority: 'priority',
   start: 'start',
   target: 'target',
+  next: 'milestone',
   updated: 'updated',
 };
 
 const open = (id: string) => navigate({ name: 'project', id });
+/** The project page, scrolled to that milestone in its Milestones section. */
+const openMilestone = (id: string, milestone: string) =>
+  navigate({ name: 'project', id }, { query: `milestone=${milestone}` });
 
 /**
  * The same projects as Cards, a Table, or a Timeline. Filters and sort
@@ -117,7 +121,7 @@ export function ProjectLayouts({
           };
         })}
         onOpenRow={open}
-        onOpenPoint={(projectId) => open(projectId)}
+        onOpenPoint={openMilestone}
       />
     );
   }
@@ -286,6 +290,7 @@ export function ProjectLayouts({
         {
           id: 'next',
           header: 'Next milestone',
+          sortable: Boolean(onSort),
           cell: (p) => {
             const e = next.get(p.id);
             return e ? (

@@ -1,5 +1,11 @@
-import { formatDay } from './dates';
-import type { DateString, Snapshot, Timestamp } from './types';
+import { addDays, formatDay } from './dates';
+import { byDate } from './milestones';
+import {
+  type DateString,
+  milestonesOf,
+  type Snapshot,
+  type Timestamp,
+} from './types';
 
 /**
  * The weekly digest: what happened in each project (and General) between
@@ -31,6 +37,11 @@ export interface ProjectDigest {
   changes: string[];
   /** "Mon 19 Oct: Shield review". */
   meetings: string[];
+  /**
+   * Milestones this week and next (the seven days after it), as "Sat 31
+   * Oct 2026: Shields up": what is coming as well as what was due.
+   */
+  milestones: string[];
   /** "Decided: Move to Hoth". */
   decisions: string[];
 }
@@ -80,6 +91,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
         state: null,
         changes: [],
         meetings: [],
+        milestones: [],
         decisions: [],
       };
       groups.set(id, g);
@@ -103,6 +115,18 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
       group(m.projectId).meetings.push(
         `${formatDay(m.date, '0000-01-01')}: ${m.title}`,
       );
+    }
+  }
+  // This week and next; archived projects are done looking ahead.
+  const horizon = addDays(range.toDay, 7);
+  for (const p of Object.values(state.projects)) {
+    if (p.archived) continue;
+    for (const m of [...milestonesOf(p)].sort(byDate)) {
+      if (m.date >= range.fromDay && m.date <= horizon) {
+        group(p.id).milestones.push(
+          `${formatDay(m.date, '0000-01-01')}: ${m.title}`,
+        );
+      }
     }
   }
   for (const x of Object.values(state.decisions ?? {})) {
@@ -134,6 +158,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
           g.notes +
           g.changes.length +
           g.meetings.length +
+          g.milestones.length +
           g.decisions.length >
           0 || g.state !== null,
     )
@@ -181,6 +206,9 @@ export function digestMarkdown(digest: Digest): string {
     if (g.added.length) lines.push(`- **Added:** ${g.added.join('; ')}`);
     for (const d of g.decisions) lines.push(`- ${d}`);
     for (const m of g.meetings) lines.push(`- ${m}`);
+    if (g.milestones.length) {
+      lines.push(`- **Milestones:** ${g.milestones.join('; ')}`);
+    }
     if (g.notes) lines.push(`- ${plural(g.notes, 'note', 'notes')} written`);
   }
   return lines.join('\n');

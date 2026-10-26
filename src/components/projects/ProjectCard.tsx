@@ -19,7 +19,8 @@ const MAX_MEMBERS = 4;
  * One project as a card, the whole card a link: org, health (a colored
  * left edge and its word), status, priority,
  * name, the current state line, then open count, target, the next
- * milestone, and up to four members (+N for the rest).
+ * milestone (none shown when nothing is ahead), and up to four members
+ * (+N for the rest).
  */
 export function ProjectCard({
   project,
@@ -88,8 +89,12 @@ export function ProjectCard({
           <span>Target {formatDay(project.targetDate, today)}</span>
         )}
         {next && (
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <FlagIcon aria-hidden />
+          <span
+            data-next-milestone
+            className="inline-flex min-w-0 max-w-full items-center gap-1"
+          >
+            <FlagIcon aria-hidden className="shrink-0" />
+            <span className="sr-only">Next milestone: </span>
             <span className="truncate">
               {next.title} · {formatDay(next.date, today)}
             </span>
