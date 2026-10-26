@@ -206,11 +206,13 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="meetings">
         <p className="text-sm">
-          Every meeting offers <strong>Prep</strong> and{' '}
-          <strong>Debrief</strong>. Either opens a note composer for the
-          meeting’s project, started with the meeting’s title and date, and
-          links the note to the meeting as its prep (before) or debrief (after).
-          The meeting then shows its notes under it, and its summary reads them.
+          Every meeting offers <strong>Prep</strong>, <strong>Debrief</strong>{' '}
+          and <strong>Note</strong> (in its ⋯ menu on a phone). Each opens a
+          note composer right under the meeting, started with its title and
+          date, and links the note to the meeting as its prep (before), debrief
+          (after) or a plain note; switch between them above the text. Save note
+          adds it without leaving the page; Esc or Cancel closes it. The meeting
+          then shows its notes under it, and its summary reads them.
         </p>
         <p className="text-sm">
           <strong>Topics</strong> are a meeting’s agenda, one line each. Add

@@ -379,8 +379,10 @@ test('a Prep note starts from the uncovered topics', async ({ page }) => {
     .getByRole('button', { name: 'More for “Shield review”' })
     .click();
   await page.getByRole('menuitem', { name: 'Prep note' }).click();
-  await expect(page).toHaveURL(/\/projects\/p-echo$/);
-  const box = page.getByRole('combobox', { name: 'New note' });
+  await expect(page).toHaveURL(/\/meetings/);
+  const box = page.getByRole('combobox', {
+    name: 'New note for “Shield review”',
+  });
   await expect(box).toBeFocused();
   await expect(box).toHaveValue(
     `## Prep: Shield review — ${formatDay(shieldDay, today)}\n- North ridge\n- Probe droid sightings\n`,

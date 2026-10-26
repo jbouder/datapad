@@ -2,7 +2,6 @@ import { AppShell } from '@/components/AppShell';
 import { DecisionPanelProvider } from '@/components/decisions/DecisionPanelProvider';
 import { ImportExportProvider } from '@/components/ImportExport';
 import { MeetingFormProvider } from '@/components/meetings/MeetingFormProvider';
-import { MeetingNotesProvider } from '@/components/meetings/MeetingNotesProvider';
 import { NotesProvider } from '@/components/notes/NotesProvider';
 import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
 import { NewSpaceProvider } from '@/components/SpaceSwitcher';
@@ -32,11 +31,9 @@ export default function App() {
                           <ProjectFormProvider>
                             <TaskPanelProvider>
                               <MeetingFormProvider>
-                                <MeetingNotesProvider>
-                                  <NotesProvider>
-                                    <AppShell />
-                                  </NotesProvider>
-                                </MeetingNotesProvider>
+                                <NotesProvider>
+                                  <AppShell />
+                                </NotesProvider>
                               </MeetingFormProvider>
                             </TaskPanelProvider>
                           </ProjectFormProvider>

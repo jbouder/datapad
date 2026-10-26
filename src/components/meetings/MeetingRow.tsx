@@ -4,6 +4,7 @@ import {
   ClipboardTextIcon,
   DotsThreeIcon,
   ListPlusIcon,
+  NoteBlankIcon,
   NotePencilIcon,
   PencilSimpleIcon,
   SparkleIcon,
@@ -21,6 +22,7 @@ import {
 } from '#shared/meetings';
 import {
   type Meeting,
+  type NotePhase,
   type Person,
   type Snapshot,
   topicsOf,
@@ -29,8 +31,9 @@ import { Initials } from '@/components/Initials';
 import { LinkedNotes } from '@/components/meetings/LinkedNotes';
 import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
-import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
+import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
 import { MeetingTopics } from '@/components/meetings/MeetingTopics';
+import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,10 +53,11 @@ const MENU_TRIGGER =
 
 /**
  * One meeting: its day and times, title (opens the form),
- * project chip, attendees, link, and the actions: Prep note and Debrief
- * note (beside the row on desktop, in its menu everywhere), Edit, Delete.
- * Delete asks in the row first; the meeting's notes are kept. Its linked
- * notes follow underneath. It lays out by its own width (a container
+ * project chip, attendees, link, and the actions: Prep, Debrief and Note
+ * (beside the row on desktop, in its menu everywhere), Edit, Delete.
+ * Delete asks in the row first; the meeting's notes are kept. A note is
+ * written in place, in a composer under the row (one at a time), and its
+ * linked notes follow underneath. It lays out by its own width (a container
  * query), so it stacks in a narrow column or popover as on a phone.
  */
 export function MeetingRow({
@@ -73,7 +77,15 @@ export function MeetingRow({
 }) {
   const { actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
-  const { startNote } = useMeetingNotes();
+  // The note being written under the row, by phase; null: none.
+  const [composing, setComposing] = useState<{
+    phase: NotePhase | null;
+  } | null>(null);
+  const composer = useRef<InlineNoteComposerHandle>(null);
+  const startNote = (phase: NotePhase | null) => {
+    if (composing) composer.current?.focus();
+    setComposing({ phase });
+  };
   const { summarize } = useSummaries();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
@@ -210,7 +222,7 @@ export function MeetingRow({
             variant="ghost"
             size="sm"
             className="press h-8 px-2 text-xs"
-            onClick={() => startNote(meeting, 'pre')}
+            onClick={() => startNote('pre')}
           >
             Prep
             <span className="sr-only"> note for “{meeting.title}”</span>
@@ -220,10 +232,20 @@ export function MeetingRow({
             variant="ghost"
             size="sm"
             className="press h-8 px-2 text-xs"
-            onClick={() => startNote(meeting, 'post')}
+            onClick={() => startNote('post')}
           >
             Debrief
             <span className="sr-only"> note for “{meeting.title}”</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="press h-8 px-2 text-xs"
+            onClick={() => startNote(null)}
+          >
+            Note
+            <span className="sr-only"> for “{meeting.title}”</span>
           </Button>
         </span>
         <DropdownMenu>
@@ -240,13 +262,17 @@ export function MeetingRow({
               <SparkleIcon />
               Summarize
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote(meeting, 'pre')}>
+            <DropdownMenuItem onClick={() => startNote('pre')}>
               <ClipboardTextIcon />
               Prep note
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote(meeting, 'post')}>
+            <DropdownMenuItem onClick={() => startNote('post')}>
               <NotePencilIcon />
               Debrief note
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startNote(null)}>
+              <NoteBlankIcon />
+              Note
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setAddingTopic((n) => n + 1)}>
               <ListPlusIcon />
@@ -284,6 +310,20 @@ export function MeetingRow({
           onAddBlur={() => {
             if (topics.length === 0) setAddingTopic(0);
           }}
+        />
+      )}
+      {composing && (
+        <MeetingNoteComposer
+          ref={composer}
+          meeting={meeting}
+          people={state.people}
+          phase={composing.phase}
+          onPhaseChange={(phase) => setComposing({ phase })}
+          onDone={() => {
+            setComposing(null);
+            row.current?.focus({ preventScroll: true });
+          }}
+          className="pb-2 @xl/row:pl-43"
         />
       )}
       <LinkedNotes meeting={meeting} state={state} />

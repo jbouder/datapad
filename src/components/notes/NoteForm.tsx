@@ -1,39 +1,14 @@
-import { LinkBreakIcon, PlusIcon } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { formatDay, localDate } from '#shared/dates';
-import { uncoveredTopicList } from '#shared/meetings';
 import { namesToTokens } from '#shared/mentions';
-import type { Meeting, NotePhase, Person } from '#shared/types';
+import type { Person } from '#shared/types';
 import { Field } from '@/components/Field';
-import {
-  accepts,
-  type MeetingNoteIntent,
-  type NoteTarget,
-  useMeetingNotes,
-} from '@/components/meetings/MeetingNotesProvider';
 import { NoteComposer } from '@/components/NoteComposer';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
-
-export const PHASE_LABELS: Record<NotePhase, string> = {
-  pre: 'Prep',
-  post: 'Debrief',
-};
-
-/** "## Prep: Shield review — Tue 27 Oct", a linked note's first line. */
-export function seedLine(meeting: Meeting, phase: NotePhase, today: string) {
-  return `## ${PHASE_LABELS[phase]}: ${meeting.title} — ${formatDay(meeting.date, today)}`;
-}
-
-/** The seed line, and for a Prep note the uncovered topics under it. */
-export function seedText(meeting: Meeting, phase: NotePhase, today: string) {
-  const line = seedLine(meeting, phase, today);
-  const topics = phase === 'pre' ? uncoveredTopicList(meeting) : '';
-  return topics ? `${line}\n${topics}` : line;
-}
 
 /**
  * `/task` and `/decision` in a note composer: a task in the note's
@@ -73,11 +48,8 @@ export function useNoteCommands(
  * you use it, it is one line: the formatting buttons, the picker and Add
  * note arrive with focus, and go again when it is left empty. The draft
  * is kept per project; adding clears it and keeps the focus for the next
- * one. `/task` makes a task in the same project.
- *
- * A meeting's Prep note / Debrief note lands here (MeetingNotesProvider):
- * the note is linked to the meeting, its project picked, and the seed line
- * written into an empty draft or added after what is already there.
+ * one. `/task` makes a task in the same project. (A note on a meeting is
+ * written on the meeting: MeetingNoteComposer.)
  */
 export function NoteForm({
   projectId: fixed,
@@ -87,59 +59,11 @@ export function NoteForm({
   projectId?: string | null;
   people: Record<string, Person>;
 }) {
-  const { state, actions } = useDatapad();
-  const { show } = useToast();
-  const { register, pending, clearPending } = useMeetingNotes();
+  const { actions } = useDatapad();
   const [picked, setPicked] = useState<string | null>(null);
   const projectId = fixed === undefined ? picked : fixed;
   const [text, setText] = useState('');
-  const [link, setLink] = useState<MeetingNoteIntent | null>(null);
   const id = useId();
-  const textRef = useRef(text);
-  textRef.current = text;
-  const linked = link ? state?.meetings[link.meetingId] : undefined;
-
-  const prefill = useRef<NoteTarget['prefill']>(() => {});
-  prefill.current = (meeting, phase) => {
-    const seed = seedText(meeting, phase, localDate(new Date()));
-    const draft = textRef.current.replace(/\s+$/, '');
-    setText(draft ? `${draft}\n${seed}\n` : `${seed}\n`);
-    setLink({ meetingId: meeting.id, phase });
-    if (fixed === undefined) setPicked(meeting.projectId);
-    if (draft) show(`Linked to “${meeting.title}”`);
-    // Once the new text is on screen: the caret at its end, in view.
-    requestAnimationFrame(() => {
-      const area = document.getElementById(id) as HTMLTextAreaElement | null;
-      if (!area) return;
-      area.focus({ preventScroll: true });
-      area.setSelectionRange(area.value.length, area.value.length);
-      area.scrollIntoView({ block: 'center' });
-    });
-  };
-
-  useEffect(
-    () =>
-      register({
-        projectId: fixed,
-        prefill: (meeting, phase) => prefill.current(meeting, phase),
-      }),
-    [register, fixed],
-  );
-
-  // Arriving from elsewhere with a parked Prep / Debrief note.
-  useEffect(() => {
-    if (!pending || !state) return;
-    const meeting = state.meetings[pending.meetingId];
-    if (!meeting) {
-      clearPending();
-      return;
-    }
-    if (!accepts({ projectId: fixed, prefill: () => {} }, meeting)) return;
-    clearPending();
-    // After the composer has put back any draft, which the seed follows.
-    // Not canceled: clearing `pending` re-runs this effect.
-    window.setTimeout(() => prefill.current(meeting, pending.phase));
-  }, [pending, state, fixed, clearPending]);
 
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
@@ -150,7 +74,7 @@ export function NoteForm({
   // folds once the press is over, so what was pressed stays put for its
   // click.
   const [focused, setFocused] = useState(false);
-  const expanded = focused || text.trim() !== '' || linked !== undefined;
+  const expanded = focused || text.trim() !== '';
   const form = useRef<HTMLFieldSetElement>(null);
   const pressing = useRef(false);
   useEffect(() => {
@@ -176,17 +100,12 @@ export function NoteForm({
   const add = () => {
     const body = namesToTokens(text, people).trim();
     if (!body) return;
-    const linkage = linked ? { meetingId: linked.id, phase: link?.phase } : {};
-    if (
-      actions.addNote({ id: noteId.current, projectId, body, ...linkage }) ===
-      null
-    ) {
+    if (actions.addNote({ id: noteId.current, projectId, body }) === null) {
       return;
     }
     // The next note gets a fresh id (decisions made from it point there).
     noteId.current = newId();
     setText('');
-    setLink(null);
     document.getElementById(id)?.focus();
   };
 
@@ -215,23 +134,6 @@ export function NoteForm({
       }}
     >
       <legend className="sr-only">Write a note</legend>
-      {linked && link && (
-        <p className="flex min-h-11 items-center gap-2 text-xs desk:min-h-8">
-          <span className="border bg-muted px-1.5 py-0.5">
-            {PHASE_LABELS[link.phase]} · {linked.title}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="press h-11 desk:h-8"
-            onClick={() => setLink(null)}
-          >
-            <LinkBreakIcon />
-            Unlink
-          </Button>
-        </p>
-      )}
       <Field label="New note" labelHidden>
         <NoteComposer
           id={id}
@@ -247,10 +149,6 @@ export function NoteForm({
           className={expanded ? undefined : 'min-h-11 desk:min-h-9'}
           draftKey={`datapad:draft:note:${fixed === undefined ? 'notes' : (fixed ?? 'general')}`}
           onSubmit={add}
-          data={{
-            'data-meeting': linked?.id,
-            'data-phase': linked ? link?.phase : undefined,
-          }}
           {...commands}
         />
       </Field>
