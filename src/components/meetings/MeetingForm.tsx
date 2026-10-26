@@ -12,10 +12,16 @@ import {
   topicsToCarry,
 } from '#shared/meetings';
 import type { OpOf } from '#shared/protocol';
+import { notesOfMeeting } from '#shared/select';
 import { type Meeting, topicsOf } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { MemberChips } from '@/components/inputs/MemberChips';
+import {
+  meetingDraftKey,
+  meetingNoteLabel,
+} from '@/components/meetings/MeetingNoteComposer';
+import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
@@ -108,7 +114,8 @@ function TimeInput({
  * Create or edit a meeting in the side panel. Title and date are all it
  * needs; the values are read once when it opens. Save moves focus to the
  * first problem instead of being disabled. Delete asks first and keeps
- * the meeting's notes.
+ * the meeting's notes. An existing meeting's notes are listed at the end,
+ * added and edited in place as a task's are; they save on their own.
  */
 export function MeetingForm({
   meeting,
@@ -438,6 +445,15 @@ export function MeetingForm({
           onChange={(e) => set('topics', e.target.value)}
         />
       </Field>
+      {meeting && state && (
+        <LinkedNoteList
+          notes={notesOfMeeting(state.notes, meeting.id)}
+          fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
+          people={state.people}
+          label={meetingNoteLabel(meeting)}
+          draftKey={meetingDraftKey(meeting)}
+        />
+      )}
     </SidePanel>
   );
 }

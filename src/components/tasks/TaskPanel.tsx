@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
+import { notesOfTask } from '#shared/select';
 import {
   blockedOf,
   type Link,
@@ -19,12 +20,12 @@ import { Segmented } from '@/components/inputs/Segmented';
 import { TagInput } from '@/components/inputs/TagInput';
 import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
+import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { noteLocation } from '@/components/notes/useMakeTask';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { useSummaries } from '@/components/summary/SummaryProvider';
-import { TaskNotes } from '@/components/tasks/TaskNotes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -339,7 +340,15 @@ export function TaskPanel({
           rows={6}
         />
       </Field>
-      {state && <TaskNotes task={task} state={state} />}
+      {state && (
+        <LinkedNoteList
+          notes={notesOfTask(state.notes, task.id)}
+          fields={{ projectId: task.projectId, taskId: task.id }}
+          people={state.people}
+          label={`New note on “${task.title}”`}
+          draftKey={`datapad:draft:note:task:${task.id}`}
+        />
+      )}
       <LinksEditor
         value={values.links}
         onChange={(links) => set('links', links)}

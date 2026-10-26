@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'keyboard', title: 'Keyboard' },
   { id: 'writing', title: 'Writing notes' },
   { id: 'mentions', title: 'Mentions' },
-  { id: 'meetings', title: 'Meetings, topics, prep and debrief' },
+  { id: 'meetings', title: 'Meetings, topics and notes' },
   { id: 'summaries', title: 'Summaries' },
   { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
@@ -91,8 +91,8 @@ export function HelpPage({ section }: { section?: string }) {
             at once.
           </Term>
           <Term name="Meetings">
-            Every meeting, with its topics and its prep and debrief notes, as a
-            list, a month calendar or a timeline.
+            Every meeting, with its topics and its notes, as a list, a month
+            calendar or a timeline.
           </Term>
           <Term name="Notes">
             Every note, newest first, as a feed or a grid. Pinned notes stay on
@@ -214,13 +214,13 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="meetings">
         <p className="text-sm">
-          Every meeting offers <strong>Prep</strong>, <strong>Debrief</strong>{' '}
-          and <strong>Note</strong> (in its ⋯ menu on a phone). Each opens a
-          note composer right under the meeting, started with its title and
-          date, and links the note to the meeting as its prep (before), debrief
-          (after) or a plain note; switch between them above the text. Save note
-          adds it without leaving the page; Esc or Cancel closes it. The meeting
-          then shows its notes under it, and its summary reads them.
+          Every meeting offers <strong>Add note</strong> (in its ⋯ menu on a
+          phone), as many times as you like: before, during or after. It opens a
+          note composer right under the meeting and links the note to it. Save
+          note adds it without leaving the page; Esc or Cancel closes it. The
+          meeting then shows its notes under it, newest first, and its summary
+          reads them. The meeting’s panel lists them too, where you can add,
+          edit and delete them as you would a task’s notes.
         </p>
         <p className="text-sm">
           <strong>Topics</strong> are a meeting’s agenda, one line each. Add
@@ -230,8 +230,7 @@ export function HelpPage({ section }: { section?: string }) {
           line; ticking and the outcome are separate. Click a title or an
           outcome to change it. Drag to reorder, or use Move up and Move down in
           a topic’s menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the
-          keyboard); the menu also makes a task or a decision from a topic. A
-          Prep note starts with the topics not yet covered.
+          keyboard); the menu also makes a task or a decision from a topic.
         </p>
         <p className="text-sm">
           Meetings with the same title, project and people are a series. A new

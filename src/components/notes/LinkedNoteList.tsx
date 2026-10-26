@@ -3,34 +3,48 @@ import { useId, useRef, useState } from 'react';
 import { formatTimestamp, relativeTime } from '#shared/dates';
 import { toggleCheck } from '#shared/markdown';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
-import { notesOfTask } from '#shared/select';
-import type { Note, Person, Snapshot, Task } from '#shared/types';
+import type { Note, Person } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
 import {
   InlineNoteComposer,
   type InlineNoteComposerHandle,
+  type InlineNoteFields,
 } from '@/components/notes/InlineNoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 
 /**
- * A task's running notes, in its panel (docs/SPEC.md § Task notes):
- * newest first, each rendered with when it was written, Edit (in place)
- * and Delete (with Undo); then the inline composer, which Add note (by
- * the heading) opens.
- * They are ordinary notes (`taskId`), so they also show on Notes and the
- * project page.
+ * The notes on one thing, in its panel: a task's running notes
+ * (docs/SPEC.md § Task notes) or a meeting's (§ Meetings and notes
+ * linkage). Newest first, each rendered with when it was written, Edit
+ * (in place) and Delete (with Undo); then the inline composer, which Add
+ * note (by the heading) opens and which sends `fields` with the note.
+ * They are ordinary notes, so they also show on Notes and the project
+ * page.
  */
-export function TaskNotes({ task, state }: { task: Task; state: Snapshot }) {
+export function LinkedNoteList({
+  notes: all,
+  fields,
+  people,
+  label,
+  draftKey,
+}: {
+  /** The thing's notes, newest first (`notesOfTask`, `notesOfMeeting`). */
+  notes: Note[];
+  /** What `addNote` is sent besides the id and the body. */
+  fields: InlineNoteFields;
+  people: Record<string, Person>;
+  /** The composer's accessible name, e.g. New note on “Shield review”. */
+  label: string;
+  draftKey: string;
+}) {
   const { hidden } = useNotes();
   const [composing, setComposing] = useState(false);
   const composer = useRef<InlineNoteComposerHandle>(null);
   const addButton = useRef<HTMLButtonElement>(null);
-  const notes = notesOfTask(state.notes, task.id).filter(
-    (n) => !hidden.has(n.id),
-  );
+  const notes = all.filter((n) => !hidden.has(n.id));
   const headingId = useId();
 
   // The button stays put while the composer is open (pressing it again
@@ -69,17 +83,17 @@ export function TaskNotes({ task, state }: { task: Task; state: Snapshot }) {
       ) : (
         <ul aria-labelledby={headingId} className="flex flex-col gap-2">
           {notes.map((n) => (
-            <TaskNote key={n.id} note={n} people={state.people} />
+            <LinkedNote key={n.id} note={n} people={people} />
           ))}
         </ul>
       )}
       {composing && (
         <InlineNoteComposer
           ref={composer}
-          fields={{ projectId: task.projectId, taskId: task.id }}
-          people={state.people}
-          label={`New note on “${task.title}”`}
-          draftKey={`datapad:draft:note:task:${task.id}`}
+          fields={fields}
+          people={people}
+          label={label}
+          draftKey={draftKey}
           onDone={done}
         />
       )}
@@ -87,7 +101,7 @@ export function TaskNotes({ task, state }: { task: Task; state: Snapshot }) {
   );
 }
 
-function TaskNote({
+function LinkedNote({
   note,
   people,
 }: {

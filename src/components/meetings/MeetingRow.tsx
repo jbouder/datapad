@@ -1,10 +1,8 @@
 import {
   ArrowBendDownRightIcon,
   ArrowSquareOutIcon,
-  ClipboardTextIcon,
   DotsThreeIcon,
   ListPlusIcon,
-  NoteBlankIcon,
   NotePencilIcon,
   PencilSimpleIcon,
   SparkleIcon,
@@ -22,7 +20,6 @@ import {
 } from '#shared/meetings';
 import {
   type Meeting,
-  type NotePhase,
   type Person,
   type Snapshot,
   topicsOf,
@@ -53,8 +50,8 @@ const MENU_TRIGGER =
 
 /**
  * One meeting: its day and times, title (opens the form),
- * project chip, attendees, link, and the actions: Prep, Debrief and Note
- * (beside the row on desktop, in its menu everywhere), Edit, Delete.
+ * project chip, attendees, link, and the actions: Add note (beside the
+ * row on desktop, in its menu everywhere), Edit, Delete.
  * Delete asks in the row first; the meeting's notes are kept. A note is
  * written in place, in a composer under the row (one at a time), and its
  * linked notes follow underneath. It lays out by its own width (a container
@@ -77,14 +74,12 @@ export function MeetingRow({
 }) {
   const { actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
-  // The note being written under the row, by phase; null: none.
-  const [composing, setComposing] = useState<{
-    phase: NotePhase | null;
-  } | null>(null);
+  // Whether a note is being written under the row.
+  const [composing, setComposing] = useState(false);
   const composer = useRef<InlineNoteComposerHandle>(null);
-  const startNote = (phase: NotePhase | null) => {
+  const startNote = () => {
     if (composing) composer.current?.focus();
-    setComposing({ phase });
+    else setComposing(true);
   };
   const { summarize } = useSummaries();
   const { show } = useToast();
@@ -216,38 +211,17 @@ export function MeetingRow({
             </span>
           </a>
         )}
-        <span className="hidden shrink-0 @xl/row:flex">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="press h-8 px-2 text-xs"
-            onClick={() => startNote('pre')}
-          >
-            Prep
-            <span className="sr-only"> note for “{meeting.title}”</span>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="press h-8 px-2 text-xs"
-            onClick={() => startNote('post')}
-          >
-            Debrief
-            <span className="sr-only"> note for “{meeting.title}”</span>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="press h-8 px-2 text-xs"
-            onClick={() => startNote(null)}
-          >
-            Note
-            <span className="sr-only"> for “{meeting.title}”</span>
-          </Button>
-        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="press hidden h-8 shrink-0 px-2 text-xs @xl/row:inline-flex"
+          onClick={startNote}
+        >
+          <NotePencilIcon />
+          Add note
+          <span className="sr-only"> to “{meeting.title}”</span>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             className={MENU_TRIGGER}
@@ -262,17 +236,9 @@ export function MeetingRow({
               <SparkleIcon />
               Summarize
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote('pre')}>
-              <ClipboardTextIcon />
-              Prep note
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote('post')}>
+            <DropdownMenuItem onClick={startNote}>
               <NotePencilIcon />
-              Debrief note
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => startNote(null)}>
-              <NoteBlankIcon />
-              Note
+              Add note
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setAddingTopic((n) => n + 1)}>
               <ListPlusIcon />
@@ -317,10 +283,8 @@ export function MeetingRow({
           ref={composer}
           meeting={meeting}
           people={state.people}
-          phase={composing.phase}
-          onPhaseChange={(phase) => setComposing({ phase })}
           onDone={() => {
-            setComposing(null);
+            setComposing(false);
             row.current?.focus({ preventScroll: true });
           }}
           className="pb-2 @xl/row:pl-43"

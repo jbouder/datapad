@@ -22,7 +22,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
   (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
-  mapping, counts, the Prep list; a meeting's series and carrying topics
+  mapping, counts; a meeting's series and carrying topics
   forward),
   `milestones.ts` (they live on the project), `migrate.ts` (the typed
   collection from before meetings → meetings and milestones; every import
@@ -49,7 +49,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts, linked notes,
-  the Prep/Debrief routing and the Focus agenda strip), `pages/*`.
+  the meeting note composer and the Focus agenda strip;
+  `notes/LinkedNoteList` is the Notes section a task's and a meeting's
+  panel share), `pages/*`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens.
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a

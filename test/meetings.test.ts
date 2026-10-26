@@ -20,7 +20,6 @@ import {
   topicLines,
   topicOps,
   topicsToCarry,
-  uncoveredTopicList,
 } from '#shared/meetings';
 import { byDate, nextMilestone } from '#shared/milestones';
 import { OpSchema } from '#shared/protocol';
@@ -244,13 +243,6 @@ describe('topics on the row and in notes', () => {
     expect(topicCount([])).toBe('');
     expect(topicCount(topics)).toBe('1 of 3 topics');
     expect(topicCount(topics.slice(0, 1))).toBe('1 of 1 topic');
-  });
-
-  it('lists the uncovered ones for a Prep note', () => {
-    expect(uncoveredTopicList(meeting('m', { topics }))).toBe(
-      '- North ridge\n- Hoth weather',
-    );
-    expect(uncoveredTopicList(meeting('m', {}))).toBe('');
   });
 
   it('puts a deleted topic back where it was', () => {

@@ -206,17 +206,6 @@ export function topicOps(
 }
 
 /**
- * The meeting's uncovered topics as a Markdown bulleted list, for a Prep
- * note to start from; `''` when there are none.
- */
-export function uncoveredTopicList(meeting: Pick<Meeting, 'topics'>): string {
-  return topicsOf(meeting)
-    .filter((t) => !t.done)
-    .map((t) => `- ${t.title}`)
-    .join('\n');
-}
-
-/**
  * Undoing a deleted topic: the order to put it back in. Every id in
  * `current` (plus `restored`) once; those that were there before keep
  * their old order (`before`), any added since go at the end.

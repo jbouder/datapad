@@ -102,6 +102,10 @@ as it is (migrated on the way in, below):
   string means "not set" for dates, times and the assignee.
 - Mentions stay as `@{personId}` tokens; `order`, `sourceNoteId`,
   `meetingId` / `phase`, `archived` and `links[]` carry over untouched.
+- `phase` (`pre`, `post` or null) is legacy: notes written with Prep or
+  Debrief (#163) carry it. Since #167 the app neither sets nor shows it,
+  but keeps it, so old files import and export unchanged and their notes
+  list with the meeting's others.
 - A note may carry `taskId` (#164): a running note on that task, in the
   task's project. It is optional: a file from before it imports
   unchanged, its notes without one (read as null), and an export writes

@@ -1,6 +1,7 @@
 import {
   ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
+  CalendarBlankIcon,
   CheckSquareIcon,
   CheckSquareOffsetIcon,
   PencilSimpleIcon,
@@ -16,6 +17,7 @@ import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { taskTitleFrom } from '#shared/notes';
 import type { Note, Snapshot } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
@@ -27,8 +29,6 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
-
-const PHASE = { pre: 'Prep', post: 'Debrief' } as const;
 
 /**
  * One note: where it belongs (project or General, and its meeting), when,
@@ -75,6 +75,7 @@ export function NoteCard({
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
   const { openTask } = useTaskPanels();
+  const { openMeeting } = useMeetingForm();
   const { show } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -236,10 +237,18 @@ export function NoteCard({
           ) : (
             <span className="border border-dashed px-1.5 py-0.5">General</span>
           ))}
-        {meeting && note.phase && (
-          <span className="bg-accent px-1.5 py-0.5 text-accent-foreground">
-            {PHASE[note.phase]} · {meeting.title}
-          </span>
+        {meeting && (
+          <button
+            type="button"
+            onClick={() => openMeeting(meeting.id)}
+            className="press inline-flex max-w-full min-h-11 items-center gap-1 desk:min-h-0"
+          >
+            <span className="inline-flex min-w-0 items-center gap-1 bg-accent px-1.5 py-0.5 text-accent-foreground hover:underline">
+              <CalendarBlankIcon aria-hidden className="shrink-0" />
+              <span className="sr-only">Meeting: </span>
+              <span className="truncate">{meeting.title}</span>
+            </span>
+          </button>
         )}
         {note.taskId &&
           (task ? (

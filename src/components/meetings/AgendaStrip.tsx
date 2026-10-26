@@ -1,9 +1,9 @@
-import { FlagIcon } from '@phosphor-icons/react';
+import { FlagIcon, NotePencilIcon } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
 import { describeDay } from '#shared/dates';
 import { timeRange, topicCount } from '#shared/meetings';
 import type { AgendaItem } from '#shared/select';
-import { type NotePhase, type Snapshot, topicsOf } from '#shared/types';
+import { type Snapshot, topicsOf } from '#shared/types';
 import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
 import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,8 @@ const CARD =
 /**
  * Focus's agenda: the next seven days of meetings and milestones as a
  * strip of cards that scrolls sideways (snapping card by card on phones).
- * A meeting's card links to it on the Meetings page, and Prep, Debrief
- * and Note open a composer for it under the strip, in place; a
+ * A meeting's card links to it on the Meetings page, and Add note opens
+ * a composer for it under the strip, in place; a
  * milestone's card, flagged, opens its project at it.
  */
 export function AgendaStrip({
@@ -31,18 +31,15 @@ export function AgendaStrip({
 }) {
   const { show } = useToast();
   // The note being written, under the strip: one at a time.
-  const [composing, setComposing] = useState<{
-    meetingId: string;
-    phase: NotePhase | null;
-  } | null>(null);
+  const [composing, setComposing] = useState<string | null>(null);
   const composer = useRef<InlineNoteComposerHandle>(null);
   const opener = useRef<HTMLElement | null>(null);
-  const startNote = (meetingId: string, phase: NotePhase | null) => {
+  const startNote = (meetingId: string) => {
     opener.current = document.activeElement as HTMLElement | null;
-    if (composing?.meetingId === meetingId) composer.current?.focus();
-    setComposing({ meetingId, phase });
+    if (composing === meetingId) composer.current?.focus();
+    else setComposing(meetingId);
   };
-  const meeting = composing ? state.meetings[composing.meetingId] : undefined;
+  const meeting = composing ? state.meetings[composing] : undefined;
 
   return (
     <section aria-labelledby="agenda-title" className="flex min-w-0 flex-col">
@@ -123,30 +120,11 @@ export function AgendaStrip({
                   variant="ghost"
                   size="sm"
                   className="press h-11 px-2 text-xs desk:h-8"
-                  onClick={() => startNote(e.id, 'pre')}
+                  onClick={() => startNote(e.id)}
                 >
-                  Prep
-                  <span className="sr-only"> note for “{e.title}”</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="press h-11 px-2 text-xs desk:h-8"
-                  onClick={() => startNote(e.id, 'post')}
-                >
-                  Debrief
-                  <span className="sr-only"> note for “{e.title}”</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="press h-11 px-2 text-xs desk:h-8"
-                  onClick={() => startNote(e.id, null)}
-                >
-                  Note
-                  <span className="sr-only"> for “{e.title}”</span>
+                  <NotePencilIcon />
+                  Add note
+                  <span className="sr-only"> to “{e.title}”</span>
                 </Button>
               </span>
             </li>
@@ -165,10 +143,6 @@ export function AgendaStrip({
           ref={composer}
           meeting={meeting}
           people={state.people}
-          phase={composing.phase}
-          onPhaseChange={(phase) =>
-            setComposing({ meetingId: meeting.id, phase })
-          }
           onDone={(noteId) => {
             setComposing(null);
             opener.current?.focus({ preventScroll: true });

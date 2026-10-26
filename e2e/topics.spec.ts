@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, formatDay, localDate } from '../shared/dates';
+import { addDays, localDate } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -371,22 +371,6 @@ test('Make a task and Record a decision start from the topic', async ({
   );
   // Neither writes back to the topic.
   expect(data.meetings['e-1']?.topics).toEqual(TOPICS);
-});
-
-test('a Prep note starts from the uncovered topics', async ({ page }) => {
-  await openLive(page, '/meetings');
-  await row(page, 'Shield review')
-    .getByRole('button', { name: 'More for “Shield review”' })
-    .click();
-  await page.getByRole('menuitem', { name: 'Prep note' }).click();
-  await expect(page).toHaveURL(/\/meetings/);
-  const box = page.getByRole('combobox', {
-    name: 'New note for “Shield review”',
-  });
-  await expect(box).toBeFocused();
-  await expect(box).toHaveValue(
-    `## Prep: Shield review — ${formatDay(shieldDay, today)}\n- North ridge\n- Probe droid sightings\n`,
-  );
 });
 
 test('the Calendar counts a meeting’s topics', async ({ page }) => {

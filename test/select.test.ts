@@ -13,6 +13,7 @@ import {
   meId,
   mentionsOf,
   nextMilestones,
+  notesOfMeeting,
   notesOfTask,
   openCounts,
   orgs,
@@ -201,6 +202,29 @@ describe('other selectors', () => {
       'n2',
       'n1',
     ]);
+  });
+
+  it('lists a meeting’s notes newest first, legacy phase or not', () => {
+    // The fixture's n-2 is an old Prep note (`phase: 'pre'`).
+    expect(s.notes['n-2']?.phase).toBe('pre');
+    let state = s;
+    state = reduce(
+      state,
+      {
+        type: 'addNote',
+        id: 'n-new',
+        projectId: 'p-echo',
+        body: 'Later thought',
+        meetingId: 'e-1',
+      },
+      '2026-10-28T09:00:00.000Z',
+    ).state;
+    expect(state.notes['n-new']?.phase).toBeNull();
+    expect(notesOfMeeting(state.notes, 'e-1').map((n) => n.id)).toEqual([
+      'n-new',
+      'n-2',
+    ]);
+    expect(notesOfMeeting(state.notes, 'nope')).toEqual([]);
   });
 
   it('lists distinct orgs, sorted', () => {
