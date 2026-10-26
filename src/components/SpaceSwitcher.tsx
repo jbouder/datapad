@@ -115,8 +115,8 @@ interface NewSpace {
 const NewSpaceContext = createContext<NewSpace | null>(null);
 
 /**
- * The one "New space" dialog, opened from the rail switcher, the account
- * menu or ⌘K. Inside `DatapadProvider` and `ToastProvider`.
+ * The one "New space" dialog, opened from the rail switcher, Settings →
+ * Spaces or ⌘K. Inside `DatapadProvider` and `ToastProvider`.
  */
 export function NewSpaceProvider({ children }: { children: ReactNode }) {
   const { spaces, createSpace } = useSpaces();

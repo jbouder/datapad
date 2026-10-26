@@ -38,7 +38,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   migrations in `ensureTables()`, the space RPCs,
   its nightly R2 backup alarm), `env.ts` (bindings).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
-  `SETTINGS_SECTIONS` lists Settings' sections, `spaces` among them),
+  `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
+  `orgs` among them; People and Orgs are their own routes under
+  `/settings/…`),
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
   date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),

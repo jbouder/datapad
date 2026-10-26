@@ -27,7 +27,7 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * Orgs: the default org, every org as a record (kind, project
- * count) and, at `/orgs/:id`, one org's page: its projects,
+ * count) and, at `/settings/orgs/:id`, one org's page: its projects,
  * contacts, upcoming meetings, notes and links. Until orgs are organized,
  * projects carry plain org text; "Organize orgs" turns that into records.
  */

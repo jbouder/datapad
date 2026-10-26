@@ -4,6 +4,7 @@ import {
   parseRoute,
   type Route,
   routePath,
+  settingsSectionOf,
 } from '#shared/routes';
 
 /**
@@ -22,6 +23,8 @@ export {
   type RouteName,
   SETTINGS_SECTIONS,
   type SettingsSection,
+  settingsRoute,
+  settingsSectionOf,
 } from '#shared/routes';
 
 /** `/dev/components` exists in `vite dev` and in the e2e build only. */
@@ -37,10 +40,11 @@ export function pathFor(route: Route): string {
 
 /**
  * Two routes are the same page (same name, same project). Settings
- * sections are one page, so moving between them is no page transition;
- * so is picking another person or org.
+ * sections, People and Orgs among them, are one page, so moving between
+ * them is no page transition; so is picking another person or org.
  */
 export function samePage(a: Route, b: Route): boolean {
+  if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
   return (
     a.name === b.name &&
     (a.name !== 'project' || a.id === (b as { id: string }).id)
@@ -56,7 +60,7 @@ function here(): string {
 let current: Route = parse(window.location.pathname, window.location.hash);
 
 // Old addresses settle on their canonical one: /focus is /,
-// /settings/people is /people, /events?event=<id> is /meetings?meeting=<id>.
+// /people is /settings/people, /events?event=<id> is /meetings?meeting=<id>.
 let search = canonicalQuery(window.location.pathname, window.location.search);
 if (
   current.name !== 'notFound' &&

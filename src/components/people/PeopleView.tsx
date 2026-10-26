@@ -38,7 +38,7 @@ interface Editing {
  * People, as a List (everyone by name beside the selected
  * person's detail, stacked on phones) or Cards (one card per person with
  * their counts, the detail underneath). Selecting someone is a link
- * (`/people/:id`), so search and other pages can point here.
+ * (`/settings/people/:id`), so search and other pages can point here.
  * Add, Edit and Remove go through the person panel in both.
  */
 export function PeopleView({ selected }: { selected?: string }) {

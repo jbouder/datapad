@@ -2,7 +2,6 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectSaved,
-  isMobile,
   openLive,
   openPreferences,
   SEED,
@@ -12,15 +11,16 @@ import {
 const settingsNav = (page: Page) =>
   page.getByRole('navigation', { name: 'Settings' });
 
-test('the account menu leads to Settings; People and Orgs are rail-only', async ({
+test('the account menu leads to Settings, which has People and Orgs', async ({
   page,
   email,
 }) => {
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // The spaces, New space… and Manage spaces, Motion and Theme, then Settings, then Sign
-  // out. Phones, with no People or Orgs in the tab bar, get them here.
+  // The spaces (the phone's switcher), Motion and Theme, then Settings,
+  // then Sign out. No People or Orgs (they are in Settings), and no New
+  // space… or Manage spaces (Settings → Spaces does that).
   await expect(
     page
       .getByRole('menu')
@@ -29,13 +29,10 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
       .or(page.getByRole('menu').getByRole('menuitemradio')),
   ).toHaveText([
     'Main',
-    'New space…',
-    'Manage spaces',
     'Motion',
     'System',
     'Light',
     'Dark',
-    ...(isMobile(page) ? ['People', 'Orgs'] : []),
     'Settings',
     'Sign out',
   ]);
@@ -46,17 +43,21 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
     settingsNav(page).getByRole('link', { name: 'Appearance' }),
   ).toHaveAttribute('aria-current', 'page');
 
-  await expect(
-    settingsNav(page).getByRole('link', { name: /People|Orgs/ }),
-  ).toHaveCount(0);
+  // Its sections, People and Orgs among them.
+  await expect(settingsNav(page).getByRole('link')).toHaveText([
+    'Appearance',
+    'Templates',
+    'Summaries',
+    'Spaces',
+    'People',
+    'Orgs',
+    'Data',
+    'Account',
+  ]);
   const sections = page.getByRole('navigation', { name: 'Sections' });
-  for (const name of ['People', 'Orgs']) {
-    if (isMobile(page)) {
-      await expect(sections.getByRole('link', { name })).toHaveCount(0);
-    } else {
-      await expect(sections.getByRole('link', { name })).toBeVisible();
-    }
-  }
+  await expect(sections.getByRole('link', { name: /People|Orgs/ })).toHaveCount(
+    0,
+  );
   // No signed-in email in the rail; the account menu shows it.
   await expect(page.getByRole('complementary').getByText(email)).toHaveCount(0);
   // No Import / Export in the rail any more.
@@ -66,11 +67,34 @@ test('the account menu leads to Settings; People and Orgs are rail-only', async 
       .getByRole('button', { name: /Import|Export/ }),
   ).toHaveCount(0);
 
-  // The old Settings addresses land on the new pages.
-  await page.goto('/settings/people');
-  await expect(page).toHaveURL(/\/people$/);
-  await expect(page).not.toHaveURL(/settings/);
-  await expect(page).toHaveTitle('People · Datapad');
+  await settingsNav(page).getByRole('link', { name: 'People' }).click();
+  await expect(page).toHaveURL(/\/settings\/people$/);
+  await expect(page).toHaveTitle('People · Settings · Datapad');
+  await expect(
+    page.getByRole('heading', { level: 2, name: 'People' }),
+  ).toBeVisible();
+  await settingsNav(page).getByRole('link', { name: 'Orgs' }).click();
+  await expect(page).toHaveURL(/\/settings\/orgs$/);
+  await expect(page).toHaveTitle('Orgs · Settings · Datapad');
+  // The open section is in view, even where the sections scroll sideways.
+  await expect(
+    settingsNav(page).getByRole('link', { name: 'Orgs' }),
+  ).toBeInViewport({ ratio: 1 });
+  await page.goto('/settings/account');
+  await expect(
+    settingsNav(page).getByRole('link', { name: 'Account' }),
+  ).toBeInViewport({ ratio: 1 });
+
+  // The addresses from #93 land on the Settings ones.
+  for (const [from, to] of [
+    ['/people', '/settings/people'],
+    ['/people/u-x', '/settings/people/u-x'],
+    ['/orgs', '/settings/orgs'],
+    ['/orgs/o-x', '/settings/orgs/o-x'],
+  ]) {
+    await page.goto(from);
+    await expect(page).toHaveURL(new RegExp(`${to}$`));
+  }
 });
 
 test.describe('Appearance', () => {
@@ -93,7 +117,7 @@ test('People: add, mark yourself, edit and remove', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/people');
+  await openLive(page, '/settings/people');
   await expect(page.getByText('No people yet.')).toBeVisible();
   const panel = page.getByRole('dialog');
   for (const [who, role] of [
@@ -144,7 +168,7 @@ test('Orgs: a default org that new projects start in', async ({
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/orgs');
+  await openLive(page, '/settings/orgs');
   // A space starts with no default org, and nothing marked default.
   const picker = page.getByRole('combobox', { name: 'Default org' });
   await expect(picker).toHaveValue('No org');
@@ -169,7 +193,7 @@ test('Orgs: a default org that new projects start in', async ({
     .click();
 
   // Pick one; it is stored with your data, not just in this browser.
-  await page.goto('/orgs');
+  await page.goto('/settings/orgs');
   await picker.click();
   await picker.fill('Rebel');
   await page.getByRole('option', { name: 'Rebel Alliance' }).click();

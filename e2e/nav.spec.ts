@@ -143,7 +143,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Meetings, Notes, then People and Orgs on desktop', async ({
+test('sections run Focus, Projects, Tasks, Meetings, Notes; People and Orgs are in Settings', async ({
   page,
 }) => {
   await page.goto('/');
@@ -157,7 +157,16 @@ test('sections run Focus, Projects, Tasks, Meetings, Notes, then People and Orgs
     /Tasks/,
     /Meetings/,
     /Notes/,
-    // The tab bar keeps five; People and Orgs are in the rail only.
-    ...(isMobile(page) ? [] : [/People/, /Orgs/]),
   ]);
+  // People and Orgs live under Settings (#159), in neither the rail nor
+  // the tab bar.
+  await expect(nav.getByRole('link', { name: /People|Orgs/ })).toHaveCount(0);
+  if (isMobile(page)) {
+    // Five tabs, each at least 44px square.
+    for (const link of await nav.getByRole('link').all()) {
+      const box = await link.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+    }
+  }
 });
