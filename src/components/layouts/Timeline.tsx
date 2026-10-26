@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { addDays, formatDay, localDate } from '#shared/dates';
 import type { DateString } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -111,6 +111,8 @@ export function Timeline({
     days: number;
   } | null>(null);
   const [dropRow, setDropRow] = useState<string | null>(null);
+  /** The point whose entry in the list has focus: its label shows. */
+  const [focused, setFocused] = useState<string | null>(null);
   const moved = useRef(false);
   const today = localDate(new Date());
 
@@ -187,6 +189,10 @@ export function Timeline({
                         type="button"
                         className="underline"
                         onClick={() => onOpenPoint(r.id, p.id)}
+                        onFocus={() => setFocused(p.id)}
+                        onBlur={() =>
+                          setFocused((f) => (f === p.id ? null : f))
+                        }
                       >
                         {p.label}
                       </button>
@@ -286,91 +292,107 @@ export function Timeline({
                     />
                   )}
                   {r.points.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      tabIndex={-1}
-                      data-layout-id={p.id}
-                      title={`${p.label} · ${formatDay(p.date, today)}`}
-                      onClick={() => {
-                        // A drag ends with a click; only a still press opens.
-                        if (!moved.current) onOpenPoint?.(r.id, p.id);
-                        moved.current = false;
-                      }}
-                      onPointerDown={
-                        onMovePoint
-                          ? (e) => {
-                              e.currentTarget.setPointerCapture(e.pointerId);
-                              moved.current = false;
-                              setDragging({
-                                rowId: r.id,
-                                pointId: p.id,
-                                startX: e.clientX,
-                                days: 0,
-                              });
-                            }
-                          : undefined
-                      }
-                      onPointerMove={
-                        onMovePoint
-                          ? (e) => {
-                              if (dragging?.pointId !== p.id) return;
-                              const daysMoved = Math.round(
-                                (e.clientX - dragging.startX) / px,
-                              );
-                              if (daysMoved !== 0) moved.current = true;
-                              if (daysMoved !== dragging.days) {
-                                setDragging({ ...dragging, days: daysMoved });
+                    <Fragment key={p.id}>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        data-layout-id={p.id}
+                        data-label={p.label}
+                        onClick={() => {
+                          // A drag ends with a click; only a still press opens.
+                          if (!moved.current) onOpenPoint?.(r.id, p.id);
+                          moved.current = false;
+                        }}
+                        onPointerDown={
+                          onMovePoint
+                            ? (e) => {
+                                e.currentTarget.setPointerCapture(e.pointerId);
+                                moved.current = false;
+                                setDragging({
+                                  rowId: r.id,
+                                  pointId: p.id,
+                                  startX: e.clientX,
+                                  days: 0,
+                                });
                               }
-                            }
-                          : undefined
-                      }
-                      onPointerUp={
-                        onMovePoint
-                          ? () => {
-                              if (
-                                dragging?.pointId === p.id &&
-                                dragging.days !== 0
-                              ) {
-                                onMovePoint(
-                                  r.id,
-                                  p.id,
-                                  addDays(p.date, dragging.days),
+                            : undefined
+                        }
+                        onPointerMove={
+                          onMovePoint
+                            ? (e) => {
+                                if (dragging?.pointId !== p.id) return;
+                                const daysMoved = Math.round(
+                                  (e.clientX - dragging.startX) / px,
                                 );
+                                if (daysMoved !== 0) moved.current = true;
+                                if (daysMoved !== dragging.days) {
+                                  setDragging({ ...dragging, days: daysMoved });
+                                }
                               }
-                              setDragging(null);
-                            }
-                          : undefined
-                      }
-                      className={cn(
-                        'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-foreground',
-                        p.kind === 'milestone' && 'bg-foreground',
-                        p.kind === 'task' && 'rounded-full bg-background',
-                        p.kind === 'meeting' &&
-                          'rotate-0 rounded-full bg-primary/60',
-                        p.time &&
-                          p.end &&
-                          'h-3 w-(--span) translate-x-0 rounded-none',
-                      )}
-                      style={{
-                        left:
-                          x(p.date) +
-                          (p.time || p.end ? dayFraction(p.time) * px : 0),
-                        ...(p.time && p.end
-                          ? ({
-                              '--span': `${Math.max(
-                                6,
-                                (dayFraction(p.end) - dayFraction(p.time)) * px,
-                              )}px`,
-                            } as React.CSSProperties)
-                          : {}),
-                        // While dragging: transform only; layout moves on drop.
-                        translate:
-                          dragging?.pointId === p.id
-                            ? `calc(-50% + ${dragging.days * px}px) -50%`
-                            : undefined,
-                      }}
-                    />
+                            : undefined
+                        }
+                        onPointerUp={
+                          onMovePoint
+                            ? () => {
+                                if (
+                                  dragging?.pointId === p.id &&
+                                  dragging.days !== 0
+                                ) {
+                                  onMovePoint(
+                                    r.id,
+                                    p.id,
+                                    addDays(p.date, dragging.days),
+                                  );
+                                }
+                                setDragging(null);
+                              }
+                            : undefined
+                        }
+                        className={cn(
+                          'timeline-point absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-foreground',
+                          p.kind === 'milestone' && 'bg-foreground',
+                          p.kind === 'task' && 'rounded-full bg-background',
+                          p.kind === 'meeting' &&
+                            'rotate-0 rounded-full bg-primary/60',
+                          p.time &&
+                            p.end &&
+                            'h-3 w-(--span) translate-x-0 rounded-none',
+                        )}
+                        style={{
+                          left:
+                            x(p.date) +
+                            (p.time || p.end ? dayFraction(p.time) * px : 0),
+                          ...(p.time && p.end
+                            ? ({
+                                '--span': `${Math.max(
+                                  6,
+                                  (dayFraction(p.end) - dayFraction(p.time)) *
+                                    px,
+                                )}px`,
+                              } as React.CSSProperties)
+                            : {}),
+                          // While dragging: transform only; layout moves on drop.
+                          translate:
+                            dragging?.pointId === p.id
+                              ? `calc(-50% + ${dragging.days * px}px) -50%`
+                              : undefined,
+                        }}
+                      />
+                      {/* Its title, on hover and while its list entry has focus. */}
+                      <span
+                        data-shown={focused === p.id || undefined}
+                        className={cn(
+                          'timeline-point-label pointer-events-none absolute top-1/2 z-10 max-w-56 -translate-y-1/2 truncate border bg-popover px-1.5 py-0.5 text-[11px] whitespace-nowrap text-popover-foreground shadow-sm',
+                          x(p.date) > width - 200 && '-translate-x-full',
+                        )}
+                        style={{
+                          left:
+                            x(p.date) + (x(p.date) > width - 200 ? -10 : 10),
+                        }}
+                      >
+                        {p.label} · {formatDay(p.date, today)}
+                      </span>
+                    </Fragment>
                   ))}
                 </div>
               </div>

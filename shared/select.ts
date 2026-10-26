@@ -6,6 +6,7 @@ import {
   type Decision,
   type Meeting,
   type Milestone,
+  milestonesOf,
   type Note,
   type Person,
   type Project,
@@ -193,27 +194,64 @@ export const nextMilestones = lastCall(
   },
 );
 
+/** One thing on Focus's agenda: a meeting, or a milestone on its project. */
+export type AgendaItem =
+  | { kind: 'meeting'; id: string; date: DateString; meeting: Meeting }
+  | {
+      kind: 'milestone';
+      id: string;
+      date: DateString;
+      milestone: Milestone;
+      project: Project;
+    };
+
+/** All day (a milestone, a meeting without a time) sorts first in its day. */
+function timeOf(item: AgendaItem): string {
+  return item.kind === 'meeting' ? item.meeting.time : '';
+}
+
+function titleOf(item: AgendaItem): string {
+  return item.kind === 'meeting' ? item.meeting.title : item.milestone.title;
+}
+
 /**
- * Meetings in the next seven days (today included), outside archived
- * projects.
+ * Meetings and milestones in the next seven days (today included), outside
+ * archived projects, as one list: by day, all-day items first within a
+ * day, then by time and title.
  */
 export const agenda = lastCall(
   (
     meetings: Snapshot['meetings'],
     projects: Projects,
     today: DateString,
-  ): Meeting[] => {
+  ): AgendaItem[] => {
     const last = addDays(today, 6);
-    return Object.values(meetings)
-      .filter(
-        (e) =>
-          e.date >= today &&
-          e.date <= last &&
-          !(e.projectId !== null && projects[e.projectId]?.archived),
-      )
-      .sort(
-        (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time),
-      );
+    const soon = (date: DateString) => date >= today && date <= last;
+    const items: AgendaItem[] = [];
+    for (const m of Object.values(meetings)) {
+      if (!soon(m.date)) continue;
+      if (m.projectId !== null && projects[m.projectId]?.archived) continue;
+      items.push({ kind: 'meeting', id: m.id, date: m.date, meeting: m });
+    }
+    for (const p of Object.values(projects)) {
+      if (p.archived) continue;
+      for (const m of milestonesOf(p)) {
+        if (!soon(m.date)) continue;
+        items.push({
+          kind: 'milestone',
+          id: m.id,
+          date: m.date,
+          milestone: m,
+          project: p,
+        });
+      }
+    }
+    return items.sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        timeOf(a).localeCompare(timeOf(b)) ||
+        titleOf(a).localeCompare(titleOf(b)),
+    );
   },
 );
 

@@ -1,21 +1,27 @@
+import { FlagIcon } from '@phosphor-icons/react';
 import { describeDay } from '#shared/dates';
 import { timeRange } from '#shared/meetings';
-import type { Meeting, Snapshot } from '#shared/types';
+import type { AgendaItem } from '#shared/select';
+import type { Snapshot } from '#shared/types';
 import { useMeetingNotes } from '@/components/meetings/MeetingNotesProvider';
 import { Button } from '@/components/ui/button';
 import { linkProps } from '@/lib/router';
 
+const CARD =
+  'relative flex w-64 shrink-0 snap-start flex-col gap-1.5 border bg-card p-3 text-card-foreground has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-ring hover:bg-accent/40';
+
 /**
- * Focus's agenda: the next seven days of meetings as a strip of cards that
- * scrolls sideways (snapping card by card on phones). Each card is a link
- * to the meeting on the Meetings page; Prep and Debrief start its notes.
+ * Focus's agenda: the next seven days of meetings and milestones as a
+ * strip of cards that scrolls sideways (snapping card by card on phones).
+ * A meeting's card links to it on the Meetings page, and Prep and Debrief
+ * start its notes; a milestone's card, flagged, opens its project at it.
  */
 export function AgendaStrip({
-  meetings,
+  items,
   state,
   today,
 }: {
-  meetings: Meeting[];
+  items: AgendaItem[];
   state: Snapshot;
   today: string;
 }) {
@@ -29,14 +35,48 @@ export function AgendaStrip({
         aria-labelledby="agenda-title"
         className="scrollbar-thin -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 desk:mx-0 desk:snap-none desk:px-0"
       >
-        {meetings.map((e) => {
+        {items.map((item) => {
+          if (item.kind === 'milestone') {
+            const { milestone: m, project } = item;
+            return (
+              <li
+                key={`milestone-${m.id}`}
+                data-agenda-id={m.id}
+                data-kind="milestone"
+                className={CARD}
+              >
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+                  <FlagIcon aria-hidden weight="fill" className="shrink-0" />
+                  <span className="text-foreground">
+                    {describeDay(m.date, today)}
+                  </span>
+                  <span>Milestone</span>
+                </span>
+                <a
+                  {...linkProps(
+                    { name: 'project', id: project.id },
+                    `milestone=${m.id}`,
+                  )}
+                  className="line-clamp-2 text-sm font-medium outline-none after:absolute after:inset-0"
+                >
+                  <span className="sr-only">Milestone: </span>
+                  {m.title}
+                </a>
+                <span className="truncate text-xs text-muted-foreground">
+                  {project.name}
+                </span>
+              </li>
+            );
+          }
+          const e = item.meeting;
           const project = e.projectId ? state.projects[e.projectId] : null;
           const range = timeRange(e);
           return (
             <li
-              key={e.id}
+              key={`meeting-${e.id}`}
               data-agenda-id={e.id}
-              className="relative flex w-64 shrink-0 snap-start flex-col gap-1.5 border bg-card p-3 text-card-foreground has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-ring hover:bg-accent/40"
+              data-kind="meeting"
+              className={CARD}
             >
               <span className="flex items-baseline gap-2 text-xs text-muted-foreground tabular-nums">
                 <span className="text-foreground">

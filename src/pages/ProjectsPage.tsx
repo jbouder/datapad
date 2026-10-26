@@ -20,6 +20,7 @@ import {
 } from '@/components/projects/ProjectLayouts';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withViewTransition } from '@/lib/motion';
 import { setQuery, useQuery } from '@/lib/router';
@@ -45,6 +46,7 @@ const SORT_LABELS: Record<ProjectSort, string> = {
   name: 'Name',
   start: 'Start date',
   target: 'Target date',
+  milestone: 'Next milestone',
 };
 
 /** Filters from the query string, so Back restores them. */
@@ -69,7 +71,7 @@ function useProjectFilters(): ProjectFilters {
 
 /**
  * Every project that is not archived, as cards: filter by status (Active
- * by default) and org, sort four ways, all kept in the URL. Changing them
+ * by default) and org, sort five ways, all kept in the URL. Changing them
  * runs a `filter` view transition over the grid.
  */
 export function ProjectsPage() {
@@ -93,9 +95,10 @@ export function ProjectsPage() {
     [active],
   );
 
+  const today = useToday();
   const projects = useMemo(
-    () => (state ? selectProjects(state.projects, filters) : []),
-    [state, filters],
+    () => (state ? selectProjects(state.projects, filters, false, today) : []),
+    [state, filters, today],
   );
   const anyProjects = state
     ? Object.values(state.projects).some((p) => !p.archived)
