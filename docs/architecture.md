@@ -150,8 +150,9 @@ in `meta`): in one transaction every `docs` row moves into `main`, the
 `seq` from `meta`, so open clients carry on without a resync. A failed
 migration leaves the old layout whole and runs again on the next wake.
 
-Schema version 3 turns events into meetings and moves milestones onto
-their project. On the first wake after the upgrade, in one transaction,
+Schema version 3 turns the typed `events` rows from before meetings into
+meetings and moves milestones onto their project. On the first wake after
+the upgrade, in one transaction,
 each space's projects, notes and `events` rows go through
 `shared/migrate.ts` (the same function every import runs): the `events`
 rows are gone, the changed rows are written (`meetings` rows, projects
@@ -175,7 +176,11 @@ change the object refuses on replay is dropped and toasted by name
 top bar on phones) says Saved, Saving… or "Offline, N changes waiting" in
 a polite live region; it never blocks. The
 router is holocron's small pushState router; route changes run inside a
-`page` view transition.
+`page` view transition. Its pure half (parsing, paths, page titles, and
+the redirects from old addresses, such as the meetings page's address
+from before meetings, which keeps its query and renames the id
+parameter to `meeting`) is `shared/routes.ts`, so Vitest tests it
+without a DOM; `src/lib/router.ts` re-exports it.
 
 The active space is remembered per device in `localStorage`
 (`datapad:space`), not in the URL, so a link opens in whatever space is

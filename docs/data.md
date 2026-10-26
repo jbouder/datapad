@@ -67,8 +67,8 @@ document is refused whole, with the first problem named
 
 ### The format
 
-The original artifact's export, unchanged, so its `ledger-*.json` imports
-as it is:
+The original artifact's export, extended, so its `ledger-*.json` imports
+as it is (migrated on the way in, below):
 
 ```json
 {
@@ -110,11 +110,20 @@ as it is:
 - A file from before meetings (the artifact's, or an older Datapad
   export or backup) has `events` instead of `meetings`, and notes with
   `eventId`. It imports as it is, migrated on the way in
-  ([`shared/migrate.ts`](../shared/migrate.ts)): meetings, demos and
-  other events become meetings; a milestone or deadline on a project
-  becomes a milestone on it (its notes keep their text and lose the
-  link); one in General stays a meeting titled `Milestone: …` or
-  `Deadline: …`. Activity keeps its text.
+  ([`shared/migrate.ts`](../shared/migrate.ts)), by each entry's `type`:
+  - `meeting`, `demo`, `other` or no type: a meeting, same id, the type
+    dropped.
+  - `milestone` or `deadline` on a project in the same file: a milestone
+    on that project (same id, title and date). Its linked notes keep
+    their text and lose the link (`meetingId` and `phase` null).
+  - `milestone` or `deadline` in General, on a project the file does not
+    hold, or on a project that already has 50 milestones: a meeting
+    titled `Milestone: …` or `Deadline: …` (clipped to 200 characters),
+    so nothing is lost.
+  - `eventId` on a note becomes `meetingId`. Activity keeps its text.
+
+  A file already in the new shape passes through unchanged, so running
+  it twice changes nothing.
 - Unknown keys are dropped. A field an older file lacks gets its empty
   value (`[]`, `''`, `false`, `null`); names, titles, meeting dates and
   timestamps must be there.
@@ -176,7 +185,7 @@ With more than one space, a project page's menu has **Move to…**. The
 project goes with its tasks, notes, meetings (and their topics), milestones, decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it
-refers to (members, assignees, who its tasks are blocked on, event
+refers to (members, assignees, who its tasks are blocked on, meeting
 attendees, deciders, its org's contacts, and anyone @-mentioned in its
 description, tasks, notes, decisions or the org's notes) and its org are
 copied; the source space keeps its copies. If the target already has an
