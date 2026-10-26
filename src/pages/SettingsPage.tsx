@@ -60,24 +60,35 @@ export function SettingsPage({
   org?: string;
 }) {
   usePageTitle(`${LABELS[section]} · Settings`);
-  // On phones the sections scroll sideways: keep the open one in view.
+  // On phones the sections scroll sideways: keep the open one in view. The
+  // web font can land after the first layout and widen every label, so the
+  // same reveal runs again once the fonts are ready.
   const nav = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
-    const strip = nav.current;
-    const link = strip?.querySelector<HTMLElement>(
-      `[data-section="${section}"]`,
-    );
-    if (!strip || !link || strip.scrollWidth <= strip.clientWidth) return;
-    const left =
-      link.getBoundingClientRect().left -
-      strip.getBoundingClientRect().left +
-      strip.scrollLeft;
-    const right = left + link.offsetWidth;
-    if (left < strip.scrollLeft) {
-      strip.scrollLeft = left;
-    } else if (right > strip.scrollLeft + strip.clientWidth) {
-      strip.scrollLeft = right - strip.clientWidth;
-    }
+    let live = true;
+    const reveal = () => {
+      const strip = nav.current;
+      const link = strip?.querySelector<HTMLElement>(
+        `[data-section="${section}"]`,
+      );
+      if (!live || !strip || !link) return;
+      if (strip.scrollWidth <= strip.clientWidth) return;
+      const left =
+        link.getBoundingClientRect().left -
+        strip.getBoundingClientRect().left +
+        strip.scrollLeft;
+      const right = left + link.offsetWidth;
+      if (left < strip.scrollLeft) {
+        strip.scrollLeft = left;
+      } else if (right > strip.scrollLeft + strip.clientWidth) {
+        strip.scrollLeft = right - strip.clientWidth;
+      }
+    };
+    reveal();
+    document.fonts?.ready.then(reveal);
+    return () => {
+      live = false;
+    };
   }, [section]);
   return (
     <div className="enter flex flex-col gap-6">
