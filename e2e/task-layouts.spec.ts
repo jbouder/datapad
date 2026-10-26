@@ -103,7 +103,7 @@ test('Timeline: drag a point to a later day, and date an undated task', async ({
 }) => {
   test.skip(isMobile(page), 'Pointer dragging is the desktop path.');
   await openLive(page, '/tasks?view=timeline');
-  const point = page.locator('button[title^="Book the tauntaun vet"]');
+  const point = page.locator('button[data-label^="Book the tauntaun vet"]');
   const box = await point.boundingBox();
   if (!box) throw new Error('No point');
   // Week zoom is 36px a day: two days later.

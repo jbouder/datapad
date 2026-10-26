@@ -26,6 +26,7 @@ import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { HealthPicker } from '@/components/projects/Health';
+import { Milestones } from '@/components/projects/Milestones';
 import { MoveProjectDialog } from '@/components/projects/MoveProjectDialog';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { StateLine } from '@/components/projects/StateLine';
@@ -52,7 +53,7 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One project, where most entry happens: the header with its facts and
  * actions, the description, the current state line, then Tasks on the
- * left with Events under them, Notes and Activity on the right (3:2
+ * left with Milestones and Events under them, Notes and Activity on the right (3:2
  * above 820px, one column below). Sections remember open or closed per
  * project.
  */
@@ -355,6 +356,11 @@ export function ProjectPage({ id }: { id: string }) {
               )}
             </div>
           </Section>
+          <Milestones
+            project={project}
+            today={today}
+            storageKey={key('milestones')}
+          />
           <Section
             title="Events"
             count={events.filter((e) => e.date >= today).length}

@@ -236,7 +236,7 @@ describe('projectContext', () => {
         'Recently done tasks:',
         '- Old thing, closed Sat 10 Oct 2026',
         '',
-        'Milestones:',
+        'Milestones, by date:',
         '- Sat 14 Nov 2026: Shields up',
         '- Wed 18 Nov 2026: Evacuation drill',
         '',

@@ -155,7 +155,7 @@ export function FocusPage() {
       </div>
 
       {week.length > 0 && (
-        <AgendaStrip events={week} state={state} today={today} />
+        <AgendaStrip items={week} state={state} today={today} />
       )}
 
       <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_14rem] desk:items-end">

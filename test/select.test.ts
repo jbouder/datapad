@@ -221,6 +221,50 @@ describe('other selectors', () => {
     expect(agenda(s.meetings, s.projects, '2026-10-20')).toEqual([]);
   });
 
+  it('puts milestones in the agenda with meetings, all day first', () => {
+    const echo = s.projects['p-echo'] as Project;
+    const projects = {
+      ...s.projects,
+      'p-echo': {
+        ...echo,
+        milestones: [
+          { id: 'm-past', title: 'Old', date: '2026-10-22' },
+          { id: 'm-same', title: 'Shields up', date: '2026-10-27' },
+          { id: 'm-first', title: 'Doors hung', date: '2026-10-24' },
+          { id: 'm-far', title: 'Too far', date: '2026-10-30' },
+        ],
+      },
+      // Archived: its milestones stay off the agenda.
+      'p-yavin': {
+        ...(s.projects['p-yavin'] as Project),
+        milestones: [{ id: 'm-arch', title: 'Medals', date: '2026-10-25' }],
+      },
+    };
+    const meetings = {
+      ...s.meetings,
+      allDay: {
+        ...(s.meetings['e-1'] as (typeof s.meetings)[string]),
+        id: 'allDay',
+        title: 'Ridge walk',
+        date: '2026-10-27',
+        time: '',
+        end: '',
+      },
+    };
+    const items = agenda(meetings, projects, '2026-10-23');
+    expect(items.map((a) => [a.kind, a.id])).toEqual([
+      ['milestone', 'm-first'],
+      // The 27th: the all-day items by title, then the 14:00 meeting.
+      ['meeting', 'allDay'],
+      ['milestone', 'm-same'],
+      ['meeting', 'e-1'],
+    ]);
+    const first = items[0];
+    expect(first?.kind === 'milestone' && first.project.name).toBe(
+      'Echo Base relocation',
+    );
+  });
+
   it('finds every note and task that mentions a person', () => {
     const chewie = mentionsOf(s.notes, s.tasks, 'u-chewie');
     expect(chewie.notes.map((n) => n.id)).toEqual(['n-1', 'n-4']);
@@ -338,6 +382,46 @@ describe('project filters and sorts', () => {
       'b',
       'a',
     ]);
+  });
+
+  it('sorts by the next milestone on or after today, none last', () => {
+    const base = s.projects['p-echo'] as Project;
+    const projects = {
+      a: {
+        ...base,
+        id: 'a',
+        name: 'Alpha',
+        milestones: [{ id: 'a1', title: 'Late', date: '2026-12-01' }],
+      },
+      b: {
+        ...base,
+        id: 'b',
+        name: 'Bravo',
+        // Its past one does not count; the next is in November.
+        milestones: [
+          { id: 'b0', title: 'Gone', date: '2026-10-01' },
+          { id: 'b1', title: 'Soon', date: '2026-11-02' },
+        ],
+      },
+      c: { ...base, id: 'c', name: 'Charlie', milestones: [] },
+      d: {
+        ...base,
+        id: 'd',
+        name: 'Delta',
+        milestones: [{ id: 'd0', title: 'Over', date: '2026-10-02' }],
+      },
+    };
+    const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
+    expect(
+      ids(
+        selectProjects(
+          projects,
+          { ...all, sort: 'milestone' },
+          false,
+          '2026-10-23',
+        ),
+      ),
+    ).toEqual(['b', 'a', 'c', 'd']);
   });
 });
 
