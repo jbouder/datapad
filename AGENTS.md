@@ -128,12 +128,17 @@ cp .dev.vars.example .dev.vars   # once: the dev sign-in
 npm run dev          # Vite + Worker + DO locally (Miniflare)
 npm test             # wrangler types + vitest (runs in workerd)
 npm run e2e          # playwright: build, vite preview, desktop + phone
+npm run e2e:changed  # only the specs changed since main (npx playwright test --only-changed=main)
+npm run preview -- --port 4318   # in another terminal: the e2e runs reuse it, no rebuild
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
 ```
 
 Run `npm run check && npm run build && npm test` before finishing any change,
-and `npm run e2e` when it touches the UI (first time: `bunx playwright
+and `npm run e2e` when it touches the UI. Iterate with `npm run e2e:changed`
+against a running preview (build it with `VITE_DEV_COMPONENTS=1 npx vite
+build`, as the e2e server does, and again after app changes), but the full
+`npm run e2e` is still the gate before finishing (first time: `bunx playwright
 install chromium`). Check UI changes at phone width in the browser too, and
 add an e2e spec for every flow worth keeping.
