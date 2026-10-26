@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'keyboard', title: 'Keyboard' },
   { id: 'writing', title: 'Writing notes' },
   { id: 'mentions', title: 'Mentions' },
-  { id: 'meetings', title: 'Meetings, prep and debrief' },
+  { id: 'meetings', title: 'Meetings, topics, prep and debrief' },
   { id: 'summaries', title: 'Summaries' },
   { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
@@ -78,12 +78,12 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="views">
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
           <Term name="Focus">
-            What needs you: the next seven days of meetings, and open tasks by
-            when they are due. <Key>m</Key> shows only yours.
+            What needs you: the next seven days of meetings and milestones, and
+            open tasks by when they are due. <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects">
             Every active project as cards, a table or a timeline. A project page
-            has its tasks, meetings, notes and activity.
+            has its tasks, milestones, meetings, notes, decisions and activity.
           </Term>
           <Term name="Tasks">
             Every task, as a list, table, board or timeline, grouped and
@@ -91,8 +91,8 @@ export function HelpPage({ section }: { section?: string }) {
             at once.
           </Term>
           <Term name="Meetings">
-            Every meeting, with its prep and debrief notes, as a list, a month
-            calendar or a timeline.
+            Every meeting, with its topics and its prep and debrief notes, as a
+            list, a month calendar or a timeline.
           </Term>
           <Term name="Notes">
             Every note, newest first, as a feed or a grid. Pinned notes stay on
@@ -211,6 +211,26 @@ export function HelpPage({ section }: { section?: string }) {
           meeting’s project, started with the meeting’s title and date, and
           links the note to the meeting as its prep (before) or debrief (after).
           The meeting then shows its notes under it, and its summary reads them.
+        </p>
+        <p className="text-sm">
+          <strong>Topics</strong> are a meeting’s agenda, one line each. Add
+          them in the meeting’s form (one per line) or in the field under the
+          meeting, or with Add topic in its menu. Tick a topic when it has been
+          covered, and use <strong>Outcome</strong> to note what came of it in a
+          line; ticking and the outcome are separate. Click a title or an
+          outcome to change it. Drag to reorder, or use Move up and Move down in
+          a topic’s menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the
+          keyboard); the menu also makes a task or a decision from a topic. A
+          Prep note starts with the topics not yet covered.
+        </p>
+        <p className="text-sm">
+          Meetings with the same title, project and people are a series. A new
+          one in a series offers to <strong>carry forward</strong> the last
+          one’s uncovered topics (a checkbox in the form, on by default).{' '}
+          <strong>Carry forward</strong> in a meeting’s menu copies its
+          uncovered topics to the next one in the series (skipping any it
+          already has) and marks them covered here, with Undo. A carried topic
+          shows the day it was first raised.
         </p>
       </Section>
 
