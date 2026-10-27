@@ -100,7 +100,8 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Notes">
             Every note, newest first, as a feed or a grid. Pinned notes stay on
-            top.
+            top. <strong>Add note</strong> opens a new note in the project you
+            have filtered to, or General.
           </Term>
           <Term name="Digest">
             Your own status report: what happened in each project over a week,
