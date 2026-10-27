@@ -33,6 +33,7 @@ import {
   ProjectTaskBoard,
 } from '@/components/tasks/ProjectTaskBoard';
 import { TaskList } from '@/components/tasks/TaskList';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -58,6 +59,7 @@ export function ProjectPage({ id }: { id: string }) {
   const { summarize } = useSummaries();
   const { newTemplate } = useTemplateForm();
   const { newMeeting } = useMeetingForm();
+  const { newTask } = useTaskPanels();
   const { show } = useToast();
   const project = state?.projects[id];
   const [taskView, setTaskView] = useView(
@@ -328,11 +330,21 @@ export function ProjectPage({ id }: { id: string }) {
             count={tasks.open.length}
             remember={key('tasks')}
             actions={
-              <ViewSwitcher
-                views={PROJECT_TASK_VIEWS}
-                value={taskView}
-                onChange={setTaskView}
-              />
+              <>
+                <ViewSwitcher
+                  views={PROJECT_TASK_VIEWS}
+                  value={taskView}
+                  onChange={setTaskView}
+                />
+                <Button
+                  variant="outline"
+                  className="press h-11 desk:h-8"
+                  onClick={() => newTask(id)}
+                >
+                  <PlusIcon />
+                  Add task
+                </Button>
+              </>
             }
           >
             <div className="pt-2">
@@ -350,10 +362,6 @@ export function ProjectPage({ id }: { id: string }) {
                   showProject={false}
                   doneRemember={key('done')}
                   reorderProject={id}
-                  quickAdd={{
-                    onAdd: (title) =>
-                      actions.addTask({ projectId: id, title }) !== null,
-                  }}
                 />
               )}
             </div>
