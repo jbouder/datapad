@@ -136,7 +136,7 @@ export function MeetingPage({ id }: { id: string }) {
         <div className="flex flex-wrap items-start gap-3">
           <h1
             id="meeting-page-title"
-            className="text-page-title min-w-0 flex-1"
+            className="text-page-title min-w-0 flex-1 basis-full desk:basis-0"
           >
             {meeting.title}
           </h1>

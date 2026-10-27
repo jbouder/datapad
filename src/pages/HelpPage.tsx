@@ -87,8 +87,10 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Tasks">
             Every task, as a list, table, board or timeline, grouped and
-            filtered as you like. Select several to close, move or assign them
-            at once.
+            filtered as you like. Add task opens the new-task panel. Each task
+            opens a page of its own with its details and notes; elsewhere a task
+            opens in its panel. Select several to close, move or assign them at
+            once.
           </Term>
           <Term name="Meetings">
             Every meeting as a list, a month calendar or a timeline. Each

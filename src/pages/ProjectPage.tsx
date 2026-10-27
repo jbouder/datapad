@@ -183,7 +183,10 @@ export function ProjectPage({ id }: { id: string }) {
           {project.archived && ' · Archived'}
         </p>
         <div className="flex flex-wrap items-start gap-3">
-          <h1 id="project-title" className="text-page-title min-w-0 flex-1">
+          <h1
+            id="project-title"
+            className="text-page-title min-w-0 flex-1 basis-full desk:basis-0"
+          >
             {project.name}
           </h1>
           <div className="flex flex-wrap gap-1">

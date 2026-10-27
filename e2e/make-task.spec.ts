@@ -60,14 +60,15 @@ test('select text, make a task, open it, follow the source link back', async ({
     'Added task "Prep: Shield review — 2026-10-27"',
   );
 
-  // Back to the note: the panel closes, the card is focused and ringed.
+  // Back to the note from the task's page: the card is focused and ringed.
   await page.goto('/tasks');
   await page
     .getByRole('button', { name: 'Prep: Shield review — 2026-10-27' })
     .first()
     .click();
+  await expect(page).toHaveURL(/\/tasks\/[^/]+$/);
   await page
-    .getByRole('dialog')
+    .getByRole('main')
     .getByRole('link', { name: 'Show the note' })
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo\?note=n-2/);

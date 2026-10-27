@@ -391,12 +391,13 @@ export function TaskPanel({
 
 /**
  * A new task with more than a title: project (preset to where you are),
- * priority, due, assignee and details. The + button opens it, and `n`
- * where there is no quick-add.
+ * priority, due, assignee and details. The + button opens it, Tasks'
+ * Add task, and `n` where there is no quick-add.
  */
 export function NewTaskPanel({
   projectId,
   title = '',
+  assignee = '',
   open,
   onClose,
   onExited,
@@ -404,6 +405,8 @@ export function NewTaskPanel({
   projectId: string | null;
   /** Prefilled (a meeting topic's Make a task). */
   title?: string;
+  /** Preset (Tasks filtered to someone). */
+  assignee?: string;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
@@ -416,7 +419,7 @@ export function NewTaskPanel({
     projectId,
     priority: 'none' as Priority,
     due: '',
-    assignee: '',
+    assignee,
     desc: '',
   }));
   const [values, setValues] = useState(initial);
