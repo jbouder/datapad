@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
 import { taskNoteCounts } from '#shared/select';
 import type { Task } from '#shared/types';
-import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { type RememberSection, Section } from '@/components/Section';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import {
@@ -19,16 +18,15 @@ import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
 
 /**
- * Open tasks, then a collapsible Done section, with an optional quick-add
- * on top. Rows FLIP between the two lists when a task closes or reopens
- * (and when another device reorders them). Used by Focus and the project
+ * Open tasks, then a collapsible Done section. Rows FLIP between the two
+ * lists when a task closes or reopens (and when another device reorders
+ * them). Used by Focus and the project
  * page; the Tasks view has its own table.
  */
 export function TaskList({
   label,
   open,
   done,
-  quickAdd,
   showProject = true,
   doneRemember,
   onOpen,
@@ -40,11 +38,6 @@ export function TaskList({
   open: Task[];
   /** Omit to leave the Done section out (Focus). */
   done?: Task[];
-  quickAdd?: {
-    onAdd: (title: string) => boolean;
-    projectId?: string | null;
-    onProjectChange?: (projectId: string | null) => void;
-  };
   showProject?: boolean;
   /** Where the Done section's open or closed is saved. */
   doneRemember?: RememberSection;
@@ -212,13 +205,6 @@ export function TaskList({
 
   return (
     <div ref={container} className="flex flex-col gap-3">
-      {quickAdd && (
-        <QuickAdd
-          onAdd={quickAdd.onAdd}
-          projectId={quickAdd.projectId}
-          onProjectChange={quickAdd.onProjectChange}
-        />
-      )}
       {open.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
