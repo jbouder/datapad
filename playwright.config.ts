@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4318;
+const PORT = Number(process.env.E2E_PORT) || 4318;
 const CI = Boolean(process.env.CI);
 
 /**

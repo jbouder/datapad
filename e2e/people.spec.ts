@@ -53,9 +53,15 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
 
   await page.goto('/notes');
   await page
-    .getByRole('combobox', { name: 'New note' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Add note' })
+    .click();
+  const write = page.getByRole('dialog', { name: 'New note' });
+  await write
+    .getByRole('combobox', { name: 'Note' })
     .fill('Ask @Han Solo about the **compressor**');
-  await page.getByRole('button', { name: 'Add note' }).click();
+  await write.getByRole('button', { name: 'Add note' }).click();
+  await expect(write).toBeHidden();
   await expectSaved(page);
 
   // Han's detail: no projects, the task, the mention under General.
