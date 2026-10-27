@@ -1,6 +1,7 @@
 import {
   ArrowClockwiseIcon,
   GearSixIcon,
+  QuestionIcon,
   SignOutIcon,
   UserCircleIcon,
 } from '@phosphor-icons/react';
@@ -28,7 +29,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then Refresh, Settings and Sign out.
+ * quick Motion and Theme switches, then Refresh, Help, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
@@ -113,6 +114,10 @@ export function PreferencesMenu({ email }: { email: string | null }) {
           <DropdownMenuItem onClick={() => window.location.reload()}>
             <ArrowClockwiseIcon />
             Refresh
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<a {...linkProps({ name: 'help' })} />}>
+            <QuestionIcon />
+            Help
           </DropdownMenuItem>
           <DropdownMenuItem
             render={

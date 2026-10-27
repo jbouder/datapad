@@ -1,5 +1,6 @@
 import {
   expect,
+  openHelp,
   openLive,
   openPreferences,
   SEED,
@@ -59,7 +60,7 @@ test('deep links load the app, not a 404', async ({ page }) => {
 test('every page has its own title', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle('Focus · Datapad');
-  await page.getByRole('link', { name: 'Help' }).click();
+  await openHelp(page);
   await expect(page).toHaveURL(/\/help$/);
   await expect(page).toHaveTitle('Help · Datapad');
   await page.goBack();
@@ -107,7 +108,7 @@ test('nothing is requested from another origin', async ({ page }) => {
     if (new URL(r.url()).hostname !== 'localhost') foreign.push(r.url());
   });
   await page.goto('/');
-  await page.getByRole('link', { name: 'Help' }).click();
+  await openHelp(page);
   await expect(page).toHaveURL(/\/help$/);
   expect(foreign).toEqual([]);
 });

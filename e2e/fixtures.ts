@@ -97,10 +97,28 @@ export function isMobile(page: Page): boolean {
   return (page.viewportSize()?.width ?? 1280) < 820;
 }
 
-/** Open the account menu (Settings, Theme, Motion, Sign out). */
+/** Open the account menu (Settings, Help, Theme, Motion, Sign out). */
 export async function openPreferences(page: Page) {
   await page.getByRole('button', { name: 'Account and settings' }).click();
   await expect(page.getByRole('menu')).toBeVisible();
+}
+
+/** Help, from the account menu. */
+export async function openHelp(page: Page) {
+  await openPreferences(page);
+  await page.getByRole('menuitem', { name: 'Help' }).click();
+}
+
+/** The top bar's + menu: Add task or Write a note. */
+export async function addFromTopBar(
+  page: Page,
+  item: 'Add task' | 'Write a note',
+) {
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Add', exact: true })
+    .click();
+  await page.getByRole('menuitem', { name: item }).click();
 }
 
 /** No sideways scrolling (WCAG 1.4.10 Reflow). */

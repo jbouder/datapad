@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  addFromTopBar,
   expect,
   expectAccessible,
   expectSaved,
@@ -264,10 +265,7 @@ test('writes a note from anywhere, into the project you are on', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  await page
-    .getByRole('banner')
-    .getByRole('button', { name: 'Write a note' })
-    .click();
+  await addFromTopBar(page, 'Write a note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   const body = panel.getByRole('combobox', { name: 'Note' });
   await expect(body).toBeFocused();
