@@ -146,7 +146,7 @@ export async function expectAccessible(page: Page) {
   expect.soft(summary).toEqual([]);
 }
 
-/** The sync status, first in the top bar (only trouble shows on phones). */
+/** The sync status, in the top bar at every width (one in the DOM). */
 export function syncStatus(page: Page) {
   return page.locator('[data-status]').first();
 }

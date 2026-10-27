@@ -336,6 +336,58 @@ export const MAIN_SPACE = 'main';
 export interface Settings {
   /** The org a new project starts with; empty for none. */
   defaultOrg: string;
+  /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
+  nav?: NavPrefs;
+  /**
+   * Each page's remembered layout, sort, grouping, filters and sections
+   * (#186). Absent until something is saved, so older exports round-trip
+   * unchanged; `shared/pages.ts` reads it.
+   */
+  pages?: Partial<Record<PageKey, PagePrefs>>;
+}
+
+/**
+ * Which sections the rail and tab bar show, and in what order, and which
+ * of the rail's extras. Names are kept as stored and checked when read, so
+ * a name from another release is ignored rather than refused.
+ */
+export interface NavPrefs {
+  order?: string[];
+  hidden?: string[];
+  extras?: { activeProjects?: boolean; digest?: boolean; archived?: boolean };
+}
+
+/**
+ * The pages whose settings are remembered (#186). `project` is one set
+ * shared by every project's page.
+ */
+export const PAGE_KEYS = [
+  'focus',
+  'projects',
+  'archive',
+  'tasks',
+  'meetings',
+  'notes',
+  'people',
+  'project',
+] as const;
+export type PageKey = (typeof PAGE_KEYS)[number];
+
+/**
+ * One page's saved settings: only what differs from the page's defaults.
+ * Never the search text, never an id that points at a single item.
+ */
+export interface PagePrefs {
+  /** The layout (Cards, Table, Board …; Focus's Day or Week). */
+  view?: string;
+  sort?: string;
+  /** `asc` or `desc`. */
+  dir?: string;
+  group?: string;
+  /** Other filters by their query key (`status`, `who`, `project` …). */
+  filters?: Record<string, string>;
+  /** Open (true) or closed (false) per remembered section. */
+  sections?: Record<string, boolean>;
 }
 
 export const SETTINGS_ID = 'user';

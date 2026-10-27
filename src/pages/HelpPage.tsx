@@ -7,7 +7,7 @@ import {
 } from '#shared/composer';
 import { ShortcutList } from '@/components/ShortcutList';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { linkProps } from '@/lib/router';
+import { linkProps, type Route } from '@/lib/router';
 
 /**
  * Using Datapad, in holocron's Help style: short sections, one address
@@ -77,32 +77,33 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="views">
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
-          <Term name="Focus">
+          <Term name="Focus" to={{ name: 'focus' }}>
             What needs you: today’s meetings and milestones (or the next seven
             days’, in Week), and open tasks by when they are due. <Key>v</Key>{' '}
             switches Day and Week; <Key>m</Key> shows only yours.
           </Term>
-          <Term name="Projects">
+          <Term name="Projects" to={{ name: 'projects' }}>
             Every active project as cards, a table or a timeline. A project page
             has its tasks, milestones, meetings, notes and activity.
           </Term>
-          <Term name="Tasks">
+          <Term name="Tasks" to={{ name: 'tasks' }}>
             Every task, as a list, table, board or timeline, grouped and
             filtered as you like. Add task opens the new-task panel. Each task
             opens a page of its own with its details and notes; elsewhere a task
             opens in its panel. Select several to close, move or assign them at
             once.
           </Term>
-          <Term name="Meetings">
+          <Term name="Meetings" to={{ name: 'meetings' }}>
             Every meeting as a list, a month calendar or a timeline. Each
             meeting has a page of its own with its topics, action items and
             notes.
           </Term>
-          <Term name="Notes">
+          <Term name="Notes" to={{ name: 'notes' }}>
             Every note, newest first, as a feed or a grid. Pinned notes stay on
-            top.
+            top. <strong>Add note</strong> opens a new note in the project you
+            have filtered to, or General.
           </Term>
-          <Term name="Digest">
+          <Term name="Digest" to={{ name: 'digest' }}>
             Your own status report: what happened in each project over a week,
             from tasks, notes, meetings and the activity logs. Copy it as
             Markdown, keep it as a note, or Summarize it.
@@ -124,7 +125,18 @@ export function HelpPage({ section }: { section?: string }) {
         </dl>
         <p className="text-sm">
           Most pages switch layout from the buttons at the top right of the
-          list; each page remembers its choice.
+          list. Each page remembers how you left it: its layout, sort and
+          grouping, filters and the sections you open or close, saved with the
+          space so every device opens it the same way. A link that names its own
+          filters still shows them, and the search text is never kept. Settings
+          → Pages shows, changes and resets them.
+        </p>
+        <p className="text-sm">
+          Settings → Navigation chooses which sections the rail and the tab bar
+          show, and in what order, for the open space, and whether the rail
+          lists Active projects, the Weekly digest (at its foot) and Archived. A
+          hidden section still opens from its address, <Key>⌘K</Key> and the
+          links above. The address <code>/</code> is always Focus.
         </p>
       </Section>
 
@@ -297,8 +309,11 @@ export function HelpPage({ section }: { section?: string }) {
             from Settings → Data.
           </li>
           <li>
-            <strong>Offline</strong>, changes wait on the device (the status
-            says how many) and save when you are back, even after a reload.
+            <strong>Offline</strong>, changes wait on the device and save when
+            you are back, even after a reload. The status in the top bar says
+            which: Saved, Saving…, Connecting… or Offline with how many changes
+            are waiting, led by a colored dot (on phones the dot alone, unless
+            offline).
           </li>
         </ul>
       </Section>
@@ -307,13 +322,15 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           The account button at the top right opens the menu: your spaces,
           Motion, Theme, Settings and Sign out. Settings has Appearance (theme,
-          12-hour or 24-hour time, motion), Templates (the tasks a new project
-          can start with; Save as template on a project makes one), Summaries,
-          Spaces, People (each person with their projects, tasks and mentions),
-          Orgs (each org with its projects, contacts, meetings and notes), Data
-          and Account. Signing out ends your Cloudflare Access session on this
-          browser; sign in again to come back. When your device asks for reduced
-          motion, Datapad never animates.
+          12-hour or 24-hour time, motion), Pages (what each page remembers,
+          with Reset), Navigation (the sections the rail and tab bar show, and
+          their order), Templates (the tasks a new project can start with; Save
+          as template on a project makes one), Summaries, Spaces, People (each
+          person with their projects, tasks and mentions), Orgs (each org with
+          its projects, contacts, meetings and notes), Data and Account. Signing
+          out ends your Cloudflare Access session on this browser; sign in again
+          to come back. When your device asks for reduced motion, Datapad never
+          animates.
         </p>
       </Section>
 
@@ -345,10 +362,30 @@ function Section({ id, children }: { id: SectionId; children: ReactNode }) {
   );
 }
 
-function Term({ name, children }: { name: string; children: ReactNode }) {
+/** A term; with `to`, its name links there (so a hidden section is reachable). */
+function Term({
+  name,
+  to,
+  children,
+}: {
+  name: string;
+  to?: Route;
+  children: ReactNode;
+}) {
   return (
     <div className="contents">
-      <dt className="font-semibold">{name}</dt>
+      <dt className="font-semibold">
+        {to ? (
+          <a
+            {...linkProps(to)}
+            className="inline-flex min-h-11 items-center underline underline-offset-4 desk:min-h-0"
+          >
+            {name}
+          </a>
+        ) : (
+          name
+        )}
+      </dt>
       <dd className="mb-2 sm:mb-0">{children}</dd>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   type Route,
   setRouteTransition,
   settingsSectionOf,
+  useQuery,
   useRoute,
 } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
@@ -23,7 +24,7 @@ import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
 import { MeetingPage } from '@/pages/MeetingPage';
 import { MeetingsPage } from '@/pages/MeetingsPage';
-import { NotesPage } from '@/pages/NotesPage';
+import { NotesPage, notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
@@ -66,9 +67,13 @@ export function AppShell() {
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
+  // On Notes, a new note starts in the filtered project, as Add note does.
+  const query = useQuery();
+  const noteProject =
+    route.name === 'notes' ? notesPreset(query.get('project')) : currentProject;
   const addNote = useCallback(() => {
-    newNote(currentProject);
-  }, [newNote, currentProject]);
+    newNote(noteProject);
+  }, [newNote, noteProject]);
 
   // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
   // task, `N` a note,
@@ -103,7 +108,7 @@ export function AppShell() {
       }
       if (event.key === 'N') {
         event.preventDefault();
-        newNote(currentProject);
+        newNote(noteProject);
         return;
       }
       if (event.key === '?') {
@@ -131,7 +136,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, newNote, currentProject]);
+  }, [newTask, newNote, currentProject, noteProject]);
 
   return (
     <div className="flex min-h-dvh">

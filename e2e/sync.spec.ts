@@ -134,11 +134,16 @@ test('offline changes survive a reload and replay once, in order', async ({
   await page.goto('/notes');
   await expect(status(page)).toHaveAttribute('data-status', 'offline');
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
-  const box = page.getByRole('combobox', { name: 'New note' });
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Add note' })
+    .click();
+  const write = page.getByRole('dialog', { name: 'New note' });
+  const box = write.getByRole('combobox', { name: 'Note' });
   await box.fill('Shield numbers look low');
   await expect(box).toHaveValue('Shield numbers look low');
   await box.press('ControlOrMeta+Enter');
-  await expect(box).toHaveValue('');
+  await expect(write).toBeHidden();
   await expect(
     page.getByRole('article').filter({ hasText: 'Shield numbers look low' }),
   ).toBeVisible();
@@ -194,6 +199,7 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
     (window as unknown as { before?: boolean }).before = true;
   });
   blocked = false;
+  let reloaded = page.waitForEvent('load');
   if (isMobile(page)) {
     // No room in the phone's bar: it is in the account menu.
     await page.getByRole('button', { name: 'Account and settings' }).click();
@@ -201,11 +207,12 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
   } else {
     await page.getByRole('button', { name: 'Refresh' }).click();
   }
-  await expect
-    .poll(() =>
-      page.evaluate(() => (window as unknown as { before?: boolean }).before),
-    )
-    .toBeUndefined();
+  await reloaded;
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { before?: boolean }).before,
+    ),
+  ).toBeUndefined();
   await expect(status(page)).toHaveAttribute('data-status', 'live');
   await expect(status(page)).toContainText('Saved');
   await expect(openTasks(page)).toContainText('Patch the hangar roof');
@@ -215,12 +222,14 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
     (window as unknown as { before?: boolean }).before = true;
   });
   await page.getByRole('button', { name: 'Search' }).click();
+  reloaded = page.waitForEvent('load');
   await page.getByRole('option', { name: 'Refresh' }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => (window as unknown as { before?: boolean }).before),
-    )
-    .toBeUndefined();
+  await reloaded;
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { before?: boolean }).before,
+    ),
+  ).toBeUndefined();
   await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(1);
 });
 

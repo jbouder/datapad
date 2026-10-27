@@ -202,6 +202,29 @@ export function setQuery(
   (options.transition ?? ((u: () => void) => u()))(update);
 }
 
+/**
+ * Spell out on the current history entry the parameters it lacks, without
+ * a re-render (the page already shows them): before a change pushes a new
+ * entry, so Back returns to exactly what was on screen (#186).
+ */
+export function pinQuery(values: Record<string, string>) {
+  const params = new URLSearchParams(search);
+  let changed = false;
+  for (const [key, value] of Object.entries(values)) {
+    if (!params.has(key)) {
+      params.set(key, value);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  search = `?${params.toString()}`;
+  window.history.replaceState(
+    null,
+    '',
+    window.location.pathname + search + window.location.hash,
+  );
+}
+
 /** For real anchors: middle-click and "open in new tab" keep working. */
 export function linkProps(route: Route, query?: string) {
   const href = pathFor(route) + (query ? `?${query.replace(/^\?/, '')}` : '');

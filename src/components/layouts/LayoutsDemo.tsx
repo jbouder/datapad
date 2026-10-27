@@ -32,7 +32,7 @@ type DemoView = (typeof VIEWS)[number]['id'];
 export function LayoutsDemo() {
   const { state } = useDatapad();
   const { show } = useToast();
-  const [view, setView] = useView<DemoView>('dev', VIEWS, 'table');
+  const [view, setView] = useView<DemoView>(null, VIEWS, 'table');
   const [sort, setSort] = useState<TableSort>({ column: 'title', dir: 'asc' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const today = localDate(new Date());

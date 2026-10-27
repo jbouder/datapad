@@ -1,6 +1,7 @@
 import { formatDay } from './dates';
 import { LIMITS } from './limits';
 import { byDate } from './milestones';
+import { applyPagePatch } from './pages';
 import type { Op, OpOf, ParsedExport } from './protocol';
 import {
   type Activity,
@@ -13,6 +14,7 @@ import {
   type Meeting,
   type Milestone,
   milestonesOf,
+  type NavPrefs,
   type Person,
   type Project,
   SETTINGS_ID,
@@ -1004,7 +1006,62 @@ function apply(d: Draft, op: Op, now: string) {
       d.set('settings', SETTINGS_ID, { ...current, ...op.patch });
       return;
     }
+    case 'setNav': {
+      setNav(d, op);
+      return;
+    }
+
+    /* page preferences (#186), not logged either */
+    case 'setPagePrefs': {
+      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const pages = { ...current.pages };
+      const next = applyPagePatch(pages[op.page], op.patch);
+      if (Object.keys(next?.filters ?? {}).length > LIMITS.prefFiltersMax) {
+        fail(`${LIMITS.prefFiltersMax} saved filters per page at most`);
+      }
+      if (Object.keys(next?.sections ?? {}).length > LIMITS.prefSectionsMax) {
+        fail(`${LIMITS.prefSectionsMax} saved sections per page at most`);
+      }
+      if (next) pages[op.page] = next;
+      else delete pages[op.page];
+      d.set('settings', SETTINGS_ID, { ...current, pages });
+      return;
+    }
+    case 'resetPagePrefs': {
+      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      // Kept, empty: a space that reset everything has still saved.
+      const pages = { ...current.pages };
+      if (op.page) delete pages[op.page];
+      d.set('settings', SETTINGS_ID, {
+        ...current,
+        pages: op.page ? pages : {},
+      });
+      return;
+    }
   }
+}
+
+/**
+ * Navigation preferences (not logged). Each key replaces what is stored,
+ * except `extras`, which merges switch by switch; `null` clears a key, and
+ * a nav with nothing left in it goes, so the default nav is no `nav`.
+ */
+function setNav(d: Draft, op: OpOf<'setNav'>) {
+  const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+  const nav: NavPrefs = { ...current.nav };
+  const { order, hidden, extras } = op.patch;
+  if (order === null) delete nav.order;
+  else if (order) nav.order = [...new Set(order)];
+  if (hidden === null) delete nav.hidden;
+  else if (hidden) nav.hidden = [...new Set(hidden)];
+  if (extras === null) delete nav.extras;
+  else if (extras) nav.extras = { ...nav.extras, ...extras };
+  const { nav: _, ...rest } = current;
+  d.set(
+    'settings',
+    SETTINGS_ID,
+    Object.keys(nav).length > 0 ? { ...rest, nav } : rest,
+  );
 }
 
 function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {

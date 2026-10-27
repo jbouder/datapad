@@ -1,5 +1,12 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectAccessible,
+  expectSaved,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 interface Stored {
   notes: Record<
@@ -26,29 +33,39 @@ test('adds notes in two projects, filters by project and text', async ({
   request,
 }) => {
   await openLive(page, '/notes');
-  const box = page.getByRole('combobox', { name: 'New note' });
+  // No composer on the page: Add note opens the panel.
+  await expect(page.getByRole('combobox', { name: 'New note' })).toHaveCount(0);
+  const add = page.getByRole('main').getByRole('button', { name: 'Add note' });
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  const project = panel.getByRole('combobox', { name: 'Project', exact: true });
 
-  // General by default; the composer clears and keeps focus.
-  await box.click();
-  await page.keyboard.type('Order more **heaters**');
+  // General with no project filtered.
+  await add.click();
+  await expect(project).toHaveValue('General');
+  await panel
+    .getByRole('combobox', { name: 'Note' })
+    .fill('Order more **heaters**');
   await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(box).toHaveValue('');
-  await expect(box).toBeFocused();
+  await expect(panel).toBeHidden();
   await expect(card(page, 'Order more heaters').locator('strong')).toHaveText(
     'heaters',
   );
 
-  // Into a project, picked under the composer.
-  const picker = page.getByRole('combobox', { name: 'Project for the note' });
-  await picker.click();
-  await picker.fill('falc');
-  await picker.press('Enter');
-  await box.fill('Motivator on back order');
-  await page.getByRole('button', { name: 'Add note' }).click();
+  // Into the filtered project.
+  await expectSaved(page);
+  await page.goto('/notes?project=p-falcon');
+  await add.click();
+  await expect(project).toHaveValue('Falcon hyperdrive refit');
+  await panel
+    .getByRole('combobox', { name: 'Note' })
+    .fill('Motivator on back order');
+  await panel.getByRole('button', { name: 'Add note' }).click();
+  await expect(panel).toBeHidden();
   const falcon = card(page, 'Motivator on back order');
   await expect(
     falcon.getByRole('link', { name: 'Falcon hyperdrive refit' }),
   ).toBeVisible();
+  await page.goto('/notes');
 
   await expectSaved(page);
   const data = await stored(request);
@@ -164,25 +181,71 @@ test('long notes clamp with Show more', async ({ page, request }) => {
   await expect(long.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
 
-test('the composer is one line until you use it', async ({ page }) => {
-  await openLive(page, '/notes');
+test('a project’s composer is one line until you use it', async ({ page }) => {
+  await openLive(page, '/projects/p-falcon');
   const box = page.getByRole('combobox', { name: 'New note' });
-  const add = page.getByRole('button', { name: 'Add note' });
-  const picker = page.getByRole('combobox', { name: 'Project for the note' });
+  const form = page.getByRole('group', { name: 'Write a note' });
+  const add = form.getByRole('button', { name: 'Add note' });
   await expect(box).toHaveAttribute('placeholder', 'Write a note…');
   await expect(add).toBeHidden();
-  await expect(picker).toBeHidden();
 
   await box.click();
   await expect(add).toBeVisible();
-  await expect(picker).toBeVisible();
 
   // Left empty, it folds away again; with text in it, it stays open.
-  await page.getByRole('heading', { name: 'Notes', level: 1 }).click();
+  await page.getByRole('heading', { level: 1 }).click();
   await expect(add).toBeHidden();
   await box.fill('Half a thought');
-  await page.getByRole('heading', { name: 'Notes', level: 1 }).click();
+  await page.getByRole('heading', { level: 1 }).click();
   await expect(add).toBeVisible();
+});
+
+test('Add note on Notes opens the panel, at any width', async ({ page }) => {
+  await openLive(page, '/notes?project=p-falcon');
+  const add = page.getByRole('main').getByRole('button', { name: 'Add note' });
+  await expectAccessible(page);
+  // A 44px target on touch, and the header wraps without sideways scroll.
+  const box = await add.boundingBox();
+  const touch = await page.evaluate(
+    () => matchMedia('(pointer: coarse)').matches,
+  );
+  if (touch) expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  await add.click();
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('Falcon hyperdrive refit');
+  await expectAccessible(page);
+  await page.keyboard.type('Recalibrate the deflector');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(panel).toBeHidden();
+  await expect(card(page, 'Recalibrate the deflector')).toBeVisible();
+  await expect(add).toBeFocused();
+});
+
+test('Shift+N on Notes starts in the filtered project', async ({ page }) => {
+  await openLive(page, '/notes?project=p-falcon');
+  await page.locator('body').press('Shift+N');
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('Falcon hyperdrive refit');
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+
+  // General, filtered or not, starts in General.
+  await page.goto('/notes?project=general');
+  await page.locator('body').press('Shift+N');
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('General');
 });
 
 test('writes a note from anywhere, into the project you are on', async ({

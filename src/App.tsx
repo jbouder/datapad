@@ -11,6 +11,7 @@ import { TemplateFormProvider } from '@/components/templates/TemplateFormProvide
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DatapadProvider } from '@/providers/DatapadProvider';
 import { MotionProvider } from '@/providers/MotionProvider';
+import { PagePrefsProvider } from '@/providers/PagePrefsProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
 
@@ -21,25 +22,27 @@ export default function App() {
         <TooltipProvider>
           <ToastProvider>
             <DatapadProvider>
-              <NewSpaceProvider>
-                <ImportExportProvider>
-                  <SummaryProvider>
-                    <BlockedProvider>
-                      <TemplateFormProvider>
-                        <ProjectFormProvider>
-                          <NotesProvider>
-                            <TaskPanelProvider>
-                              <MeetingFormProvider>
-                                <AppShell />
-                              </MeetingFormProvider>
-                            </TaskPanelProvider>
-                          </NotesProvider>
-                        </ProjectFormProvider>
-                      </TemplateFormProvider>
-                    </BlockedProvider>
-                  </SummaryProvider>
-                </ImportExportProvider>
-              </NewSpaceProvider>
+              <PagePrefsProvider>
+                <NewSpaceProvider>
+                  <ImportExportProvider>
+                    <SummaryProvider>
+                      <BlockedProvider>
+                        <TemplateFormProvider>
+                          <ProjectFormProvider>
+                            <NotesProvider>
+                              <TaskPanelProvider>
+                                <MeetingFormProvider>
+                                  <AppShell />
+                                </MeetingFormProvider>
+                              </TaskPanelProvider>
+                            </NotesProvider>
+                          </ProjectFormProvider>
+                        </TemplateFormProvider>
+                      </BlockedProvider>
+                    </SummaryProvider>
+                  </ImportExportProvider>
+                </NewSpaceProvider>
+              </PagePrefsProvider>
             </DatapadProvider>
           </ToastProvider>
         </TooltipProvider>

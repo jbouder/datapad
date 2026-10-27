@@ -1,4 +1,4 @@
-import { RowsIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import { PlusIcon, RowsIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import {
   useCallback,
   useEffect,
@@ -22,7 +22,6 @@ import {
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
 import { NoteCard } from '@/components/notes/NoteCard';
-import { NoteForm } from '@/components/notes/NoteForm';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,8 +29,9 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withLayoutTransition, withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
+import { setQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 type NoteView = 'feed' | 'grid';
 
@@ -40,12 +40,23 @@ export const NOTE_VIEWS: readonly ViewOption<NoteView>[] = [
   { id: 'grid', label: 'Grid', icon: SquaresFourIcon },
 ];
 
+/**
+ * The project a new note starts in from Notes: the filtered one, or
+ * General (`null`) when the filter is All projects or General.
+ */
+export function notesPreset(project: string | null | undefined): string | null {
+  return project && project !== 'general' ? project : null;
+}
+
 /** How long typing in Find waits before filtering. */
 const FIND_DEBOUNCE_MS = 150;
 
-/** The view's controls, from the URL so Back restores them. */
-function useNoteFilters(): NoteFilters {
-  const value = useQuery().toString();
+/**
+ * The view's controls, from the URL so Back restores them, over what is
+ * saved for the page (never the Find text).
+ */
+function useNoteFilters(query: URLSearchParams): NoteFilters {
+  const value = query.toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
     return {
@@ -58,16 +69,18 @@ function useNoteFilters(): NoteFilters {
 
 /**
  * Every note as a Feed (newest first under its day, the default) or a
- * Grid (compact cards, pinned first, opening in place). The composer is
- * at the top (General unless you pick a project), then a project filter,
- * Pinned and Find; filters and layout live in the URL.
+ * Grid (compact cards, pinned first, opening in place). Add note opens
+ * the new-note panel, preset to the filtered project (General otherwise),
+ * as `N` does here; then a project filter, Pinned and Find. Filters and
+ * layout live in the URL, and all but Find are saved for the page (#186).
  */
 export function NotesPage() {
   usePageTitle('Notes');
   const { state } = useDatapad();
-  const { hidden } = useNotes();
+  const { hidden, newNote } = useNotes();
   const { active } = useMotion();
-  const filters = useNoteFilters();
+  const [query, changePage] = usePageQuery('notes');
+  const filters = useNoteFilters(query);
   const [view, setView] = useView('notes', NOTE_VIEWS, 'feed');
   const [open, setOpen] = useState<string | null>(null);
   const [find, setFind] = useState(filters.q);
@@ -87,10 +100,10 @@ export function NotesPage() {
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>) =>
-      setQuery(changes, {
+      changePage(changes, {
         transition: (update) => withViewTransition(update, active, 'filter'),
       }),
-    [active],
+    [active, changePage],
   );
 
   const notes = useMemo(
@@ -177,6 +190,7 @@ export function NotesPage() {
   );
   const filtered = Boolean(filters.project || filters.pinned || filters.q);
   const any = Object.keys(state.notes).length > hidden.size;
+  const filterProject = notesPreset(filters.project);
 
   return (
     <section
@@ -188,9 +202,14 @@ export function NotesPage() {
           Notes
         </h1>
         <ViewSwitcher views={NOTE_VIEWS} value={view} onChange={setView} />
+        <Button
+          className="press h-11 desk:h-8"
+          onClick={() => newNote(filterProject)}
+        >
+          <PlusIcon />
+          Add note
+        </Button>
       </div>
-
-      <NoteForm people={state.people} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <SelectField
@@ -249,7 +268,7 @@ export function NotesPage() {
             </div>
           ) : (
             <p className="text-state">
-              No notes yet. Write one above; it lands here under today.
+              No notes yet. Add note writes one; it lands here under today.
             </p>
           )
         ) : view === 'grid' ? (

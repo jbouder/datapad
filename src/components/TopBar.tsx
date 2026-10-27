@@ -22,9 +22,11 @@ import { cn } from '@/lib/utils';
 /**
  * The current title on the left once the page's own h1 has scrolled away
  * (with the brand on phones, where there is no rail), then the sync status
- * (only trouble on phones) and, on desktop, Refresh (a full reload: it
- * picks up a new deploy, and unsent changes are already stored; phones
- * have it in the account menu, the bar has no room), Search (with its shortcut on desktop), **+** (Add task), Write a note, Help and Preferences.
+ * (a colored dot, with its word on desktop), Refresh on desktop (a full
+ * reload: it picks up a new deploy, and unsent changes are already stored;
+ * phones have it in the account menu, the bar has no room), Search (with
+ * its shortcut on desktop), **+** (Add task), Write a note, Help and
+ * Preferences.
  */
 export function TopBar({
   route,
@@ -71,7 +73,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
-          <SyncStatus className="mr-1" />
+          <SyncStatus className="desk:mr-1" />
           <Tooltip>
             <TooltipTrigger
               render={

@@ -172,9 +172,10 @@ come back on the next load and are sent, in order and with their original
 op ids, on the next connection. Tabs share that store and merge into it
 atomically, keeping each other's ops until some tab sees them settle. A
 change the object refuses on replay is dropped and toasted by name
-("Not saved: add task “…”. reason"). The sync status (first in the top bar;
-only trouble on phones) says Saved, Saving… or "Offline, N changes waiting" in
-a polite live region; it never blocks. The
+("Not saved: add task “…”. reason"). The sync status (first in the top bar
+at every width, led by a dot colored ok, warn or destructive; on phones the
+dot alone unless offline) says Saved, Saving… or "Offline, N changes
+waiting"; only connecting and offline are announced, and it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition. Its pure half (parsing, paths, page titles, and
 the redirects from old addresses, such as the meetings page's address
@@ -195,6 +196,19 @@ transition (the page and the rail crossfade); from a project, person or
 org page it goes to Focus, since that item belongs to the space being
 left. With more than one space, the tab title carries the space's name
 ("Tasks · Personal · Datapad").
+
+Page preferences (#186) live in the space's `settings` document
+(`pages`), changed by `setPagePrefs` (merge; `null` clears) and
+`resetPagePrefs`, neither logged. `shared/pages.ts` is the pure half:
+what each page remembers, `effectiveQuery()` (the address over what is
+saved), `planChange()` (what a change writes, saves and pins on the
+history entry it leaves) and the one-time carry-over from the old
+`localStorage` keys. `PagePrefsProvider` holds the rest: it coalesces
+changes for 500 ms into one op (sent at once when the tab hides), carries
+over this browser's old keys once per space, and says when the live state
+is in. `usePageQuery()` (the filters) and `useView()` (the layout) read
+what is saved once, as the page opens with that state, then follow only
+the page's own changes; `Section` with `remember` saves open or closed.
 
 ## Summaries
 

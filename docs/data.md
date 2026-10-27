@@ -79,7 +79,7 @@ as it is (migrated on the way in, below):
   "people": { … },
   "activity": { "<projectId>": { "events": [{ "t": "…", "text": "…" }] }, "general": { … } },
   "meetings": { … },
-  "settings": { "user": { "defaultOrg": "Rebel Alliance" } },
+  "settings": { "user": { "defaultOrg": "Rebel Alliance", "pages": { "tasks": { "view": "board", "group": "due", "filters": { "status": "all" } } } } },
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
   "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
   "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } }
@@ -87,9 +87,19 @@ as it is (migrated on the way in, below):
 ```
 
 - `settings` is Datapad's own (the artifact has none, and a file without
-  it imports fine): preferences that follow your data, today only the
+  it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
-  space starts with no orgs).
+  space starts with no orgs) and, optionally, `nav`, the navigation
+  preferences from Settings → Navigation (#187):
+  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "digest": false, "archived": true } }`.
+  Every key is optional and `nav` is absent until you change something, so
+  a file without it imports unchanged. Section names are kept as written
+  and checked when read: an unknown one is ignored, and a section missing
+  from `order` shows at its default place. `pages` (#186), also absent
+  until something is saved, holds each page's layout, sort, grouping,
+  filters and sections as you left them (never the search text); a file
+  without it imports unchanged, and a value a page no longer has is
+  ignored.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and project templates. Decisions are retired
   (#183): the app no longer shows them, but the collection is still
