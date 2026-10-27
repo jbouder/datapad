@@ -79,6 +79,10 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
   test.skip(isMobile(page), 'Phones list every meeting in the week strip.');
   const seed = structuredClone(SEED);
   const meetings = seed.meetings as Record<string, object>;
+  // Only the four drills today, whatever day the seed's meetings fall on.
+  for (const m of Object.values(seed.meetings)) {
+    if (m.date === today) m.date = addDays(today, -60);
+  }
   for (const n of [1, 2, 3, 4]) {
     meetings[`e-x${n}`] = {
       ...seed.meetings['e-1'],
