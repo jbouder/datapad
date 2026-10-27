@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'keyboard', title: 'Keyboard' },
   { id: 'writing', title: 'Writing notes' },
   { id: 'mentions', title: 'Mentions' },
-  { id: 'meetings', title: 'Meetings, topics and notes' },
+  { id: 'meetings', title: 'Meetings, topics, action items and notes' },
   { id: 'summaries', title: 'Summaries' },
   { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
@@ -95,7 +95,8 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Meetings">
             Every meeting as a list, a month calendar or a timeline. Each
-            meeting has a page of its own with its topics and its notes.
+            meeting has a page of its own with its topics, action items and
+            notes.
           </Term>
           <Term name="Notes">
             Every note, newest first, as a feed or a grid. Pinned notes stay on
@@ -232,7 +233,16 @@ export function HelpPage({ section }: { section?: string }) {
           ticking and the outcome are separate. Click a title or an outcome to
           change it. Drag to reorder, or use Move up and Move down in a topic’s
           menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the keyboard);
-          the menu also makes a task from a topic.
+          the menu also makes a task from a topic, as an action item.
+        </p>
+        <p className="text-sm">
+          <strong>Action items</strong> are tasks that came out of a meeting.
+          Add them with <strong>Add an action item</strong> on the meeting’s
+          page or in its panel; they are ordinary tasks in the meeting’s
+          project, so they also show on Focus, Tasks and the project. Close and
+          reopen them in place, or click one to open it; a task from a meeting
+          says so and links back. Deleting the meeting keeps its action items as
+          plain tasks.
         </p>
         <p className="text-sm">
           Meetings with the same title, project and people are a series. A new

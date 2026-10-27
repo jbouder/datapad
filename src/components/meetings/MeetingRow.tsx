@@ -24,7 +24,10 @@ import {
   topicsOf,
 } from '#shared/types';
 import { Initials } from '@/components/Initials';
-import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
+import {
+  actionItemCount,
+  deleteMeetingQuestion,
+} from '@/components/meetings/MeetingForm';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
 import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
@@ -50,7 +53,8 @@ const MENU_TRIGGER =
  * One meeting: its day and times, title (goes to the meeting's page),
  * topic count, project chip, attendees, link, and the actions: Add note
  * (beside the row on desktop, in its menu everywhere), Edit (the panel),
- * Delete. Delete asks in the row first; the meeting's notes are kept. A
+ * Delete. Delete asks in the row first; the meeting's notes and action
+ * items are kept. A
  * note is written in place, in a composer under the row (one at a time);
  * the topics and notes themselves are on the page. It lays out by its own
  * width (a container query), so it stacks in a narrow column or popover as
@@ -268,7 +272,11 @@ export function MeetingRow({
           className="flex flex-wrap items-center gap-2 bg-muted px-2 py-2"
         >
           <p id={`delete-${meeting.id}`} className="flex-1 text-sm">
-            {deleteMeetingQuestion(meeting.title, notes)}
+            {deleteMeetingQuestion(
+              meeting.title,
+              notes,
+              actionItemCount(state.tasks, meeting.id),
+            )}
           </p>
           <Button
             type="button"

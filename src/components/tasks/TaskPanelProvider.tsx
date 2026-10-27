@@ -23,6 +23,8 @@ type Session =
 export interface NewTaskPreset {
   title?: string;
   assignee?: string;
+  /** An action item of this meeting (in the meeting's project). */
+  meetingId?: string;
 }
 
 interface TaskPanels {
@@ -75,6 +77,7 @@ export function TaskPanelProvider({ children }: { children: ReactNode }) {
           projectId={session.projectId}
           title={session.preset.title}
           assignee={session.preset.assignee}
+          meetingId={session.preset.meetingId}
           open={session.open}
           onClose={close}
           onExited={exited}

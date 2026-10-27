@@ -56,6 +56,35 @@ const topics: Meeting['topics'] = [
 ];
 
 describe('meetingContext', () => {
+  it('lists its action items, open then done, with what is set', () => {
+    const state = world();
+    state.tasks = {
+      a: task('a', {
+        title: 'Send the redline',
+        meetingId: 'e1',
+        assignee: 'han',
+        due: '2026-10-30',
+      }),
+      b: task('b', {
+        title: 'Book the room',
+        meetingId: 'e1',
+        status: 'done',
+        completedAt: '2026-10-28T09:00:00.000Z',
+      }),
+      c: task('c', { title: 'Not from it' }),
+    };
+    const text = meetingContext(meeting, state);
+    expect(text).toContain(
+      [
+        'Action items:',
+        '- [ ] Send the redline, due Fri 30 Oct 2026, assigned to Han Solo',
+        '- [x] Book the room, closed Wed 28 Oct 2026',
+      ].join('\n'),
+    );
+    expect(text).not.toContain('Not from it');
+    expect(meetingContext(meeting, world())).not.toContain('Action items');
+  });
+
   it('lists topics in order, covered ones with their outcome', () => {
     const text = meetingContext(
       { ...meeting, topics },
@@ -337,6 +366,18 @@ describe('project decisions in the summary', () => {
 });
 
 describe('taskContext', () => {
+  it('names the meeting an action item came from', () => {
+    const state = world();
+    const text = taskContext(task('t', { meetingId: 'e1' }), state);
+    expect(text).toContain(
+      'Action item from: Shield review on Tue 27 Oct 2026',
+    );
+    expect(taskContext(task('t'), state)).not.toContain('Action item');
+    expect(taskContext(task('t', { meetingId: 'gone' }), state)).not.toContain(
+      'Action item',
+    );
+  });
+
   it('has the fields, details, link labels and the source note', () => {
     const state = world();
     state.notes.src = note('src', {
