@@ -196,7 +196,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Meetings, Notes; People and Orgs are in Settings', async ({
+test('sections run Focus, Projects, Tasks, Meetings, Notes, Whiteboard (off the phone); People and Orgs are in Settings', async ({
   page,
 }) => {
   await page.goto('/');
@@ -210,8 +210,8 @@ test('sections run Focus, Projects, Tasks, Meetings, Notes; People and Orgs are 
     /Tasks/,
     /Meetings/,
     /Notes/,
-    // The rail's extras: the space's whiteboard (desktop only; the account
-    // menu has it on a phone).
+    // The space's whiteboard is a section, off the phone's tab bar by
+    // default (the account menu has it there).
     ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
   // People and Orgs live under Settings (#159), in neither the rail nor

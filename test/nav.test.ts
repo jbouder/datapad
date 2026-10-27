@@ -5,6 +5,8 @@ import {
   navHiddenOf,
   navOf,
   navOrderOf,
+  navPhoneHiddenOf,
+  navPhoneOf,
   QUICK_ADD_ACTIONS,
   quickAddOf,
 } from '#shared/nav';
@@ -18,6 +20,7 @@ describe('navOf', () => {
       'tasks',
       'meetings',
       'notes',
+      'whiteboard',
     ]);
   });
 
@@ -29,7 +32,8 @@ describe('navOf', () => {
           hidden: ['meetings', 'focus'],
         },
       }),
-    ).toEqual(['notes', 'tasks', 'projects']);
+      // Whiteboard, unnamed, follows Notes as it does by default.
+    ).toEqual(['notes', 'whiteboard', 'tasks', 'projects']);
   });
 
   it('ignores unknown and repeated names', () => {
@@ -40,18 +44,26 @@ describe('navOf', () => {
           hidden: ['people', 'focus'],
         },
       }),
-    ).toEqual(['notes', 'projects', 'tasks', 'meetings']);
+    ).toEqual(['notes', 'whiteboard', 'projects', 'tasks', 'meetings']);
   });
 
   it('puts a section missing from the saved order at its default place', () => {
     // A saved order from before Meetings, say: it comes back after Tasks.
     expect(
       navOrderOf({ order: ['tasks', 'focus', 'projects', 'notes'] }),
-    ).toEqual(['tasks', 'meetings', 'focus', 'projects', 'notes']);
+    ).toEqual([
+      'tasks',
+      'meetings',
+      'focus',
+      'projects',
+      'notes',
+      'whiteboard',
+    ]);
     // The first section, when missing, goes first.
     expect(navOrderOf({ order: ['notes', 'projects'] })).toEqual([
       'focus',
       'notes',
+      'whiteboard',
       'projects',
       'tasks',
       'meetings',
@@ -60,11 +72,70 @@ describe('navOf', () => {
 
   it('keeps at least one section visible', () => {
     const nav = {
-      order: ['tasks', 'focus', 'projects', 'meetings', 'notes'],
+      order: ['tasks', 'focus', 'projects', 'meetings', 'notes', 'whiteboard'],
       hidden: [...NAV_SECTIONS],
     };
     expect(navOf({ nav })).toEqual(['tasks']);
     expect(navHiddenOf(nav).has('tasks')).toBe(false);
+  });
+});
+
+describe('navPhoneOf', () => {
+  it('leaves the Whiteboard out of the tab bar by default', () => {
+    expect(navPhoneOf({})).toEqual([
+      'focus',
+      'projects',
+      'tasks',
+      'meetings',
+      'notes',
+    ]);
+    expect(navPhoneHiddenOf(undefined)).toEqual(new Set(['whiteboard']));
+  });
+
+  it('follows the saved list for the sections it names', () => {
+    // Saved with every section known: Whiteboard on, Notes off.
+    const nav = {
+      order: [...NAV_SECTIONS],
+      hidden: ['meetings'],
+      phoneHidden: ['notes'],
+    };
+    expect(navPhoneOf({ nav })).toEqual([
+      'focus',
+      'projects',
+      'tasks',
+      'whiteboard',
+    ]);
+    // A hidden section is not on the phone either.
+    expect(navPhoneOf({ nav: { ...nav, hidden: ['whiteboard'] } })).toEqual([
+      'focus',
+      'projects',
+      'tasks',
+      'meetings',
+    ]);
+  });
+
+  it('gives a section the saved lists never name its default', () => {
+    // Saved before the Whiteboard existed: Notes off the phone, nothing
+    // said about the Whiteboard, which stays off the phone.
+    expect(navPhoneOf({ nav: { phoneHidden: ['notes', 'people'] } })).toEqual([
+      'focus',
+      'projects',
+      'tasks',
+      'meetings',
+    ]);
+    // Named in the order (saved after it existed) and not in the list: on.
+    expect(
+      navPhoneOf({ nav: { order: [...NAV_SECTIONS], phoneHidden: [] } }),
+    ).toEqual([...NAV_SECTIONS]);
+  });
+
+  it('keeps at least one section on the phone', () => {
+    const nav = { order: ['notes', 'focus'], phoneHidden: [...NAV_SECTIONS] };
+    expect(navPhoneOf({ nav })).toEqual(['notes']);
+    // The first shown one, when the first in the order is hidden.
+    expect(
+      navPhoneOf({ nav: { ...nav, hidden: ['notes', 'whiteboard'] } }),
+    ).toEqual(['focus']);
   });
 });
 

@@ -306,6 +306,7 @@ const QuickAddPrefsSchema = z.object({
 const NavPrefsSchema = z.object({
   order: z.array(navName).max(20).optional(),
   hidden: z.array(navName).max(20).optional(),
+  phoneHidden: z.array(navName).max(20).optional(),
   extras: NavExtrasSchema.optional(),
   quickAdd: QuickAddPrefsSchema.optional(),
 });
@@ -1079,12 +1080,16 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     type: z.literal('setSettings'),
     patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
   }),
-  /** Navigation preferences; `null` clears a key (all four: the default). */
+  /** Navigation preferences; `null` clears a key (all five: the default). */
   z.object({
     type: z.literal('setNav'),
     patch: patch({
       order: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
       hidden: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
+      phoneHidden: z
+        .array(z.enum(NAV_SECTIONS))
+        .max(NAV_SECTIONS.length)
+        .nullable(),
       extras: NavExtrasSchema.nullable(),
       quickAdd: z
         .object({
