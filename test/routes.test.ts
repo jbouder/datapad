@@ -204,9 +204,10 @@ describe('sectionOf and titleOf', () => {
 });
 
 describe('Settings sections', () => {
-  it('lists People and Orgs after Spaces, before Data', () => {
+  it('lists Pages after Appearance, People and Orgs after Spaces', () => {
     expect(SETTINGS_SECTIONS).toEqual([
       'appearance',
+      'pages',
       'navigation',
       'templates',
       'summaries',

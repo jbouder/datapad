@@ -483,24 +483,30 @@ export function effectiveQuery(
 
 /**
  * A change to a page's controls (`null` or `''` is the default, as pages
- * already write it): what to put in the address and what to save.
+ * already write it): what to save, what the address becomes, and what to
+ * pin on the entry being left.
  *
- * Saved: the new value, or `null` (cleared) when it is the default. The
- * address: nothing when the value is what the page showed on opening
- * (`base`: the saved value, else the default), else the value spelled out,
- * so Back returns to what was shown before and a page opened with
- * something saved can still go back to a default.
+ * - `patch`: the new value, or `null` (cleared) when it is the default.
+ * - `url`: the value, or no parameter for the default, as before #186;
+ *   the page then reads its default or, with no parameter, what it saved,
+ *   which is now the same.
+ * - `pin`: what the page showed for each changed key (`shown`, else the
+ *   default; an empty default as its token). Written onto the entry being
+ *   left when it lacks the key, so Back returns to what was shown rather
+ *   than to what was just saved.
  */
 export function planChange(
   page: PageKey,
   changes: Record<string, string | null>,
-  base: Record<string, string>,
+  shown: Record<string, string>,
   defaults?: PrefDefaults,
 ): {
   url: Record<string, string | null>;
+  pin: Record<string, string>;
   patch: PagePrefsPatch | null;
 } {
   const url: Record<string, string | null> = {};
+  const pin: Record<string, string> = {};
   const saved: Record<string, string | null> = {};
   for (const [key, raw] of Object.entries(changes)) {
     const field = pageField(page, key);
@@ -514,12 +520,14 @@ export function planChange(
         ? def
         : raw;
     saved[key] = value === def ? null : value;
-    const shown = base[key] ?? def;
-    url[key] =
-      value === shown ? null : value === '' ? (field.token ?? null) : value;
+    url[key] = value === def ? null : value;
+    const before = shown[key] ?? def;
+    const spelled = before === '' ? field.token : before;
+    if (spelled) pin[key] = spelled;
   }
   return {
     url,
+    pin,
     patch: Object.keys(saved).length > 0 ? patchOf(saved) : null,
   };
 }

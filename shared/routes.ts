@@ -35,6 +35,8 @@ export type RouteName = Route['name'];
  */
 export const SETTINGS_SECTIONS = [
   'appearance',
+  /** Each page's saved layout, sorts, filters and sections (#186). */
+  'pages',
   'navigation',
   'templates',
   'summaries',

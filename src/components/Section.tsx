@@ -3,7 +3,7 @@ import { type ReactNode, useId, useState } from 'react';
 import type { PageKey } from '#shared/types';
 import { holdFlip } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { usePagePrefs } from '@/providers/PagePrefsProvider';
+import { useOpening, usePagePrefs } from '@/providers/PagePrefsProvider';
 
 /** Where a section's open or closed is saved: its page's preferences. */
 export interface RememberSection {
@@ -48,11 +48,12 @@ export function Section({
 }) {
   const id = useId();
   const prefs = usePagePrefs();
-  const [remembered, setOpen] = useState(
-    () =>
-      (remember && prefs.read(remember.page).sections?.[remember.key]) ??
-      defaultOpen,
+  const saved = useOpening(({ read }) =>
+    remember ? read(remember.page).sections?.[remember.key] : undefined,
   );
+  /** Toggled here; until then, what is saved. */
+  const [chosen, setOpen] = useState<boolean | null>(null);
+  const remembered = chosen ?? saved ?? defaultOpen;
   /** Opened by a click just now: its contents appear without entrances. */
   const [opening, setOpening] = useState(false);
   const open = forced || remembered;

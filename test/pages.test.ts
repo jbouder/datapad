@@ -90,44 +90,44 @@ describe('precedence: the address, then what is saved, then the default', () => 
 });
 
 describe('planChange', () => {
-  it('saves a change and keeps a bare address when nothing was saved', () => {
+  it('saves a change, and the address names it as before', () => {
     expect(planChange('tasks', { group: 'due' }, {})).toEqual({
       url: { group: 'due' },
+      pin: { group: 'project' },
       patch: { group: 'due' },
     });
     // Back to the default: cleared in both.
-    expect(planChange('tasks', { group: null }, {})).toEqual({
+    expect(planChange('tasks', { group: null }, { group: 'due' })).toEqual({
       url: { group: null },
+      pin: { group: 'due' },
       patch: { group: null },
     });
   });
 
-  it('spells out a default the page did not open with', () => {
-    // Opened on the saved Due grouping; Project (the default) is chosen.
-    expect(planChange('tasks', { group: null }, { group: 'due' })).toEqual({
-      url: { group: 'project' },
-      patch: { group: null },
+  it('pins what was shown, an empty default as its token', () => {
+    expect(planChange('notes', { project: 'p1' }, {}).pin).toEqual({
+      project: 'all',
     });
-    // An empty default goes in as its token.
+    expect(planChange('projects', { health: 'red' }, {}).pin).toEqual({
+      health: 'any',
+    });
     expect(planChange('notes', { project: null }, { project: 'p1' })).toEqual({
-      url: { project: 'all' },
+      url: { project: null },
+      pin: { project: 'p1' },
       patch: { filters: { project: null } },
     });
-    expect(
-      planChange('projects', { health: '' }, { health: 'red' }).url,
-    ).toEqual({ health: 'any' });
   });
 
-  it('drops the parameter when the value is what the page opened with', () => {
-    expect(planChange('tasks', { group: 'due' }, { group: 'due' })).toEqual({
-      url: { group: null },
-      patch: { group: 'due' },
-    });
+  it('reads a spelled-out default as the default', () => {
+    expect(planChange('notes', { pinned: '0' }, { pinned: '1' }).patch).toEqual(
+      { filters: { pinned: null } },
+    );
   });
 
-  it('passes the search text through, unsaved', () => {
+  it('passes the search text through, unsaved and unpinned', () => {
     expect(planChange('tasks', { q: 'heaters' }, {})).toEqual({
       url: { q: 'heaters' },
+      pin: {},
       patch: null,
     });
   });

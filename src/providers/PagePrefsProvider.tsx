@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import {
   applyPagePatch,
@@ -21,7 +22,7 @@ import {
 import { type PagePrefsPatch, PagePrefsPatchSchema } from '#shared/protocol';
 import { PAGE_KEYS, type PageKey, type PagePrefs } from '#shared/types';
 import { useDatapad } from '@/hooks/useDatapad';
-import { setQuery, useQuery } from '@/lib/router';
+import { pinQuery, setQuery, useQuery } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 
 /**
@@ -47,6 +48,11 @@ interface PagePrefsApi {
   read: (page: PageKey) => PagePrefs;
   /** Save a change; `now` sends it at once instead of after the pause. */
   save: (page: PageKey, patch: PagePrefsPatch, now?: boolean) => void;
+  /**
+   * The open space's live state is in and anything carried over from this
+   * browser applied: what a page opens with from here on is settled.
+   */
+  ready: boolean;
 }
 
 const PagePrefsContext = createContext<PagePrefsApi | null>(null);
@@ -143,10 +149,12 @@ export function PagePrefsProvider({ children }: { children: ReactNode }) {
   // Once per space, on its live state: a space that has never saved page
   // preferences takes what this browser remembered before #186.
   const carried = useRef(new Set<string>());
+  const [settled, setSettled] = useState<string | null>(null);
   const live = state !== null && !stale && space === spaceId;
   useEffect(() => {
     if (!live || !state || carried.current.has(spaceId)) return;
     carried.current.add(spaceId);
+    setSettled(spaceId);
     if (hasPagePrefs(state)) return;
     const found = legacyPrefs(legacyEntries());
     const ops = PAGE_KEYS.flatMap((page) => {
@@ -158,7 +166,8 @@ export function PagePrefsProvider({ children }: { children: ReactNode }) {
     if (ops.length > 0) actions.batch({ ops });
   }, [live, state, spaceId, actions]);
 
-  const value = useMemo(() => ({ read, save }), [read, save]);
+  const ready = live && settled === spaceId;
+  const value = useMemo(() => ({ read, save, ready }), [read, save, ready]);
   return (
     <PagePrefsContext.Provider value={value}>
       {children}
@@ -175,24 +184,26 @@ export function usePagePrefs(): PagePrefsApi {
 }
 
 /**
- * What a page saved, as it opened: read once the server's state is in
- * (the cached one is followed until then), and kept for as long as the
- * page is open, so a change from another tab or device waits for the next
- * visit. Values the page no longer has are left out.
+ * What a page (or a section) saved, as it opened: followed until the
+ * space's live state is in (`ready`), then kept for as long as it is
+ * open, so a change from another tab or device waits for the next visit.
  */
-function useOpeningValues(page: PageKey | null): Record<string, string> {
-  const { state, stale } = useDatapad();
-  const { read } = usePagePrefs();
+export function useOpening<T>(read: (prefs: PagePrefsApi) => T): T {
+  const prefs = usePagePrefs();
   const spaceId = useSpaces().current.id;
-  const frozen = useRef<{
-    space: string;
-    values: Record<string, string>;
-  } | null>(null);
-  if (!state || !page) return EMPTY;
-  if (frozen.current?.space === spaceId) return frozen.current.values;
-  const values = currentValues(page, read(page), state);
-  if (!stale) frozen.current = { space: spaceId, values };
-  return values;
+  const frozen = useRef<{ space: string; value: T } | null>(null);
+  if (frozen.current?.space === spaceId) return frozen.current.value;
+  const value = read(prefs);
+  if (prefs.ready) frozen.current = { space: spaceId, value };
+  return value;
+}
+
+/** A page's saved values as it opened, without any it no longer has. */
+function useOpeningValues(page: PageKey | null): Record<string, string> {
+  const { state } = useDatapad();
+  return useOpening(({ read }) =>
+    state && page ? currentValues(page, read(page), state) : EMPTY,
+  );
 }
 
 const EMPTY: Record<string, string> = {};
@@ -205,8 +216,9 @@ export interface ChangeOptions {
 /**
  * A page's query: its address over its saved preferences (the address
  * wins), and a change that writes the address and saves the preference
- * (`planChange`). `defaults` are the ones that depend on the device. With
- * no page (the components page), it is the address alone.
+ * (`planChange`). What the page saved is read as it opened, then follows
+ * only the page's own changes. `defaults` are the ones that depend on the
+ * device. With no page (the components page), it is the address alone.
  */
 export function usePageQuery(
   page: PageKey | null,
@@ -216,8 +228,11 @@ export function usePageQuery(
   (changes: Record<string, string | null>, options?: ChangeOptions) => void,
 ] {
   const url = useQuery().toString();
-  const base = useOpeningValues(page);
+  const opening = useOpeningValues(page);
   const { save } = usePagePrefs();
+  /** This visit's own changes, over what it opened with (null: default). */
+  const own = useRef<Record<string, string | null>>({});
+  const base = withChanges(opening, own.current);
   const baseKey = JSON.stringify(base);
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by value
   const query = useMemo(
@@ -243,10 +258,27 @@ export function usePageQuery(
         baseRef.current,
         defaultsRef.current,
       );
+      // A new entry: the one left keeps what it showed, for Back.
+      if (!options.replace) pinQuery(plan.pin);
+      for (const [key, value] of Object.entries(plan.url)) {
+        if (key in plan.pin) own.current[key] = value;
+      }
       setQuery(plan.url, options);
       if (plan.patch) save(page, plan.patch);
     },
     [page, save],
   );
   return [query, change];
+}
+
+function withChanges(
+  values: Record<string, string>,
+  changes: Record<string, string | null>,
+): Record<string, string> {
+  const out = { ...values };
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === null) delete out[key];
+    else out[key] = value;
+  }
+  return out;
 }

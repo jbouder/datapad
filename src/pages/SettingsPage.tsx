@@ -11,6 +11,7 @@ import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
 import { NavSettings } from '@/components/NavSettings';
 import { OrgsView } from '@/components/orgs/OrgsView';
+import { PagesSettings } from '@/components/PagesSettings';
 import { PeopleView } from '@/components/people/PeopleView';
 import { SpacesSettings } from '@/components/SpacesSettings';
 import { SummarySettings } from '@/components/summary/SummarySettings';
@@ -35,6 +36,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
+  pages: 'Pages',
   navigation: 'Navigation',
   templates: 'Templates',
   summaries: 'Summaries',
@@ -47,7 +49,7 @@ const LABELS: Record<SettingsSection, string> = {
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
- * which sections the navigation shows,
+ * what each page remembers, which sections the navigation shows,
  * templates, summaries, your spaces, the people and orgs the rest of the
  * app refers to, your data in and out, and who is signed in. Each section
  * has its own address (`/settings/data`, `/settings/people/:id`); the
@@ -140,6 +142,7 @@ export function SettingsPage({
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
+          {section === 'pages' && <PagesSettings />}
           {section === 'navigation' && <NavSettings />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
