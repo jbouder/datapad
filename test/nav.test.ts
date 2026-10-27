@@ -5,6 +5,8 @@ import {
   navHiddenOf,
   navOf,
   navOrderOf,
+  QUICK_ADD_ACTIONS,
+  quickAddOf,
 } from '#shared/nav';
 
 describe('navOf', () => {
@@ -78,5 +80,69 @@ describe('navExtrasOf', () => {
       digest: false,
       archived: true,
     });
+  });
+});
+
+describe('quickAddOf', () => {
+  it('is Add task, then Write a note, by default', () => {
+    expect(quickAddOf({})).toEqual(['task', 'note']);
+    expect(quickAddOf({ nav: { quickAdd: {} } })).toEqual(['task', 'note']);
+  });
+
+  it('follows the saved order and leaves out the hidden', () => {
+    expect(
+      quickAddOf({
+        nav: {
+          quickAdd: {
+            order: ['meeting', 'note', 'project', 'task'],
+            hidden: ['note'],
+          },
+        },
+      }),
+    ).toEqual(['meeting', 'project', 'task']);
+  });
+
+  it('ignores unknown and repeated names', () => {
+    expect(
+      quickAddOf({
+        nav: {
+          quickAdd: {
+            order: ['template', 'note', 'note', 'meeting', 'task', 'project'],
+            hidden: ['template', 'project'],
+          },
+        },
+      }),
+    ).toEqual(['note', 'meeting', 'task']);
+  });
+
+  it('gives an action the saved list never names its default', () => {
+    // Saved before Add project existed, say: it comes back after Add
+    // meeting, hidden as it is by default, and nothing else moves.
+    expect(
+      quickAddOf({
+        nav: {
+          quickAdd: { order: ['meeting', 'note', 'task'], hidden: ['note'] },
+        },
+      }),
+    ).toEqual(['meeting', 'task']);
+    // A shown-by-default action missing from the list stays shown.
+    expect(
+      quickAddOf({
+        nav: { quickAdd: { order: ['note', 'meeting'], hidden: [] } },
+      }),
+    ).toEqual(['task', 'note', 'meeting']);
+  });
+
+  it('keeps at least one action shown', () => {
+    expect(
+      quickAddOf({
+        nav: {
+          quickAdd: {
+            order: ['project', 'task', 'note', 'meeting'],
+            hidden: [...QUICK_ADD_ACTIONS],
+          },
+        },
+      }),
+    ).toEqual(['project']);
   });
 });

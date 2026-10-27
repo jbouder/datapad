@@ -2018,4 +2018,64 @@ describe('setNav', () => {
       hidden: ['people'],
     });
   });
+
+  it('stores the + menu whole, keeps the rest, and clears it with null', () => {
+    const start = base();
+    const state = run(
+      start,
+      { type: 'setNav', patch: { hidden: ['notes'] } },
+      {
+        type: 'setNav',
+        patch: {
+          quickAdd: {
+            order: ['meeting', 'task', 'task', 'note', 'project'],
+            hidden: ['project'],
+          },
+        },
+      },
+    );
+    expect(settingsOf(state).nav).toEqual({
+      hidden: ['notes'],
+      quickAdd: {
+        order: ['meeting', 'task', 'note', 'project'],
+        hidden: ['project'],
+      },
+    });
+    // Not logged.
+    expect(state.activity).toEqual(start.activity);
+    const cleared = at(state, { type: 'setNav', patch: { quickAdd: null } });
+    expect(settingsOf(cleared.state).nav).toEqual({ hidden: ['notes'] });
+    const reset = at(cleared.state, {
+      type: 'setNav',
+      patch: { hidden: null },
+    }).state;
+    expect(settingsOf(reset).nav).toBeUndefined();
+    // Only actions it knows, and both lists together.
+    expect(
+      OpSchema.safeParse({
+        type: 'setNav',
+        patch: { quickAdd: { order: ['decision'], hidden: [] } },
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'setNav',
+        patch: { quickAdd: { order: ['task'] } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('imports a + menu with names it does not know, kept as stored', () => {
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...base() }));
+    file.settings = {
+      user: {
+        defaultOrg: '',
+        nav: { quickAdd: { order: ['template', 'note'], hidden: ['task'] } },
+      },
+    };
+    const next = merge(emptySnapshot(), ExportSchema.parse(file)).state;
+    expect(settingsOf(next).nav).toEqual({
+      quickAdd: { order: ['template', 'note'], hidden: ['task'] },
+    });
+  });
 });

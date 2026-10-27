@@ -109,10 +109,10 @@ export async function openHelp(page: Page) {
   await page.getByRole('menuitem', { name: 'Help' }).click();
 }
 
-/** The top bar's + menu: Add task or Write a note. */
+/** The top bar's + menu: Add task or Write a note by default. */
 export async function addFromTopBar(
   page: Page,
-  item: 'Add task' | 'Write a note',
+  item: 'Add task' | 'Write a note' | 'Add meeting' | 'Add project',
 ) {
   await page
     .getByRole('banner')

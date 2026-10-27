@@ -1,5 +1,6 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
 import {
+  addFromTopBar,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -23,6 +24,30 @@ function sections(page: Page) {
 
 const row = (page: Page, label: string) =>
   page.locator(`[data-section-row="${label.toLowerCase()}"]`);
+
+/** The top bar's + button: "Add" with a menu, or the one action it does. */
+const plus = (page: Page, name = 'Add') =>
+  page.getByRole('banner').getByRole('button', { name, exact: true });
+
+/** What the + menu offers, in order (closing it again). */
+async function plusMenu(page: Page) {
+  await plus(page).click();
+  const items = page.getByRole('menu').getByRole('menuitem');
+  await expect(items.first()).toBeVisible();
+  // Each item's own words, without the shortcut beside them.
+  const names = await items.evaluateAll((els) =>
+    els.map((el) =>
+      [...el.childNodes]
+        .filter((n) => n.nodeType === Node.TEXT_NODE)
+        .map((n) => n.textContent)
+        .join('')
+        .trim(),
+    ),
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  return names;
+}
 
 test('hiding and reordering sections follows into the rail and the tab bar, after a reload and on another device', async ({
   page,
@@ -229,4 +254,142 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
   // The word shows at every width.
   await expect.poll(width).toBeGreaterThan(40);
   await expectAccessible(page);
+});
+
+test('the + menu offers what Quick add shows, in its order, after a reload and on another device', async ({
+  page,
+  request,
+  browser,
+  email,
+  baseURL,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/settings/navigation');
+  const group = page.getByRole('list', { name: 'Quick add' });
+  await expect(group.getByRole('listitem')).toHaveText([
+    /Add task/,
+    /Write a note/,
+    /Add meeting\s*Hidden/,
+    /Add project\s*Hidden/,
+  ]);
+  expect(await plusMenu(page)).toEqual(['Add task', 'Write a note']);
+
+  // Show Add meeting and move it to the top; show Add project.
+  await page.getByRole('switch', { name: 'Show Add meeting' }).click();
+  const up = page.getByRole('button', { name: 'Move Add meeting up' });
+  await up.click();
+  await expect(up).toBeFocused();
+  await up.click();
+  await page.getByRole('switch', { name: 'Show Add project' }).click();
+  await expect
+    .poll(() => plusMenu(page))
+    .toEqual(['Add meeting', 'Add task', 'Write a note', 'Add project']);
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // The same after a reload.
+  await page.reload();
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+  expect(await plusMenu(page)).toEqual([
+    'Add meeting',
+    'Add task',
+    'Write a note',
+    'Add project',
+  ]);
+
+  // Add meeting starts in the project you are on; Add project opens its form.
+  await page.goto('/projects/p-echo');
+  await addFromTopBar(page, 'Add meeting');
+  const meeting = page.getByRole('dialog', { name: 'New meeting' });
+  await expect(meeting.getByRole('combobox', { name: 'Project' })).toHaveValue(
+    'Echo Base relocation',
+  );
+  await page.keyboard.press('Escape');
+  await expect(meeting).toHaveCount(0);
+  await addFromTopBar(page, 'Add project');
+  await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'New project' })).toHaveCount(
+    0,
+  );
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // Another device: a fresh browser context, signed in as the same address.
+  const other = await browser.newContext({
+    baseURL,
+    viewport: page.viewportSize(),
+    extraHTTPHeaders: { 'x-dev-access-email': email },
+  });
+  await other.route(
+    (url) => url.hostname !== 'localhost',
+    (route) => route.abort('blockedbyclient'),
+  );
+  const second = await other.newPage();
+  await openLive(second, '/');
+  expect(await plusMenu(second)).toEqual([
+    'Add meeting',
+    'Add task',
+    'Write a note',
+    'Add project',
+  ]);
+  await other.close();
+});
+
+test('with one action shown, + does it directly; hidden ones still work; Reset puts the menu back with Undo', async ({
+  page,
+}) => {
+  await openLive(page, '/settings/navigation');
+  await page.getByRole('switch', { name: 'Show Write a note' }).click();
+  await expect(
+    page.getByRole('switch', { name: 'Show Add task' }),
+  ).toBeDisabled();
+
+  // No menu: + is Add task, by name and by tooltip.
+  await expect(plus(page)).toHaveCount(0);
+  const add = plus(page, 'Add task');
+  await expect(add).toBeVisible();
+  if (!isMobile(page)) {
+    await add.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText(
+      'Add task',
+    );
+  }
+  await add.click();
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  const task = page.getByRole('dialog', { name: 'New task' });
+  await expect(task).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(task).toHaveCount(0);
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // Write a note is hidden from +, not from its shortcut or ⌘K.
+  if (!isMobile(page)) {
+    await page.keyboard.press('Shift+N');
+    const note = page.getByRole('dialog', { name: 'New note' });
+    await expect(note).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(note).toHaveCount(0);
+  }
+  await page.getByRole('button', { name: 'Search' }).click();
+  const palette = page.getByRole('dialog', { name: 'Search' });
+  await palette.getByRole('combobox').fill('New note');
+  await palette.getByRole('option', { name: /New note/ }).click();
+  await expect(page.getByRole('dialog', { name: 'New note' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Add meeting is hidden by default, and in ⌘K too.
+  await page.getByRole('button', { name: 'Search' }).click();
+  await palette.getByRole('combobox').fill('New meeting');
+  await palette.getByRole('option', { name: /New meeting/ }).click();
+  await expect(page.getByRole('dialog', { name: 'New meeting' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'New meeting' })).toHaveCount(
+    0,
+  );
+
+  await page.getByRole('button', { name: 'Reset to default' }).click();
+  expect(await plusMenu(page)).toEqual(['Add task', 'Write a note']);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(plus(page, 'Add task')).toBeVisible();
 });

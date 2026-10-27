@@ -347,14 +347,16 @@ export interface Settings {
 }
 
 /**
- * Which sections the rail and tab bar show, and in what order, and which
- * of the rail's extras. Names are kept as stored and checked when read, so
+ * Which sections the rail and tab bar show, and in what order, which of
+ * the rail's extras, and what the top bar's + offers. Names are kept as stored and checked when read, so
  * a name from another release is ignored rather than refused.
  */
 export interface NavPrefs {
   order?: string[];
   hidden?: string[];
   extras?: { activeProjects?: boolean; digest?: boolean; archived?: boolean };
+  /** The top bar's + menu (#201): its actions' order and the hidden ones. */
+  quickAdd?: { order?: string[]; hidden?: string[] };
 }
 
 /**

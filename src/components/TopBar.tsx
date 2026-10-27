@@ -1,11 +1,10 @@
 import {
   ArrowClockwiseIcon,
-  CheckSquareIcon,
   MagnifyingGlassIcon,
-  NotePencilIcon,
   PlusIcon,
 } from '@phosphor-icons/react';
 import { useRef } from 'react';
+import type { QuickAddAction } from '#shared/nav';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
@@ -23,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
+import type { QuickAddItem } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 
 /**
@@ -31,23 +31,25 @@ import { linkProps } from '@/lib/router';
  * (a colored dot, with its word on desktop), Refresh on desktop (a full
  * reload: it picks up a new deploy, and unsent changes are already stored;
  * phones have it in the account menu, the bar has no room), Search (with
- * its shortcut on desktop), **+** (a menu: Add task and Write a note) and
+ * its shortcut on desktop), **+** (a menu of the space's quick-add actions,
+ * Add task and Write a note by default; with one, + does it directly) and
  * the account menu (Help is there).
  */
 export function TopBar({
   title,
   pageKey,
   email,
-  onAddTask,
-  onAddNote,
+  quickAdd,
+  onQuickAdd,
   onSearch,
 }: {
   title: string;
   /** Changes when the page does, so the h1 is found again. */
   pageKey: string;
   email: string | null;
-  onAddTask: () => void;
-  onAddNote: () => void;
+  /** What + offers, in order; never empty. */
+  quickAdd: QuickAddItem[];
+  onQuickAdd: (name: QuickAddAction) => void;
   onSearch: () => void;
 }) {
   const hint = paletteHint();
@@ -111,40 +113,77 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="press size-11 sm:size-9"
-                  aria-label="Add"
-                />
-              }
-            >
-              <PlusIcon weight="bold" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem aria-keyshortcuts="N" onClick={onAddTask}>
-                <CheckSquareIcon />
-                Add task
-                <DropdownMenuShortcut className="hidden desk:inline">
-                  N
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem aria-keyshortcuts="Shift+N" onClick={onAddNote}>
-                <NotePencilIcon />
-                Write a note
-                <DropdownMenuShortcut className="hidden desk:inline">
-                  ⇧N
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <QuickAdd items={quickAdd} onChoose={onQuickAdd} />
           <PreferencesMenu email={email} />
         </div>
       </div>
     </header>
+  );
+}
+
+/** + itself: a menu, or with one action shown, that action. */
+function QuickAdd({
+  items,
+  onChoose,
+}: {
+  items: QuickAddItem[];
+  onChoose: (name: QuickAddAction) => void;
+}) {
+  const button = 'press size-11 sm:size-9';
+  if (items.length === 1) {
+    const [only] = items;
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className={button}
+              aria-keyshortcuts={only.shortcut?.keys}
+              onClick={() => onChoose(only.name)}
+            />
+          }
+        >
+          <PlusIcon weight="bold" />
+          <span className="sr-only">{only.label}</span>
+        </TooltipTrigger>
+        <TooltipContent>{only.label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={button}
+            aria-label="Add"
+          />
+        }
+      >
+        <PlusIcon weight="bold" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        {items.map(({ name, label, icon: ItemIcon, shortcut }) => (
+          <DropdownMenuItem
+            key={name}
+            aria-keyshortcuts={shortcut?.keys}
+            onClick={() => onChoose(name)}
+          >
+            <ItemIcon />
+            {label}
+            {shortcut && (
+              <DropdownMenuShortcut className="hidden desk:inline">
+                {shortcut.label}
+              </DropdownMenuShortcut>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
