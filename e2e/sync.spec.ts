@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { expect, isMobile, test } from './fixtures';
+import { expect, test } from './fixtures';
 
 /** The Focus quick-add. */
 async function addTask(page: Page, title: string) {
@@ -200,13 +200,12 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
   });
   blocked = false;
   let reloaded = page.waitForEvent('load');
-  if (isMobile(page)) {
-    // No room in the phone's bar: it is in the account menu.
-    await page.getByRole('button', { name: 'Account and settings' }).click();
-    await page.getByRole('menuitem', { name: 'Refresh' }).click();
-  } else {
-    await page.getByRole('button', { name: 'Refresh' }).click();
-  }
+  // In the account menu, at every width; the top bar has no button for it.
+  await expect(
+    page.getByRole('banner').getByRole('button', { name: 'Refresh' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Account and settings' }).click();
+  await page.getByRole('menuitem', { name: 'Refresh' }).click();
   await reloaded;
   expect(
     await page.evaluate(
