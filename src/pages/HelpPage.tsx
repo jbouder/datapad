@@ -136,7 +136,10 @@ export function HelpPage({ section }: { section?: string }) {
           show, and in what order, for the open space, and whether the rail
           lists Active projects, the Weekly digest and Archived. A hidden
           section still opens from its address, <Key>⌘K</Key> and the links
-          above. The address <code>/</code> is always Focus.
+          above. The address <code>/</code> is always Focus. Its Quick add group
+          chooses what the top bar’s + offers (Add task and Write a note by
+          default; Add meeting and Add project too), in what order; with one
+          shown, + does it directly.
         </p>
       </Section>
 

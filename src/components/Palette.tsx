@@ -24,6 +24,7 @@ import {
   searchIndex,
 } from '#shared/search';
 import { useImportExport } from '@/components/ImportExport';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useNewSpace } from '@/components/SpaceSwitcher';
@@ -75,6 +76,7 @@ export function Palette({
   const { openTask, newTask } = useTaskPanels();
   const { newNote } = useNotes();
   const { openProjectForm } = useProjectForm();
+  const { newMeeting } = useMeetingForm();
   const { exportNow } = useImportExport();
   const { mode, setTheme } = useTheme();
   const { spaces, current, switchSpace } = useSpaces();
@@ -113,6 +115,12 @@ export function Palette({
         label: 'New note',
         icon: PlusIcon,
         run: () => newNote(currentProject),
+      },
+      {
+        id: 'new-meeting',
+        label: 'New meeting',
+        icon: PlusIcon,
+        run: () => newMeeting({ projectId: currentProject }),
       },
       {
         id: 'new-project',
@@ -180,6 +188,7 @@ export function Palette({
     newTask,
     newNote,
     currentProject,
+    newMeeting,
     openProjectForm,
     mode,
     setTheme,

@@ -1,6 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import type { QuickAddAction } from '#shared/nav';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
+import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { Rail } from '@/components/Rail';
 import { ShortcutSheet } from '@/components/ShortcutSheet';
 import { TabBar } from '@/components/TabBar';
@@ -8,7 +11,7 @@ import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { withViewTransition } from '@/lib/motion';
-import { titleOf } from '@/lib/nav';
+import { titleOf, useNav } from '@/lib/nav';
 import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import {
   type Route,
@@ -48,6 +51,9 @@ export function AppShell() {
   const { state } = useDatapad();
   const { newTask } = useTaskPanels();
   const { newNote } = useNotes();
+  const { newMeeting } = useMeetingForm();
+  const { openProjectForm } = useProjectForm();
+  const { quickAdd } = useNav();
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -62,7 +68,7 @@ export function AppShell() {
           ? state?.meetings[route.id]?.title
           : undefined;
 
-  // + opens the new-task panel, preset to the project you are on.
+  // Add task opens the new-task panel, preset to the project you are on.
   const currentProject = route.name === 'project' ? route.id : null;
   const addTask = useCallback(() => {
     newTask(currentProject);
@@ -74,6 +80,16 @@ export function AppShell() {
   const addNote = useCallback(() => {
     newNote(noteProject);
   }, [newNote, noteProject]);
+  // The top bar's +: whichever actions Settings → Navigation shows.
+  const onQuickAdd = useCallback(
+    (name: QuickAddAction) => {
+      if (name === 'task') addTask();
+      else if (name === 'note') addNote();
+      else if (name === 'meeting') newMeeting({ projectId: currentProject });
+      else openProjectForm();
+    },
+    [addTask, addNote, newMeeting, openProjectForm, currentProject],
+  );
 
   // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
   // task, `N` a note,
@@ -152,8 +168,8 @@ export function AppShell() {
           title={titleOf(route, pageName)}
           pageKey={pageKey(route)}
           email={email}
-          onAddTask={addTask}
-          onAddNote={addNote}
+          quickAdd={quickAdd}
+          onQuickAdd={onQuickAdd}
           onSearch={() => setPalette(true)}
         />
         {/* Keyed by page so each mounts fresh and its entrances replay. */}

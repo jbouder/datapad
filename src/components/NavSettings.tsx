@@ -9,11 +9,15 @@ import {
 } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
 import {
+  isQuickAddAction,
   isSectionName,
   type NavExtra,
   navExtrasOf,
   navHiddenOf,
   navOrderOf,
+  type QuickAddAction,
+  quickAddHiddenOf,
+  quickAddOrderOf,
   type SectionName,
 } from '#shared/nav';
 import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
@@ -21,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
-import { NAV_ITEMS } from '@/lib/nav';
+import { NAV_ITEMS, QUICK_ADD_ITEMS } from '@/lib/nav';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -50,8 +54,9 @@ const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
 
 /**
  * Settings → Navigation: which sections the rail and the tab bar show, in
- * what order, and the rail's extras. Saved for this space as each change
- * is made; Reset to default puts today's nav back, with Undo.
+ * what order, the rail's extras, and what the top bar's + offers. Saved
+ * for this space as each change is made; Reset to default puts today's
+ * nav back, with Undo.
  */
 export function NavSettings() {
   const { state, actions } = useDatapad();
@@ -62,19 +67,24 @@ export function NavSettings() {
   const hidden = navHiddenOf(stored.nav);
   const extras = navExtrasOf(stored);
   const visible = order.length - hidden.size;
+  const addOrder = quickAddOrderOf(stored.nav?.quickAdd);
+  const addHidden = quickAddHiddenOf(stored.nav?.quickAdd);
+  const addVisible = addOrder.length - addHidden.size;
 
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
+  const addList = useRef<HTMLUListElement>(null);
+  useFlip(addList, active);
 
   // A move re-renders the rows (and may move the one pressed): keep focus
   // on the button pressed, or its neighbour once that one is disabled.
-  const refocus = useRef<{ name: SectionName; by: -1 | 1 } | null>(null);
+  const refocus = useRef<{ name: string; by: -1 | 1 } | null>(null);
   useLayoutEffect(() => {
     const want = refocus.current;
     if (!want) return;
     refocus.current = null;
     const button = (by: number) =>
-      list.current?.querySelector<HTMLButtonElement>(
+      document.querySelector<HTMLButtonElement>(
         `[data-move="${want.name}:${by}"]`,
       );
     const pressed = button(want.by);
@@ -82,14 +92,34 @@ export function NavSettings() {
   });
 
   const move = (name: SectionName, by: -1 | 1) => {
-    const from = order.indexOf(name);
-    const to = from + by;
-    if (from < 0 || to < 0 || to >= order.length) return;
-    const next = [...order];
-    next.splice(from, 1);
-    next.splice(to, 0, name);
+    const next = moved(order, name, by);
+    if (!next) return;
     refocus.current = { name, by };
     actions.setNav({ patch: { order: next } });
+  };
+
+  // The + menu is saved whole, order and hidden together, so an action a
+  // later release adds is one it has never named and keeps its default.
+  const saveQuickAdd = (
+    next: QuickAddAction[],
+    nextHidden: Set<QuickAddAction>,
+  ) =>
+    actions.setNav({
+      patch: { quickAdd: { order: next, hidden: [...nextHidden] } },
+    });
+
+  const moveAdd = (name: QuickAddAction, by: -1 | 1) => {
+    const next = moved(addOrder, name, by);
+    if (!next) return;
+    refocus.current = { name: `add-${name}`, by };
+    saveQuickAdd(next, addHidden);
+  };
+
+  const setAddShown = (name: QuickAddAction, on: boolean) => {
+    const next = new Set(addHidden);
+    if (on) next.delete(name);
+    else next.add(name);
+    saveQuickAdd(addOrder, next);
   };
 
   const setShown = (name: SectionName, on: boolean) => {
@@ -102,7 +132,11 @@ export function NavSettings() {
   const reset = () => {
     const before = stored.nav;
     if (!before) return;
-    if (!actions.setNav({ patch: { order: null, hidden: null, extras: null } }))
+    if (
+      !actions.setNav({
+        patch: { order: null, hidden: null, extras: null, quickAdd: null },
+      })
+    )
       return;
     show('Navigation reset to the default', () => {
       actions.setNav({
@@ -110,6 +144,12 @@ export function NavSettings() {
           order: before.order?.filter(isSectionName) ?? null,
           hidden: before.hidden?.filter(isSectionName) ?? null,
           extras: before.extras ?? null,
+          quickAdd: before.quickAdd
+            ? {
+                order: before.quickAdd.order?.filter(isQuickAddAction) ?? [],
+                hidden: before.quickAdd.hidden?.filter(isQuickAddAction) ?? [],
+              }
+            : null,
         },
       });
     });
@@ -133,72 +173,25 @@ export function NavSettings() {
           className="flex flex-col border-t"
         >
           {order.map((name, i) => {
-            const { label, icon: SectionIcon } = NAV_ITEMS[name];
+            const { label, icon } = NAV_ITEMS[name];
             const shown = !hidden.has(name);
-            const lastShown = shown && visible <= 1;
-            const id = `nav-show-${name}`;
             return (
-              <li
+              <OrderRow
                 key={name}
-                data-flip-id={name}
-                data-section-row={name}
-                className="row flex items-center gap-1 border-b bg-background text-sm"
-              >
-                <label
-                  htmlFor={id}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 desk:min-h-9"
-                >
-                  <SectionIcon aria-hidden className="size-4 shrink-0" />
-                  <span
-                    className={
-                      shown
-                        ? 'font-medium'
-                        : 'font-medium text-muted-foreground'
-                    }
-                  >
-                    {label}
-                  </span>
-                  {!shown && (
-                    <span className="text-xs text-muted-foreground">
-                      Hidden
-                    </span>
-                  )}
-                </label>
-                <span className="flex size-11 shrink-0 items-center justify-center desk:size-9">
-                  <Switch
-                    id={id}
-                    aria-label={`Show ${label}`}
-                    checked={shown}
-                    disabled={lastShown}
-                    aria-describedby={lastShown ? 'nav-last-hint' : undefined}
-                    onCheckedChange={(on) => setShown(name, on)}
-                  />
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={ICON_BUTTON}
-                  title="Move up"
-                  data-move={`${name}:-1`}
-                  disabled={i === 0}
-                  onClick={() => move(name, -1)}
-                >
-                  <ArrowUpIcon />
-                  <span className="sr-only">Move {label} up</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={ICON_BUTTON}
-                  title="Move down"
-                  data-move={`${name}:1`}
-                  disabled={i === order.length - 1}
-                  onClick={() => move(name, 1)}
-                >
-                  <ArrowDownIcon />
-                  <span className="sr-only">Move {label} down</span>
-                </Button>
-              </li>
+                name={name}
+                label={label}
+                icon={icon}
+                rowAttr={{ 'data-section-row': name }}
+                switchId={`nav-show-${name}`}
+                moveKey={name}
+                shown={shown}
+                lastShown={shown && visible <= 1}
+                lastHint="nav-last-hint"
+                first={i === 0}
+                last={i === order.length - 1}
+                onShow={(on) => setShown(name, on)}
+                onMove={(by) => move(name, by)}
+              />
             );
           })}
         </ul>
@@ -252,6 +245,48 @@ export function NavSettings() {
         </ul>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold" id="nav-quick-add">
+          Quick add
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          What the top bar’s + offers, in this order. With one shown, + does it
+          directly. A hidden one still works from its shortcut, ⌘K and its
+          page’s own button.
+        </p>
+        <ul
+          ref={addList}
+          aria-labelledby="nav-quick-add"
+          className="flex flex-col border-t"
+        >
+          {addOrder.map((name, i) => {
+            const { label, icon } = QUICK_ADD_ITEMS[name];
+            const shown = !addHidden.has(name);
+            return (
+              <OrderRow
+                key={name}
+                name={name}
+                label={label}
+                icon={icon}
+                rowAttr={{ 'data-quick-add-row': name }}
+                switchId={`nav-add-${name}`}
+                moveKey={`add-${name}`}
+                shown={shown}
+                lastShown={shown && addVisible <= 1}
+                lastHint="nav-add-last-hint"
+                first={i === 0}
+                last={i === addOrder.length - 1}
+                onShow={(on) => setAddShown(name, on)}
+                onMove={(by) => moveAdd(name, by)}
+              />
+            );
+          })}
+        </ul>
+        <p id="nav-add-last-hint" className="text-xs text-muted-foreground">
+          At least one action stays on +.
+        </p>
+      </div>
+
       <Button
         variant="outline"
         className="press self-start"
@@ -263,4 +298,111 @@ export function NavSettings() {
       </Button>
     </>
   );
+}
+
+/**
+ * One row of an ordered list (a section, a + action): its icon and label,
+ * a Show switch and Move up / Move down, 44px on touch. `moveKey` names
+ * its move buttons so focus can follow a move.
+ */
+function OrderRow({
+  name,
+  label,
+  icon: RowIcon,
+  rowAttr,
+  switchId,
+  moveKey,
+  shown,
+  lastShown,
+  lastHint,
+  first,
+  last,
+  onShow,
+  onMove,
+}: {
+  name: string;
+  label: string;
+  icon: Icon;
+  rowAttr: Record<`data-${string}`, string>;
+  switchId: string;
+  moveKey: string;
+  shown: boolean;
+  /** The only one shown: it cannot be hidden. */
+  lastShown: boolean;
+  /** The id of the line that says why. */
+  lastHint: string;
+  first: boolean;
+  last: boolean;
+  onShow: (on: boolean) => void;
+  onMove: (by: -1 | 1) => void;
+}) {
+  return (
+    <li
+      data-flip-id={name}
+      {...rowAttr}
+      className="row flex items-center gap-1 border-b bg-background text-sm"
+    >
+      <label
+        htmlFor={switchId}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 desk:min-h-9"
+      >
+        <RowIcon aria-hidden className="size-4 shrink-0" />
+        <span
+          className={
+            shown ? 'font-medium' : 'font-medium text-muted-foreground'
+          }
+        >
+          {label}
+        </span>
+        {!shown && (
+          <span className="text-xs text-muted-foreground">Hidden</span>
+        )}
+      </label>
+      <span className="flex size-11 shrink-0 items-center justify-center desk:size-9">
+        <Switch
+          id={switchId}
+          aria-label={`Show ${label}`}
+          checked={shown}
+          disabled={lastShown}
+          aria-describedby={lastShown ? lastHint : undefined}
+          onCheckedChange={onShow}
+        />
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={ICON_BUTTON}
+        title="Move up"
+        data-move={`${moveKey}:-1`}
+        disabled={first}
+        onClick={() => onMove(-1)}
+      >
+        <ArrowUpIcon />
+        <span className="sr-only">Move {label} up</span>
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={ICON_BUTTON}
+        title="Move down"
+        data-move={`${moveKey}:1`}
+        disabled={last}
+        onClick={() => onMove(1)}
+      >
+        <ArrowDownIcon />
+        <span className="sr-only">Move {label} down</span>
+      </Button>
+    </li>
+  );
+}
+
+/** `order` with `name` moved one place, or null at either end. */
+function moved<T>(order: T[], name: T, by: -1 | 1): T[] | null {
+  const from = order.indexOf(name);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= order.length) return null;
+  const next = [...order];
+  next.splice(from, 1);
+  next.splice(to, 0, name);
+  return next;
 }

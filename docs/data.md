@@ -91,7 +91,9 @@ as it is (migrated on the way in, below):
   default org for new projects (none until you pick one in Orgs; a new
   space starts with no orgs) and, optionally, `nav`, the navigation
   preferences from Settings → Navigation (#187):
-  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "digest": false, "archived": true } }`.
+  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "digest": false, "archived": true }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
+  (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,
+  `project`; an action it never names keeps its default).
   Every key is optional and `nav` is absent until you change something, so
   a file without it imports unchanged. Section names are kept as written
   and checked when read: an unknown one is ignored, and a section missing

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
 import { migrate } from './migrate';
-import { NAV_SECTIONS } from './nav';
+import { NAV_SECTIONS, QUICK_ADD_ACTIONS } from './nav';
 import {
   type Activity,
   type COLLECTIONS,
@@ -265,10 +265,15 @@ const NavExtrasSchema = z.object({
   digest: z.boolean().optional(),
   archived: z.boolean().optional(),
 });
+const QuickAddPrefsSchema = z.object({
+  order: z.array(navName).max(20).optional(),
+  hidden: z.array(navName).max(20).optional(),
+});
 const NavPrefsSchema = z.object({
   order: z.array(navName).max(20).optional(),
   hidden: z.array(navName).max(20).optional(),
   extras: NavExtrasSchema.optional(),
+  quickAdd: QuickAddPrefsSchema.optional(),
 });
 
 /* ---------- page preferences (#186) ---------- */
@@ -972,13 +977,23 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     type: z.literal('setSettings'),
     patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
   }),
-  /** Navigation preferences; `null` clears a key (all three: the default). */
+  /** Navigation preferences; `null` clears a key (all four: the default). */
   z.object({
     type: z.literal('setNav'),
     patch: patch({
       order: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
       hidden: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
       extras: NavExtrasSchema.nullable(),
+      quickAdd: z
+        .object({
+          order: z
+            .array(z.enum(QUICK_ADD_ACTIONS))
+            .max(QUICK_ADD_ACTIONS.length),
+          hidden: z
+            .array(z.enum(QUICK_ADD_ACTIONS))
+            .max(QUICK_ADD_ACTIONS.length),
+        })
+        .nullable(),
     }),
   }),
 

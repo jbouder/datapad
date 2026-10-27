@@ -1043,19 +1043,26 @@ function apply(d: Draft, op: Op, now: string) {
 
 /**
  * Navigation preferences (not logged). Each key replaces what is stored,
- * except `extras`, which merges switch by switch; `null` clears a key, and
+ * except `extras`, which merges switch by switch (`quickAdd` comes whole:
+ * its order and hidden together); `null` clears a key, and
  * a nav with nothing left in it goes, so the default nav is no `nav`.
  */
 function setNav(d: Draft, op: OpOf<'setNav'>) {
   const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
   const nav: NavPrefs = { ...current.nav };
-  const { order, hidden, extras } = op.patch;
+  const { order, hidden, extras, quickAdd } = op.patch;
   if (order === null) delete nav.order;
   else if (order) nav.order = [...new Set(order)];
   if (hidden === null) delete nav.hidden;
   else if (hidden) nav.hidden = [...new Set(hidden)];
   if (extras === null) delete nav.extras;
   else if (extras) nav.extras = { ...nav.extras, ...extras };
+  if (quickAdd === null) delete nav.quickAdd;
+  else if (quickAdd)
+    nav.quickAdd = {
+      order: [...new Set(quickAdd.order)],
+      hidden: [...new Set(quickAdd.hidden)],
+    };
   const { nav: _, ...rest } = current;
   d.set(
     'settings',

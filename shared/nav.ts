@@ -1,9 +1,9 @@
 /**
  * The navigation preferences (#187): which top-level sections the rail and
- * the tab bar show, in what order, and which of the rail's extras. Stored
- * per space in `settings.nav`; absent means today's nav. Pure, so the
- * rail, the tab bar, Settings → Navigation and the tests read the same
- * answer.
+ * the tab bar show, in what order, which of the rail's extras, and what
+ * the top bar's + offers (#201). Stored per space in `settings.nav`;
+ * absent means today's nav. Pure, so the rail, the tab bar, the top bar,
+ * Settings → Navigation and the tests read the same answer.
  */
 import type { NavPrefs, Settings } from './types';
 
@@ -70,4 +70,70 @@ export function navExtrasOf(
     digest: extras?.digest !== false,
     archived: extras?.archived !== false,
   };
+}
+
+/**
+ * What the top bar's + can offer (#201), in their default order. Each
+ * opens what it opens elsewhere: the new-task panel, the new-note panel,
+ * the meeting form, the project form.
+ */
+export const QUICK_ADD_ACTIONS = [
+  'task',
+  'note',
+  'meeting',
+  'project',
+] as const;
+export type QuickAddAction = (typeof QUICK_ADD_ACTIONS)[number];
+
+/** Hidden until shown: + is Add task and Write a note by default. */
+const QUICK_ADD_HIDDEN: readonly QuickAddAction[] = ['meeting', 'project'];
+
+export function isQuickAddAction(name: unknown): name is QuickAddAction {
+  return (QUICK_ADD_ACTIONS as readonly unknown[]).includes(name);
+}
+
+type QuickAddPrefs = NavPrefs['quickAdd'];
+
+/**
+ * Every action in the saved order, as `navOrderOf` does for sections:
+ * unknown and repeated names dropped, one missing (a later release's) at
+ * its default place.
+ */
+export function quickAddOrderOf(prefs: QuickAddPrefs): QuickAddAction[] {
+  const order: QuickAddAction[] = [];
+  for (const name of prefs?.order ?? []) {
+    if (isQuickAddAction(name) && !order.includes(name)) order.push(name);
+  }
+  QUICK_ADD_ACTIONS.forEach((name, i) => {
+    if (order.includes(name)) return;
+    const before = i === 0 ? -1 : order.indexOf(QUICK_ADD_ACTIONS[i - 1]);
+    order.splice(before + 1, 0, name);
+  });
+  return order;
+}
+
+/**
+ * The hidden actions. One the saved preferences never mention (a later
+ * release's) keeps its default, so they never hide it by accident; at
+ * least one action stays shown, the first in the order.
+ */
+export function quickAddHiddenOf(prefs: QuickAddPrefs): Set<QuickAddAction> {
+  const known = new Set([...(prefs?.order ?? []), ...(prefs?.hidden ?? [])]);
+  const saved = new Set(prefs?.hidden ?? []);
+  const hidden = new Set(
+    QUICK_ADD_ACTIONS.filter((name) =>
+      known.has(name) ? saved.has(name) : QUICK_ADD_HIDDEN.includes(name),
+    ),
+  );
+  if (hidden.size >= QUICK_ADD_ACTIONS.length) {
+    hidden.delete(quickAddOrderOf(prefs)[0]);
+  }
+  return hidden;
+}
+
+/** The shown actions, in order: what + offers (one: what it does). */
+export function quickAddOf(settings: Pick<Settings, 'nav'>): QuickAddAction[] {
+  const prefs = settings.nav?.quickAdd;
+  const hidden = quickAddHiddenOf(prefs);
+  return quickAddOrderOf(prefs).filter((name) => !hidden.has(name));
 }
