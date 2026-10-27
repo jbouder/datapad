@@ -1,8 +1,4 @@
-import {
-  ArrowClockwiseIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-} from '@phosphor-icons/react';
+import { MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
 import { useRef } from 'react';
 import type { QuickAddAction } from '#shared/nav';
 import { paletteHint } from '@/components/Palette';
@@ -28,12 +24,10 @@ import { linkProps } from '@/lib/router';
 /**
  * The current title on the left once the page's own h1 has scrolled away
  * (with the brand on phones, where there is no rail), then the sync status
- * (a colored dot, with its word on desktop), Refresh on desktop (a full
- * reload: it picks up a new deploy, and unsent changes are already stored;
- * phones have it in the account menu, the bar has no room), Search (with
+ * (a colored dot, with its word on desktop), Search (with
  * its shortcut on desktop), **+** (a menu of the space's quick-add actions,
  * Add task and Write a note by default; with one, + does it directly) and
- * the account menu (Help is there).
+ * the account menu (Refresh and Help are there).
  */
 export function TopBar({
   title,
@@ -79,23 +73,9 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
-          <SyncStatus className="desk:hidden" />
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="press hidden size-9 desk:mr-1 desk:inline-flex"
-                  onClick={() => window.location.reload()}
-                />
-              }
-            >
-              <ArrowClockwiseIcon weight="bold" />
-              <span className="sr-only">Refresh</span>
-            </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
-          </Tooltip>
+          {/* A touch target's width, so the dot sits as far from Search as
+              the icons do from each other. */}
+          <SyncStatus className="min-w-11 justify-center desk:hidden" />
           <Button
             variant="outline"
             className="press size-11 p-0 text-muted-foreground sm:size-9 desk:mr-1 desk:h-9 desk:w-auto desk:gap-2 desk:px-2.5"

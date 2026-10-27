@@ -222,11 +222,20 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
   await input.press('Enter');
   await expect(status).toContainText('Saved');
   await expect(dot).toHaveClass(/bg-ok/);
-  // Phones show only the dot (the word is for screen readers); desktop
-  // shows the word beside it.
+  // Phones show only the dot (the word is for screen readers), centred in
+  // a 44px slot so it spaces like the icons beside it; desktop shows the
+  // word beside it.
   const width = async () => (await status.boundingBox())?.width ?? 0;
-  if (isMobile(page)) expect(await width()).toBeLessThan(16);
-  else expect(await width()).toBeGreaterThan(30);
+  if (isMobile(page)) {
+    const box = await status.boundingBox();
+    const dotBox = await dot.boundingBox();
+    expect(box?.width).toBeCloseTo(44, 0);
+    expect(
+      (dotBox?.x ?? 0) + (dotBox?.width ?? 0) / 2 - (box?.x ?? 0),
+    ).toBeCloseTo(22, 0);
+    const word = await status.getByText('Saved').boundingBox();
+    expect(word?.width ?? 0).toBeLessThanOrEqual(1);
+  } else expect(await width()).toBeGreaterThan(30);
 
   if (!isMobile(page)) {
     // The digest sits under Active projects, above Archived, in the nav.
@@ -252,7 +261,7 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
   await expect(dot).toHaveClass(/bg-destructive/);
   await expect(status).toContainText('Offline');
   // The word shows at every width.
-  await expect.poll(width).toBeGreaterThan(40);
+  await expect.poll(width).toBeGreaterThan(isMobile(page) ? 50 : 40);
   await expectAccessible(page);
 });
 
