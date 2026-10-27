@@ -1,9 +1,9 @@
 # Datapad
 
 A private project tracker for an engineering leader: projects, tasks, notes,
-meetings, milestones and people in one place, with cross-project views, search and
-summaries that run on your own device. Built for daily use on a laptop and a
-phone.
+meetings, milestones, whiteboards and people in one place, with
+cross-project views, search and summaries that run on your own device.
+Built for daily use on a laptop and a phone.
 
 Datapad is a sibling of [Holocron](https://github.com/jbouder/holocron): the
 same stack, look, motion and quality bar. The difference is that Datapad
@@ -11,22 +11,32 @@ keeps your data, and only you can reach it.
 
 ## Status
 
-Under construction. Milestone progress is tracked in the
-[roadmap issue](https://github.com/jbouder/datapad/issues/46).
+Released: [v1.0.0](https://github.com/jbouder/datapad/releases/tag/v1.0.0)
+is in daily use. [CHANGELOG.md](CHANGELOG.md) lists what each release
+holds; the [roadmap issue](https://github.com/jbouder/datapad/issues/46)
+tracks the milestones, which were:
 
-| Milestone | What lands                                                               |
+| Milestone | What landed                                                              |
 | --------- | ------------------------------------------------------------------------ |
 | M0        | Scaffold, CI and deploy, Cloudflare Access, themes and motion foundation |
 | M1        | Data model, sync, import and export                                      |
 | M2        | App shell, Projects, Tasks                                               |
 | M3        | Notes and mentions                                                       |
-| M4        | Meetings, with prep and debrief notes                                    |
+| M4        | Events (since reworked into meetings and milestones, M10)                |
 | M5        | Focus, People, ⌘K search                                                 |
 | M6        | On-device summaries, backups, polish                                     |
 | M7        | Health, blocked, decisions (since retired), orgs, digest, templates      |
-| M8        | Quality, security, accessibility and docs pass                           |
+| M8        | Quality, security, accessibility and docs pass (the audits continue)     |
 | M9        | Spaces                                                                   |
 | M10       | Meetings and milestones                                                  |
+| M11       | Meeting topics and carry-forward                                         |
+| M12       | Whiteboards                                                              |
+| M15       | People and Orgs under Settings, added inline from forms                  |
+| M16       | Notes on tasks and meetings; task and meeting pages                      |
+| M17       | Action items, a leaner project page, saved page and nav preferences      |
+
+M13 (Reporting) was closed without being built; the weekly Digest stays.
+M14 (MCP) is planned.
 
 ## Privacy
 
@@ -63,6 +73,7 @@ npm run dev
 - [Design](docs/design.md): tokens, density and copy rules
 - [Security](docs/security.md): threat model and headers
 - [Self-hosting](docs/self-hosting.md)
+- [CHANGELOG](CHANGELOG.md): every release, and the export format
 - [AGENTS.md](AGENTS.md): working in this repository
 
 ## License

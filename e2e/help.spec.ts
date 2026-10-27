@@ -1,13 +1,31 @@
 import { COMMANDS, FORMAT_SHORTCUTS } from '../shared/composer';
+import { PAGES } from '../shared/pages';
 import { SHORTCUTS } from '../shared/shortcuts';
 import { expect, openHelp, openLive, test } from './fixtures';
 
 /**
  * The Help page's tables come from the lists the app binds, so every
- * shortcut, `/` command and formatting key is on it. (Every theme's axe
- * check and the 320px reflow check for /help are in a11y.spec.ts and
- * reflow.spec.ts.)
+ * shortcut, `/` command, formatting key and layout is on it. (Every
+ * theme's axe check and the 320px reflow check for /help are in
+ * a11y.spec.ts and reflow.spec.ts.)
  */
+
+test('lists every page’s layouts', async ({ page }) => {
+  await openLive(page, '/help');
+  const layouts = page.getByRole('table', { name: 'Layouts' });
+  const pages = Object.values(PAGES).filter((p) =>
+    p.fields.some((f) => f.key === 'view' && f.options),
+  );
+  await expect(layouts.getByRole('row')).toHaveCount(pages.length + 1);
+  for (const p of pages) {
+    const field = p.fields.find((f) => f.key === 'view');
+    const row = layouts.getByRole('row', { name: new RegExp(`^${p.label} `) });
+    await expect(row).toContainText(p.label);
+    for (const o of field?.options ?? []) {
+      await expect(row).toContainText(o.label);
+    }
+  }
+});
 
 test('lists every shortcut, / command and formatting key', async ({ page }) => {
   await openLive(page, '/help');
