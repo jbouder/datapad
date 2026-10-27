@@ -16,6 +16,7 @@ import type { Meeting } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { MemberChips } from '@/components/inputs/MemberChips';
+import { MeetingActionItems } from '@/components/meetings/MeetingActionItems';
 import {
   meetingDraftKey,
   meetingNoteLabel,
@@ -311,7 +312,11 @@ export function MeetingForm({
             className="flex w-full flex-wrap items-center gap-2"
           >
             <p id="meeting-delete-question" className="flex-1 text-sm">
-              {deleteMeetingQuestion(meeting.title, linked)}
+              {deleteMeetingQuestion(
+                meeting.title,
+                linked,
+                actionItemCount(state?.tasks ?? {}, meeting.id),
+              )}
             </p>
             <Button
               type="button"
@@ -465,6 +470,9 @@ export function MeetingForm({
         />
       )}
       {meeting && state && (
+        <MeetingActionItems meeting={state.meetings[meeting.id] ?? meeting} />
+      )}
+      {meeting && state && (
         <LinkedNoteList
           notes={notesOfMeeting(state.notes, meeting.id)}
           fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
@@ -477,8 +485,32 @@ export function MeetingForm({
   );
 }
 
-/** "Delete Shield review? Its 2 notes are kept." */
-export function deleteMeetingQuestion(title: string, notes: number): string {
-  if (notes === 0) return `Delete ${title}?`;
-  return `Delete ${title}? ${notes === 1 ? 'Its note is' : `Its ${notes} notes are`} kept.`;
+/**
+ * "Delete Shield review? Its 2 notes and 3 action items are kept." The
+ * action items stay as tasks, unlinked.
+ */
+export function deleteMeetingQuestion(
+  title: string,
+  notes: number,
+  actionItems = 0,
+): string {
+  const kept = [
+    notes === 0 ? '' : notes === 1 ? 'note' : `${notes} notes`,
+    actionItems === 0
+      ? ''
+      : actionItems === 1
+        ? 'action item'
+        : `${actionItems} action items`,
+  ].filter(Boolean);
+  if (kept.length === 0) return `Delete ${title}?`;
+  const one = kept.length === 1 && (notes === 1 || actionItems === 1);
+  return `Delete ${title}? Its ${kept.join(' and ')} ${one ? 'is' : 'are'} kept.`;
+}
+
+/** How many tasks are action items of the meeting. */
+export function actionItemCount(
+  tasks: Record<string, { meetingId?: string | null }>,
+  meetingId: string,
+): number {
+  return Object.values(tasks).filter((t) => t.meetingId === meetingId).length;
 }

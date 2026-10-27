@@ -625,6 +625,11 @@ function apply(d: Draft, op: Op, now: string) {
     case 'deleteMeeting': {
       const m = meeting(d, op.id);
       d.delete('meetings', m.id);
+      // Its action items stay, as plain tasks.
+      for (const t of d.all('tasks')) {
+        if (t.meetingId === m.id)
+          d.set('tasks', t.id, { ...t, meetingId: null });
+      }
       log(d, m.projectId, `Deleted meeting "${m.title}"`, now);
       touch(d, m.projectId, now);
       return;
@@ -1004,11 +1009,14 @@ function apply(d: Draft, op: Op, now: string) {
 
 function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
   fresh(d, 'tasks', op.id, 'task');
-  checkProject(d, op.projectId);
+  // An action item lives in its meeting's project.
+  const m = op.meetingId ? meeting(d, op.meetingId) : null;
+  const projectId = m ? m.projectId : op.projectId;
+  checkProject(d, projectId);
   d.set('tasks', op.id, {
     id: op.id,
     title: op.title,
-    projectId: op.projectId,
+    projectId,
     status: 'open',
     priority: op.priority ?? 'none',
     due: op.due ?? '',
@@ -1016,14 +1024,22 @@ function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
     tags: op.tags ?? [],
     assignee: op.assignee ?? '',
     links: op.links ?? [],
-    order: nextOrder(d, op.projectId),
+    order: nextOrder(d, projectId),
     ...(op.sourceNoteId ? { sourceNoteId: op.sourceNoteId } : {}),
+    ...(m ? { meetingId: m.id } : {}),
     createdAt: now,
     updatedAt: now,
     completedAt: null,
   });
-  log(d, op.projectId, `Added task "${op.title}"`, now);
-  touch(d, op.projectId, now);
+  log(
+    d,
+    projectId,
+    m
+      ? `Added action item "${op.title}" to "${m.title}"`
+      : `Added task "${op.title}"`,
+    now,
+  );
+  touch(d, projectId, now);
 }
 
 /**

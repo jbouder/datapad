@@ -72,6 +72,28 @@ export function notesOfTask(notes: Snapshot['notes'], taskId: string): Note[] {
 }
 
 /**
+ * A meeting's action items (`Task.meetingId`): open first, oldest first,
+ * then done, the most recently closed first.
+ */
+export function tasksOfMeeting(
+  tasks: Snapshot['tasks'],
+  meetingId: string,
+): { open: Task[]; done: Task[] } {
+  const mine = Object.values(tasks).filter((t) => t.meetingId === meetingId);
+  return {
+    open: mine
+      .filter((t) => t.status === 'open')
+      .sort(
+        (a, b) =>
+          a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+      ),
+    done: mine
+      .filter((t) => t.status === 'done')
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')),
+  };
+}
+
+/**
  * A meeting's notes, newest first: one list, whatever their (legacy)
  * `phase`.
  */

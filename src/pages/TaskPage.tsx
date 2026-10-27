@@ -18,6 +18,7 @@ import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
+import { FromMeeting } from '@/components/tasks/TaskPanel';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
 import { useClock } from '@/hooks/useClock';
@@ -31,7 +32,8 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
- * One task, opened from Tasks: the header with its project and actions
+ * One task, opened from Tasks: the header with its project (and the
+ * meeting it is an action item of) and actions
  * (Close or Reopen, Summarize, Edit in the panel, Delete with Undo), its
  * status, priority, due date, assignee, blocker, tags and links, then
  * the details on the left and its running notes on the right (one column
@@ -76,6 +78,9 @@ export function TaskPage({ id }: { id: string }) {
     ? state.notes[task.sourceNoteId]
     : undefined;
   const sourceLink = sourceNote ? noteLocation(sourceNote, state) : null;
+  const fromMeeting = task.meetingId
+    ? state.meetings[task.meetingId]
+    : undefined;
 
   const remove = () => {
     const deleted = task;
@@ -106,6 +111,7 @@ export function TaskPage({ id }: { id: string }) {
             'General'
           )}
         </p>
+        {fromMeeting && <FromMeeting meeting={fromMeeting} />}
         <div className="flex flex-wrap items-start gap-3">
           <h1
             id="task-page-title"

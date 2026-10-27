@@ -20,6 +20,7 @@ import {
   peopleStats,
   statsFor,
   taskNoteCounts,
+  tasksOfMeeting,
 } from '#shared/select';
 import {
   emptySnapshot,
@@ -225,6 +226,38 @@ describe('other selectors', () => {
       'n-2',
     ]);
     expect(notesOfMeeting(state.notes, 'nope')).toEqual([]);
+  });
+
+  it('lists a meeting’s action items, open oldest first, then done', () => {
+    const t = (id: string, patch: Partial<Task>): Task => ({
+      id,
+      title: id,
+      projectId: null,
+      status: 'open',
+      priority: 'none',
+      due: '',
+      desc: '',
+      tags: [],
+      assignee: '',
+      links: [],
+      order: 1,
+      createdAt: '2026-10-23T10:00:00.000Z',
+      updatedAt: '2026-10-23T10:00:00.000Z',
+      completedAt: null,
+      meetingId: 'e1',
+      ...patch,
+    });
+    const tasks = {
+      b: t('b', { createdAt: '2026-10-23T11:00:00.000Z' }),
+      a: t('a', {}),
+      d1: t('d1', { status: 'done', completedAt: '2026-10-24T10:00:00.000Z' }),
+      d2: t('d2', { status: 'done', completedAt: '2026-10-25T10:00:00.000Z' }),
+      other: t('other', { meetingId: 'e2' }),
+      loose: t('loose', { meetingId: undefined }),
+    };
+    const { open, done } = tasksOfMeeting(tasks, 'e1');
+    expect(ids(open)).toEqual(['a', 'b']);
+    expect(ids(done)).toEqual(['d2', 'd1']);
   });
 
   it('lists distinct orgs, sorted', () => {

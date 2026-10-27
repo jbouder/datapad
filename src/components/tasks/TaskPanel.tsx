@@ -1,12 +1,13 @@
 import { ArrowClockwiseIcon, SparkleIcon } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
-import { formatTimestamp } from '#shared/dates';
+import { formatDay, formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { notesOfTask } from '#shared/select';
 import {
   blockedOf,
   type Link,
+  type Meeting,
   type Note,
   type Priority,
   type Task,
@@ -31,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -112,6 +114,9 @@ export function TaskPanel({
   );
   const sourceNote = task.sourceNoteId
     ? state?.notes[task.sourceNoteId]
+    : undefined;
+  const fromMeeting = task.meetingId
+    ? state?.meetings[task.meetingId]
     : undefined;
 
   /** The note's place; following it closes the panel unless it has edits. */
@@ -253,6 +258,14 @@ export function TaskPanel({
           }}
         />
       </Field>
+      {fromMeeting && (
+        <FromMeeting
+          meeting={fromMeeting}
+          onFollow={(e) => {
+            if (e.defaultPrevented && !dirty) onClose();
+          }}
+        />
+      )}
       <Field label="Project">
         <ProjectPicker
           value={values.projectId}
@@ -400,6 +413,7 @@ export function NewTaskPanel({
   projectId,
   title = '',
   assignee = '',
+  meetingId,
   open,
   onClose,
   onExited,
@@ -409,11 +423,17 @@ export function NewTaskPanel({
   title?: string;
   /** Preset (Tasks filtered to someone). */
   assignee?: string;
+  /**
+   * An action item of this meeting (a topic's Make a task): it goes in
+   * the meeting's project, so there is no project to pick.
+   */
+  meetingId?: string;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
 }) {
   const { state, actions } = useDatapad();
+  const meeting = meetingId ? state?.meetings[meetingId] : undefined;
   const { show } = useToast();
   const people = state?.people ?? {};
   const [initial] = useState(() => ({
@@ -447,7 +467,8 @@ export function NewTaskPanel({
     }
     const id = actions.addTask({
       title,
-      projectId: values.projectId,
+      projectId: meeting ? meeting.projectId : values.projectId,
+      ...(meeting ? { meetingId: meeting.id } : {}),
       priority: values.priority,
       due: values.due,
       assignee: values.assignee,
@@ -455,6 +476,10 @@ export function NewTaskPanel({
     });
     if (!id) return;
     onClose();
+    if (meeting) {
+      show(`Added “${title}” to ${meeting.title}`);
+      return;
+    }
     const where = values.projectId
       ? state?.projects[values.projectId]?.name
       : 'General';
@@ -493,12 +518,19 @@ export function NewTaskPanel({
           }}
         />
       </Field>
-      <Field label="Project">
-        <ProjectPicker
-          value={values.projectId}
-          onChange={(id) => set('projectId', id)}
-        />
-      </Field>
+      {meeting ? (
+        <p className="text-sm text-muted-foreground">
+          An action item of{' '}
+          <span className="text-foreground">{meeting.title}</span>
+        </p>
+      ) : (
+        <Field label="Project">
+          <ProjectPicker
+            value={values.projectId}
+            onChange={(id) => set('projectId', id)}
+          />
+        </Field>
+      )}
       <PriorityPicker
         value={values.priority}
         onChange={(priority) => set('priority', priority)}
@@ -526,6 +558,38 @@ export function NewTaskPanel({
         />
       </Field>
     </SidePanel>
+  );
+}
+
+/**
+ * "From Shield review · Tue 27 Oct": the meeting an action item came
+ * from, linking to its page. `onFollow` runs after the link has handled
+ * the click (the panel closes then, unless it has edits).
+ */
+export function FromMeeting({
+  meeting,
+  onFollow,
+}: {
+  meeting: Meeting;
+  onFollow?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  const today = useToday();
+  const link = linkProps({ name: 'meeting', id: meeting.id });
+  return (
+    <p className="text-sm text-muted-foreground" data-from-meeting>
+      From{' '}
+      <a
+        href={link.href}
+        onClick={(e) => {
+          link.onClick(e);
+          onFollow?.(e);
+        }}
+        className="text-foreground underline underline-offset-4 hover:text-foreground"
+      >
+        {meeting.title}
+      </a>{' '}
+      · {formatDay(meeting.date, today)}
+    </p>
   );
 }
 
