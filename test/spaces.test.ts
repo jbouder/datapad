@@ -10,6 +10,7 @@ import {
   validSpaceName,
 } from '#shared/spaces';
 import {
+  type BoardItem,
   type Decision,
   emptySnapshot,
   MAIN_SPACE,
@@ -248,6 +249,27 @@ function source(): Snapshot {
       'd-1': decision('d-1', 'p-echo', ['u-mon'], 'As @{u-wedge} argued.'),
       'd-2': decision('d-2', 'p-falcon', ['u-lando'], ''),
     },
+    boardItems: {
+      'b-1': sticky('b-1', 'p-echo', 'Shield generator'),
+      'b-2': sticky('b-2', 'p-falcon', 'Hyperdrive'),
+      'b-3': sticky('b-3', 'general', 'Whole fleet'),
+    },
+  };
+}
+
+function sticky(id: string, boardId: string, text: string): BoardItem {
+  return {
+    id,
+    boardId,
+    kind: 'sticky',
+    x: 0,
+    y: 0,
+    w: 200,
+    h: 200,
+    z: 0,
+    color: 'warn',
+    text,
+    points: [],
   };
 }
 
@@ -271,6 +293,8 @@ describe('projectSubtree', () => {
       { id: 'e-2', title: 'Base operational', date: '2026-11-14' },
     ]);
     expect(Object.keys(subtree.decisions)).toEqual(['d-1']);
+    // Its whiteboard, not another project's or the space's.
+    expect(subtree.boardItems).toEqual({ 'b-1': state.boardItems['b-1'] });
     expect(Object.keys(subtree.activity)).toEqual(['p-echo']);
     expect(Object.keys(subtree.orgs)).toEqual(['o-rebels']);
     // Members (Leia, Han, Chewie), a decider (Mon), a mention only
@@ -495,12 +519,14 @@ describe('removeSubtree', () => {
         'notes/n-2',
         'meetings/e-1',
         'decisions/d-1',
+        'boardItems/b-1',
         'activity/p-echo',
       ].sort(),
     );
     expect(Object.keys(next.projects).sort()).toEqual(['p-falcon', 'p-yavin']);
     expect(Object.keys(next.tasks).sort()).toEqual(['t-5', 't-6', 't-7']);
     expect(Object.keys(next.decisions)).toEqual(['d-2']);
+    expect(Object.keys(next.boardItems).sort()).toEqual(['b-2', 'b-3']);
     // People and orgs stay, untouched.
     expect(next.people).toBe(state.people);
     expect(next.orgs).toBe(state.orgs);

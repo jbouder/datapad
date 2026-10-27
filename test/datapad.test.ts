@@ -672,6 +672,7 @@ describe('export and import', () => {
         decisions: 0,
         orgs: 0,
         templates: 0,
+        boardItems: 0,
       },
     });
     const exported = await get(email, '/api/export.json');
@@ -692,6 +693,7 @@ describe('export and import', () => {
       'decisions',
       'orgs',
       'templates',
+      'boardItems',
     ]);
     const { exportedAt, ...back } = file;
     expect(Date.parse(exportedAt)).not.toBeNaN();
@@ -702,6 +704,7 @@ describe('export and import', () => {
       decisions: {},
       orgs: {},
       templates: {},
+      boardItems: {},
     });
   });
 
@@ -1465,6 +1468,78 @@ describe('moving a project', () => {
       withTopics.meetings['e-1'],
     );
     expect((await stub.export(MAIN_SPACE)).meetings['e-1']).toBeUndefined();
+  });
+
+  it('carries a project’s whiteboard through export, import and a move', async () => {
+    const email = 'move-board@example.com';
+    const sticky = {
+      id: 'b-1',
+      boardId: 'p-echo',
+      kind: 'sticky' as const,
+      x: 40,
+      y: -80,
+      w: 200,
+      h: 200,
+      z: 2,
+      color: 'warn' as const,
+      text: 'Shield generator',
+      points: [],
+    };
+    const ink = {
+      id: 'b-2',
+      boardId: 'p-echo',
+      kind: 'ink' as const,
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      z: 3,
+      color: 'accent' as const,
+      text: '',
+      points: [0, 0, 12.5, 4, 30, 9],
+    };
+    const fleet = { ...sticky, id: 'b-3', boardId: 'general', text: 'Fleet' };
+    const boardItems = { 'b-1': sticky, 'b-2': ink, 'b-3': fleet };
+    const response = await post(email, '/api/import', {
+      ...fixture,
+      boardItems,
+    });
+    expect(response.status).toBe(200);
+    expect(
+      ((await response.json()) as { imported: Record<string, number> }).imported
+        .boardItems,
+    ).toBe(3);
+
+    // Export, then import that file elsewhere: the same items.
+    const file = (await (await get(email, '/api/export.json')).json()) as {
+      boardItems: Snapshot['boardItems'];
+    };
+    expect(file.boardItems).toEqual(boardItems);
+    const copy = 'move-board-copy@example.com';
+    expect((await post(copy, '/api/import', file)).status).toBe(200);
+    expect(
+      (await bindings.DATAPAD.getByName(copy).export(MAIN_SPACE)).boardItems,
+    ).toEqual(boardItems);
+
+    // Move the project: its board goes, the space board stays.
+    const personal = await createSpace(email, 'Personal');
+    expect(
+      (
+        await post(email, '/api/spaces/move-project', {
+          from: MAIN_SPACE,
+          to: personal.id,
+          id: 'p-echo',
+        })
+      ).status,
+    ).toBe(200);
+    const stub = bindings.DATAPAD.getByName(email);
+    expect((await stub.export(personal.id)).boardItems).toEqual({
+      'b-1': sticky,
+      'b-2': ink,
+    });
+    expect((await stub.export(MAIN_SPACE)).boardItems).toEqual({
+      'b-3': fleet,
+    });
   });
 
   it('carries decisions and copies the org and its contacts', async () => {

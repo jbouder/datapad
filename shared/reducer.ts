@@ -1,3 +1,4 @@
+import { checkShape } from './board';
 import { formatDay } from './dates';
 import { LIMITS } from './limits';
 import { byDate } from './milestones';
@@ -6,11 +7,13 @@ import type { Op, OpOf, ParsedExport } from './protocol';
 import { isNoteTemplate } from './templates';
 import {
   type Activity,
+  type BoardItem,
   blockedOf,
   type Collection,
   type Collections,
   DEFAULT_SETTINGS,
   GENERAL,
+  GENERAL_BOARD,
   healthOf,
   type Meeting,
   type Milestone,
@@ -259,6 +262,10 @@ function cascadeProject(d: Draft, id: string, now: string) {
     if (x.projectId === id) {
       d.set('decisions', x.id, { ...x, projectId: null, updatedAt: now });
     }
+  }
+  // Its whiteboard goes with it.
+  for (const b of d.all('boardItems')) {
+    if (b.boardId === id) d.delete('boardItems', b.id);
   }
   d.delete('activity', id);
   d.delete('projects', id);
@@ -945,6 +952,47 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
+    /* whiteboards */
+    case 'addBoardItem':
+      return addBoardItem(d, op, now);
+    case 'editBoardItem': {
+      const b =
+        d.get('boardItems', op.id) ?? fail('That item is no longer there');
+      const next: BoardItem = { ...b, ...op.patch };
+      checkItem(next);
+      d.set('boardItems', b.id, next);
+      return;
+    }
+    case 'moveBoardItems': {
+      for (const m of op.moves) {
+        const b = d.get('boardItems', m.id);
+        if (!b) continue; // deleted on another device meanwhile
+        const next: BoardItem = {
+          ...b,
+          x: m.x,
+          y: m.y,
+          ...(m.points ? { points: m.points } : {}),
+        };
+        checkItem(next);
+        if (
+          next.x !== b.x ||
+          next.y !== b.y ||
+          next.points.join() !== b.points.join()
+        ) {
+          d.set('boardItems', b.id, next);
+        }
+      }
+      return;
+    }
+    case 'raiseBoardItems':
+      return restack(d, op.ids, 'top');
+    case 'lowerBoardItems':
+      return restack(d, op.ids, 'bottom');
+    case 'deleteBoardItems': {
+      for (const id of op.ids) d.delete('boardItems', id);
+      return;
+    }
+
     /* people */
     case 'addPerson': {
       fresh(d, 'people', op.id, 'person');
@@ -1123,6 +1171,74 @@ function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
     now,
   );
   touch(d, projectId, now);
+}
+
+/* ---------- whiteboards ---------- */
+
+const DREW = 'Drew on the whiteboard';
+
+/** An item's points fit its kind. */
+function checkItem(item: BoardItem) {
+  const problem = checkShape(item);
+  if (problem) fail(problem);
+}
+
+/**
+ * Adds an item to a project's board or the space's. Silent, except that
+ * the first one on a project's board in a day logs "Drew on the
+ * whiteboard": the day began at `dayStart` (the sender's midnight), or at
+ * the UTC midnight of `now` without it.
+ */
+function addBoardItem(d: Draft, op: OpOf<'addBoardItem'>, now: string) {
+  const { item } = op;
+  fresh(d, 'boardItems', item.id, 'item');
+  if (item.boardId !== GENERAL_BOARD) project(d, item.boardId);
+  checkItem(item);
+  const count = d.all('boardItems').filter((b) => b.boardId === item.boardId);
+  if (count.length >= LIMITS.boardItemsMax) {
+    fail(`A whiteboard has ${LIMITS.boardItemsMax} items at most`);
+  }
+  d.set('boardItems', item.id, item);
+  if (item.boardId === GENERAL_BOARD) return;
+  const since = Date.parse(op.dayStart ?? `${now.slice(0, 10)}T00:00:00Z`);
+  const events = d.get('activity', item.boardId)?.events ?? [];
+  const drewToday = events.some(
+    (e) => e.text === DREW && Date.parse(e.t) >= since,
+  );
+  if (!drewToday) log(d, item.boardId, DREW, now);
+}
+
+/**
+ * Moves items to the top (or bottom) of their board, keeping their order
+ * among themselves. Ids no longer there are skipped. Items already at the
+ * top (or bottom), in that order, are left alone.
+ */
+function restack(d: Draft, ids: string[], to: 'top' | 'bottom') {
+  const items = ids
+    .flatMap((id) => d.get('boardItems', id) ?? [])
+    .sort((a, b) => a.z - b.z);
+  const boards = new Map<string, BoardItem[]>();
+  for (const b of items) {
+    boards.set(b.boardId, [...(boards.get(b.boardId) ?? []), b]);
+  }
+  for (const [boardId, moving] of boards) {
+    const chosen = new Set(moving.map((b) => b.id));
+    const others = d
+      .all('boardItems')
+      .filter((b) => b.boardId === boardId && !chosen.has(b.id))
+      .map((b) => b.z);
+    if (others.length === 0) continue;
+    const low = moving[0]?.z ?? 0;
+    const high = moving.at(-1)?.z ?? 0;
+    const max = Math.max(...others);
+    const min = Math.min(...others);
+    // Already above (or below) everything else: nothing to do.
+    if (to === 'top' ? max < low : min > high) continue;
+    const start = to === 'top' ? max + 1 : min - moving.length;
+    moving.forEach((b, i) => {
+      if (b.z !== start + i) d.set('boardItems', b.id, { ...b, z: start + i });
+    });
+  }
 }
 
 /**
