@@ -1,3 +1,4 @@
+import { CalendarDotIcon, CalendarDotsIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activeProjects,
@@ -13,6 +14,11 @@ import {
 import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { SelectField } from '@/components/inputs/SelectField';
+import {
+  useView,
+  type ViewOption,
+  ViewSwitcher,
+} from '@/components/layouts/ViewSwitcher';
 import { AgendaStrip } from '@/components/meetings/AgendaStrip';
 import { Section } from '@/components/Section';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -29,20 +35,29 @@ import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 type BucketKey = keyof FocusBuckets;
+type FocusView = 'day' | 'week';
 
-const BUCKETS: { key: BucketKey; title: string; collapsed?: boolean }[] = [
-  { key: 'blocked', title: 'Blocked' },
-  { key: 'overdue', title: 'Overdue' },
-  { key: 'today', title: 'Today' },
-  { key: 'thisWeek', title: 'This week' },
-  { key: 'later', title: 'Later', collapsed: true },
-  { key: 'noDate', title: 'No date', collapsed: true },
+export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
+  { id: 'day', label: 'Day', icon: CalendarDotIcon },
+  { id: 'week', label: 'Week', icon: CalendarDotsIcon },
+];
+
+/** `collapsed` lists the views that start the bucket closed. */
+const BUCKETS: { key: BucketKey; title: string; collapsed: FocusView[] }[] = [
+  { key: 'blocked', title: 'Blocked', collapsed: [] },
+  { key: 'overdue', title: 'Overdue', collapsed: [] },
+  { key: 'today', title: 'Today', collapsed: [] },
+  { key: 'thisWeek', title: 'This week', collapsed: ['day'] },
+  { key: 'later', title: 'Later', collapsed: ['day', 'week'] },
+  { key: 'noDate', title: 'No date', collapsed: ['day', 'week'] },
 ];
 
 /**
- * Focus, the morning view: the next seven days of meetings, then every open
- * task outside the archive bucketed Overdue / Today / This week, with
- * Later and No date collapsed. The buckets follow the local date and roll
+ * Focus, the morning view, as Day (the default) or Week (`?view=`, then
+ * what this browser last chose; `v` switches). Day has today's meetings
+ * and milestones, then every open task outside the archive bucketed
+ * Overdue / Today, with This week, Later and No date collapsed. Week has
+ * the next seven days of meetings and opens This week too. The buckets follow the local date and roll
  * over at midnight. The assignee filter (`m` toggles Mine) lives in the
  * URL and pre-assigns quick-added tasks. Rows FLIP between buckets when a
  * due date changes and out when a task closes.
@@ -60,6 +75,7 @@ export function FocusPage() {
   const flipRoot = useRef<HTMLElement>(null);
   useFlip(flipRoot, active);
 
+  const [view, setView] = useView('focus', FOCUS_VIEWS, 'day');
   const today = useToday();
   const whoParam = useQuery().get('who');
   const who = useMemo(() => assigneeFromQuery(whoParam), [whoParam]);
@@ -68,6 +84,8 @@ export function FocusPage() {
     ? focusBuckets(state.tasks, state.projects, today, me, who)
     : null;
   const week = state ? agenda(state.meetings, state.projects, today) : [];
+  const upcoming =
+    view === 'day' ? week.filter((item) => item.date === today) : week;
   const projects = state ? activeProjects(state.projects).length : 0;
   const open = buckets
     ? BUCKETS.reduce((n, b) => n + buckets[b.key].length, 0)
@@ -146,18 +164,26 @@ export function FocusPage() {
       aria-labelledby="focus-title"
       className="enter flex min-w-0 flex-col gap-4"
     >
-      <div className="flex flex-col gap-1">
-        <h1 id="focus-title" className="text-page-title">
-          Focus
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {projects === 1 ? '1 project' : `${projects} projects`} ·{' '}
-          {open === 1 ? '1 open task' : `${open} open tasks`}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 id="focus-title" className="text-page-title">
+            Focus
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {projects === 1 ? '1 project' : `${projects} projects`} ·{' '}
+            {open === 1 ? '1 open task' : `${open} open tasks`}
+          </p>
+        </div>
+        <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
       </div>
 
-      {week.length > 0 && (
-        <AgendaStrip items={week} state={state} today={today} />
+      {upcoming.length > 0 && (
+        <AgendaStrip
+          items={upcoming}
+          state={state}
+          today={today}
+          title={view === 'day' ? 'Today’s agenda' : 'Next 7 days'}
+        />
       )}
 
       <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_14rem] desk:items-end">
@@ -199,12 +225,12 @@ export function FocusPage() {
           </p>
         ) : (
           BUCKETS.map(({ key, title, collapsed }) =>
-            buckets[key].length === 0 ? null : collapsed ? (
+            buckets[key].length === 0 ? null : collapsed.includes(view) ? (
               <Section
-                key={key}
+                key={`${view}-${key}`}
                 title={title}
                 count={buckets[key].length}
-                storageKey={`datapad:focus:${key}`}
+                storageKey={`datapad:focus:${view === 'day' ? 'day:' : ''}${key}`}
                 defaultOpen={false}
                 open={revealed === key}
                 onToggle={() => setAdded(null)}

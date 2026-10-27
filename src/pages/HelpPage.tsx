@@ -78,8 +78,9 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="views">
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
           <Term name="Focus">
-            What needs you: the next seven days of meetings and milestones, and
-            open tasks by when they are due. <Key>m</Key> shows only yours.
+            What needs you: today’s meetings and milestones (or the next seven
+            days’, in Week), and open tasks by when they are due. <Key>v</Key>{' '}
+            switches Day and Week; <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects">
             Every active project as cards, a table or a timeline. A project page
