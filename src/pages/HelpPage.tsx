@@ -125,7 +125,11 @@ export function HelpPage({ section }: { section?: string }) {
         </dl>
         <p className="text-sm">
           Most pages switch layout from the buttons at the top right of the
-          list; each page remembers its choice.
+          list. Each page remembers how you left it: its layout, sort and
+          grouping, filters and the sections you open or close, saved with the
+          space so every device opens it the same way. A link that names its own
+          filters still shows them, and the search text is never kept. Settings
+          → Pages shows, changes and resets them.
         </p>
         <p className="text-sm">
           Settings → Navigation chooses which sections the rail and the tab bar
@@ -318,14 +322,15 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           The account button at the top right opens the menu: your spaces,
           Motion, Theme, Settings and Sign out. Settings has Appearance (theme,
-          12-hour or 24-hour time, motion), Navigation (the sections the rail
-          and tab bar show, and their order), Templates (the tasks a new project
-          can start with; Save as template on a project makes one), Summaries,
-          Spaces, People (each person with their projects, tasks and mentions),
-          Orgs (each org with its projects, contacts, meetings and notes), Data
-          and Account. Signing out ends your Cloudflare Access session on this
-          browser; sign in again to come back. When your device asks for reduced
-          motion, Datapad never animates.
+          12-hour or 24-hour time, motion), Pages (what each page remembers,
+          with Reset), Navigation (the sections the rail and tab bar show, and
+          their order), Templates (the tasks a new project can start with;
+          Save as template on a project makes one), Summaries, Spaces, People
+          (each person with their projects, tasks and mentions), Orgs (each org
+          with its projects, contacts, meetings and notes), Data and Account.
+          Signing out ends your Cloudflare Access session on this browser; sign
+          in again to come back. When your device asks for reduced motion,
+          Datapad never animates.
         </p>
       </Section>
 
