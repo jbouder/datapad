@@ -4,6 +4,7 @@ import {
   CalendarBlankIcon,
   CheckSquareIcon,
   CheckSquareOffsetIcon,
+  CopySimpleIcon,
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
@@ -12,6 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { formatTimestamp, relativeTime } from '#shared/dates';
+import { LIMITS } from '#shared/limits';
 import { toggleCheck } from '#shared/markdown';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { taskTitleFrom } from '#shared/notes';
@@ -20,8 +22,10 @@ import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
+import { useNoteTemplates } from '@/components/notes/useNoteCommands';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
+import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useClock } from '@/hooks/useClock';
@@ -31,7 +35,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * One note: where it belongs (project or General, and its meeting), when,
- * the rendered body (checkboxes save the note), and Edit, Pin, Delete.
+ * the rendered body (checkboxes save the note), and Edit, Pin, Make
+ * task, Summarize, Save as template (a note template from it), Delete.
  * Long notes clamp at 12 lines behind "Show more". Edit swaps the body
  * for the composer, with mentions as names.
  *
@@ -75,6 +80,8 @@ export function NoteCard({
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
   const { openTask } = useTaskPanels();
+  const { newNoteTemplate } = useTemplateForm();
+  const templates = useNoteTemplates();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
@@ -319,6 +326,7 @@ export function NoteCard({
             people={state.people}
             onSubmit={save}
             onTask={(title) => makeTask(note, title)}
+            templates={templates}
             autoFocus
             rows={4}
           />
@@ -480,6 +488,24 @@ export function NoteCard({
           >
             <SparkleIcon />
             Summarize
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="press h-11 desk:h-7"
+            aria-label="Save as template from note"
+            onClick={() =>
+              newNoteTemplate({
+                name: taskTitleFrom(note.body, state.people).slice(
+                  0,
+                  LIMITS.nameMax,
+                ),
+                body: note.body,
+              })
+            }
+          >
+            <CopySimpleIcon />
+            Save as template
           </Button>
           <Button
             variant="ghost"

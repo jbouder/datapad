@@ -248,14 +248,22 @@ export interface TemplateTask {
   tags: string[];
 }
 
-/** A saved kickoff checklist, applied when a project is created. */
+/**
+ * A saved kickoff checklist, applied when a project is created; or, with
+ * `body`, a note template a note starts from (`shared/templates.ts`).
+ */
 export interface Template {
   id: string;
   name: string;
-  /** In order. */
+  /** In order. Empty on a note template. */
   tasks: TemplateTask[];
-  /** Added to the new project's tags. */
+  /** Added to the new project's tags. Empty on a note template. */
   defaultTags: string[];
+  /**
+   * A note template's Markdown, mentions as `@{personId}`. Absent on a
+   * project template, so older exports read as project templates.
+   */
+  body?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

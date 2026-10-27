@@ -168,7 +168,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **New task panel** (Add task in the top bar's + menu, **Add task** on Tasks and on a project page, or `n` when no quick-add is visible): title, project, priority, due, assignee (preset on Tasks to the person the view is filtered to), details.
 
-**New note panel** (Write a note in the top bar's + menu, Shift+N, New note in ⌘K, or Add note on Notes and on a project page): the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
+**New note panel** (Write a note in the top bar's + menu, Shift+N, New note in ⌘K, or Add note on Notes and on a project page): a **Template** picker (only when the space has note templates; choosing one fills the composer, replacing what is there while it is empty or untouched since the last template, otherwise adding below it), the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
 
 **Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header.
 
@@ -178,7 +178,9 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **Drag reorder.** HTML5 drag on open task rows in project detail. Dropping onto a row inserts before it and rewrites `order` as 1..n for the project's open tasks, writing only rows whose order changed. Desktop only.
 
-**Notes composer.** Textarea with @mention popup; ⌘/Ctrl+Enter adds. Enter inside a list line continues the list (`- `, `* `, `1. `, `- [ ] `; numbers increment; a checked box continues as unchecked); Enter on an empty list marker removes it.
+**Notes composer.** Textarea with @mention popup; ⌘/Ctrl+Enter adds. Enter inside a list line continues the list (`- `, `* `, `1. `, `- [ ] `; numbers increment; a checked box continues as unchecked); Enter on an empty list marker removes it. The `/` menu lists the space's **note templates** after its commands (all on a bare `/`; by a word of the name, `/retro`; every one for `/template`, and `/template retro` narrows); choosing one inserts its body in place of an empty line, or from the next line, with mentions as names. Every note composer offers them: the New note panel, the inline composers (project, task, meeting) and a note's Edit.
+
+**Note templates.** A `Template` with a `body` (Markdown, mentions as tokens) is a note template; without one it is a project template, so older data reads unchanged. Settings → Templates lists **Project templates** and **Note templates**, each with its own New button; a note template's panel is a name and the note composer. A note's footer has **Save as template**, which opens a new note template preset with the note's first line as the name and its body. A template keeps its kind: the reducer refuses tasks or tags on a note template, a body on a project template, and a note template in `createProject`; the project form offers only project templates.
 
 **Make task from a note.** Selecting text inside a note body shows a floating "Make task" button above the selection; clicking creates a task titled with the first line of the selection (max 200 chars) in the note's project and records `sourceNoteId`. A footer button does the same, falling back to a prompt prefilled with the note's first line.
 

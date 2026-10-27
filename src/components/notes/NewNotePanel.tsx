@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
+import { insertTemplate } from '#shared/composer';
 import { namesToTokens } from '#shared/mentions';
 import { Field } from '@/components/Field';
+import { SelectField } from '@/components/inputs/SelectField';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNoteCommands } from '@/components/notes/useNoteCommands';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
@@ -11,8 +13,8 @@ import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
- * A note from anywhere: the composer and its project (the one you are on,
- * or General). The top bar's note button opens it, and `N`. Closing with
+ * A note from anywhere: a template to start from (when there are any),
+ * the composer and its project (the one you are on, or General). The top bar's note button opens it, and `N`. Closing with
  * something written asks first.
  */
 export function NewNotePanel({
@@ -35,6 +37,30 @@ export function NewNotePanel({
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
   const commands = useNoteCommands(project);
+  const [templateId, setTemplateId] = useState('');
+  /** The text the chosen template put in, while it is left as it was. */
+  const fromTemplate = useRef('');
+
+  /**
+   * A template's text in place of what is there while that is empty or
+   * untouched since the last one; below it once you have written.
+   */
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const chosen = commands.templates.find((t) => t.id === id);
+    const body = chosen
+      ? insertTemplate('', { start: 0, end: 0 }, chosen.body).text
+      : '';
+    const untouched = text.trim() === '' || text === fromTemplate.current;
+    const next = untouched
+      ? body
+      : body
+        ? `${text.replace(/\s+$/, '')}\n\n${body}`
+        : text;
+    fromTemplate.current = untouched ? body : '';
+    setText(next);
+    if (error && next.trim()) setError(null);
+  };
 
   const add = () => {
     const body = namesToTokens(text, people).trim();
@@ -59,7 +85,7 @@ export function NewNotePanel({
       onClose={onClose}
       onExited={onExited}
       title="New note"
-      dirty={text.trim() !== ''}
+      dirty={text.trim() !== '' && text !== fromTemplate.current}
       onSubmit={add}
       footer={
         <>
@@ -71,6 +97,17 @@ export function NewNotePanel({
         </>
       }
     >
+      {commands.templates.length > 0 && (
+        <SelectField
+          label="Template"
+          value={templateId}
+          options={[
+            { value: '', label: 'No template' },
+            ...commands.templates.map((t) => ({ value: t.id, label: t.name })),
+          ]}
+          onChange={applyTemplate}
+        />
+      )}
       <Field
         label="Note"
         hint="Markdown; type / for styles, @ to mention"

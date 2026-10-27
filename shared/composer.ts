@@ -489,7 +489,8 @@ export function applyCommand(
 
 /**
  * The `/command` being typed at `caret`: a `/` at the start of a line or
- * after a space, then letters (and, for `/date`, one more word). Never
+ * after a space, then letters (and, for `/date` and `/template`, one
+ * more word). Never
  * inside a fenced block; `a/b` and URLs do nothing.
  */
 export function slashQuery(
@@ -497,7 +498,7 @@ export function slashQuery(
   caret: number,
 ): { start: number; query: string } | null {
   const before = text.slice(0, caret);
-  const m = /(^|[ \t\n])\/([a-z0-9]*(?: [a-z]*)?)$/i.exec(before);
+  const m = /(^|[ \t\n])\/([a-z0-9]*(?: [a-z0-9]*)?)$/i.exec(before);
   if (!m) return null;
   if (inFence(text, caret)) return null;
   const query = m[2] ?? '';
@@ -514,6 +515,53 @@ export function matchCommands(query: string): Command[] {
       c.label.toLowerCase().startsWith(word) ||
       c.label.toLowerCase().includes(` ${word}`),
   );
+}
+
+/** A note template as the `/` menu offers it, mentions as names. */
+export interface TemplateChoice {
+  id: string;
+  name: string;
+  body: string;
+}
+
+/**
+ * The note templates a query names, after the commands in the menu:
+ * all of them on a bare `/`; those a word of whose name starts with the
+ * query (`/retro`); every one for `/t…`, `/template`, and `/template
+ * retro` narrows by name.
+ */
+export function matchTemplates(
+  query: string,
+  templates: readonly TemplateChoice[],
+): TemplateChoice[] {
+  const [word = '', rest] = query.toLowerCase().split(' ');
+  const named = (t: TemplateChoice, w: string) =>
+    t.name
+      .toLowerCase()
+      .split(/\s+/)
+      .some((part) => part.startsWith(w));
+  if (rest !== undefined) {
+    if (!word || !'template'.startsWith(word)) return [];
+    return rest ? templates.filter((t) => named(t, rest)) : [...templates];
+  }
+  if (!word || 'template'.startsWith(word)) return [...templates];
+  return templates.filter((t) => named(t, word));
+}
+
+/**
+ * A template's body at the caret: in place of an empty line, otherwise
+ * from the next line; the caret after it. Bodies are saved trimmed, so a
+ * last line that is a bare list marker (`-`, `- [ ]`, `1.`) gets its
+ * space back, ready to type.
+ */
+export function insertTemplate(
+  text: string,
+  sel: Selection,
+  body: string,
+): Edit {
+  let block = body.replace(/\s+$/, '');
+  if (/(^|\n)\s*([-*•]( \[[ xX]\])?|\d{1,9}[.)])$/.test(block)) block += ' ';
+  return insertBlock(text, sel, block, block.length);
 }
 
 /* ---- Enter and Tab in lists -------------------------------------------- */

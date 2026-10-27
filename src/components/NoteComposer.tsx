@@ -21,9 +21,12 @@ import {
   continueList,
   type Edit,
   inList,
+  insertTemplate,
   matchCommands,
   matchFormatShortcut,
+  matchTemplates,
   slashQuery,
+  type TemplateChoice,
   toggleLink,
   toggleWrap,
 } from '#shared/composer';
@@ -61,8 +64,23 @@ function now(): { today: string; time: string } {
   return { today: localDate(d), time };
 }
 
+function isTemplate(item: Command | TemplateChoice): item is TemplateChoice {
+  return 'body' in item;
+}
+
+/** A template's first line, without its block marker, for the menu. */
+function firstLine(body: string): string {
+  const line = body.split('\n').find((l) => l.trim()) ?? '';
+  return line.replace(/^(#{1,6}\s+|>\s?|[-*•]\s+(\[[ xX]\]\s+)?)/, '').trim();
+}
+
 type Popup =
-  | { kind: 'slash'; start: number; arg: string; items: Command[] }
+  | {
+      kind: 'slash';
+      start: number;
+      arg: string;
+      items: (Command | TemplateChoice)[];
+    }
   | { kind: 'mention'; start: number; items: Person[] };
 
 /**
@@ -80,6 +98,7 @@ export function NoteComposer({
   people,
   onSubmit,
   onTask,
+  templates,
   draftKey,
   id,
   label,
@@ -100,6 +119,8 @@ export function NoteComposer({
   onSubmit?: () => void;
   /** `/task`: make a task titled with the line. Hidden without it. */
   onTask?: (title: string) => boolean;
+  /** Note templates the `/` menu offers after its commands. */
+  templates?: readonly TemplateChoice[];
   /** Where the unsaved draft lives in sessionStorage. */
   draftKey?: string;
   id?: string;
@@ -153,9 +174,10 @@ export function NoteComposer({
     if (caret === null) return null;
     const slash = slashQuery(value, caret);
     if (slash && dismissed !== slash.start) {
-      const items = matchCommands(slash.query).filter(
-        (c) => c.id !== 'task' || onTask,
-      );
+      const items = [
+        ...matchCommands(slash.query).filter((c) => c.id !== 'task' || onTask),
+        ...matchTemplates(slash.query, templates ?? []),
+      ];
       if (items.length > 0) {
         const arg = slash.query.split(' ').slice(1).join(' ');
         return { kind: 'slash', start: slash.start, arg, items };
@@ -169,7 +191,7 @@ export function NoteComposer({
       }
     }
     return null;
-  }, [caret, value, dismissed, people, onTask]);
+  }, [caret, value, dismissed, people, onTask, templates]);
   const open = popup !== null;
   const count = popup?.items.length ?? 0;
   const highlighted = Math.min(active, Math.max(count - 1, 0));
@@ -252,6 +274,10 @@ export function NoteComposer({
     }
     const cmd = popup.items[index];
     if (!cmd) return;
+    if (isTemplate(cmd)) {
+      apply(insertTemplate(text, at, cmd.body));
+      return;
+    }
     const result = applyCommand(text, at, cmd.id, now(), popup.arg);
     if (result.task && onTask && !onTask(result.task)) {
       apply({ text, sel: at });
@@ -447,7 +473,7 @@ export function NoteComposer({
         {popup?.kind === 'slash' &&
           popup.items.map((c, i) => (
             <div
-              key={c.id}
+              key={isTemplate(c) ? `template-${c.id}` : c.id}
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === highlighted}
@@ -463,13 +489,15 @@ export function NoteComposer({
               )}
             >
               <span className="flex items-baseline gap-2 text-sm">
-                <span className="flex-1 truncate">{c.label}</span>
+                <span className="flex-1 truncate">
+                  {isTemplate(c) ? c.name : c.label}
+                </span>
                 <span className="font-mono text-xs text-muted-foreground">
-                  {c.markdown}
+                  {isTemplate(c) ? 'template' : c.markdown}
                 </span>
               </span>
-              <span className="text-xs text-muted-foreground">
-                {c.description}
+              <span className="truncate text-xs text-muted-foreground">
+                {isTemplate(c) ? firstLine(c.body) : c.description}
               </span>
             </div>
           ))}

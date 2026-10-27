@@ -191,6 +191,14 @@ export function HelpPage({ section }: { section?: string }) {
           a task with notes shows how many in its row. Deleting the task keeps
           them.
         </p>
+        <p className="text-sm">
+          <strong>Note templates</strong> are the notes you write the same way
+          every time: a 1:1, a retro, a status update. Make one in Settings →
+          Templates, or with <strong>Save as template</strong> on a note. In any
+          note, <code>/template</code> (or the template’s name after the{' '}
+          <code>/</code>) puts one in at the caret, and the New note panel’s{' '}
+          <strong>Template</strong> picker starts the note from one.
+        </p>
         <Table
           caption="/ commands"
           head={['Command', 'Types', 'What it is']}
@@ -327,13 +335,13 @@ export function HelpPage({ section }: { section?: string }) {
           Motion, Theme, Settings and Sign out. Settings has Appearance (theme,
           12-hour or 24-hour time, motion), Pages (what each page remembers,
           with Reset), Navigation (the sections the rail and tab bar show, and
-          their order), Templates (the tasks a new project can start with; Save
-          as template on a project makes one), Summaries, Spaces, People (each
-          person with their projects, tasks and mentions), Orgs (each org with
-          its projects, contacts, meetings and notes), Data and Account. Signing
-          out ends your Cloudflare Access session on this browser; sign in again
-          to come back. When your device asks for reduced motion, Datapad never
-          animates.
+          their order), Templates (the tasks a new project can start with, and
+          the text a new note can; Save as template on a project or a note makes
+          one), Summaries, Spaces, People (each person with their projects,
+          tasks and mentions), Orgs (each org with its projects, contacts,
+          meetings and notes), Data and Account. Signing out ends your
+          Cloudflare Access session on this browser; sign in again to come back.
+          When your device asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 

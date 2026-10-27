@@ -208,6 +208,7 @@ export const TemplateSchema = z.object({
   name: z.string().min(1).max(LIMITS.nameMax),
   tasks: z.array(templateTask).max(LIMITS.templateTasksMax).default([]),
   defaultTags: tags.default([]),
+  body: z.string().min(1).max(LIMITS.bodyMax).optional(),
   createdAt: timestamp,
   updatedAt: timestamp,
 }) satisfies z.ZodType<Template, unknown>;
@@ -887,6 +888,8 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     name: required(LIMITS.nameMax),
     tasks: z.array(templateTask).max(LIMITS.templateTasksMax).optional(),
     defaultTags: tags.optional(),
+    /** A note template: its Markdown (no tasks or tags then). */
+    body: required(LIMITS.bodyMax).optional(),
   }),
   z.object({
     type: z.literal('editTemplate'),
@@ -895,6 +898,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       name: required(LIMITS.nameMax),
       tasks: z.array(templateTask).max(LIMITS.templateTasksMax),
       defaultTags: tags,
+      body: required(LIMITS.bodyMax),
     }),
   }),
   z.object({ type: z.literal('deleteTemplate'), id }),

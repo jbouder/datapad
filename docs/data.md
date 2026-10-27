@@ -103,7 +103,10 @@ as it is (migrated on the way in, below):
   without it imports unchanged, and a value a page no longer has is
   ignored.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
-  decision log, org records and project templates. Decisions are retired
+  decision log, org records and templates. A template with `body`
+  (Markdown, mentions as `@{personId}`) is a note template, with empty
+  `tasks` and `defaultTags`; one without is a project template, as every
+  template was before note templates. Decisions are retired
   (#183): the app no longer shows them, but the collection is still
   imported, exported, kept and moved with its project. A file without them imports fine; its projects' `org` text
   is kept, and Orgs offers to organize it into records
