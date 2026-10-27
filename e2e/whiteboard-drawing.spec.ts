@@ -147,10 +147,15 @@ async function stroke(
   await cdp.detach();
 }
 
-/** Picks a tool: its key on desktop, a tap on its button on the phone. */
+/**
+ * Picks a tool: its key on desktop, its button on the phone. The button is
+ * clicked, as the rest of the suite does on the phone: a synthetic tap
+ * right after a CDP touch stroke can be swallowed by the browser's gesture
+ * detection on a slow runner, and then nothing is pressed at all.
+ */
 async function pick(page: Page, name: string, key: string) {
   const button = tools(page).getByRole('button', { name, exact: true });
-  if (isMobile(page)) await button.tap();
+  if (isMobile(page)) await button.click();
   else {
     await board(page).focus();
     await page.keyboard.press(key);
@@ -161,7 +166,8 @@ async function pick(page: Page, name: string, key: string) {
 /** Undo or redo: the keys on desktop, the Edit bar's buttons on the phone. */
 async function step(page: Page, which: 'Undo' | 'Redo') {
   if (isMobile(page)) {
-    await editBar(page).getByRole('button', { name: which }).tap();
+    // Clicked, not tapped: see pick().
+    await editBar(page).getByRole('button', { name: which }).click();
   } else {
     await page.keyboard.press(
       which === 'Undo' ? 'ControlOrMeta+z' : 'ControlOrMeta+Shift+z',
@@ -284,10 +290,14 @@ test('an arrow attaches to stickies and follows them', async ({
   expect(after[1].y - end.y).toBeCloseTo(moved?.y ?? 0, 1);
   // One undo puts the sticky and the arrow back together.
   await step(page, 'Undo');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Undone' }),
+  ).toHaveText('Undone');
   await expectSaved(page);
-  const undone = await stored(request);
-  expect(undone['b-doors']).toMatchObject({ x: 300, y: 0 });
-  expect(undone[arrow.id]?.points).toEqual(arrow.points);
+  await expect
+    .poll(async () => (await stored(request))['b-doors'])
+    .toMatchObject({ x: 300, y: 0 });
+  expect((await stored(request))[arrow.id]?.points).toEqual(arrow.points);
 });
 
 test('draw ink, erase it, and undo the eraser', async ({ page, request }) => {
