@@ -66,10 +66,14 @@ test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
     `Blocked "${TITLE}" on Leia Organa`,
   );
 
-  // Focus: a Blocked bucket, first.
+  // Focus: Waiting on, under Leia, waiting since today.
   await openLive(page, '/');
-  const blocked = page.getByRole('list', { name: 'Blocked' });
-  await expect(blocked).toContainText(TITLE);
+  await expect(page.locator('[data-waiting="u-leia"]')).toContainText(
+    'waiting since today',
+  );
+  await expect(
+    page.getByRole('list', { name: 'Waiting on Leia Organa' }),
+  ).toContainText(TITLE);
 
   // Tasks: Show Blocked lists only it.
   await openLive(page, '/tasks?status=blocked');

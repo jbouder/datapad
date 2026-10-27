@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 import type { ThemeId } from '../src/lib/themes';
 import {
+  briefingSeed,
   refreshSeed,
   SEED,
   SEED_COUNTS,
@@ -30,7 +31,7 @@ import {
  * - Dates a test sets up go relative to `today()` (`addDays(today(), 3)`),
  *   and allow for the seed's own around them.
  */
-export { expect, SEED, SEED_COUNTS, seedDay, seedTime, today };
+export { briefingSeed, expect, SEED, SEED_COUNTS, seedDay, seedTime, today };
 
 /**
  * Nothing leaves localhost: fonts are bundled and Datapad talks only to its

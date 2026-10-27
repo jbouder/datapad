@@ -1,8 +1,10 @@
-import { addDays, endOfWeek } from './dates';
+import { addDays, dayOf, daysBetween, endOfWeek, formatDay } from './dates';
+import { byWhen, previousMeeting } from './meetings';
 import { nextMilestone } from './milestones';
 import {
   blockedOf,
   type DateString,
+  healthOf,
   type Meeting,
   type Milestone,
   milestonesOf,
@@ -11,6 +13,8 @@ import {
   type Project,
   type Snapshot,
   type Task,
+  type Timestamp,
+  topicsOf,
 } from './types';
 
 /**
@@ -176,8 +180,13 @@ export function matchesAssignee(
   }
 }
 
+/**
+ * Every open task by when it is due. Focus's Due shows Overdue, Today and
+ * This week (blocked tasks are in its Waiting on, `waitingOn`); the rail
+ * counts them all.
+ */
 export interface FocusBuckets {
-  /** Waiting on someone, whatever the date: first, so 1:1s can unblock them. */
+  /** Waiting on someone, whatever the date. */
   blocked: Task[];
   /** Due before today. */
   overdue: Task[];
@@ -402,4 +411,294 @@ export function statsFor(
   id: string,
 ): PersonStats {
   return stats.get(id) ?? NO_STATS;
+}
+
+/* ---- Focus's briefing ---------------------------------------------------- */
+
+/** The days Focus's header and its Follow-ups look back over. */
+export const BRIEFING_WEEK = 7;
+/** A target this many days away (or past) puts a project in Attention. */
+export const ATTENTION_TARGET_DAYS = 14;
+/** A project unchanged this many days is quiet. */
+export const ATTENTION_QUIET_DAYS = 14;
+
+/** Outside the archive: General, or a project that is not archived. */
+const unarchived = (projects: Projects, projectId: string | null) =>
+  projectId === null || !projects[projectId]?.archived;
+
+/** Whole days from a timestamp's local day to `today`, never below 0. */
+export function daysSince(timestamp: Timestamp, today: DateString): number {
+  return Math.max(0, daysBetween(dayOf(timestamp), today));
+}
+
+/** Focus's header: the week's movement, whatever the assignee filter. */
+export interface WeekMovement {
+  /** Closed in the last seven days, today included. */
+  closed: number;
+  /** Created in the last seven days, today included. */
+  added: number;
+  /** Open and due before today, blocked or not. */
+  overdue: number;
+}
+
+/** Tasks outside the archive, against the last `BRIEFING_WEEK` days. */
+export const weekMovement = lastCall(
+  (tasks: Tasks, projects: Projects, today: DateString): WeekMovement => {
+    const since = addDays(today, -(BRIEFING_WEEK - 1));
+    const inWeek = (timestamp: Timestamp) => {
+      const day = dayOf(timestamp);
+      return day >= since && day <= today;
+    };
+    const out: WeekMovement = { closed: 0, added: 0, overdue: 0 };
+    for (const t of Object.values(tasks)) {
+      if (!unarchived(projects, t.projectId)) continue;
+      if (t.status === 'done' && t.completedAt && inWeek(t.completedAt)) {
+        out.closed += 1;
+      }
+      if (inWeek(t.createdAt)) out.added += 1;
+      if (t.status === 'open' && t.due !== '' && t.due < today) {
+        out.overdue += 1;
+      }
+    }
+    return out;
+  },
+);
+
+/** "5 closed this week · 3 added · 2 overdue". */
+export function movementLine(m: WeekMovement): string {
+  return `${m.closed} closed this week · ${m.added} added · ${m.overdue} overdue`;
+}
+
+/** Blocked tasks waiting on one person (or on no one listed). */
+export interface WaitingGroup {
+  /** null: Not on anyone (or on someone no longer listed). */
+  person: Person | null;
+  /** Longest waiting first. */
+  tasks: Task[];
+  /** When the longest waiting last changed (`setBlocked` bumps it). */
+  since: Timestamp;
+}
+
+/**
+ * Open blocked tasks outside the archive that match the assignee filter,
+ * grouped by who they wait on: by name, Not on anyone last.
+ */
+export const waitingOn = lastCall(
+  (
+    tasks: Tasks,
+    projects: Projects,
+    people: Snapshot['people'],
+    me: string | null,
+    filter: AssigneeFilter,
+  ): WaitingGroup[] => {
+    const groups = new Map<string, Task[]>();
+    for (const t of Object.values(tasks)) {
+      const blocked = blockedOf(t);
+      if (!blocked || t.status !== 'open') continue;
+      if (!unarchived(projects, t.projectId)) continue;
+      if (!matchesAssignee(t, filter, me)) continue;
+      const key = blocked.on && people[blocked.on] ? blocked.on : '';
+      groups.set(key, [...(groups.get(key) ?? []), t]);
+    }
+    const out: WaitingGroup[] = [...groups].map(([key, list]) => {
+      list.sort(
+        (a, b) =>
+          a.updatedAt.localeCompare(b.updatedAt) ||
+          a.title.localeCompare(b.title),
+      );
+      return {
+        person: key ? (people[key] ?? null) : null,
+        tasks: list,
+        since: list[0]?.updatedAt ?? '',
+      };
+    });
+    return out.sort(
+      (a, b) =>
+        Number(a.person === null) - Number(b.person === null) ||
+        (a.person?.name ?? '').localeCompare(b.person?.name ?? ''),
+    );
+  },
+);
+
+const dayCount = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
+
+/** "waiting 9 days", "waiting 1 day", "waiting since today". */
+export function waitingFor(days: number): string {
+  return days <= 0 ? 'waiting since today' : `waiting ${dayCount(days)}`;
+}
+
+/** Why a project is in Attention. */
+export type AttentionReason =
+  | { kind: 'health'; health: 'yellow' | 'red' }
+  /** Days to the target date: 0 today, negative once it has passed. */
+  | { kind: 'target'; days: number }
+  /** Days since it last changed. */
+  | { kind: 'quiet'; days: number };
+
+export interface AttentionItem {
+  project: Project;
+  reasons: AttentionReason[];
+}
+
+const HEALTH_RANK = { red: 0, yellow: 1, green: 2, none: 2 } as const;
+
+/**
+ * Active projects outside the archive that need a look: health yellow or
+ * red; a target date past or within `ATTENTION_TARGET_DAYS`; or no change
+ * in `ATTENTION_QUIET_DAYS`. Red first, then yellow, then by target date
+ * (none last), then name.
+ */
+export const attention = lastCall(
+  (projects: Projects, today: DateString): AttentionItem[] => {
+    const out: AttentionItem[] = [];
+    for (const p of Object.values(projects)) {
+      if (p.archived || p.status !== 'active') continue;
+      const reasons: AttentionReason[] = [];
+      const health = healthOf(p);
+      if (health === 'yellow' || health === 'red') {
+        reasons.push({ kind: 'health', health });
+      }
+      if (p.targetDate) {
+        const days = daysBetween(today, p.targetDate);
+        if (days <= ATTENTION_TARGET_DAYS) {
+          reasons.push({ kind: 'target', days });
+        }
+      }
+      const quiet = daysSince(p.updatedAt, today);
+      if (quiet >= ATTENTION_QUIET_DAYS) {
+        reasons.push({ kind: 'quiet', days: quiet });
+      }
+      if (reasons.length > 0) out.push({ project: p, reasons });
+    }
+    return out.sort(
+      (a, b) =>
+        HEALTH_RANK[healthOf(a.project)] - HEALTH_RANK[healthOf(b.project)] ||
+        Number(a.project.targetDate === '') -
+          Number(b.project.targetDate === '') ||
+        a.project.targetDate.localeCompare(b.project.targetDate) ||
+        a.project.name.localeCompare(b.project.name),
+    );
+  },
+);
+
+/** "yellow · target in 6 days · quiet 16 days". */
+export function attentionLine(reasons: readonly AttentionReason[]): string {
+  return reasons
+    .map((r) => {
+      if (r.kind === 'health') return r.health;
+      if (r.kind === 'quiet') return `quiet ${dayCount(r.days)}`;
+      if (r.days < 0) return `target passed ${dayCount(-r.days)} ago`;
+      if (r.days === 0) return 'target today';
+      if (r.days === 1) return 'target tomorrow';
+      return `target in ${dayCount(r.days)}`;
+    })
+    .join(' · ');
+}
+
+/** A recent meeting's open action items. */
+export interface FollowUp {
+  meeting: Meeting;
+  /** Oldest first, as on the meeting. */
+  tasks: Task[];
+}
+
+/**
+ * Open action items (`Task.meetingId`) matching the assignee filter and
+ * not blocked (those are in Waiting on), from
+ * meetings outside the archive held in the last `BRIEFING_WEEK` days
+ * (today and a week ago today included, so last week's instance of a
+ * weekly meeting counts), grouped by meeting, newest meeting first.
+ */
+export const followUps = lastCall(
+  (
+    meetings: Snapshot['meetings'],
+    tasks: Tasks,
+    projects: Projects,
+    today: DateString,
+    me: string | null,
+    filter: AssigneeFilter,
+  ): FollowUp[] => {
+    const since = addDays(today, -BRIEFING_WEEK);
+    const groups = new Map<string, Task[]>();
+    for (const t of Object.values(tasks)) {
+      const m = t.meetingId ? meetings[t.meetingId] : undefined;
+      if (!m || t.status !== 'open' || blockedOf(t)) continue;
+      if (m.date < since || m.date > today) continue;
+      if (!unarchived(projects, t.projectId)) continue;
+      if (!unarchived(projects, m.projectId)) continue;
+      if (!matchesAssignee(t, filter, me)) continue;
+      groups.set(m.id, [...(groups.get(m.id) ?? []), t]);
+    }
+    const out: FollowUp[] = [];
+    for (const [id, list] of groups) {
+      const meeting = meetings[id];
+      if (!meeting) continue;
+      list.sort(
+        (a, b) =>
+          a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+      );
+      out.push({ meeting, tasks: list });
+    }
+    return out.sort((a, b) => byWhen(b.meeting, a.meeting));
+  },
+);
+
+/** Where a meeting on the agenda stands, for its card. */
+export interface Prep {
+  topics: number;
+  /** Topics not covered yet. */
+  left: number;
+  /** Of those, carried forward from an earlier meeting (`carriedFrom`). */
+  carried: number;
+  /** The previous meeting in its series, if any. */
+  previous: Meeting | null;
+  /** The previous meeting's open action items. */
+  actionItems: number;
+  hasNote: boolean;
+}
+
+export function prepOf(
+  meeting: Meeting,
+  snapshot: Pick<Snapshot, 'meetings' | 'tasks' | 'notes'>,
+): Prep {
+  const topics = topicsOf(meeting);
+  const left = topics.filter((t) => !t.done);
+  const previous = previousMeeting(snapshot.meetings, meeting);
+  return {
+    topics: topics.length,
+    left: left.length,
+    carried: left.filter((t) => t.carriedFrom).length,
+    previous,
+    actionItems: previous
+      ? tasksOfMeeting(snapshot.tasks, previous.id).open.length
+      : 0,
+    hasNote: Object.values(snapshot.notes).some(
+      (n) => n.meetingId === meeting.id,
+    ),
+  };
+}
+
+/**
+ * An agenda card's one line: "2 of 5 topics left · 1 carried · 3 action
+ * items open from Tue 20 Oct · no note yet", each part only when it says
+ * something; empty when nothing does.
+ */
+export function prepLine(prep: Prep, today: DateString): string {
+  const parts: string[] = [];
+  if (prep.topics > 0) {
+    parts.push(
+      prep.left > 0
+        ? `${prep.left} of ${prep.topics} ${prep.topics === 1 ? 'topic' : 'topics'} left`
+        : 'all topics covered',
+    );
+  }
+  if (prep.carried > 0) parts.push(`${prep.carried} carried`);
+  if (prep.previous && prep.actionItems > 0) {
+    const items = prep.actionItems === 1 ? 'action item' : 'action items';
+    parts.push(
+      `${prep.actionItems} ${items} open from ${formatDay(prep.previous.date, today)}`,
+    );
+  }
+  if (!prep.hasNote) parts.push('no note yet');
+  return parts.join(' · ');
 }

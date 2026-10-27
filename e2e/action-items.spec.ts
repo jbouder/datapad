@@ -126,13 +126,12 @@ test('action items on a meeting’s page: add, close, reopen and open', async ({
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Ordinary tasks: on Focus, Tasks and the project too.
+  // Ordinary tasks: on Focus (a follow-up of today's meeting), Tasks and
+  // the project too.
   await expectSaved(page);
   await openLive(page, '/');
   await expect(
-    page
-      .getByRole('region', { name: 'Open tasks' })
-      .getByRole('list', { name: 'Today' }),
+    page.getByRole('list', { name: 'Action items from Shield review' }),
   ).toContainText(ITEM);
   await openLive(page, '/tasks');
   await expect(page.getByRole('main')).toContainText(ITEM);

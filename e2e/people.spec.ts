@@ -40,9 +40,8 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   const add = page.getByRole('textbox', { name: 'Add a task' });
   await add.fill('Fix the compressor');
   await add.press('Enter');
-  await page
-    .getByRole('button', { name: 'Fix the compressor', exact: true })
-    .click();
+  // No date, so not on Focus: the toast opens it.
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   const who = panel.getByRole('combobox', { name: 'Assignee' });
   await who.click();
@@ -98,10 +97,8 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   await expect(
     people(page).getByRole('listitem').filter({ hasText: 'Leia' }),
   ).not.toContainText('you');
-  await page.goto('/?who=mine');
-  await expect(page.getByRole('region', { name: 'Open tasks' })).toContainText(
-    'Fix the compressor',
-  );
+  await page.goto('/tasks?who=mine');
+  await expect(page.getByRole('main')).toContainText('Fix the compressor');
 
   // Remove Han: the note reads @unknown, the task is unassigned.
   await page.goto(hanUrl);

@@ -36,8 +36,8 @@ function isSaved(prefs: PagePrefs): boolean {
   return Object.keys(prefs).length > 0;
 }
 
-function describeSections(prefs: PagePrefs): string {
-  const { closed, open } = sectionCounts(prefs);
+function describeSections(prefs: PagePrefs, keys?: readonly string[]): string {
+  const { closed, open } = sectionCounts(prefs, keys);
   if (closed + open === 0) return 'Sections open and close as they start.';
   const parts = [
     closed > 0 && `${closed} ${closed === 1 ? 'section' : 'sections'} closed`,
@@ -203,7 +203,7 @@ function PageCard({
       </div>
       {spec.sections && (
         <p className="text-xs text-muted-foreground">
-          {describeSections(prefs)}
+          {describeSections(prefs, spec.sectionKeys)}
         </p>
       )}
     </section>

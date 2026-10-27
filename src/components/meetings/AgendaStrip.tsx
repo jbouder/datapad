@@ -1,9 +1,9 @@
 import { FlagIcon, NotePencilIcon } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
 import { describeDay } from '#shared/dates';
-import { timeRange, topicCount } from '#shared/meetings';
-import type { AgendaItem } from '#shared/select';
-import { type Snapshot, topicsOf } from '#shared/types';
+import { timeRange } from '#shared/meetings';
+import { type AgendaItem, prepLine, prepOf } from '#shared/select';
+import type { Snapshot } from '#shared/types';
 import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
 import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,10 @@ const CARD =
  * Focus's agenda: today's or the next seven days' meetings and milestones
  * (Focus picks them and the `title`) as a
  * strip of cards that scrolls sideways (snapping card by card on phones).
- * A meeting's card links to it on the Meetings page, and Add note opens
- * a composer for it under the strip, in place; a
+ * A meeting's card links to its page and says in one muted line where its
+ * prep stands (topics left and carried, the previous meeting's open action
+ * items, no note yet); Add note opens a composer for it under the strip,
+ * in place. A
  * milestone's card, flagged, opens its project at it.
  */
 export function AgendaStrip({
@@ -91,6 +93,7 @@ export function AgendaStrip({
           const e = item.meeting;
           const project = e.projectId ? state.projects[e.projectId] : null;
           const range = timeRange(e, clock);
+          const prep = prepLine(prepOf(e, state), today);
           return (
             <li
               key={`meeting-${e.id}`}
@@ -112,10 +115,15 @@ export function AgendaStrip({
               </a>
               <span className="truncate text-xs text-muted-foreground">
                 {project?.name ?? 'General'}
-                {topicCount(topicsOf(e)) && (
-                  <span className="count"> · {topicCount(topicsOf(e))}</span>
-                )}
               </span>
+              {prep && (
+                <span
+                  data-prep
+                  className="text-xs text-muted-foreground tabular-nums"
+                >
+                  {prep}
+                </span>
+              )}
               <span className="relative -mx-1 -mb-1 flex gap-1">
                 <Button
                   type="button"

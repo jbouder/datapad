@@ -25,6 +25,20 @@ export function addDays(day: DateString, n: number): DateString {
   return date.toISOString().slice(0, 10);
 }
 
+/** Whole calendar days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetween(from: DateString, to: DateString): number {
+  const utc = (day: DateString) => {
+    const [y, m, d] = parts(day);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
+/** The local calendar day an ISO timestamp falls on. */
+export function dayOf(timestamp: string): DateString {
+  return localDate(new Date(timestamp));
+}
+
 /** 0 = Monday … 6 = Sunday. */
 export function weekday(day: DateString): number {
   const [y, m, d] = parts(day);

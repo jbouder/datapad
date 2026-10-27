@@ -37,10 +37,10 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
     .filter({ visible: true })
     .first()
     .click();
-  await expect(page.getByText('2 projects · 5 open tasks')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Open tasks' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Overdue' })).toContainText(
     'Confirm shield generator delivery',
   );
+  await expect(page.locator('[data-attention="p-echo"]')).toHaveCount(0);
 });
 
 test('a malformed file is refused with its first problem, and nothing is written', async ({
@@ -77,7 +77,9 @@ test('export downloads every document as datapad-<date>.json', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await page.goto('/');
-  await expect(page.getByText('2 projects · 5 open tasks')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Overdue' })).toContainText(
+    'Confirm shield generator delivery',
+  );
   await page.goto('/settings/data');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export' }).click();

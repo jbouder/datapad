@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
-import { addDays, localDate } from '../shared/dates';
 import { THEMES, type ThemeOption } from '../src/lib/themes';
 import {
+  briefingSeed,
   expect,
   expectAccessible,
   openPreferences,
@@ -64,23 +64,14 @@ for (const theme of CHECKED) {
       });
     }
 
-    test('Focus with every bucket and the agenda', async ({
-      page,
-      request,
-    }) => {
-      const seed = structuredClone(SEED);
-      const today = localDate(new Date());
-      seed.tasks['t-1'].due = addDays(today, -1);
-      seed.tasks['t-4'].due = today;
-      seed.tasks['t-5'].due = addDays(today, 30);
-      seed.meetings['e-1'].date = addDays(today, 1);
-      await request.post('/api/import', { data: seed });
+    test('Focus with the whole briefing', async ({ page, request }) => {
+      await request.post('/api/import', { data: briefingSeed() });
       await page.goto('/?view=week');
-      for (const name of [/^Later/, /^No date/]) {
-        await page.getByRole('button', { name }).click();
-      }
       await expect(
         page.getByRole('region', { name: 'Next 7 days' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('list', { name: 'Projects that need attention' }),
       ).toBeVisible();
       await expectAccessible(page);
     });
