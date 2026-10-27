@@ -102,6 +102,21 @@ export function withLayoutTransition(update: () => void, enabled: boolean) {
 
 export const EASE_EMPHASIZED = 'cubic-bezier(0.2, 0, 0, 1)';
 
+/** Until when FLIP lets layout jump instead of sliding (`holdFlip`). */
+let flipHeldUntil = 0;
+
+/**
+ * The next layout change is not worth sliding: a section opening or
+ * closing moves everything below it, and that should simply happen.
+ */
+export function holdFlip() {
+  flipHeldUntil = performance.now() + 150;
+}
+
+export function flipHeld(): boolean {
+  return performance.now() < flipHeldUntil;
+}
+
 /** Animate an element out, resolving when done (immediately when disabled). */
 export function animateOut(el: HTMLElement, enabled: boolean): Promise<void> {
   if (!enabled) {

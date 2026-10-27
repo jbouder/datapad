@@ -1,5 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react';
-import { EASE_EMPHASIZED } from '@/lib/motion';
+import { EASE_EMPHASIZED, flipHeld } from '@/lib/motion';
 
 /**
  * FLIP for a list: after every render, compare each `[data-flip-id]` child's
@@ -46,6 +46,9 @@ export function useFlip(
       return;
     }
     const next = new Map<string, Point>();
+    // A section just opened or closed: remember where things are now, but
+    // let them jump there (`holdFlip`).
+    const held = flipHeld();
     for (const el of container.querySelectorAll<HTMLElement>(
       '[data-flip-id]',
     )) {
@@ -72,7 +75,7 @@ export function useFlip(
       };
       next.set(id, last);
       const first = previous.current.get(id);
-      if (!first || !enabled) {
+      if (!first || !enabled || held) {
         continue;
       }
       const dx = first.left - last.left;

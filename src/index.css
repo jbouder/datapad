@@ -647,6 +647,20 @@ html[data-vt="space"]::view-transition-new(rail) {
   }
 }
 
+/* A section opening: one short fade, and nothing inside replays its
+   entrance (closing is instant; see Section.tsx). */
+.section-body[data-opening] {
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+@starting-style {
+  .section-body[data-opening] {
+    opacity: 0;
+  }
+}
+.section-body[data-opening] .enter {
+  transition: none;
+}
+
 /* Press feedback on anything interactive. */
 .press {
   transition-property: scale, color, background-color, border-color, opacity;
