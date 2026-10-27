@@ -244,6 +244,13 @@ describe('patches', () => {
     expect(
       sectionCounts({ sections: { a: false, b: false, c: true } }),
     ).toEqual({ closed: 2, open: 1 });
+    // Focus names its sections: an old bucket's saved state is not one.
+    expect(
+      sectionCounts(
+        { sections: { attention: false, 'day:later': true, noDate: false } },
+        PAGES.focus.sectionKeys,
+      ),
+    ).toEqual({ closed: 1, open: 0 });
   });
 
   it('read nothing saved as empty', () => {
@@ -266,6 +273,8 @@ describe('carrying over this browser’s old keys', () => {
       ['datapad:view:tasks', 'board'],
       ['datapad:view:project-tasks', 'board'],
       ['datapad:view:dev', 'cards'],
+      ['datapad:focus:waiting', 'closed'],
+      // Buckets Focus no longer has (#206) drop out.
       ['datapad:focus:day:later', 'open'],
       ['datapad:focus:noDate', 'closed'],
       ['datapad:section:p1:tasks', 'closed'],
@@ -278,7 +287,7 @@ describe('carrying over this browser’s old keys', () => {
     expect(found).toEqual({
       tasks: { view: 'board' },
       project: { view: 'board', sections: { tasks: false, activity: true } },
-      focus: { sections: { 'day:later': true, noDate: false } },
+      focus: { sections: { waiting: false } },
     });
     for (const patch of Object.values(found)) {
       expect(PagePrefsPatchSchema.safeParse(patch).success).toBe(true);

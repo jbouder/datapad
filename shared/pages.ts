@@ -56,7 +56,19 @@ export interface PageSpec {
   fields: readonly PrefField[];
   /** Whether the page has sections that remember open or closed. */
   sections: boolean;
+  /**
+   * The keys of those sections, when the page names them: a saved key
+   * that is not one (a section an older release had) is ignored.
+   */
+  sectionKeys?: readonly string[];
 }
+
+/**
+ * Focus's collapsible sections (#206): Waiting on, Attention and
+ * Follow-ups. The buckets that used to be sections (Blocked, This week,
+ * Later, No date, and Day's `day:` copies) are gone.
+ */
+export const FOCUS_SECTIONS = ['waiting', 'attention', 'followUps'] as const;
 
 const PROJECT_LAYOUTS = [
   { value: 'cards', label: 'Cards' },
@@ -159,6 +171,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
       who,
     ],
     sections: true,
+    sectionKeys: FOCUS_SECTIONS,
   },
   projects: {
     label: 'Projects',
@@ -603,12 +616,20 @@ export function applyPagePatch(
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
-/** Sections a page has saved closed, and saved open. */
-export function sectionCounts(prefs: PagePrefs): {
+/**
+ * Sections a page has saved closed, and saved open; with `keys` (the
+ * page's `sectionKeys`), only those.
+ */
+export function sectionCounts(
+  prefs: PagePrefs,
+  keys?: readonly string[],
+): {
   closed: number;
   open: number;
 } {
-  const values = Object.values(prefs.sections ?? {});
+  const values = Object.entries(prefs.sections ?? {})
+    .filter(([key]) => !keys || keys.includes(key))
+    .map(([, value]) => value);
   return {
     closed: values.filter((v) => !v).length,
     open: values.filter(Boolean).length,
@@ -637,7 +658,8 @@ const LEGACY_VIEWS: Record<string, PageKey> = {
 /**
  * What this browser remembered before preferences were saved with the
  * data, as one patch per page: `datapad:view:<page>` (layouts),
- * `datapad:focus:<bucket>` (Focus's sections) and
+ * `datapad:focus:<section>` (Focus's sections; its old buckets drop
+ * out, as they are gone) and
  * `datapad:section:<project>:<section>` (a project page's sections, once
  * per project, now one set: closed where most projects had it closed).
  */
@@ -655,7 +677,8 @@ export function legacyPrefs(
       if (page && okValue(value)) add(page, { view: value });
     } else if (key.startsWith('datapad:focus:')) {
       const name = key.slice('datapad:focus:'.length);
-      if (okKey(name) && (value === 'open' || value === 'closed')) {
+      const known = (FOCUS_SECTIONS as readonly string[]).includes(name);
+      if (known && (value === 'open' || value === 'closed')) {
         add('focus', { sections: { [name]: value === 'open' } });
       }
     } else if (key.startsWith('datapad:section:')) {

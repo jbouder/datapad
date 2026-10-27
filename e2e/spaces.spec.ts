@@ -61,8 +61,11 @@ async function switchTo(page: Page, name: string) {
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
 }
 
+/** Main's seed on Focus: its overdue task. */
 const seeded = (page: Page) =>
-  page.getByText('2 projects · 5 open tasks', { exact: false });
+  page
+    .getByRole('list', { name: 'Overdue' })
+    .getByText('Confirm shield generator delivery');
 
 test('make a space, work in it, and switch back and forth', async ({
   page,
@@ -116,7 +119,7 @@ test('make a space, work in it, and switch back and forth', async ({
   if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await expect(
-    page.getByText('Nothing open. Add a task above or open a project.'),
+    page.getByText('Nothing needs you. Add a task above or open a project.'),
   ).toBeVisible();
   await expect(seeded(page)).toBeHidden();
   await expect(page).toHaveTitle('Focus · Personal · Datapad');
@@ -125,16 +128,18 @@ test('make a space, work in it, and switch back and forth', async ({
   const input = page.getByRole('textbox', { name: 'Add a task' });
   await input.fill('Water the moisture vaporators');
   await input.press('Enter');
-  const task = page.getByText('Water the moisture vaporators');
-  await expect(task).toBeVisible();
+  await expect(
+    page.getByText('Added “Water the moisture vaporators”'),
+  ).toBeVisible();
   await expectSaved(page);
-  // Its count, as the Focus summary has it (sections may load collapsed).
-  const personal = page.getByText('0 projects · 1 open task');
+  // No date, so not in Due: the week's movement counts it.
+  const personal = page.getByText('0 closed this week · 1 added · 0 overdue');
+  await expect(personal).toBeVisible();
 
   // Back to Main: its data, not Personal's.
   await switchTo(page, 'Main');
   await expect(seeded(page)).toBeVisible();
-  await expect(task).toHaveCount(0);
+  await expect(personal).toHaveCount(0);
   await expect(page).toHaveTitle('Focus · Main · Datapad');
 
   // And to Personal again: the task is still there.
@@ -162,7 +167,7 @@ test('make a space, work in it, and switch back and forth', async ({
   await palette.getByRole('option', { name: 'Switch to Main' }).click();
   await expect(palette).toBeHidden();
   await expect(seeded(page)).toBeVisible();
-  await expect(task).toHaveCount(0);
+  await expect(personal).toHaveCount(0);
   if (isMobile(page)) await expectNoSidewaysScroll(page);
 });
 

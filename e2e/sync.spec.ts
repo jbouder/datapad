@@ -13,14 +13,32 @@ async function addTask(page: Page, title: string) {
 const status = (page: Page) => page.locator('[data-status]').first();
 
 /** Load the app and wait for the socket's first snapshot. */
-async function openLive(page: Page) {
-  await page.goto('/');
+async function openLive(page: Page, path = '/') {
+  await page.goto(path);
   await expect(status(page)).toHaveAttribute('data-status', 'live');
 }
 
-/** Focus's buckets (No date is collapsed, so read text, not roles). */
-const openTasks = (page: Page) =>
-  page.getByRole('region', { name: 'Open tasks' });
+/** Go to a section from the rail or the tab bar: no reload. */
+async function goTo(page: Page, name: 'Focus' | 'Tasks') {
+  await page
+    .getByRole('link', { name: new RegExp(`^${name}`) })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole('heading', { level: 1, name, exact: true }),
+  ).toBeVisible();
+}
+
+/** The Tasks page, where a quick-added task (no date) is listed. */
+const tasks = (page: Page) => page.getByRole('main');
+
+/**
+ * Focus's header: the week's movement. How many were added says each
+ * quick-added task arrived, and once.
+ */
+const added = (page: Page, n: number) =>
+  page.getByText(`0 closed this week · ${n} added · 0 overdue`);
 
 /** Wait until the debounced snapshot cache in IndexedDB holds `title`. */
 async function cached(page: Page, title: string) {
@@ -53,13 +71,11 @@ test('a task added in one tab appears in another without a reload', async ({
 }) => {
   await openLive(page);
   const other = await context.newPage();
-  await openLive(other);
+  await openLive(other, '/tasks');
 
   await addTask(page, 'Calibrate the shield generator');
-  await expect(openTasks(other)).toContainText(
-    'Calibrate the shield generator',
-  );
-  await expect(other.getByText('0 projects · 1 open task')).toBeVisible();
+  await expect(tasks(other)).toContainText('Calibrate the shield generator');
+  await expect(added(page, 1)).toBeVisible();
 });
 
 test('offline: reads keep working, writes queue and replay on reconnect', async ({
@@ -84,10 +100,12 @@ test('offline: reads keep working, writes queue and replay on reconnect', async 
   blocked = true;
   await (live as WebSocketRoute | null)?.close();
   await expect(status(page)).toContainText('Offline');
-  await expect(openTasks(page)).toContainText('Feed the tauntauns');
+  await goTo(page, 'Tasks');
+  await expect(tasks(page)).toContainText('Feed the tauntauns');
 
+  await goTo(page, 'Focus');
   await addTask(page, 'Patch the hangar roof');
-  await expect(openTasks(page)).toContainText('Patch the hangar roof');
+  await expect(added(page, 2)).toBeVisible();
   await expect(status(page)).toContainText('Offline, 1 change waiting');
 
   // Back: the queued write goes through.
@@ -99,8 +117,9 @@ test('offline: reads keep working, writes queue and replay on reconnect', async 
   // It reached the server: a fresh load (no cache shortcut) still has it.
   await page.reload();
   await expect(status(page)).toHaveAttribute('data-status', 'live');
-  await expect(openTasks(page)).toContainText('Patch the hangar roof');
-  await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(2);
+  await expect(added(page, 2)).toBeVisible();
+  await goTo(page, 'Tasks');
+  await expect(tasks(page)).toContainText('Patch the hangar roof');
 });
 
 test('offline changes survive a reload and replay once, in order', async ({
@@ -163,9 +182,10 @@ test('offline changes survive a reload and replay once, in order', async ({
 
   const other = await context.newPage();
   await openLive(other);
-  await expect(openTasks(other)).toContainText('Patch the hangar roof');
-  await expect(openTasks(other)).toContainText('Brief the pilots');
-  await expect(openTasks(other).locator('[data-task-id]')).toHaveCount(3);
+  await expect(added(other, 3)).toBeVisible();
+  await goTo(other, 'Tasks');
+  await expect(tasks(other)).toContainText('Patch the hangar roof');
+  await expect(tasks(other)).toContainText('Brief the pilots');
   const exported = await (await other.request.get('/api/export.json')).json();
   const notes = Object.values(
     exported.notes as Record<string, { body: string }>,
@@ -214,7 +234,7 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
   ).toBeUndefined();
   await expect(status(page)).toHaveAttribute('data-status', 'live');
   await expect(status(page)).toContainText('Saved');
-  await expect(openTasks(page)).toContainText('Patch the hangar roof');
+  await expect(added(page, 1)).toBeVisible();
 
   // ⌘K has it too.
   await page.evaluate(() => {
@@ -229,7 +249,7 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
       () => (window as unknown as { before?: boolean }).before,
     ),
   ).toBeUndefined();
-  await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(1);
+  await expect(added(page, 1)).toBeVisible();
 });
 
 test('first paint on a warm cache shows data before the socket connects', async ({
@@ -242,6 +262,6 @@ test('first paint on a warm cache shows data before the socket connects', async 
   // No socket at all this time.
   await page.routeWebSocket('**/ws', (ws) => ws.close());
   await page.reload();
-  await expect(openTasks(page)).toContainText('Polish the medals');
+  await expect(added(page, 1)).toBeVisible();
   await expect(status(page)).not.toHaveAttribute('data-status', 'live');
 });

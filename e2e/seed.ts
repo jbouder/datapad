@@ -1,5 +1,8 @@
-import { addDays, localDate } from '../shared/dates';
+import { addDays, daysBetween, localDate } from '../shared/dates';
 import fixture from '../test/fixtures/export.json' with { type: 'json' };
+
+/** Whole calendar days between two dates (`shared/dates.ts`). */
+export { daysBetween };
 
 /**
  * A populated tracker for specs that need one: the fictional export the
@@ -18,15 +21,6 @@ export const SEED_ANCHOR = '2026-10-27';
 /** Today on the local calendar (the runner and the browser share a zone). */
 export function today(): string {
   return localDate(new Date());
-}
-
-/** Whole calendar days from `from` to `to` (both `YYYY-MM-DD`). */
-export function daysBetween(from: string, to: string): number {
-  const utc = (day: string) => {
-    const [y, m, d] = day.split('-').map(Number);
-    return Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-  };
-  return Math.round((utc(to) - utc(from)) / 86_400_000);
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -107,3 +101,139 @@ export const SEED_COUNTS = {
   orgs: 0,
   templates: 0,
 };
+
+/** Noon on `day` in the local zone, as an ISO timestamp. */
+export function localNoon(day: string): string {
+  return new Date(`${day}T12:00:00`).toISOString();
+}
+
+type Doc = Record<string, unknown>;
+
+/** An action item from last week's Shield review (`e-5`). */
+const actionItem = (id: string, title: string, fields: Doc): Doc => ({
+  id,
+  title,
+  projectId: 'p-echo',
+  status: 'open',
+  priority: 'none',
+  due: '',
+  desc: '',
+  tags: [],
+  assignee: '',
+  links: [],
+  order: 10,
+  meetingId: 'e-5',
+  blocked: null,
+  completedAt: null,
+  ...fields,
+});
+
+/**
+ * {@link SEED} with something in every part of Focus's briefing (#206),
+ * relative to today (build it inside a test):
+ *
+ * - Waiting on: Han's motivator blocked on Leia for 9 days, Chewie's
+ *   hangar doors on no one for 3.
+ * - Attention: Endor (added: red, target in 6 days, quiet 16 days), then
+ *   Echo Base (yellow); the Falcon is paused, so not there.
+ * - Agenda: today's Shield review has 2 of 3 topics left (1 carried), and
+ *   last week's Shield review (the same series) left 2 action items open;
+ *   a Han 1:1 the day after tomorrow (Week only) has no note yet.
+ * - Follow-ups: those 2 action items, one Leia's (due tomorrow).
+ * - Due: the shield generator (Leia's, 3 days overdue), the tauntaun vet
+ *   (today), the docking permit (tomorrow: This week, unless today is
+ *   Sunday).
+ * - The week: 1 closed (an action item, yesterday), 1 added (the tauntaun
+ *   vet), 1 overdue.
+ */
+export function briefingSeed(): Seed {
+  const s = structuredClone(SEED);
+  const day = (n: number) => addDays(today(), n);
+  const tasks = s.tasks as Record<string, Doc>;
+  const projects = s.projects as Record<string, Doc>;
+  const meetings = s.meetings as Record<string, Doc>;
+
+  Object.assign(tasks['t-5'] ?? {}, {
+    blocked: { on: 'u-leia', note: 'Sign-off on the budget' },
+    updatedAt: localNoon(day(-9)),
+  });
+  Object.assign(tasks['t-2'] ?? {}, {
+    blocked: { on: null, note: 'Insulation on back order' },
+    updatedAt: localNoon(day(-3)),
+  });
+  Object.assign(tasks['t-4'] ?? {}, { due: day(0) });
+  Object.assign(tasks['t-6'] ?? {}, { due: day(1) });
+  const met = localNoon(day(-7));
+  tasks['t-8'] = actionItem('t-8', 'Draft the power budget', {
+    assignee: 'u-han',
+    createdAt: met,
+    updatedAt: met,
+  });
+  tasks['t-9'] = actionItem('t-9', 'Send the ridge survey', {
+    assignee: 'u-leia',
+    due: day(1),
+    order: 11,
+    createdAt: met,
+    updatedAt: met,
+  });
+  tasks['t-10'] = actionItem('t-10', 'Order thermal blankets', {
+    status: 'done',
+    order: 12,
+    createdAt: met,
+    updatedAt: localNoon(day(-1)),
+    completedAt: localNoon(day(-1)),
+  });
+
+  Object.assign(projects['p-echo'] ?? {}, { health: 'yellow' });
+  projects['p-endor'] = {
+    ...structuredClone(projects['p-echo']),
+    id: 'p-endor',
+    name: 'Endor shield bunker',
+    health: 'red',
+    startDate: day(-30),
+    targetDate: day(6),
+    tags: [],
+    desc: '',
+    members: ['u-han'],
+    links: [],
+    milestones: [],
+    createdAt: localNoon(day(-30)),
+    updatedAt: localNoon(day(-16)),
+  };
+
+  Object.assign(meetings['e-1'] ?? {}, {
+    topics: [
+      { id: 'tp-1', title: 'Power budget', done: true, outcome: 'Approved' },
+      {
+        id: 'tp-2',
+        title: 'North ridge',
+        done: false,
+        outcome: '',
+        carriedFrom: day(-7),
+      },
+      { id: 'tp-3', title: 'Probe droid sightings', done: false, outcome: '' },
+    ],
+  });
+  meetings['e-5'] = {
+    ...structuredClone(meetings['e-1']),
+    id: 'e-5',
+    date: day(-7),
+    topics: [],
+    createdAt: localNoon(day(-8)),
+    updatedAt: met,
+  };
+  meetings['e-6'] = {
+    id: 'e-6',
+    projectId: null,
+    title: 'Han 1:1',
+    date: day(2),
+    time: '10:00',
+    end: '10:30',
+    attendees: ['u-han'],
+    link: '',
+    note: '',
+    createdAt: localNoon(day(-1)),
+    updatedAt: localNoon(day(-1)),
+  };
+  return s;
+}
