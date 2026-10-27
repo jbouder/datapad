@@ -143,6 +143,8 @@ const OP_TYPES = {
   deleteTemplate: true,
   setSettings: true,
   setNav: true,
+  setPagePrefs: true,
+  resetPagePrefs: true,
   batch: true,
 } as const satisfies Record<OpType, true>;
 

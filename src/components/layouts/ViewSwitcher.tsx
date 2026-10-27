@@ -1,10 +1,11 @@
 import type { Icon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useId } from 'react';
+import type { PageKey } from '#shared/types';
 import { withLayoutTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
 import { shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 export interface ViewOption<T extends string> {
   id: T;
@@ -12,51 +13,31 @@ export interface ViewOption<T extends string> {
   icon: Icon;
 }
 
-function stored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 /**
  * The layout a collection page shows, from `?view=` (which wins), then
- * what this browser last chose for the page, then `fallback`. Setting it
- * writes both and runs a `layout` view transition.
+ * the page's saved preference (#186), then `fallback`. Setting it writes
+ * the address, saves the preference and runs a `layout` view transition.
+ * With no page (the components page), only the address remembers.
  */
 export function useView<T extends string>(
-  page: string,
+  page: PageKey | null,
   views: readonly ViewOption<T>[],
   fallback: T,
 ): [T, (view: T) => void] {
-  const query = useQuery();
-  const key = `datapad:view:${page}`;
+  const [query, change] = usePageQuery(page, { view: fallback });
   const ids = views.map((v) => v.id) as string[];
-  const fromUrl = query.get('view');
-  const fromStorage = stored(key);
-  const view = (
-    fromUrl && ids.includes(fromUrl)
-      ? fromUrl
-      : fromStorage && ids.includes(fromStorage)
-        ? fromStorage
-        : fallback
-  ) as T;
+  const asked = query.get('view');
+  const view = (asked && ids.includes(asked) ? asked : fallback) as T;
   const { active } = useMotion();
 
   const set = useCallback(
     (next: T) => {
-      try {
-        localStorage.setItem(key, next);
-      } catch {
-        // Remembered in the URL only.
-      }
-      setQuery(
+      change(
         { view: next },
         { replace: true, transition: (u) => withLayoutTransition(u, active) },
       );
     },
-    [key, active],
+    [change, active],
   );
   return [view, set];
 }

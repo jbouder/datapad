@@ -58,7 +58,15 @@ test('switch to Grid, expand a note, edit it in place, collapse', async ({
   await expect(card(page, 'n-3').getByText('idea 14')).not.toBeInViewport();
 
   await settle(page);
-  const neighbor = await place(page, 'n-2');
+  // Polled until two reads agree: the grid may still be entering.
+  let neighbor = await place(page, 'n-2');
+  await expect
+    .poll(async () => {
+      const last = neighbor;
+      neighbor = await place(page, 'n-2');
+      return neighbor.y === last.y && neighbor.x === last.x;
+    })
+    .toBe(true);
   await card(page, 'n-3').getByRole('button', { name: 'Expand note' }).click();
   const open = card(page, 'n-3');
   await expect(
@@ -67,7 +75,7 @@ test('switch to Grid, expand a note, edit it in place, collapse', async ({
   await expect(open.getByText('idea 14')).toBeVisible();
   // Opening covers; it does not push the other cards around.
   await settle(page);
-  expect(await place(page, 'n-2')).toEqual(neighbor);
+  await expect.poll(() => place(page, 'n-2')).toEqual(neighbor);
 
   await open.getByRole('button', { name: 'Edit note' }).click();
   const editor = open.getByRole('combobox', { name: 'Edit note' });

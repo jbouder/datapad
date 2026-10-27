@@ -48,7 +48,9 @@ test('activity times say when exactly on focus', async ({ page }) => {
   );
 });
 
-test('sections remember open or closed per project', async ({ page }) => {
+test('sections remember open or closed, one set for every project', async ({
+  page,
+}) => {
   await openLive(page, '/projects/p-echo');
   const tasks = page.getByRole('button', { name: /^Tasks/ });
   await expect(tasks).toHaveAttribute('aria-expanded', 'true');
@@ -60,11 +62,11 @@ test('sections remember open or closed per project', async ({ page }) => {
     'aria-expanded',
     'false',
   );
-  // Another project keeps its own setting.
+  // Every project's page shares the setting (#186).
   await page.goto('/projects/p-falcon');
   await expect(page.getByRole('button', { name: /^Tasks/ })).toHaveAttribute(
     'aria-expanded',
-    'true',
+    'false',
   );
 });
 

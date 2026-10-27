@@ -29,7 +29,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   and the DO's schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
-  (the ⌘K index and ranking), `routes.ts` (the app's addresses, pure:
+  (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
+  what each page remembers, the address over what is saved, what a change
+  saves), `routes.ts` (the app's addresses, pure:
   parse, paths, redirects from old addresses, titles; `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order, and the
   pure halves of moving a project between spaces).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
@@ -44,7 +46,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
   date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),
-  `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`),
+  `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`, PagePrefs),
   `components/*` (shared layouts in `components/layouts/`: ViewSwitcher,
   DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;

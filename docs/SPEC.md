@@ -320,6 +320,20 @@ Mentions are expanded to names before sending. Nothing outside the item is inclu
 
 Model tier is the default (not the quick tier); the artifact caches identical requests for five minutes.
 
+## Page preferences
+
+Added in the rebuild (#186). Each page remembers how you left it: Focus, Projects, Archived, Tasks, Meetings, Notes, People, and the project page (one set for every project, not one per project). What is remembered:
+- **Layout:** Cards / Table / Board / Timeline / Calendar, Focus's Day / Week, the project page's task List / Board.
+- **Sort, direction and grouping.**
+- **Filters:** status, project, org, health, assignee, pinned. Never the search text, and never an id that points at one item (`?note=`, `?milestone=`, `?to=`).
+- **Sections:** open or closed for each collapsible section (Focus's buckets, the project page's sections, its Done list).
+
+They are stored with the space's data (`settings.user.pages`), so they follow you to every device and come along in exports; each space has its own. Changing a control updates the address as before and saves the preference; quick changes go out together after half a second. The address wins key by key, then what is saved, then the page's defaults: a link or Back shows what it names, and a bare address shows the saved settings without rewriting it. Before a change pushes a new history entry, the entry being left is given what it showed, so Back returns to it. A page reads what is saved once, when it opens with the server's state: another tab or device changing a preference changes what the page opens with next time, never a page already open. A saved value the page no longer has (a layout it dropped, a deleted project or person, an org no longer in use) is ignored, and the page shows its default.
+
+**Settings → Pages** (`/settings/pages`) shows each page as a card with the controls the page uses, its saved or default values, and how many sections are saved closed or open. Changes there are saved at once. Reset puts one page back to its defaults, Reset all every page; both offer Undo.
+
+The first time a space with no saved preferences opens in a browser that remembered choices before #186 (`datapad:view:*`, `datapad:focus:*`, `datapad:section:*` in `localStorage`), those are saved once as its preferences; a project page's sections, kept per project before, become the one set, closed where most projects had them closed. After that `localStorage` is not read for them.
+
 ## Persistence, sync, import/export
 
 **Store shape.** In-memory state is `{projects, tasks, notes, people, activity, meetings}`, each a map by id. All views are pure renders of that state; the whole main region re-renders on every change (cheap at this scale; a rebuilt app should use a reactive store).

@@ -1,6 +1,7 @@
 import { formatDay } from './dates';
 import { LIMITS } from './limits';
 import { byDate } from './milestones';
+import { applyPagePatch } from './pages';
 import type { Op, OpOf, ParsedExport } from './protocol';
 import {
   type Activity,
@@ -1007,6 +1008,34 @@ function apply(d: Draft, op: Op, now: string) {
     }
     case 'setNav': {
       setNav(d, op);
+      return;
+    }
+
+    /* page preferences (#186), not logged either */
+    case 'setPagePrefs': {
+      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const pages = { ...current.pages };
+      const next = applyPagePatch(pages[op.page], op.patch);
+      if (Object.keys(next?.filters ?? {}).length > LIMITS.prefFiltersMax) {
+        fail(`${LIMITS.prefFiltersMax} saved filters per page at most`);
+      }
+      if (Object.keys(next?.sections ?? {}).length > LIMITS.prefSectionsMax) {
+        fail(`${LIMITS.prefSectionsMax} saved sections per page at most`);
+      }
+      if (next) pages[op.page] = next;
+      else delete pages[op.page];
+      d.set('settings', SETTINGS_ID, { ...current, pages });
+      return;
+    }
+    case 'resetPagePrefs': {
+      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      // Kept, empty: a space that reset everything has still saved.
+      const pages = { ...current.pages };
+      if (op.page) delete pages[op.page];
+      d.set('settings', SETTINGS_ID, {
+        ...current,
+        pages: op.page ? pages : {},
+      });
       return;
     }
   }

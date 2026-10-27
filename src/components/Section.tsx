@@ -1,21 +1,22 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { type ReactNode, useId, useState } from 'react';
+import type { PageKey } from '#shared/types';
 import { holdFlip } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { useOpening, usePagePrefs } from '@/providers/PagePrefsProvider';
 
-function read(key: string, fallback: boolean): boolean {
-  try {
-    const value = localStorage.getItem(key);
-    return value === null ? fallback : value === 'open';
-  } catch {
-    return fallback;
-  }
+/** Where a section's open or closed is saved: its page's preferences. */
+export interface RememberSection {
+  page: PageKey;
+  key: string;
 }
 
 /**
  * A titled section whose header is a button with `aria-expanded`. With
- * `storageKey`, open or closed is remembered in this browser. Pass `open`
- * to override it (a section opened to show what was just added).
+ * `remember`, open or closed is saved with the page's preferences (#186),
+ * so it follows you to every device; only a state other than
+ * `defaultOpen` is kept. Pass `open` to override it (a section opened to
+ * show what was just added).
  *
  * Motion is minimal on purpose: the caret turns, an opening body fades in
  * quickly (nothing inside it replays its entrance) and closing is
@@ -24,7 +25,7 @@ function read(key: string, fallback: boolean): boolean {
 export function Section({
   title,
   count,
-  storageKey,
+  remember,
   defaultOpen = true,
   actions,
   open: forced,
@@ -34,7 +35,7 @@ export function Section({
 }: {
   title: string;
   count?: number;
-  storageKey?: string;
+  remember?: RememberSection;
   defaultOpen?: boolean;
   /** Controls on the right of the header (outside the toggle). */
   actions?: ReactNode;
@@ -46,9 +47,13 @@ export function Section({
   children: ReactNode;
 }) {
   const id = useId();
-  const [remembered, setOpen] = useState(() =>
-    storageKey ? read(storageKey, defaultOpen) : defaultOpen,
+  const prefs = usePagePrefs();
+  const saved = useOpening(({ read }) =>
+    remember ? read(remember.page).sections?.[remember.key] : undefined,
   );
+  /** Toggled here; until then, what is saved. */
+  const [chosen, setOpen] = useState<boolean | null>(null);
+  const remembered = chosen ?? saved ?? defaultOpen;
   /** Opened by a click just now: its contents appear without entrances. */
   const [opening, setOpening] = useState(false);
   const open = forced || remembered;
@@ -59,12 +64,10 @@ export function Section({
     // Past the fade: whatever is added later enters as usual.
     if (next) window.setTimeout(() => setOpening(false), 250);
     setOpen(next);
-    if (storageKey) {
-      try {
-        localStorage.setItem(storageKey, next ? 'open' : 'closed');
-      } catch {
-        // Not remembered; it still toggles.
-      }
+    if (remember) {
+      prefs.save(remember.page, {
+        sections: { [remember.key]: next === defaultOpen ? null : next },
+      });
     }
     onToggle?.(next);
   };

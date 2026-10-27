@@ -197,6 +197,19 @@ org page it goes to Focus, since that item belongs to the space being
 left. With more than one space, the tab title carries the space's name
 ("Tasks · Personal · Datapad").
 
+Page preferences (#186) live in the space's `settings` document
+(`pages`), changed by `setPagePrefs` (merge; `null` clears) and
+`resetPagePrefs`, neither logged. `shared/pages.ts` is the pure half:
+what each page remembers, `effectiveQuery()` (the address over what is
+saved), `planChange()` (what a change writes, saves and pins on the
+history entry it leaves) and the one-time carry-over from the old
+`localStorage` keys. `PagePrefsProvider` holds the rest: it coalesces
+changes for 500 ms into one op (sent at once when the tab hides), carries
+over this browser's old keys once per space, and says when the live state
+is in. `usePageQuery()` (the filters) and `useView()` (the layout) read
+what is saved once, as the page opens with that state, then follow only
+the page's own changes; `Section` with `remember` saves open or closed.
+
 ## Summaries
 
 In the browser: `@mlc-ai/web-llm` in a Web Worker

@@ -34,15 +34,29 @@ test('drag a row onto another to insert before it; it persists', async ({
   const handle = source.locator('[title="Drag to reorder"]');
   // Each step waits for the list to catch up: the handle arms the row on
   // pointerdown, the drag marks it, and only then does the row under the
-  // pointer take the drop.
-  await handle.hover();
-  await page.mouse.down();
-  await expect(source).toHaveAttribute('draggable', 'true');
-  const from = await handle.boundingBox();
+  // pointer take the drop. Under load the browser can miss the start of a
+  // native drag, so the press and first move are tried again until it
+  // takes.
+  await expect(async () => {
+    await handle.hover();
+    await page.mouse.down();
+    try {
+      await expect(source).toHaveAttribute('draggable', 'true', {
+        timeout: 1000,
+      });
+      const from = await handle.boundingBox();
+      if (!from) throw new Error('No handle');
+      await page.mouse.move(from.x + from.width / 2, from.y - 4, {
+        steps: 4,
+      });
+      await expect(source).toHaveClass(/opacity-50/, { timeout: 1000 });
+    } catch (error) {
+      await page.mouse.up();
+      throw error;
+    }
+  }).toPass({ timeout: 15_000 });
   const to = await target.boundingBox();
-  if (!from || !to) throw new Error('No rows');
-  await page.mouse.move(from.x + from.width / 2, from.y - 4, { steps: 4 });
-  await expect(source).toHaveClass(/opacity-50/);
+  if (!to) throw new Error('No rows');
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
     steps: 8,
   });

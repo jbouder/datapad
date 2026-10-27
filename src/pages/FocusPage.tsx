@@ -29,9 +29,9 @@ import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
 import { shortcutAllowed } from '@/lib/shortcuts';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 type BucketKey = keyof FocusBuckets;
@@ -54,7 +54,7 @@ const BUCKETS: { key: BucketKey; title: string; collapsed: FocusView[] }[] = [
 
 /**
  * Focus, the morning view, as Day (the default) or Week (`?view=`, then
- * what this browser last chose; `v` switches). Day has today's meetings
+ * what is saved for the page; `v` switches). Day has today's meetings
  * and milestones, then every open task outside the archive bucketed
  * Overdue / Today, with This week, Later and No date collapsed. Week has
  * the next seven days of meetings and opens This week too. The buckets follow the local date and roll
@@ -77,7 +77,8 @@ export function FocusPage() {
 
   const [view, setView] = useView('focus', FOCUS_VIEWS, 'day');
   const today = useToday();
-  const whoParam = useQuery().get('who');
+  const [query, changePage] = usePageQuery('focus');
+  const whoParam = query.get('who');
   const who = useMemo(() => assigneeFromQuery(whoParam), [whoParam]);
   const me = state ? meId(state.people) : null;
   const buckets = state
@@ -93,13 +94,13 @@ export function FocusPage() {
 
   const setWho = useCallback(
     (value: string) =>
-      setQuery(
+      changePage(
         { who: value === 'anyone' ? null : value },
         {
           transition: (update) => withViewTransition(update, active, 'filter'),
         },
       ),
-    [active],
+    [active, changePage],
   );
 
   // `m`: Mine, or back to Anyone.
@@ -230,7 +231,10 @@ export function FocusPage() {
                 key={`${view}-${key}`}
                 title={title}
                 count={buckets[key].length}
-                storageKey={`datapad:focus:${view === 'day' ? 'day:' : ''}${key}`}
+                remember={{
+                  page: 'focus',
+                  key: `${view === 'day' ? 'day:' : ''}${key}`,
+                }}
                 defaultOpen={false}
                 open={revealed === key}
                 onToggle={() => setAdded(null)}

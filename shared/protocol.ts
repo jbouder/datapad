@@ -17,6 +17,9 @@ import {
   type Note,
   ORG_KINDS,
   type Org,
+  PAGE_KEYS,
+  type PageKey,
+  type PagePrefs,
   type Person,
   PRIORITIES,
   PROJECT_HEALTHS,
@@ -268,9 +271,82 @@ const NavPrefsSchema = z.object({
   extras: NavExtrasSchema.optional(),
 });
 
+/* ---------- page preferences (#186) ---------- */
+
+/** A saved filter's or section's name (`status`, `day:later`). */
+const prefKey = z
+  .string()
+  .regex(/^[a-z][A-Za-z0-9:_-]*$/, 'Use letters, digits, colons or dashes')
+  .max(LIMITS.prefKeyMax);
+/**
+ * A saved value. Only its size is checked here: one a page no longer has
+ * (a retired layout, a deleted project) is ignored when read
+ * (`shared/pages.ts`), not refused, so an older export still imports.
+ */
+const prefValue = z.string().min(1).max(LIMITS.prefValueMax);
+const pageKey = z.enum(PAGE_KEYS);
+
+function atMost(max: number, what: string) {
+  return [
+    (map: Record<string, unknown>) => Object.keys(map).length <= max,
+    `${max} ${what} at most`,
+  ] as const;
+}
+
+export const PagePrefsSchema = z.object({
+  view: prefValue.optional(),
+  sort: prefValue.optional(),
+  dir: prefValue.optional(),
+  group: prefValue.optional(),
+  filters: z
+    .record(prefKey, prefValue)
+    .refine(...atMost(LIMITS.prefFiltersMax, 'filters'))
+    .optional(),
+  sections: z
+    .record(prefKey, z.boolean())
+    .refine(...atMost(LIMITS.prefSectionsMax, 'sections'))
+    .optional(),
+}) satisfies z.ZodType<PagePrefs, unknown>;
+
+/** Every page's preferences; a page this version does not know is dropped. */
+const PagesSchema = z
+  .record(prefKey, PagePrefsSchema)
+  .refine(...atMost(LIMITS.pagesMax, 'pages'))
+  .transform((pages) => {
+    const out: Partial<Record<PageKey, PagePrefs>> = {};
+    for (const key of PAGE_KEYS) {
+      const prefs = pages[key];
+      if (prefs) out[key] = prefs;
+    }
+    return out;
+  });
+
+/**
+ * A change to one page's preferences: a value sets, `null` clears (back to
+ * the page's default). `filters` and `sections` merge key by key.
+ */
+export const PagePrefsPatchSchema = z
+  .object({
+    view: prefValue.nullable(),
+    sort: prefValue.nullable(),
+    dir: prefValue.nullable(),
+    group: prefValue.nullable(),
+    filters: z
+      .record(prefKey, prefValue.nullable())
+      .refine(...atMost(LIMITS.prefFiltersMax, 'filters')),
+    sections: z
+      .record(prefKey, z.boolean().nullable())
+      .refine(...atMost(LIMITS.prefSectionsMax, 'sections')),
+  })
+  .partial()
+  .refine((p) => Object.keys(p).length > 0, 'Nothing to change');
+
+export type PagePrefsPatch = z.infer<typeof PagePrefsPatchSchema>;
+
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
   nav: NavPrefsSchema.optional(),
+  pages: PagesSchema.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
 
 /** One schema per collection, for imports and `put`. */
@@ -905,6 +981,15 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       extras: NavExtrasSchema.nullable(),
     }),
   }),
+
+  /* page preferences (#186), not logged either */
+  z.object({
+    type: z.literal('setPagePrefs'),
+    page: pageKey,
+    patch: PagePrefsPatchSchema,
+  }),
+  /** `null` resets every page. */
+  z.object({ type: z.literal('resetPagePrefs'), page: pageKey.nullable() }),
 ]);
 
 /** Everything a single op can be. */
