@@ -9,7 +9,22 @@ import {
   useRef,
   useState,
 } from 'react';
-import { type Box, bounds, itemsOf, nextZ } from '#shared/board';
+import {
+  arrowEnds,
+  arrowPoints,
+  type BoardMove,
+  type Box,
+  bounds,
+  constrainAngle,
+  dragBox,
+  HIT_TOLERANCE,
+  hitTest,
+  itemsOf,
+  nextZ,
+  reaim,
+  snapEnd,
+  strokeOf,
+} from '#shared/board';
 import { LIMITS } from '#shared/limits';
 import type { BaseOp } from '#shared/protocol';
 import {
@@ -18,6 +33,7 @@ import {
   type BoardItem,
   type BoardKind,
 } from '#shared/types';
+import { EditBar } from '@/components/board/EditBar';
 import { ItemEditor } from '@/components/board/ItemEditor';
 import {
   hasText,
@@ -32,7 +48,14 @@ import {
   TEXT_FONT,
   TEXT_PAD,
 } from '@/components/board/items';
-import { TOOLS, type Tool, Toolbar } from '@/components/board/Toolbar';
+import {
+  draws,
+  TOOL_INFO,
+  TOOLS,
+  type Tool,
+  Toolbar,
+} from '@/components/board/Toolbar';
+import { useHistory } from '@/components/board/useHistory';
 import {
   readViewport,
   useViewport,
@@ -70,11 +93,27 @@ const DRAG_SLOP = 4;
 const LONG_PRESS_MS = 450;
 /** Two clicks or taps this close together are a double one. */
 const DOUBLE_TAP_MS = 350;
+/** A rectangle placed with a click (or Enter) rather than drawn. */
+const RECT_SIZE = { w: 160, h: 100 };
+/** How near the eraser must pass to a stroke, in screen px. */
+const ERASER_REACH = 8;
 
 type Gesture =
   | { kind: 'pan'; last: Point }
   | { kind: 'pinch'; start: Viewport; mid: Point; distance: number }
-  | { kind: 'place'; tool: Exclude<Tool, 'select'>; start: Point }
+  | { kind: 'place'; tool: 'sticky' | 'text'; start: Point }
+  | {
+      kind: 'draw';
+      tool: 'rect' | 'arrow';
+      /** Where it began, on screen and on the board. */
+      screen: Point;
+      start: Point;
+      end: Point;
+      shift: boolean;
+    }
+  | { kind: 'ink'; points: number[] }
+  | { kind: 'erase'; last: Point; ids: Set<string> }
+  | { kind: 'end'; id: string; which: 0 | 1; at: Point; shift: boolean }
   | { kind: 'press'; start: Point; timer: number }
   | {
       kind: 'move';
@@ -103,6 +142,12 @@ interface Drag {
   dx: number;
   dy: number;
 }
+
+/** What is being drawn, before it is an item. */
+type Draft =
+  | { kind: 'rect'; box: Box }
+  | { kind: 'arrow'; from: Point; to: Point }
+  | { kind: 'ink'; points: number[] };
 
 interface Editing {
   id: string;
@@ -152,6 +197,16 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   const spaceRef = useRef(false);
   spaceRef.current = spaceHeld;
   const [announcement, setAnnouncement] = useState('');
+  const [draft, setDraft] = useState<Draft | null>(null);
+  /** Strokes the eraser has passed over, deleted when it lifts. */
+  const [erasing, setErasing] = useState<ReadonlySet<string>>(NO_IDS);
+  /** An arrow end being dragged: the arrow's points meanwhile. */
+  const [endEdit, setEndEdit] = useState<{
+    id: string;
+    points: number[];
+  } | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture | null>(null);
@@ -226,6 +281,35 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     [drag, resize],
   );
 
+  /**
+   * Arrows drawn other than as stored: the ones attached to what is being
+   * dragged or resized follow it, and an end being dragged moves.
+   */
+  const livePoints = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (drag || resize) {
+      const boxes = new Map<string, Box>();
+      if (resize) boxes.set(resize.id, resize.box);
+      if (drag) {
+        for (const [id, o] of drag.origins) {
+          const item = byId.get(id);
+          if (item) {
+            boxes.set(id, {
+              x: o.x + drag.dx,
+              y: o.y + drag.dy,
+              w: item.w,
+              h: item.h,
+            });
+          }
+        }
+      }
+      const moving = new Set(drag?.origins.keys() ?? []);
+      for (const m of reaim(items, boxes, moving)) out.set(m.id, m.points);
+    }
+    if (endEdit) out.set(endEdit.id, endEdit.points);
+    return out;
+  }, [drag, resize, endEdit, items, byId]);
+
   const select = useCallback((ids: string[]) => {
     setSelected(ids);
   }, []);
@@ -270,20 +354,63 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     [actions],
   );
 
-  const moveTo = useCallback(
-    (moves: { id: string; x: number; y: number }[]) => {
-      const changed = moves.filter((m) => {
+  const history = useHistory(stateRef, sendOps);
+  const {
+    run,
+    clear: clearHistory,
+    forgetLast,
+    undo: undoStep,
+    redo: redoStep,
+    canUndo,
+    canRedo,
+  } = history;
+  // Undo is for this board while it is open: another board starts afresh.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cleared when the board changes
+  useEffect(() => clearHistory(), [boardId, space.id, clearHistory]);
+
+  /**
+   * The moves for items going to new places, with the arrows attached to
+   * them re-aimed, as `moveBoardItems` ops (up to `batchMax` moves each).
+   * Arrows moving themselves keep their shape.
+   */
+  const moveOps = useCallback(
+    (moves: BoardMove[], resized = new Map<string, Box>()): BaseOp[] => {
+      const all = itemsRef.current;
+      const boxes = new Map(resized);
+      for (const m of moves) {
         const item = byId.get(m.id);
-        return item && (item.x !== m.x || item.y !== m.y);
+        if (item && !boxes.has(m.id)) {
+          boxes.set(m.id, { x: m.x, y: m.y, w: item.w, h: item.h });
+        }
+      }
+      const moving = new Set(moves.map((m) => m.id));
+      const changed = [...moves, ...reaim(all, boxes, moving)].filter((m) => {
+        const item = byId.get(m.id);
+        return (
+          item &&
+          (item.x !== m.x ||
+            item.y !== m.y ||
+            (m.points !== undefined && m.points.join() !== item.points.join()))
+        );
       });
-      if (changed.length === 0) return;
+      const ops: BaseOp[] = [];
       for (let i = 0; i < changed.length; i += LIMITS.batchMax) {
-        actions.moveBoardItems({
+        ops.push({
+          type: 'moveBoardItems',
           moves: changed.slice(i, i + LIMITS.batchMax),
         });
       }
+      return ops;
     },
-    [actions, byId],
+    [byId],
+  );
+
+  const moveTo = useCallback(
+    (moves: BoardMove[]) => {
+      const ops = moveOps(moves);
+      if (ops.length > 0) run(ops);
+    },
+    [moveOps, run],
   );
 
   const nudge = useCallback(
@@ -312,7 +439,9 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         .map((id) => byId.get(id))
         .filter((b): b is BoardItem => Boolean(b));
       if (gone.length === 0) return;
-      if (!actions.deleteBoardItems({ ids: gone.map((b) => b.id) })) return;
+      if (!run([{ type: 'deleteBoardItems', ids: gone.map((b) => b.id) }])) {
+        return;
+      }
       setSelected([]);
       const [first] = gone;
       show(
@@ -320,14 +449,50 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           ? `Deleted ${KIND_LABELS[first.kind].toLowerCase()}`
           : `Deleted ${gone.length} items`,
         () => {
-          sendOps(
-            gone.map((item) => ({ type: 'addBoardItem' as const, item })),
-          );
+          // A step of its own: ⌘Z after it deletes them again.
+          run(gone.map((item) => ({ type: 'addBoardItem' as const, item })));
         },
       );
     },
-    [actions, byId, sendOps, show],
+    [byId, run, show],
   );
+
+  /** To the top (`]`) or the bottom (`[`) of the board. */
+  const restack = useCallback(
+    (to: 'top' | 'bottom') => {
+      const ids = selectedRef.current;
+      if (ids.length === 0) return;
+      run([
+        {
+          type: to === 'top' ? 'raiseBoardItems' : 'lowerBoardItems',
+          ids,
+        },
+      ]);
+      setAnnouncement(to === 'top' ? 'Brought to front' : 'Sent to back');
+    },
+    [run],
+  );
+
+  /**
+   * After an undo or a redo: if it took away the item that had focus, the
+   * board takes it, so the keys go on working.
+   */
+  const keepFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body || !active.isConnected) {
+        surface.current?.focus({ preventScroll: true });
+      }
+    });
+  }, []);
+  const undo = useCallback(() => {
+    if (undoStep()) setAnnouncement('Undone');
+    keepFocus();
+  }, [undoStep, keepFocus]);
+  const redo = useCallback(() => {
+    if (redoStep()) setAnnouncement('Redone');
+    keepFocus();
+  }, [redoStep, keepFocus]);
 
   const recolor = useCallback(
     (next: BoardColor) => {
@@ -338,55 +503,9 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           ? [{ type: 'editBoardItem' as const, id, patch: { color: next } }]
           : [];
       });
-      if (ops.length > 0) sendOps(ops);
+      if (ops.length > 0) run(ops);
     },
-    [byId, sendOps],
-  );
-
-  const create = useCallback(
-    (kind: Extract<BoardKind, 'sticky' | 'text'>, at: Point) => {
-      const id = newId();
-      const box =
-        kind === 'sticky'
-          ? {
-              x: at.x - STICKY_SIZE / 2,
-              y: at.y - STICKY_SIZE / 2,
-              w: STICKY_SIZE,
-              h: STICKY_SIZE,
-            }
-          : (() => {
-              const m = measureText('');
-              return {
-                x: at.x - TEXT_PAD,
-                y: at.y - TEXT_FONT / 2 - TEXT_PAD,
-                ...m,
-              };
-            })();
-      const ok = actions.addBoardItem({
-        item: {
-          id,
-          boardId,
-          kind,
-          x: clampCoord(box.x),
-          y: clampCoord(box.y),
-          w: box.w,
-          h: box.h,
-          z: nextZ(itemsRef.current),
-          color,
-          text: '',
-          points: [],
-        },
-      });
-      if (!ok) return;
-      setTool('select');
-      setSelected([id]);
-      if (focusFrame.current !== undefined) {
-        cancelAnimationFrame(focusFrame.current);
-        focusFrame.current = undefined;
-      }
-      setEditing({ id, fresh: true });
-    },
-    [actions, boardId, color],
+    [byId, run],
   );
 
   /** A focus waiting for the next frame; a new editor cancels it. */
@@ -410,6 +529,80 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     });
   }, []);
 
+  /**
+   * Adds an item of the current color on top of the board, as one step
+   * undo takes back. Returns its id, or null when it was refused.
+   */
+  const addItem = useCallback(
+    (
+      kind: BoardKind,
+      box: Box,
+      points: number[] = [],
+      at: Point = { x: box.x, y: box.y },
+    ) => {
+      const id = newId();
+      const ok = run([
+        {
+          type: 'addBoardItem',
+          item: {
+            id,
+            boardId,
+            kind,
+            x: clampCoord(at.x),
+            y: clampCoord(at.y),
+            w: Math.round(box.w),
+            h: Math.round(box.h),
+            z: nextZ(itemsRef.current),
+            color,
+            text: '',
+            points,
+          },
+        },
+      ]);
+      return ok ? id : null;
+    },
+    [run, boardId, color],
+  );
+
+  const create = useCallback(
+    (kind: Extract<BoardKind, 'sticky' | 'text' | 'rect'>, at: Point) => {
+      const box =
+        kind === 'sticky'
+          ? {
+              x: at.x - STICKY_SIZE / 2,
+              y: at.y - STICKY_SIZE / 2,
+              w: STICKY_SIZE,
+              h: STICKY_SIZE,
+            }
+          : kind === 'rect'
+            ? {
+                x: at.x - RECT_SIZE.w / 2,
+                y: at.y - RECT_SIZE.h / 2,
+                ...RECT_SIZE,
+              }
+            : (() => {
+                const m = measureText('');
+                return {
+                  x: at.x - TEXT_PAD,
+                  y: at.y - TEXT_FONT / 2 - TEXT_PAD,
+                  ...m,
+                };
+              })();
+      const id = addItem(kind, box);
+      if (!id) return;
+      setTool('select');
+      setSelected([id]);
+      if (focusFrame.current !== undefined) {
+        cancelAnimationFrame(focusFrame.current);
+        focusFrame.current = undefined;
+      }
+      // A rect's label is optional: it is edited when asked for.
+      if (kind === 'rect') focusItem(id);
+      else setEditing({ id, fresh: true });
+    },
+    [addItem, focusItem],
+  );
+
   const finishEdit = useCallback(
     (text: string | null) => {
       const current = editing;
@@ -419,7 +612,12 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       if (!item) return;
       const value = text ?? item.text;
       if (current.fresh && item.kind === 'text' && value.trim() === '') {
-        // Free text with nothing in it is no item at all.
+        // Free text with nothing in it is no item at all, nor a step.
+        forgetLast((ops) =>
+          ops.some(
+            (op) => op.type === 'deleteBoardItems' && op.ids.includes(item.id),
+          ),
+        );
         actions.deleteBoardItems({ ids: [item.id] });
         setSelected([]);
         surface.current?.focus({ preventScroll: true });
@@ -428,11 +626,11 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       if (text !== null && text !== item.text) {
         const patch: { text: string; w?: number; h?: number } = { text };
         if (item.kind === 'text') Object.assign(patch, measureText(text));
-        actions.editBoardItem({ id: item.id, patch });
+        run([{ type: 'editBoardItem', id: item.id, patch }]);
       }
       focusItem(item.id);
     },
-    [editing, byId, actions, focusItem],
+    [editing, byId, actions, focusItem, forgetLast, run],
   );
 
   const startEdit = useCallback(
@@ -518,7 +716,75 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     setResize(null);
     setMarquee(null);
     setPanning(false);
+    setDraft(null);
+    setErasing(NO_IDS);
+    setEndEdit(null);
   }, []);
+
+  /** Ink strokes within reach of the eraser's path from `a` to `b`. */
+  const strokesNear = useCallback((a: Point, b: Point, zoom: number) => {
+    const reach = Math.max(HIT_TOLERANCE, ERASER_REACH / zoom);
+    const steps = Math.max(
+      1,
+      Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / reach),
+    );
+    const out: string[] = [];
+    for (const item of itemsRef.current) {
+      if (item.kind !== 'ink') continue;
+      for (let i = 0; i <= steps; i += 1) {
+        const x = a.x + ((b.x - a.x) * i) / steps;
+        const y = a.y + ((b.y - a.y) * i) / steps;
+        if (hitTest(item, x, y, reach)) {
+          out.push(item.id);
+          break;
+        }
+      }
+    }
+    return out;
+  }, []);
+
+  /** A rect or an arrow drawn: added, selected, and back to Select. */
+  const finishDraw = (
+    g: Extract<Gesture, { kind: 'draw' }>,
+    screen: Point,
+    v: Viewport,
+  ) => {
+    const dragged = Math.hypot(screen.x - g.screen.x, screen.y - g.screen.y);
+    let id: string | null = null;
+    if (g.tool === 'rect') {
+      if (dragged <= DRAG_SLOP) {
+        create('rect', g.start);
+        return;
+      }
+      const box = dragBox(g.start, g.end, g.shift);
+      if (box.w < 1 || box.h < 1) return;
+      id = addItem('rect', box);
+    } else {
+      if (dragged <= DRAG_SLOP) return;
+      const items = itemsRef.current;
+      const from = snapEnd(items, g.start);
+      const to = snapEnd(
+        items,
+        g.shift ? constrainAngle(g.start, g.end) : g.end,
+      );
+      if (Math.hypot(to.x - from.x, to.y - from.y) < 2 / v.zoom) return;
+      const origin = { x: clampCoord(from.x), y: clampCoord(from.y) };
+      id = addItem(
+        'arrow',
+        {
+          ...origin,
+          w: Math.abs(to.x - from.x),
+          h: Math.abs(to.y - from.y),
+        },
+        arrowPoints(origin, from, to),
+        origin,
+      );
+    }
+    if (!id) return;
+    setTool('select');
+    setSelected([id]);
+    focusItem(id);
+  };
 
   const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
@@ -558,9 +824,50 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       setPanning(true);
       return;
     }
+    if (draws(tool)) {
+      // One finger (or the mouse) draws; a second finger turns it into a
+      // pinch, and what was drawn so far is dropped.
+      surface.current?.focus({ preventScroll: true });
+      const at = toBoard(v, p);
+      if (tool === 'ink') {
+        gesture.current = { kind: 'ink', points: [at.x, at.y] };
+        setDraft({ kind: 'ink', points: [at.x, at.y] });
+      } else if (tool === 'eraser') {
+        const ids = new Set(strokesNear(at, at, v.zoom));
+        gesture.current = { kind: 'erase', last: at, ids };
+        setErasing(ids);
+      } else {
+        gesture.current = {
+          kind: 'draw',
+          tool,
+          screen: p,
+          start: at,
+          end: at,
+          shift: e.shiftKey,
+        };
+      }
+      return;
+    }
     if (tool !== 'select') {
       gesture.current = { kind: 'place', tool, start: p };
       return;
+    }
+    const end = handle?.dataset.end;
+    if (end) {
+      const [only] = selectedRef.current;
+      const arrow = only ? byId.get(only) : undefined;
+      if (arrow?.kind === 'arrow') {
+        const which = end === 'start' ? 0 : 1;
+        gesture.current = {
+          kind: 'end',
+          id: arrow.id,
+          which,
+          at: arrowEnds(arrow)[which],
+          shift: e.shiftKey,
+        };
+        setEndEdit({ id: arrow.id, points: arrow.points });
+        return;
+      }
     }
     if (handle) {
       const [only] = selectedRef.current;
@@ -656,6 +963,64 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         setView(panBy(v, p.x - g.last.x, p.y - g.last.y));
         gesture.current = { kind: 'pan', last: p };
         return;
+      case 'draw': {
+        g.end = toBoard(v, p);
+        g.shift = e.shiftKey;
+        if (Math.hypot(p.x - g.screen.x, p.y - g.screen.y) <= DRAG_SLOP) {
+          setDraft(null);
+          return;
+        }
+        setDraft(
+          g.tool === 'rect'
+            ? { kind: 'rect', box: dragBox(g.start, g.end, g.shift) }
+            : {
+                kind: 'arrow',
+                from: g.start,
+                to: g.shift ? constrainAngle(g.start, g.end) : g.end,
+              },
+        );
+        return;
+      }
+      case 'ink': {
+        // Every sample the browser coalesced, so a fast stroke stays smooth.
+        const samples = e.nativeEvent.getCoalescedEvents?.() ?? [];
+        for (const s of samples.length > 0 ? samples : [e.nativeEvent]) {
+          const at = toBoard(v, screenPoint(s));
+          g.points.push(at.x, at.y);
+        }
+        setDraft({ kind: 'ink', points: [...g.points] });
+        return;
+      }
+      case 'erase': {
+        const at = toBoard(v, p);
+        const found = strokesNear(g.last, at, v.zoom).filter(
+          (id) => !g.ids.has(id),
+        );
+        g.last = at;
+        if (found.length > 0) {
+          for (const id of found) g.ids.add(id);
+          setErasing(new Set(g.ids));
+        }
+        return;
+      }
+      case 'end': {
+        const arrow = byId.get(g.id);
+        if (!arrow) return;
+        const [a, b] = arrowEnds(arrow);
+        const other = g.which === 0 ? b : a;
+        let at = toBoard(v, p);
+        if (e.shiftKey) at = constrainAngle(other, at);
+        g.at = at;
+        g.shift = e.shiftKey;
+        setEndEdit({
+          id: g.id,
+          points:
+            g.which === 0
+              ? arrowPoints(arrow, at, b)
+              : arrowPoints(arrow, a, at),
+        });
+        return;
+      }
       case 'place':
       case 'press':
         if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > DRAG_SLOP) {
@@ -718,6 +1083,45 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       case 'place':
         create(g.tool, toBoard(v, p));
         return;
+      case 'draw':
+        setDraft(null);
+        finishDraw(g, p, v);
+        return;
+      case 'ink': {
+        setDraft(null);
+        // Simplified to within a screen pixel, and to `inkPointsMax` at most.
+        const stroke = strokeOf(g.points, 1 / v.zoom, LIMITS.inkPointsMax);
+        addItem('ink', stroke, stroke.points);
+        return;
+      }
+      case 'erase':
+        setErasing(NO_IDS);
+        if (g.ids.size > 0) {
+          const ids = [...g.ids].filter((id) => byId.has(id));
+          if (ids.length > 0 && run([{ type: 'deleteBoardItems', ids }])) {
+            setSelected((s) => s.filter((id) => !g.ids.has(id)));
+            setAnnouncement(
+              ids.length === 1
+                ? 'Erased a drawing'
+                : `Erased ${ids.length} drawings`,
+            );
+          }
+        }
+        return;
+      case 'end': {
+        setEndEdit(null);
+        const arrow = byId.get(g.id);
+        if (!arrow) return;
+        const [a, b] = arrowEnds(arrow);
+        // Dropped on a sticky or a rect, the end holds on to its edge.
+        const at = snapEnd(itemsRef.current, g.at, arrow.id);
+        const points =
+          g.which === 0 ? arrowPoints(arrow, at, b) : arrowPoints(arrow, a, at);
+        if (points.join() !== arrow.points.join()) {
+          run([{ type: 'editBoardItem', id: arrow.id, patch: { points } }]);
+        }
+        return;
+      }
       case 'press':
         window.clearTimeout(g.timer);
         select([]);
@@ -765,13 +1169,17 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         const w = Math.round(box.w);
         const h = Math.round(box.h);
         const ops: BaseOp[] = [];
-        if (x !== item.x || y !== item.y) {
-          ops.push({ type: 'moveBoardItems', moves: [{ id: item.id, x, y }] });
-        }
         if (w !== item.w || h !== item.h) {
           ops.push({ type: 'editBoardItem', id: item.id, patch: { w, h } });
         }
-        if (ops.length > 0) sendOps(ops);
+        // Its own move and its arrows' re-aiming, after the new size.
+        ops.push(
+          ...moveOps(
+            [{ id: item.id, x, y }],
+            new Map([[item.id, { x, y, w, h }]]),
+          ),
+        );
+        if (ops.length > 0) run(ops);
         return;
       }
     }
@@ -796,12 +1204,22 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       select(itemsRef.current.map((b) => b.id));
       return;
     }
+    // ⌘Z undoes, ⇧⌘Z (or Ctrl+Y) redoes: this board's steps only.
+    if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'y') {
+      e.preventDefault();
+      redo();
+      return;
+    }
     if (mod || e.altKey) return;
     const key = e.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
-    const toolKey = TOOLS.find(
-      (t) => (t === 'select' ? 'v' : t === 'sticky' ? 's' : 't') === lower,
-    );
+    const toolKey = TOOLS.find((t) => TOOL_INFO[t].key.toLowerCase() === lower);
     if (toolKey && !e.shiftKey) {
       e.preventDefault();
       setTool(toolKey);
@@ -814,6 +1232,11 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         e.preventDefault();
         recolor(next);
       }
+      return;
+    }
+    if ((key === ']' || key === '[') && selectedRef.current.length > 0) {
+      e.preventDefault();
+      restack(key === ']' ? 'top' : 'bottom');
       return;
     }
     if (key === 'Escape') {
@@ -856,7 +1279,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       return;
     }
     if (key === 'Enter') {
-      if (tool === 'sticky' || tool === 'text') {
+      if (tool === 'sticky' || tool === 'text' || tool === 'rect') {
         e.preventDefault();
         const v = viewRef.current;
         if (v) create(tool, toBoard(v, center()));
@@ -918,9 +1341,11 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         className="board-surface relative min-h-0 flex-1 overflow-clip bg-background outline-ring/50 focus-visible:outline-2 focus-visible:-outline-offset-2"
       >
         <p id={`${gridId}-help`} className="sr-only">
-          V selects, S adds a sticky note, T adds text, 1 to 5 pick a color. Tab
+          V selects, S adds a sticky note, T adds text, R draws a rectangle, A
+          an arrow, P draws freehand and E erases; 1 to 5 pick a color. Tab
           moves between items; arrow keys move the selection, Enter edits it,
-          Delete removes it.
+          Delete removes it, ] brings it to the front and [ sends it to the
+          back. Command Z undoes and Shift Command Z redoes.
         </p>
         {/* biome-ignore lint/a11y/noSvgWithoutTitle: the region is named; its items carry their own names */}
         <svg
@@ -961,11 +1386,13 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
             />
           )}
           {view &&
-            items.map((item) => {
+            items.map((stored) => {
+              const points = livePoints.get(stored.id);
+              const item = points ? { ...stored, points } : stored;
               const box = placed(item);
               const isSelected = selected.includes(item.id);
               const moving = Boolean(
-                drag?.origins.has(item.id) || resize?.id === item.id,
+                drag?.origins.has(item.id) || resize?.id === item.id || points,
               );
               const local = bounds({ ...item, x: 0, y: 0, w: box.w, h: box.h });
               const pad = 4 / view.zoom;
@@ -981,6 +1408,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
                   data-kind={item.kind}
                   data-selected={isSelected || undefined}
                   data-dragging={moving || undefined}
+                  data-erasing={erasing.has(item.id) || undefined}
                   className="board-item"
                   style={{ transform: `translate(${box.x}px, ${box.y}px)` }}
                   onFocus={() => onItemFocus(item)}
@@ -1005,6 +1433,16 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
               );
             })}
           {view && handleBox && <Handles box={handleBox} zoom={view.zoom} />}
+          {view && single?.kind === 'arrow' && !editing && (
+            <EndHandles
+              arrow={{
+                ...single,
+                points: livePoints.get(single.id) ?? single.points,
+              }}
+              zoom={view.zoom}
+            />
+          )}
+          {draft && <DraftShape draft={draft} color={color} />}
           {marquee && (
             <rect
               className="board-marquee"
@@ -1032,6 +1470,16 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
         color={color}
         onColor={recolor}
       />
+      <EditBar
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        selected={selected.length}
+        onFront={() => restack('top')}
+        onBack={() => restack('bottom')}
+        onDelete={() => remove(selectedRef.current)}
+      />
       {view && (
         <ZoomControls
           zoom={view.zoom}
@@ -1049,6 +1497,78 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
 }
 
 const NONE: readonly BoardItem[] = [];
+const NO_IDS: ReadonlySet<string> = new Set();
+
+/** An arrow's two ends, to drag: 10px circles, 44px to a finger. */
+function EndHandles({ arrow, zoom }: { arrow: BoardItem; zoom: number }) {
+  const size = 5 / zoom;
+  const reach = 22 / zoom;
+  return (
+    <g aria-hidden>
+      {arrowEnds(arrow).map((p, i) => (
+        <g
+          key={i === 0 ? 'start' : 'end'}
+          data-handle="end"
+          data-end={i === 0 ? 'start' : 'end'}
+          style={{ cursor: 'move' }}
+        >
+          <circle cx={p.x} cy={p.y} r={reach} fill="transparent" />
+          <circle className="board-handle" cx={p.x} cy={p.y} r={size} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/** What is being drawn, in the current color, before it is an item. */
+function DraftShape({ draft, color }: { draft: Draft; color: BoardColor }) {
+  const item: BoardItem =
+    draft.kind === 'rect'
+      ? {
+          ...DRAFT,
+          kind: 'rect',
+          x: draft.box.x,
+          y: draft.box.y,
+          w: draft.box.w,
+          h: draft.box.h,
+          color,
+        }
+      : draft.kind === 'arrow'
+        ? {
+            ...DRAFT,
+            kind: 'arrow',
+            x: draft.from.x,
+            y: draft.from.y,
+            color,
+            points: arrowPoints(draft.from, draft.from, draft.to),
+          }
+        : { ...DRAFT, kind: 'ink', color, points: draft.points };
+  return (
+    <g
+      aria-hidden
+      className="board-item board-draft"
+      data-color={color}
+      data-kind={item.kind}
+      style={{ transform: `translate(${item.x}px, ${item.y}px)` }}
+    >
+      <ItemShape item={item} box={item} text="" />
+    </g>
+  );
+}
+
+const DRAFT: BoardItem = {
+  id: 'draft',
+  boardId: '',
+  kind: 'rect',
+  x: 0,
+  y: 0,
+  w: 0,
+  h: 0,
+  z: 0,
+  color: 'neutral',
+  text: '',
+  points: [],
+};
 
 const CORNERS: Corner[] = ['nw', 'ne', 'sw', 'se'];
 

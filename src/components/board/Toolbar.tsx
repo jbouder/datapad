@@ -1,7 +1,11 @@
 import {
+  ArrowUpRightIcon,
   CursorIcon,
+  EraserIcon,
   type Icon,
   NoteBlankIcon,
+  ScribbleIcon,
+  SquareIcon,
   TextTIcon,
 } from '@phosphor-icons/react';
 import { type KeyboardEvent, useRef, useState } from 'react';
@@ -9,8 +13,16 @@ import { BOARD_COLORS, type BoardColor } from '#shared/types';
 import { COLOR_LABELS } from '@/components/board/items';
 import { cn } from '@/lib/utils';
 
-/** What a pointer on the board does. #140 adds rect, arrow, ink, eraser. */
-export const TOOLS = ['select', 'sticky', 'text'] as const;
+/** What a pointer on the board does. */
+export const TOOLS = [
+  'select',
+  'sticky',
+  'text',
+  'rect',
+  'arrow',
+  'ink',
+  'eraser',
+] as const;
 export type Tool = (typeof TOOLS)[number];
 
 export const TOOL_INFO: Record<
@@ -20,15 +32,27 @@ export const TOOL_INFO: Record<
   select: { label: 'Select', key: 'V', icon: CursorIcon },
   sticky: { label: 'Sticky note', key: 'S', icon: NoteBlankIcon },
   text: { label: 'Text', key: 'T', icon: TextTIcon },
+  rect: { label: 'Rectangle', key: 'R', icon: SquareIcon },
+  arrow: { label: 'Arrow', key: 'A', icon: ArrowUpRightIcon },
+  ink: { label: 'Pen', key: 'P', icon: ScribbleIcon },
+  eraser: { label: 'Eraser', key: 'E', icon: EraserIcon },
 };
+
+/** Tools that draw by dragging: one finger draws with them, two pan. */
+export function draws(tool: Tool): tool is 'rect' | 'arrow' | 'ink' | 'eraser' {
+  return (
+    tool === 'rect' || tool === 'arrow' || tool === 'ink' || tool === 'eraser'
+  );
+}
 
 const BUTTON =
   'press flex size-11 shrink-0 items-center justify-center outline-ring/50 transition-colors duration-(--duration-fast) ease-(--ease-standard) hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 aria-pressed:bg-primary aria-pressed:text-primary-foreground';
 
 /**
  * The tools and the color: a toolbar (one tab stop; the arrow keys move
- * between its buttons) along the bottom on a phone, down the left on
- * desktop. Every button is a 44px target.
+ * between its buttons) along the bottom on a phone, the tools above the
+ * colors, and down the left on desktop, the tools beside the colors.
+ * Every button is a 44px target.
  */
 export function Toolbar({
   tool,
@@ -73,55 +97,59 @@ export function Toolbar({
       role="toolbar"
       aria-label="Whiteboard tools"
       onKeyDown={onKeyDown}
-      className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center border bg-background/95 shadow-sm desk:top-1/2 desk:bottom-auto desk:left-3 desk:-translate-x-0 desk:-translate-y-1/2 desk:flex-col"
+      className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center border bg-background/95 shadow-sm desk:top-1/2 desk:bottom-auto desk:left-3 desk:-translate-x-0 desk:-translate-y-1/2 desk:flex-row desk:items-start"
     >
-      {TOOLS.map((t, i) => {
-        const { label, key, icon: ToolIcon } = TOOL_INFO[t];
-        return (
-          <button
-            key={t}
-            type="button"
-            tabIndex={tabStop === i ? 0 : -1}
-            aria-pressed={tool === t}
-            aria-keyshortcuts={key}
-            aria-label={label}
-            title={`${label} (${key})`}
-            onClick={() => onTool(t)}
-            className={BUTTON}
-          >
-            <ToolIcon className="size-5" aria-hidden />
-          </button>
-        );
-      })}
+      <div className="flex desk:flex-col">
+        {TOOLS.map((t, i) => {
+          const { label, key, icon: ToolIcon } = TOOL_INFO[t];
+          return (
+            <button
+              key={t}
+              type="button"
+              tabIndex={tabStop === i ? 0 : -1}
+              aria-pressed={tool === t}
+              aria-keyshortcuts={key}
+              aria-label={label}
+              title={`${label} (${key})`}
+              onClick={() => onTool(t)}
+              className={BUTTON}
+            >
+              <ToolIcon className="size-5" aria-hidden />
+            </button>
+          );
+        })}
+      </div>
       <span
         aria-hidden
-        className="mx-0.5 h-6 w-px bg-border desk:mx-0 desk:my-0.5 desk:h-px desk:w-6"
+        className="h-px w-full bg-border desk:h-auto desk:w-px desk:self-stretch"
       />
-      {BOARD_COLORS.map((c, i) => (
-        <button
-          key={c}
-          type="button"
-          tabIndex={tabStop === TOOLS.length + i ? 0 : -1}
-          aria-pressed={color === c}
-          aria-keyshortcuts={String(i + 1)}
-          aria-label={`${COLOR_LABELS[c]} color`}
-          title={`${COLOR_LABELS[c]} (${i + 1})`}
-          data-color={c}
-          onClick={() => onColor(c)}
-          className={cn(
-            BUTTON,
-            'board-swatch aria-pressed:bg-muted aria-pressed:text-foreground',
-          )}
-        >
-          <span
-            aria-hidden
+      <div className="flex desk:flex-col">
+        {BOARD_COLORS.map((c, i) => (
+          <button
+            key={c}
+            type="button"
+            tabIndex={tabStop === TOOLS.length + i ? 0 : -1}
+            aria-pressed={color === c}
+            aria-keyshortcuts={String(i + 1)}
+            aria-label={`${COLOR_LABELS[c]} color`}
+            title={`${COLOR_LABELS[c]} (${i + 1})`}
+            data-color={c}
+            onClick={() => onColor(c)}
             className={cn(
-              'board-swatch-dot size-5 rounded-full transition-transform duration-(--duration-fast) ease-(--ease-standard)',
-              color === c && 'scale-125',
+              BUTTON,
+              'board-swatch aria-pressed:bg-muted aria-pressed:text-foreground',
             )}
-          />
-        </button>
-      ))}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'board-swatch-dot size-5 rounded-full transition-transform duration-(--duration-fast) ease-(--ease-standard)',
+                color === c && 'scale-125',
+              )}
+            />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
