@@ -13,12 +13,15 @@ import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
-/** The view's controls, from the URL so Back restores them. */
-function useMeetingFilters(): MeetingFilters {
-  const value = useQuery().toString();
+/**
+ * The view's controls, from the URL so Back restores them, over what is
+ * saved for the page.
+ */
+function useMeetingFilters(query: URLSearchParams): MeetingFilters {
+  const value = query.toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
     return { project: q.get('project') ?? '' };
@@ -28,22 +31,24 @@ function useMeetingFilters(): MeetingFilters {
 /**
  * Every meeting as a List (upcoming by month, then Past, collapsed), a
  * Calendar or a Timeline. Add meeting (any project, or General) and a
- * project filter; the filter and layout live in the URL.
+ * project filter; the filter and layout live in the URL and are saved for
+ * the page (#186).
  */
 export function MeetingsPage() {
   usePageTitle('Meetings');
   const { state } = useDatapad();
   const { newMeeting } = useMeetingForm();
   const { active } = useMotion();
-  const filters = useMeetingFilters();
+  const [query, changePage] = usePageQuery('meetings');
+  const filters = useMeetingFilters(query);
   const [view, setView] = useView('meetings', MEETING_VIEWS, 'list');
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>) =>
-      setQuery(changes, {
+      changePage(changes, {
         transition: (update) => withViewTransition(update, active, 'filter'),
       }),
-    [active],
+    [active, changePage],
   );
 
   const meetings = useMemo(

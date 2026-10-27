@@ -29,8 +29,9 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withLayoutTransition, withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
+import { setQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 type NoteView = 'feed' | 'grid';
 
@@ -50,9 +51,12 @@ export function notesPreset(project: string | null | undefined): string | null {
 /** How long typing in Find waits before filtering. */
 const FIND_DEBOUNCE_MS = 150;
 
-/** The view's controls, from the URL so Back restores them. */
-function useNoteFilters(): NoteFilters {
-  const value = useQuery().toString();
+/**
+ * The view's controls, from the URL so Back restores them, over what is
+ * saved for the page (never the Find text).
+ */
+function useNoteFilters(query: URLSearchParams): NoteFilters {
+  const value = query.toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
     return {
@@ -68,14 +72,15 @@ function useNoteFilters(): NoteFilters {
  * Grid (compact cards, pinned first, opening in place). Add note opens
  * the new-note panel, preset to the filtered project (General otherwise),
  * as `N` does here; then a project filter, Pinned and Find. Filters and
- * layout live in the URL.
+ * layout live in the URL, and all but Find are saved for the page (#186).
  */
 export function NotesPage() {
   usePageTitle('Notes');
   const { state } = useDatapad();
   const { hidden, newNote } = useNotes();
   const { active } = useMotion();
-  const filters = useNoteFilters();
+  const [query, changePage] = usePageQuery('notes');
+  const filters = useNoteFilters(query);
   const [view, setView] = useView('notes', NOTE_VIEWS, 'feed');
   const [open, setOpen] = useState<string | null>(null);
   const [find, setFind] = useState(filters.q);
@@ -95,10 +100,10 @@ export function NotesPage() {
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>) =>
-      setQuery(changes, {
+      changePage(changes, {
         transition: (update) => withViewTransition(update, active, 'filter'),
       }),
-    [active],
+    [active, changePage],
   );
 
   const notes = useMemo(

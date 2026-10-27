@@ -13,7 +13,7 @@ import {
   type Project,
 } from '#shared/types';
 import { DatePicker } from '@/components/inputs/DatePicker';
-import { Section } from '@/components/Section';
+import { type RememberSection, Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -35,11 +35,11 @@ const ICON_BUTTON = 'press size-11 shrink-0 desk:size-8';
 export function Milestones({
   project,
   today,
-  storageKey,
+  remember,
 }: {
   project: Project;
   today: DateString;
-  storageKey: string;
+  remember: RememberSection;
 }) {
   const { actions } = useDatapad();
   const { show } = useToast();
@@ -113,7 +113,7 @@ export function Milestones({
       <Section
         title="Milestones"
         count={milestones.filter((m) => m.date >= today).length}
-        storageKey={storageKey}
+        remember={remember}
         open={target !== null || undefined}
       >
         <div className="flex flex-col gap-3 pt-2">

@@ -3,7 +3,7 @@ import { localDate } from '#shared/dates';
 import { taskNoteCounts } from '#shared/select';
 import type { Task } from '#shared/types';
 import { QuickAdd } from '@/components/inputs/QuickAdd';
-import { Section } from '@/components/Section';
+import { type RememberSection, Section } from '@/components/Section';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import {
   type RowReorder,
@@ -30,7 +30,7 @@ export function TaskList({
   done,
   quickAdd,
   showProject = true,
-  doneKey,
+  doneRemember,
   onOpen,
   empty = 'No open tasks.',
   reorderProject,
@@ -46,8 +46,8 @@ export function TaskList({
     onProjectChange?: (projectId: string | null) => void;
   };
   showProject?: boolean;
-  /** localStorage key for the Done section's open state. */
-  doneKey?: string;
+  /** Where the Done section's open or closed is saved. */
+  doneRemember?: RememberSection;
   onOpen?: TaskRowProps['onOpen'];
   empty?: string;
   /**
@@ -274,7 +274,7 @@ export function TaskList({
         <Section
           title="Done"
           count={done.length}
-          storageKey={doneKey}
+          remember={doneRemember}
           defaultOpen={false}
         >
           <ul aria-label="Done tasks" className="flex flex-col border-t">

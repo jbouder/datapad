@@ -1,6 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
+import { TASK_GROUP_OPTIONS, TASK_STATUS_OPTIONS } from '#shared/pages';
 import type { Op } from '#shared/protocol';
 import {
   assigneeFor,
@@ -38,23 +39,20 @@ import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { withViewTransition } from '@/lib/motion';
-import { navigate, setQuery, useQuery } from '@/lib/router';
+import { navigate } from '@/lib/router';
 import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
-const GROUPS = [
-  { value: 'project', label: 'Project' },
-  { value: 'due', label: 'Due date' },
-  { value: 'assignee', label: 'Assignee' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'none', label: 'Nothing' },
-] as const;
+const GROUPS = TASK_GROUP_OPTIONS;
 
-/** The view's controls, from the URL so Back restores them. */
-function useTaskFilters(): TaskFilters {
-  const query = useQuery();
+/**
+ * The view's controls, from the URL so Back restores them, over what is
+ * saved for the page.
+ */
+function useTaskFilters(query: URLSearchParams): TaskFilters {
   const value = query.toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
@@ -87,7 +85,8 @@ const openTask = (id: string) => navigate({ name: 'task', id });
 /**
  * Every task, across projects, as a List, a dense Table (the desktop
  * default), a Board or a Timeline. Status, grouping, assignee, text, sort
- * and layout live in the URL. Add task opens the new-task panel (assigned
+ * and layout live in the URL; all but the text are saved for the page
+ * (#186). Add task opens the new-task panel (assigned
  * to whoever the view is filtered to); a task opens its own page. Every
  * layout has the filters and multi-select with the bulk bar.
  */
@@ -98,7 +97,8 @@ export function TasksPage() {
   const { active } = useMotion();
   const { show } = useToast();
   const { toggle, isDone } = useTaskToggle();
-  const filters = useTaskFilters();
+  const [query, changePage] = usePageQuery('tasks');
+  const filters = useTaskFilters(query);
   const [view, setView] = useView('tasks', TASK_VIEWS, defaultTaskView());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
@@ -109,14 +109,14 @@ export function TasksPage() {
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>, transition = true) => {
-      setQuery(changes, {
+      changePage(changes, {
         replace: !transition,
         transition: transition
           ? (update) => withViewTransition(update, active, 'filter')
           : undefined,
       });
     },
-    [active],
+    [active, changePage],
   );
 
   const groups = useMemo(
@@ -275,12 +275,7 @@ export function TasksPage() {
           legend="Show"
           value={filters.blocked ? 'blocked' : filters.status}
           onChange={(v) => changeQuery({ status: v === 'open' ? null : v })}
-          options={[
-            { value: 'open', label: 'Open' },
-            { value: 'blocked', label: 'Blocked' },
-            { value: 'done', label: 'Done' },
-            { value: 'all', label: 'All' },
-          ]}
+          options={[...TASK_STATUS_OPTIONS]}
         />
         <SelectField
           label="Group by"

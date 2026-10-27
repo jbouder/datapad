@@ -1680,6 +1680,169 @@ describe('settings', () => {
   });
 });
 
+describe('page preferences (#186)', () => {
+  const pages = (state: Snapshot) => settingsOf(state).pages;
+  const many = (n: number) =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`k${i}`, 'x']));
+
+  it('setPagePrefs merges a patch, unlogged, and leaves the default org', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const { state: next, changed } = at(state, {
+      type: 'setPagePrefs',
+      page: 'tasks',
+      patch: { view: 'board', group: 'due', filters: { status: 'done' } },
+    });
+    expect(pages(next)).toEqual({
+      tasks: { view: 'board', group: 'due', filters: { status: 'done' } },
+    });
+    expect(settingsOf(next).defaultOrg).toBe('Rebel Alliance');
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    // Not logged: no activity text anywhere.
+    expect(next.activity).toBe(state.activity);
+  });
+
+  it('merges key by key; null clears, and an emptied page goes', () => {
+    const state = run(
+      base(),
+      {
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { view: 'board', filters: { status: 'done', who: 'mine' } },
+      },
+      {
+        type: 'setPagePrefs',
+        page: 'focus',
+        patch: { sections: { 'day:later': true } },
+      },
+    );
+    const next = run(state, {
+      type: 'setPagePrefs',
+      page: 'tasks',
+      patch: { sort: 'title', filters: { who: null } },
+    });
+    expect(pages(next)?.tasks).toEqual({
+      view: 'board',
+      sort: 'title',
+      filters: { status: 'done' },
+    });
+    const cleared = run(next, {
+      type: 'setPagePrefs',
+      page: 'tasks',
+      patch: { view: null, sort: null, filters: { status: null } },
+    });
+    expect(pages(cleared)).toEqual({
+      focus: { sections: { 'day:later': true } },
+    });
+  });
+
+  it('resetPagePrefs resets one page, or every page, unlogged', () => {
+    const state = run(
+      base(),
+      { type: 'setPagePrefs', page: 'tasks', patch: { view: 'board' } },
+      { type: 'setPagePrefs', page: 'notes', patch: { view: 'grid' } },
+    );
+    const one = at(state, { type: 'resetPagePrefs', page: 'tasks' });
+    expect(pages(one.state)).toEqual({ notes: { view: 'grid' } });
+    expect(one.state.activity).toBe(state.activity);
+    const all = at(state, { type: 'resetPagePrefs', page: null });
+    // Kept, empty: the space has saved (nothing), so nothing carries over.
+    expect(pages(all.state)).toEqual({});
+    expect(all.changed).toEqual([{ col: 'settings', id: 'user' }]);
+  });
+
+  it('refuses more saved filters or sections than the limits', () => {
+    const full = run(base(), {
+      type: 'setPagePrefs',
+      page: 'tasks',
+      patch: {
+        filters: many(LIMITS.prefFiltersMax),
+        sections: Object.fromEntries(
+          Array.from({ length: LIMITS.prefSectionsMax }, (_, i) => [
+            `s${i}`,
+            false,
+          ]),
+        ),
+      },
+    });
+    expect(() =>
+      at(full, {
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { filters: { extra: 'x' } },
+      }),
+    ).toThrow(`${LIMITS.prefFiltersMax} saved filters per page at most`);
+    expect(() =>
+      at(full, {
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { sections: { extra: true } },
+      }),
+    ).toThrow(OpError);
+  });
+
+  it('validates the ops: known pages, sizes, something to change', () => {
+    const ok = (op: unknown) => OpSchema.safeParse(op).success;
+    expect(
+      ok({ type: 'setPagePrefs', page: 'tasks', patch: { view: 'board' } }),
+    ).toBe(true);
+    expect(ok({ type: 'resetPagePrefs', page: null })).toBe(true);
+    expect(ok({ type: 'resetPagePrefs', page: 'project' })).toBe(true);
+    expect(
+      ok({ type: 'setPagePrefs', page: 'orgs', patch: { view: 'x' } }),
+    ).toBe(false);
+    expect(ok({ type: 'setPagePrefs', page: 'tasks', patch: {} })).toBe(false);
+    expect(
+      ok({
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { view: 'x'.repeat(LIMITS.prefValueMax + 1) },
+      }),
+    ).toBe(false);
+    expect(
+      ok({
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { filters: { 'Not a key': 'x' } },
+      }),
+    ).toBe(false);
+    expect(
+      ok({
+        type: 'setPagePrefs',
+        page: 'tasks',
+        patch: { filters: many(LIMITS.prefFiltersMax + 1) },
+      }),
+    ).toBe(false);
+  });
+
+  it('round-trips through an export; one without pages imports unchanged', () => {
+    const state = run(base(), {
+      type: 'setPagePrefs',
+      page: 'project',
+      patch: { view: 'board', sections: { activity: true } },
+    });
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(pages(next)).toEqual({
+      project: { view: 'board', sections: { activity: true } },
+    });
+    // An older export: settings without pages stay without pages.
+    const old = ExportSchema.parse({
+      settings: { user: { defaultOrg: 'Rebel Alliance' } },
+    });
+    expect(old.settings.user).toEqual({ defaultOrg: 'Rebel Alliance' });
+    // A page this version does not know is dropped, not refused.
+    const future = ExportSchema.parse({
+      settings: {
+        user: { defaultOrg: '', pages: { tasks: { view: 'x' }, later: {} } },
+      },
+    });
+    expect(future.settings.user?.pages).toEqual({ tasks: { view: 'x' } });
+  });
+});
+
 describe('merge (import)', () => {
   it('round-trips a task’s notes, and leaves a note without taskId as it was', () => {
     const state = run(

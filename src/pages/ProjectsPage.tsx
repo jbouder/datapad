@@ -1,6 +1,11 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import {
+  HEALTH_OPTIONS,
+  PROJECT_SORT_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
+} from '#shared/pages';
+import {
   DEFAULT_PROJECT_FILTERS,
   type HealthFilter,
   PROJECT_SORTS,
@@ -23,35 +28,24 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
-const STATUSES: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'done', label: 'Done' },
-  { value: 'all', label: 'All' },
-];
+const STATUSES = PROJECT_STATUS_OPTIONS as unknown as Array<{
+  value: StatusFilter;
+  label: string;
+}>;
 
-const HEALTHS: Array<{ value: HealthFilter; label: string }> = [
-  { value: '', label: 'Any health' },
-  { value: 'red', label: 'Red' },
-  { value: 'yellow', label: 'Yellow' },
-  { value: 'green', label: 'Green' },
-];
+const HEALTHS = HEALTH_OPTIONS as unknown as Array<{
+  value: HealthFilter;
+  label: string;
+}>;
 
-const SORT_LABELS: Record<ProjectSort, string> = {
-  updated: 'Recently updated',
-  priority: 'Priority',
-  name: 'Name',
-  start: 'Start date',
-  target: 'Target date',
-  milestone: 'Next milestone',
-};
-
-/** Filters from the query string, so Back restores them. */
-function useProjectFilters(): ProjectFilters {
-  const query = useQuery();
+/**
+ * Filters from the query string, so Back restores them, over what is
+ * saved for the page.
+ */
+function projectFilters(query: URLSearchParams): ProjectFilters {
   const status = query.get('status');
   const health = query.get('health');
   const sort = query.get('sort');
@@ -71,7 +65,8 @@ function useProjectFilters(): ProjectFilters {
 
 /**
  * Every project that is not archived, as cards: filter by status (Active
- * by default) and org, sort five ways, all kept in the URL. Changing them
+ * by default) and org, sort five ways, all kept in the URL and saved for
+ * the page (#186). Changing them
  * runs a `filter` view transition over the grid.
  */
 export function ProjectsPage() {
@@ -79,20 +74,21 @@ export function ProjectsPage() {
   const { state } = useDatapad();
   const { openProjectForm } = useProjectForm();
   const { active } = useMotion();
-  const filters = useProjectFilters();
+  const [query, changePage] = usePageQuery('projects');
+  const filters = projectFilters(query);
   const [view, setView] = useView('projects', PROJECT_VIEWS, 'cards');
 
   const change = useCallback(
     (key: keyof ProjectFilters, value: string) => {
       const fallback = DEFAULT_PROJECT_FILTERS[key];
-      setQuery(
+      changePage(
         { [key]: value === fallback ? null : value },
         {
           transition: (update) => withViewTransition(update, active, 'filter'),
         },
       );
     },
-    [active],
+    [active, changePage],
   );
 
   const today = useToday();
@@ -161,10 +157,7 @@ export function ProjectsPage() {
           <SelectField
             label="Sort by"
             value={filters.sort}
-            options={PROJECT_SORTS.map((s) => ({
-              value: s,
-              label: SORT_LABELS[s],
-            }))}
+            options={[...PROJECT_SORT_OPTIONS]}
             onChange={(v) => change('sort', v)}
           />
         </div>
@@ -192,7 +185,7 @@ export function ProjectsPage() {
             variant="outline"
             className="press"
             onClick={() =>
-              setQuery(
+              changePage(
                 { status: null, health: null, org: null, sort: null },
                 {
                   transition: (update) =>

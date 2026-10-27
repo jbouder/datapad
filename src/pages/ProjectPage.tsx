@@ -51,7 +51,7 @@ import { useToast } from '@/providers/ToastProvider';
  * actions (Save as template among them while it has open tasks), the
  * description, then Milestones, Tasks and Meetings on the left, Notes and
  * Activity on the right (3:2 above 820px, one column below). Sections
- * remember open or closed per project.
+ * remember open or closed, one set for every project (#186).
  */
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
@@ -62,7 +62,7 @@ export function ProjectPage({ id }: { id: string }) {
   const { show } = useToast();
   const project = state?.projects[id];
   const [taskView, setTaskView] = useView(
-    'project-tasks',
+    'project',
     PROJECT_TASK_VIEWS,
     'list',
   );
@@ -127,7 +127,8 @@ export function ProjectPage({ id }: { id: string }) {
   const members = project.members
     .map((m) => state.people[m])
     .filter((p): p is Person => Boolean(p));
-  const key = (section: string) => `datapad:section:${id}:${section}`;
+  // One set for every project's page (#186).
+  const key = (section: string) => ({ page: 'project' as const, key: section });
 
   const toggleArchive = () => {
     const archive = !project.archived;
@@ -321,12 +322,12 @@ export function ProjectPage({ id }: { id: string }) {
           <Milestones
             project={project}
             today={today}
-            storageKey={key('milestones')}
+            remember={key('milestones')}
           />
           <Section
             title="Tasks"
             count={tasks.open.length}
-            storageKey={key('tasks')}
+            remember={key('tasks')}
             actions={
               <ViewSwitcher
                 views={PROJECT_TASK_VIEWS}
@@ -348,7 +349,7 @@ export function ProjectPage({ id }: { id: string }) {
                   open={tasks.open}
                   done={tasks.done}
                   showProject={false}
-                  doneKey={key('done')}
+                  doneRemember={key('done')}
                   reorderProject={id}
                   quickAdd={{
                     onAdd: (title) =>
@@ -361,7 +362,7 @@ export function ProjectPage({ id }: { id: string }) {
           <Section
             title="Meetings"
             count={meetings.filter((e) => e.date >= today).length}
-            storageKey={key('meetings')}
+            remember={key('meetings')}
             actions={
               <Button
                 variant="outline"
@@ -388,7 +389,7 @@ export function ProjectPage({ id }: { id: string }) {
           </Section>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
-          <Section title="Notes" count={notes.length} storageKey={key('notes')}>
+          <Section title="Notes" count={notes.length} remember={key('notes')}>
             <div className="flex flex-col gap-3 pt-2">
               <NoteForm projectId={id} people={state.people} />
               <div ref={notesList} className="flex flex-col gap-2">
@@ -412,7 +413,7 @@ export function ProjectPage({ id }: { id: string }) {
           </Section>
           <Section
             title="Activity"
-            storageKey={key('activity')}
+            remember={key('activity')}
             defaultOpen={false}
           >
             <ActivityList entries={state.activity[id]?.events ?? []} />

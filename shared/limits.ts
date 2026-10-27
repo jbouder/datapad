@@ -40,6 +40,16 @@ export const LIMITS = {
   /** Entries kept in one activity log (newest first). */
   activityMax: 150,
   activityTextMax: 300,
+  /** Pages with saved preferences in one space (#186). */
+  pagesMax: 16,
+  /** A saved filter's or section's name. */
+  prefKeyMax: 40,
+  /** A saved value: a layout, a sort, a project id, an org's name. */
+  prefValueMax: 120,
+  /** Filters saved for one page. */
+  prefFiltersMax: 12,
+  /** Sections remembered on one page. */
+  prefSectionsMax: 24,
   /** Ops in one batch (bulk actions and their undo). */
   batchMax: 200,
   /** Tasks named in one reorder. */
