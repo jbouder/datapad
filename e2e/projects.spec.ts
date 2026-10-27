@@ -10,7 +10,7 @@ async function newProject(
   org: string,
   priority: 'Low' | 'Medium' | 'High',
 ) {
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   const panel = page.getByRole('dialog');
   await panel.getByRole('textbox', { name: 'Name' }).fill(name);
   const orgBox = panel.getByRole('combobox', { name: 'Org' });
@@ -41,7 +41,7 @@ test('create two, filter by org, sort by priority, archive one', async ({
 }) => {
   await openLive(page, '/projects');
   await expect(page.getByText('No projects yet.')).toBeVisible();
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Cancel' })
