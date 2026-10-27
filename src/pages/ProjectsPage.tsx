@@ -127,9 +127,12 @@ export function ProjectsPage() {
           <ViewSwitcher views={PROJECT_VIEWS} value={view} onChange={setView} />
         )}
         {anyProjects && (
-          <Button className="press" onClick={() => openProjectForm()}>
-            <PlusIcon weight="bold" />
-            New project
+          <Button
+            className="press h-11 desk:h-8"
+            onClick={() => openProjectForm()}
+          >
+            <PlusIcon />
+            Add project
           </Button>
         )}
       </div>
@@ -174,9 +177,12 @@ export function ProjectsPage() {
           <p className="text-state">
             No projects yet. A project needs only a name to start.
           </p>
-          <Button className="press" onClick={() => openProjectForm()}>
-            <PlusIcon weight="bold" />
-            New project
+          <Button
+            className="press h-11 desk:h-8"
+            onClick={() => openProjectForm()}
+          >
+            <PlusIcon />
+            Add project
           </Button>
         </div>
       ) : projects.length === 0 ? (

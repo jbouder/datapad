@@ -103,7 +103,7 @@ for (const theme of CHECKED) {
     test('with the project form open', async ({ page }) => {
       await page.goto('/projects');
       await page
-        .getByRole('button', { name: 'New project', exact: true })
+        .getByRole('button', { name: 'Add project', exact: true })
         .click();
       await expect(page.getByRole('dialog')).toBeVisible();
       await expectAccessible(page);

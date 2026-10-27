@@ -13,7 +13,7 @@ test('name and Enter creates a project and goes to it', async ({
   request,
 }) => {
   await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   const name = panel(page).getByRole('textbox', { name: 'Name' });
   await expect(name).toBeFocused();
   await name.fill('Death Star plans');
@@ -29,7 +29,7 @@ test('name and Enter creates a project and goes to it', async ({
 
 test('Save never disables: it focuses the first problem', async ({ page }) => {
   await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   const create = panel(page).getByRole('button', { name: 'Create project' });
   await expect(create).toBeEnabled();
   await create.click();
@@ -58,7 +58,7 @@ test('a start date shows on the page and cannot come after the target', async ({
   request,
 }) => {
   await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   await panel(page).getByRole('textbox', { name: 'Name' }).fill('Hoth');
   const start = panel(page).getByRole('textbox', { name: 'Start date' });
   const target = panel(page).getByRole('textbox', { name: 'Target date' });

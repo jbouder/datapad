@@ -183,7 +183,7 @@ test('Orgs: a default org that new projects start in', async ({
 
   // New projects start in no org.
   await page.goto('/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('No org');
@@ -207,7 +207,7 @@ test('Orgs: a default org that new projects start in', async ({
 
   // Now new projects start in it.
   await page.goto('/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('Rebel Alliance');

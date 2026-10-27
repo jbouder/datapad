@@ -63,7 +63,7 @@ test('save a project’s tasks as a template, then start a project from it', asy
 
   // A new project from it.
   await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByRole('button', { name: 'Add project' }).click();
   const form = page.getByRole('dialog');
   await form.getByRole('textbox', { name: 'Name' }).fill('Hoth outpost');
   await form.getByRole('combobox', { name: 'Start from template' }).click();
