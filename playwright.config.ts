@@ -34,10 +34,14 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: CI,
-  // The retry is for the trace; a test that only passes on it still fails
-  // the run.
+  // CI retries a failed test once. A test that passes on the retry counts
+  // as passed: the reporter still lists it as flaky in the run summary, so
+  // a test drifting into flakiness stays visible without blocking the
+  // merge. Locally there is no retry, so a flake shows where it can be
+  // investigated. (Judged 2026-10-27 over 200 runs: 12 of 18 red runs were
+  // one test passing on its retry.)
   retries: CI ? 1 : 0,
-  failOnFlakyTests: CI,
+  failOnFlakyTests: false,
   workers: CI ? 2 : undefined,
   reporter: CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
