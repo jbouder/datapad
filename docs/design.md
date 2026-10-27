@@ -49,6 +49,23 @@ thing on the project, marked by the flag.
 State is never shown by color alone: dots have a text label for screen
 readers and a tooltip, and dates carry words.
 
+## Whiteboard
+
+- **Palette.** Five item colors, each a token: `neutral` →
+  `muted-foreground`, `accent` → `primary`, `ok`, `warn`, `danger` →
+  `destructive` (`.board-item[data-color]` sets `--board-tint`). A sticky
+  fills with `color-mix(in oklab, tint 20%, card)` and outlines at 55%;
+  mix in oklab, not oklch, which turns yellow and green pink. Rects,
+  arrows and ink stroke in the tint (2px, ink 3px, the same width at any
+  zoom); text is `card-foreground`.
+- **Grid.** A dot grid on `background`, `muted-foreground` at 40%: a dot
+  every 20 board units, the step doubling as you zoom out until the dots
+  are at least 12px apart on screen.
+- **Export.** Download as SVG / PNG resolves those same expressions to
+  hex in the current theme (Light or Dark), so the picture matches the
+  board; the grid and the selection are left out, and text uses a system
+  font (the app's own font is not there outside it).
+
 ## Type scale
 
 Oxanium throughout; base 15px with 1.45 line height (rem stays 16px so the

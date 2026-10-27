@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boxBetween,
   centred,
+  centreOn,
   clampCoord,
   clampZoom,
   fitTo,
@@ -191,5 +192,29 @@ describe('the grid and storage', () => {
     expect(parseViewport({ x: '1', y: 2, zoom: 1 })).toBeNull();
     expect(parseViewport({ x: Number.NaN, y: 2, zoom: 1 })).toBeNull();
     expect(parseViewport(null)).toBeNull();
+  });
+});
+
+describe('centreOn', () => {
+  const box = { x: 1000, y: 500, w: 200, h: 200 };
+  const middle = (v: Viewport, w: number, h: number) =>
+    toBoard(v, { x: w / 2, y: h / 2 });
+
+  it('centres the box at the current zoom when it is at least 100%', () => {
+    const v = centreOn({ x: 0, y: 0, zoom: 1.5 }, box, 800, 600);
+    expect(v.zoom).toBe(1.5);
+    close(middle(v, 800, 600), { x: 1100, y: 600 });
+  });
+
+  it('zooms in to 100% from further out', () => {
+    const v = centreOn({ x: 0, y: 0, zoom: 0.25 }, box, 800, 600);
+    expect(v.zoom).toBe(1);
+    close(middle(v, 800, 600), { x: 1100, y: 600 });
+  });
+
+  it('never cuts the box off on a small screen', () => {
+    const v = centreOn({ x: 0, y: 0, zoom: 2 }, box, 300, 600);
+    expect(v.zoom * box.w).toBeLessThanOrEqual(300);
+    close(middle(v, 300, 600), { x: 1100, y: 600 });
   });
 });

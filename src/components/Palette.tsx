@@ -32,7 +32,7 @@ import { useNewSpace } from '@/components/SpaceSwitcher';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { NAV } from '@/lib/nav';
-import { navigate, type Route } from '@/lib/router';
+import { boardItemLink, navigate, type Route } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -43,6 +43,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'meeting', heading: 'Meetings', icon: CalendarBlankIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
+  { kind: 'whiteboard', heading: 'Whiteboard', icon: ChalkboardSimpleIcon },
 ];
 
 interface Action {
@@ -95,6 +96,7 @@ export function Palette({
         state.meetings,
         state.people,
         state.orgs,
+        state.boardItems,
       )
     : null;
   const results = useMemo(
@@ -233,13 +235,21 @@ export function Palette({
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
         return choose(() => navigate({ name: 'people', person: id }));
+      case 'whiteboard': {
+        // Its board, with the item selected and centred.
+        const item = state?.boardItems[id];
+        if (!item) return;
+        const { route, query } = boardItemLink(item.boardId, id);
+        return choose(() => navigate(route, { query }));
+      }
     }
   };
 
   const projectName = (hit: SearchHit) => {
     const { projectId, kind } = hit.entry;
     if (kind === 'project' || kind === 'person' || kind === 'org') return null;
-    return projectId ? (state?.projects[projectId]?.name ?? null) : 'General';
+    if (projectId) return state?.projects[projectId]?.name ?? null;
+    return kind === 'whiteboard' ? 'Space whiteboard' : 'General';
   };
 
   return (
@@ -270,8 +280,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, meetings, orgs, people and actions. Arrow
-            keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, meetings, orgs, people, whiteboards and
+            actions. Arrow keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

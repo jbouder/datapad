@@ -1,10 +1,12 @@
 import { CaretLeftIcon } from '@phosphor-icons/react';
 import { GENERAL, GENERAL_BOARD } from '#shared/types';
 import { Board } from '@/components/board/Board';
+import { BoardMenu } from '@/components/board/BoardMenu';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { linkProps } from '@/lib/router';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { useSpaces } from '@/providers/DatapadProvider';
 
 /**
  * A whiteboard, full height below the top bar: a project's
@@ -13,6 +15,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
  */
 export function WhiteboardPage({ project: id }: { project?: string }) {
   const { state } = useDatapad();
+  const { current: space } = useSpaces();
   const project = id ? state?.projects[id] : undefined;
   usePageTitle(
     id
@@ -59,6 +62,12 @@ export function WhiteboardPage({ project: id }: { project?: string }) {
         <h1 className="shrink-0 px-1 font-heading text-base font-semibold tracking-tight">
           Whiteboard
         </h1>
+        {state && (
+          <BoardMenu
+            boardId={project ? project.id : GENERAL_BOARD}
+            name={project ? project.name : space.name}
+          />
+        )}
       </header>
       {state ? (
         <Board

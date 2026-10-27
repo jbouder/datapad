@@ -25,6 +25,7 @@ const SECTIONS = [
   { id: 'writing', title: 'Writing notes' },
   { id: 'mentions', title: 'Mentions' },
   { id: 'meetings', title: 'Meetings, topics, action items and notes' },
+  { id: 'whiteboard', title: 'Whiteboard' },
   { id: 'summaries', title: 'Summaries' },
   { id: 'spaces', title: 'Spaces' },
   { id: 'data', title: 'Your data' },
@@ -280,6 +281,38 @@ export function HelpPage({ section }: { section?: string }) {
           copies its uncovered topics to the next one in the series (skipping
           any it already has) and marks them covered here, with Undo. A carried
           topic shows the day it was first raised.
+        </p>
+      </Section>
+
+      <Section id="whiteboard">
+        <p className="text-sm">
+          Every project has a whiteboard (<strong>Whiteboard</strong> on its
+          page), and the space has one of its own in the rail; <Key>⌘K</Key> →
+          Open whiteboard goes to the one you are on. It is a freeform canvas
+          for sticky notes, text, rectangles, arrows and freehand ink, kept with
+          the rest of your data and live on every device.
+        </p>
+        <p className="text-sm">
+          The tools are on the toolbar, each with a key: <Key>V</Key> select,{' '}
+          <Key>S</Key> sticky note, <Key>T</Key> text, <Key>R</Key> rectangle,{' '}
+          <Key>A</Key> arrow, <Key>P</Key> pen and <Key>E</Key> eraser;{' '}
+          <Key>1</Key>–<Key>5</Key> pick a color. Double-click (or{' '}
+          <Key>Enter</Key> on) a sticky, a text or a rectangle to write in it.
+          An arrow dropped on a sticky or a rectangle stays attached as it
+          moves. Drag to move, use the corners to resize, <Key>]</Key> and{' '}
+          <Key>[</Key> bring to the front and send to the back, and{' '}
+          <Key>Delete</Key> removes. Scroll, or hold <Key>Space</Key> and drag,
+          to pan; <Key>⌘</Key>-scroll or pinch to zoom. On a phone a drawing
+          tool draws with one finger and two fingers pan.
+        </p>
+        <p className="text-sm">
+          <Key>⌘Z</Key> undoes and <Key>⇧⌘Z</Key> redoes every change you made
+          on the board while it is open; the Undo and Redo buttons at its corner
+          do the same on a phone. <Key>⌘K</Key> finds the words on stickies,
+          text and rectangles and opens the board on the one you pick. The
+          board’s menu (⋯ in its header) has <strong>Download as PNG</strong>{' '}
+          and <strong>Download as SVG</strong>: a picture of everything on the
+          board in the current theme’s colors, made in this browser.
         </p>
       </Section>
 

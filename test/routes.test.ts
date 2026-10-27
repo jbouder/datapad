@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BOARD_ITEM_PARAM,
+  boardItemLink,
+  boardRoute,
   canonicalQuery,
   linkedMeeting,
   parseRoute,
@@ -259,5 +262,17 @@ describe('Settings sections', () => {
     }
     expect(settingsRoute('people')).toEqual({ name: 'people' });
     expect(settingsSectionOf({ name: 'tasks' })).toBeNull();
+  });
+
+  it('links a whiteboard item: its board, with ?item=', () => {
+    expect(boardRoute('general')).toEqual({ name: 'whiteboard' });
+    expect(boardRoute('p-echo')).toEqual({
+      name: 'whiteboard',
+      project: 'p-echo',
+    });
+    const link = boardItemLink('p-echo', 'b 1');
+    expect(routePath(link.route)).toBe('/projects/p-echo/whiteboard');
+    expect(new URLSearchParams(link.query).get(BOARD_ITEM_PARAM)).toBe('b 1');
+    expect(routePath(boardItemLink('general', 'b2').route)).toBe('/whiteboard');
   });
 });

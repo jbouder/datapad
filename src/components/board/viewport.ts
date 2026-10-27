@@ -122,6 +122,34 @@ export function fitTo(
   };
 }
 
+/**
+ * The view centred on `box`: at the current zoom, but at least 100% so
+ * its words can be read, and never so close that it is cut off (a search
+ * result opening the board on one item).
+ */
+export function centreOn(
+  view: Viewport,
+  box: Box,
+  width: number,
+  height: number,
+  padding = FIT_PADDING,
+): Viewport {
+  const roomW = Math.max(1, width - 2 * padding);
+  const roomH = Math.max(1, height - 2 * padding);
+  const zoom = clampZoom(
+    Math.min(
+      Math.max(view.zoom, 1),
+      roomW / Math.max(box.w, 1),
+      roomH / Math.max(box.h, 1),
+    ),
+  );
+  return {
+    x: box.x + box.w / 2 - width / (2 * zoom),
+    y: box.y + box.h / 2 - height / (2 * zoom),
+    zoom,
+  };
+}
+
 /** The view a new board opens on: the origin in the middle, at 100%. */
 export function centred(width: number, height: number): Viewport {
   return { x: -width / 2, y: -height / 2, zoom: 1 };

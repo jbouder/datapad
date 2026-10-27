@@ -20,6 +20,9 @@ import {
  */
 
 export {
+  BOARD_ITEM_PARAM,
+  boardItemLink,
+  boardRoute,
   type Route,
   type RouteName,
   SETTINGS_SECTIONS,
