@@ -224,7 +224,6 @@ describe('projectContext', () => {
         'Start date: none',
         'Target date: Fri 20 Nov 2026',
         'Team: Leia Organa, Han Solo',
-        'Current state: Shield generator half up',
         'Description:',
         'Keep @Leia Organa posted.',
         '',

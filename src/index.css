@@ -249,16 +249,10 @@
     line-height: 1.2;
     font-weight: 600;
   }
-  /* The "current state" line: the one expressive element on a project. */
+  /* Quiet lines: empty states and short notes about a view. */
   .text-state {
     font-size: 17px;
     line-height: 1.35;
-    font-weight: 500;
-    color: var(--muted-foreground);
-  }
-  .text-state-lg {
-    font-size: 22px;
-    line-height: 1.3;
     font-weight: 500;
     color: var(--muted-foreground);
   }

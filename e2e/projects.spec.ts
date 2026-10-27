@@ -108,7 +108,8 @@ test('cards carry org, status, state, counts, target, next marker and members', 
   const echo = cards(page).filter({ hasText: 'Echo Base relocation' });
   await expect(echo).toContainText('Rebel Alliance');
   await expect(echo).toContainText('Active');
-  await expect(echo).toContainText('Shield generator parts arrive Friday');
+  // The retired current state line is not shown.
+  await expect(echo).not.toContainText('Shield generator parts arrive Friday');
   await expect(echo).toContainText('3 open tasks');
   await expect(echo).toContainText('Target Sat 14 Nov');
   await expect(echo).toContainText('Base operational');

@@ -102,7 +102,10 @@ test('record a decision on a project, decide it, find it again', async ({
   await expect(palette.getByRole('group', { name: 'Decisions' })).toContainText(
     'Move the base to Hoth',
   );
-  await palette.getByRole('option', { name: /Move the base to Hoth/ }).click();
+  await palette
+    .getByRole('group', { name: 'Decisions' })
+    .getByRole('option', { name: /Move the base to Hoth/ })
+    .click();
   await expect(page.getByRole('dialog', { name: 'Decision' })).toBeVisible();
 
   // Leia's page lists it.

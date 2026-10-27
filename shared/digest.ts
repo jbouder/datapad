@@ -31,8 +31,6 @@ export interface ProjectDigest {
   closed: string[];
   added: string[];
   notes: number;
-  /** The current state line, when it changed this week. */
-  state: string | null;
   /** "Status changed to paused", "Health set to red", in order. */
   changes: string[];
   /** "Mon 19 Oct: Shield review". */
@@ -88,7 +86,6 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
         closed: [],
         added: [],
         notes: 0,
-        state: null,
         changes: [],
         meetings: [],
         milestones: [],
@@ -144,9 +141,6 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
     const week = log.events.filter((a) => inRange(a.t, range)).reverse();
     for (const a of week) {
       if (CHANGE.test(a.text)) group(projectId).changes.push(a.text);
-      if (a.text === 'Updated current state' && projectId) {
-        group(projectId).state = state.projects[projectId]?.state || null;
-      }
     }
   }
 
@@ -160,7 +154,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
           g.meetings.length +
           g.milestones.length +
           g.decisions.length >
-          0 || g.state !== null,
+        0,
     )
     .sort(
       (a, b) =>
@@ -200,7 +194,6 @@ export function digestMarkdown(digest: Digest): string {
   }
   for (const g of projects) {
     lines.push('', `### ${g.name}`);
-    if (g.state) lines.push(`- **Now:** ${g.state}`);
     for (const c of g.changes) lines.push(`- ${c}`);
     if (g.closed.length) lines.push(`- **Closed:** ${g.closed.join('; ')}`);
     if (g.added.length) lines.push(`- **Added:** ${g.added.join('; ')}`);

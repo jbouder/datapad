@@ -1,20 +1,10 @@
-import {
-  expect,
-  expectSaved,
-  isMobile,
-  openLive,
-  SEED,
-  test,
-} from './fixtures';
+import { expect, isMobile, openLive, SEED, test } from './fixtures';
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('from a card to the project, then edit the state line', async ({
-  page,
-  request,
-}) => {
+test('from a card to the project; no current state line', async ({ page }) => {
   await openLive(page, '/projects');
   await page
     .getByRole('list', { name: 'Projects' })
@@ -22,48 +12,13 @@ test('from a card to the project, then edit the state line', async ({
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await expect(page).toHaveTitle('Echo Base relocation · Datapad');
-
-  const line = page.getByRole('textbox', { name: 'Current state' });
-  await expect(line).toHaveValue('Shield generator parts arrive Friday');
-
-  // Esc puts it back and saves nothing.
-  await line.fill('Never mind');
-  await line.press('Escape');
-  await expect(line).toHaveValue('Shield generator parts arrive Friday');
-
-  // Enter blurs and saves.
-  await line.fill('Generator installed; testing the shield');
-  await line.press('Enter');
-  await expect(line).not.toBeFocused();
-
-  // Blurring again without a change logs nothing more.
-  await line.focus();
-  await line.blur();
-
-  const activity = page.getByRole('button', { name: /^Activity/ });
-  await activity.click();
-  await expect(activity).toHaveAttribute('aria-expanded', 'true');
-  const log = page.getByRole('list', { name: 'Activity' });
-  await expect(log.getByRole('listitem').first()).toContainText(
-    'Updated current state',
-  );
-  await expect(log.getByRole('listitem').first()).toContainText('just now');
-  await expectSaved(page);
-
-  const data = await (await request.get('/api/export.json')).json();
-  expect(
-    data.activity['p-echo'].events.filter(
-      (e: { text: string }) => e.text === 'Updated current state',
-    ),
-  ).toHaveLength(1);
-
-  // The card shows it too.
-  await page.goto('/projects');
+  // Retired: the seed still has one, and nothing shows it.
   await expect(
-    page
-      .getByRole('list', { name: 'Projects' })
-      .getByRole('link', { name: /Echo Base relocation/ }),
-  ).toContainText('Generator installed; testing the shield');
+    page.getByRole('textbox', { name: 'Current state' }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText(
+    'Shield generator parts arrive Friday',
+  );
 });
 
 test('activity times say when exactly on focus', async ({ page }) => {

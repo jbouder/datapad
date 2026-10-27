@@ -54,14 +54,13 @@ readers and a tooltip, and dates carry words.
 Oxanium throughout; base 15px with 1.45 line height (rem stays 16px so the
 stock components keep their sizes).
 
-| Use                                | Size                             | Class             |
-| ---------------------------------- | -------------------------------- | ----------------- |
-| Body                               | 15px / 1.45                      | default           |
-| Page title                         | 34px desktop, 28px below 820px   | `text-page-title` |
-| Card name                          | 24px                             | `text-card-name`  |
-| Current state line, on cards       | 17px, medium, `muted-foreground` | `text-state`      |
-| Current state line, project header | 22px                             | `text-state-lg`   |
-| Code                               | JetBrains Mono                   | `font-mono`       |
+| Use                          | Size                             | Class             |
+| ---------------------------- | -------------------------------- | ----------------- |
+| Body                         | 15px / 1.45                      | default           |
+| Page title                   | 34px desktop, 28px below 820px   | `text-page-title` |
+| Card name                    | 24px                             | `text-card-name`  |
+| Empty states and quiet lines | 17px, medium, `muted-foreground` | `text-state`      |
+| Code                         | JetBrains Mono                   | `font-mono`       |
 
 ## Text styles
 
