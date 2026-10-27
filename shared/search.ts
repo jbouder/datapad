@@ -13,7 +13,6 @@ export const SEARCH_KINDS = [
   'task',
   'note',
   'meeting',
-  'decision',
   'org',
   'person',
 ] as const;
@@ -55,7 +54,6 @@ export const searchIndex = lastCall(
     notes: Snapshot['notes'],
     meetings: Snapshot['meetings'],
     people: Snapshot['people'],
-    decisions: Snapshot['decisions'],
     orgs: Snapshot['orgs'],
   ): SearchIndex => {
     const archived = (projectId: string | null) =>
@@ -128,17 +126,6 @@ export const searchIndex = lastCall(
             .map((t) => t.title)
             .join(' '),
         ),
-      ),
-      decision: Object.values(decisions).map((x) =>
-        entry({
-          kind: 'decision',
-          id: x.id,
-          title: x.title,
-          body: flat(tokensToNames(x.rationale, people)),
-          projectId: x.projectId,
-          archived: archived(x.projectId),
-          updatedAt: x.updatedAt,
-        }),
       ),
       org: Object.values(orgs).map((o) =>
         entry(

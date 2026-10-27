@@ -88,7 +88,6 @@ export const SUMMARY_LIMITS = {
   doneTasks: 15,
   notes: 20,
   activity: 25,
-  decisions: 10,
 } as const;
 
 const PRIORITY_WORDS = {
@@ -288,24 +287,6 @@ export function projectContext(projectId: string, state: Snapshot): string {
       );
     }
     lines.pop();
-  }
-
-  const decisions = Object.values(state.decisions ?? {})
-    .filter((x) => x.projectId === projectId)
-    .sort((a, b) =>
-      (b.decidedAt || b.createdAt).localeCompare(a.decidedAt || a.createdAt),
-    )
-    .slice(0, SUMMARY_LIMITS.decisions);
-  if (decisions.length > 0) {
-    lines.push('', 'Decisions, newest first:');
-    for (const x of decisions) {
-      const when = x.decidedAt ? ` ${day(x.decidedAt)}` : '';
-      const by = names(state, x.deciders);
-      lines.push(`- [${x.status}${when}] ${x.title}${by ? ` (${by})` : ''}`);
-      if (x.rationale.trim()) {
-        lines.push(indent(tokensToNames(x.rationale, state.people)));
-      }
-    }
   }
 
   const activity = (state.activity[projectId]?.events ?? []).slice(

@@ -1,5 +1,4 @@
 import { AppShell } from '@/components/AppShell';
-import { DecisionPanelProvider } from '@/components/decisions/DecisionPanelProvider';
 import { ImportExportProvider } from '@/components/ImportExport';
 import { MeetingFormProvider } from '@/components/meetings/MeetingFormProvider';
 import { NotesProvider } from '@/components/notes/NotesProvider';
@@ -26,19 +25,17 @@ export default function App() {
                 <ImportExportProvider>
                   <SummaryProvider>
                     <BlockedProvider>
-                      <DecisionPanelProvider>
-                        <TemplateFormProvider>
-                          <ProjectFormProvider>
-                            <NotesProvider>
-                              <TaskPanelProvider>
-                                <MeetingFormProvider>
-                                  <AppShell />
-                                </MeetingFormProvider>
-                              </TaskPanelProvider>
-                            </NotesProvider>
-                          </ProjectFormProvider>
-                        </TemplateFormProvider>
-                      </DecisionPanelProvider>
+                      <TemplateFormProvider>
+                        <ProjectFormProvider>
+                          <NotesProvider>
+                            <TaskPanelProvider>
+                              <MeetingFormProvider>
+                                <AppShell />
+                              </MeetingFormProvider>
+                            </TaskPanelProvider>
+                          </NotesProvider>
+                        </ProjectFormProvider>
+                      </TemplateFormProvider>
                     </BlockedProvider>
                   </SummaryProvider>
                 </ImportExportProvider>

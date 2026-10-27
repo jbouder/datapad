@@ -1,4 +1,4 @@
-import { ArchiveIcon, GavelIcon, NewspaperIcon } from '@phosphor-icons/react';
+import { ArchiveIcon, NewspaperIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
@@ -53,7 +53,6 @@ export function Rail({ route }: { route: Route }) {
   const archived = state
     ? Object.values(state.projects).filter((p) => p.archived).length
     : 0;
-  const decisions = state ? Object.keys(state.decisions).length : 0;
   const anyProjects = state ? Object.keys(state.projects).length > 0 : false;
 
   const countFor = (name: string): number | undefined =>
@@ -153,21 +152,6 @@ export function Rail({ route }: { route: Route }) {
           >
             <NewspaperIcon aria-hidden />
             <span className="flex-1">Weekly digest</span>
-          </a>
-        )}
-        {(decisions > 0 || route.name === 'decisions') && (
-          <a
-            {...linkProps({ name: 'decisions' })}
-            aria-current={route.name === 'decisions' ? 'page' : undefined}
-            className={cn(
-              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-              route.name === 'decisions' &&
-                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-            )}
-          >
-            <GavelIcon aria-hidden />
-            <span className="flex-1">Decisions</span>
-            <span className="count text-xs tabular-nums">{decisions}</span>
           </a>
         )}
         {archived > 0 && (

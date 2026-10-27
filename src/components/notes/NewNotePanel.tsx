@@ -34,7 +34,7 @@ export function NewNotePanel({
   const [error, setError] = useState<string | null>(null);
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
-  const commands = useNoteCommands(project, noteId.current);
+  const commands = useNoteCommands(project);
 
   const add = () => {
     const body = namesToTokens(text, people).trim();

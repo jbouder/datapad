@@ -430,11 +430,23 @@ test('delete, then Undo puts it back as it was', async ({ page, request }) => {
   expect((await stored(request)).meetings['e-1']?.topics).toEqual(TOPICS);
 });
 
-test('Make a task and Record a decision start from the topic', async ({
+test('Make a task starts from the topic; there is no decision', async ({
   page,
   request,
 }) => {
   await openLive(page, SHIELD);
+  await topicList(page)
+    .getByRole('button', { name: 'More for topic “Power budget”' })
+    .click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Make a task' }),
+  ).toBeVisible();
+  // Decisions are retired (#183).
+  await expect(page.getByRole('menuitem', { name: /decision/i })).toHaveCount(
+    0,
+  );
+  await page.keyboard.press('Escape');
+
   await topicAction(page, 'North ridge', 'Make a task');
   const task = page.getByRole('dialog', { name: 'New task' });
   await expect(task.getByLabel('Title')).toHaveValue('North ridge');
@@ -444,41 +456,15 @@ test('Make a task and Record a decision start from the topic', async ({
   await task.getByRole('button', { name: 'Add task' }).click();
   await expect(task).toBeHidden();
 
-  await topicAction(page, 'Power budget', 'Record a decision');
-  const decision = page.getByRole('dialog', { name: 'Decision' });
-  await expect(decision.getByLabel('Decision')).toHaveValue('Power budget');
-  await expect(decision.getByRole('combobox', { name: 'Project' })).toHaveValue(
-    'Echo Base relocation',
-  );
-  const by = decision.getByRole('group', { name: 'Decided by' });
-  await expect(by.getByRole('checkbox', { name: 'Leia Organa' })).toBeChecked();
-  await expect(by.getByRole('checkbox', { name: 'Han Solo' })).toBeChecked();
-  await expect(
-    by.getByRole('checkbox', { name: 'Chewbacca' }),
-  ).not.toBeChecked();
-  await decision.getByRole('button', { name: 'Add decision' }).click();
-  await expect(decision).toBeHidden();
-
   await expectSaved(page);
   const data = (await (await request.get('/api/export.json')).json()) as {
     tasks: Record<string, { title: string; projectId: string | null }>;
-    decisions: Record<
-      string,
-      { title: string; projectId: string | null; deciders: string[] }
-    >;
     meetings: Stored['meetings'];
   };
   expect(Object.values(data.tasks)).toContainEqual(
     expect.objectContaining({ title: 'North ridge', projectId: 'p-echo' }),
   );
-  expect(Object.values(data.decisions)).toContainEqual(
-    expect.objectContaining({
-      title: 'Power budget',
-      projectId: 'p-echo',
-      deciders: ['u-leia', 'u-han'],
-    }),
-  );
-  // Neither writes back to the topic.
+  // It does not write back to the topic.
   expect(data.meetings['e-1']?.topics).toEqual(TOPICS);
 });
 

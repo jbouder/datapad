@@ -61,8 +61,8 @@ export function MoveProjectDialog({
           <DialogHeader>
             <DialogTitle>Move to another space</DialogTitle>
             <DialogDescription>
-              {projectName} goes with its tasks, notes, meetings, milestones,
-              decisions and activity. Its people and org are copied.
+              {projectName} goes with its tasks, notes, meetings, milestones and
+              activity. Its people and org are copied.
             </DialogDescription>
           </DialogHeader>
           <fieldset className="flex flex-col gap-1" disabled={busy}>

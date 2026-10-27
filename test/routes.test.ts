@@ -20,12 +20,20 @@ describe('parseRoute', () => {
       'tasks',
       'notes',
       'meetings',
-      'decisions',
       'digest',
     ] as const) {
       expect(parseRoute(`/${name}`)).toEqual({ name });
       expect(parseRoute(`/${name}/`)).toEqual({ name });
     }
+  });
+
+  it('sends the retired Decisions addresses to Focus', () => {
+    expect(parseRoute('/decisions')).toEqual({ name: 'focus' });
+    expect(parseRoute('/decisions/')).toEqual({ name: 'focus' });
+    expect(parseRoute('/decisions/d-1')).toEqual({ name: 'focus' });
+    expect(routePath(parseRoute('/decisions'))).toBe('/');
+    expect(parseRoute('/decisionsx')).toEqual({ name: 'notFound' });
+    expect(canonicalQuery('/decisions', '?decision=d-1')).toBe('');
   });
 
   it('sends the old Events address to Meetings', () => {

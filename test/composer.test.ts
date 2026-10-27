@@ -87,19 +87,6 @@ describe('applyCommand', () => {
     );
   });
 
-  it('/decision marks the line and names the decision, once', () => {
-    const { text, sel } = mark('notes\n- go to Hoth|\nmore');
-    const result = applyCommand(text, sel, 'decision', ctx);
-    expect(show(result)).toBe('notes\n**Decision:** go to Hoth|\nmore');
-    expect(result.decision).toBe('go to Hoth');
-    // Again on a marked line: the mark is not doubled.
-    const again = applyCommand(result.text, result.sel, 'decision', ctx);
-    expect(again.text).toBe('notes\n**Decision:** go to Hoth\nmore');
-    expect(
-      applyCommand('', { start: 0, end: 0 }, 'decision', ctx).decision,
-    ).toBe(undefined);
-  });
-
   it('every command produces what the renderer reads', () => {
     const h = applyCommand('Title', { start: 5, end: 5 }, 'h2', ctx);
     expect(parseMarkdown(h.text)[0]).toMatchObject({ t: 'h', level: 2 });

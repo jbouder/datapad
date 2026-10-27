@@ -31,8 +31,7 @@ export type CommandId =
   | 'date'
   | 'time'
   | 'mention'
-  | 'task'
-  | 'decision';
+  | 'task';
 
 export interface Command {
   id: CommandId;
@@ -121,12 +120,6 @@ export const COMMANDS: readonly Command[] = [
     label: 'Task',
     description: 'Make this line a task',
     markdown: '- [ ] ',
-  },
-  {
-    id: 'decision',
-    label: 'Decision',
-    description: 'Record this line as a decision',
-    markdown: '**Decision:** ',
   },
 ];
 
@@ -437,8 +430,6 @@ function codeBlock(text: string, sel: Selection): Edit {
 export interface CommandResult extends Edit {
   /** `/task`: the title of the task to make from the line. */
   task?: string;
-  /** `/decision`: the title of the decision to record from the line. */
-  decision?: string;
 }
 
 /**
@@ -479,19 +470,6 @@ export function applyCommand(
       return insert(text, sel, ctx.time);
     case 'mention':
       return insert(text, sel, '@');
-    case 'decision': {
-      const from = lineStart(text, sel.start);
-      const to = lineEnd(text, sel.start);
-      const { content } = split(text.slice(from, to));
-      const bare = content.trim().replace(/^\*\*Decision:\*\*\s*/, '');
-      const title = bare.slice(0, 200);
-      const line = `**Decision:** ${bare}`;
-      return {
-        text: text.slice(0, from) + line + text.slice(to),
-        sel: { start: from + line.length, end: from + line.length },
-        ...(title ? { decision: title } : {}),
-      };
-    }
     case 'task': {
       const from = lineStart(text, sel.start);
       const to = lineEnd(text, sel.start);

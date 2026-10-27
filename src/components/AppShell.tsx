@@ -18,7 +18,6 @@ import {
 } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { ArchivePage } from '@/pages/ArchivePage';
-import { DecisionsPage } from '@/pages/DecisionsPage';
 import { DigestPage } from '@/pages/DigestPage';
 import { FocusPage } from '@/pages/FocusPage';
 import { HelpPage } from '@/pages/HelpPage';
@@ -208,8 +207,6 @@ function Page({ route }: { route: Route }) {
       return <MeetingsPage />;
     case 'meeting':
       return <MeetingPage id={route.id} />;
-    case 'decisions':
-      return <DecisionsPage />;
     case 'digest':
       return <DigestPage />;
     case 'people':

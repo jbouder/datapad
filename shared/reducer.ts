@@ -859,7 +859,7 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
-    /* decisions */
+    /* decisions: retired (#183), kept so old clients' ops still apply */
     case 'addDecision': {
       fresh(d, 'decisions', op.id, 'decision');
       checkProject(d, op.projectId);

@@ -6,7 +6,6 @@ import {
   CircleHalfIcon,
   DownloadSimpleIcon,
   FolderIcon,
-  GavelIcon,
   type Icon,
   MagnifyingGlassIcon,
   NewspaperIcon,
@@ -23,7 +22,6 @@ import {
   search,
   searchIndex,
 } from '#shared/search';
-import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useImportExport } from '@/components/ImportExport';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
@@ -40,7 +38,6 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
   { kind: 'meeting', heading: 'Meetings', icon: CalendarBlankIcon },
-  { kind: 'decision', heading: 'Decisions', icon: GavelIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
 ];
@@ -74,7 +71,6 @@ export function Palette({
   currentProject: string | null;
 }) {
   const { state } = useDatapad();
-  const { openDecision } = useDecisionPanel();
   const { openTask, newTask } = useTaskPanels();
   const { newNote } = useNotes();
   const { openProjectForm } = useProjectForm();
@@ -94,7 +90,6 @@ export function Palette({
         state.notes,
         state.meetings,
         state.people,
-        state.decisions,
         state.orgs,
       )
     : null;
@@ -135,12 +130,6 @@ export function Palette({
         label: 'Go to Weekly digest',
         icon: NewspaperIcon,
         run: go({ name: 'digest' }),
-      },
-      {
-        id: 'go-decisions',
-        label: 'Go to Decisions',
-        icon: GavelIcon,
-        run: go({ name: 'decisions' }),
       },
       {
         id: 'go-people',
@@ -212,8 +201,6 @@ export function Palette({
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));
-      case 'decision':
-        return choose(() => openDecision(id));
       case 'org':
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
@@ -255,8 +242,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, meetings, decisions, orgs, people and
-            actions. Arrow keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, meetings, orgs, people and actions. Arrow
+            keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

@@ -19,7 +19,7 @@ export interface DigestRange {
   from: Timestamp;
   /** Exclusive, ISO 8601: the start of the day after the last. */
   to: Timestamp;
-  /** The same week as local dates, for meetings and decisions. */
+  /** The same week as local dates, for meetings and milestones. */
   fromDay: DateString;
   toDay: DateString;
 }
@@ -40,14 +40,12 @@ export interface ProjectDigest {
    * Oct 2026: Shields up": what is coming as well as what was due.
    */
   milestones: string[];
-  /** "Decided: Move to Hoth". */
-  decisions: string[];
 }
 
 export interface Digest {
   range: DigestRange;
   projects: ProjectDigest[];
-  totals: { closed: number; added: number; notes: number; decisions: number };
+  totals: { closed: number; added: number; notes: number };
 }
 
 /** The seven local days ending `lastDay`, as instants in this zone. */
@@ -89,7 +87,6 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
         changes: [],
         meetings: [],
         milestones: [],
-        decisions: [],
       };
       groups.set(id, g);
     }
@@ -126,15 +123,6 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
       }
     }
   }
-  for (const x of Object.values(state.decisions ?? {})) {
-    if (x.status !== 'proposed' && inDays(x.decidedAt, range)) {
-      group(x.projectId).decisions.push(
-        `${x.status === 'decided' ? 'Decided' : 'Revisited'}: ${x.title}`,
-      );
-    } else if (x.status === 'proposed' && inRange(x.createdAt, range)) {
-      group(x.projectId).decisions.push(`Proposed: ${x.title}`);
-    }
-  }
   for (const [key, log] of Object.entries(state.activity)) {
     const projectId = key === 'general' ? null : key;
     // Newest first in the log; the digest reads oldest first.
@@ -152,8 +140,7 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
           g.notes +
           g.changes.length +
           g.meetings.length +
-          g.milestones.length +
-          g.decisions.length >
+          g.milestones.length >
         0,
     )
     .sort(
@@ -170,7 +157,6 @@ export function buildDigest(state: Snapshot, range: DigestRange): Digest {
       closed: sum((g) => g.closed.length),
       added: sum((g) => g.added.length),
       notes: sum((g) => g.notes),
-      decisions: sum((g) => g.decisions.length),
     },
   };
 }
@@ -187,7 +173,7 @@ export function digestMarkdown(digest: Digest): string {
   const lines = [
     `## Week of ${formatDay(range.fromDay, '0000-01-01')} – ${formatDay(range.toDay, '0000-01-01')}`,
     '',
-    `${plural(totals.closed, 'task', 'tasks')} closed, ${totals.added} added, ${plural(totals.notes, 'note', 'notes')}, ${plural(totals.decisions, 'decision', 'decisions')}.`,
+    `${plural(totals.closed, 'task', 'tasks')} closed, ${totals.added} added, ${plural(totals.notes, 'note', 'notes')}.`,
   ];
   if (projects.length === 0) {
     lines.push('', 'Nothing happened this week.');
@@ -197,7 +183,6 @@ export function digestMarkdown(digest: Digest): string {
     for (const c of g.changes) lines.push(`- ${c}`);
     if (g.closed.length) lines.push(`- **Closed:** ${g.closed.join('; ')}`);
     if (g.added.length) lines.push(`- **Added:** ${g.added.join('; ')}`);
-    for (const d of g.decisions) lines.push(`- ${d}`);
     for (const m of g.meetings) lines.push(`- ${m}`);
     if (g.milestones.length) {
       lines.push(`- **Milestones:** ${g.milestones.join('; ')}`);

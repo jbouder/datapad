@@ -40,6 +40,7 @@ function seeded() {
     (n as { createdAt: string }).createdAt = at(60);
   }
   seed.notes['n-1'].createdAt = at(2);
+  // Decisions are retired (#183): kept in the data, not in the digest.
   seed.decisions = {
     d1: {
       id: 'd1',
@@ -69,13 +70,11 @@ test('the last seven days, per project, copied as Markdown', async ({
   await request.post('/api/import', { data: seeded() });
   await openLive(page, '/digest');
   const digest = page.getByRole('region', { name: 'Digest', exact: true });
-  await expect(digest).toContainText(
-    '2 tasks closed, 1 added, 1 note, 1 decision.',
-  );
+  await expect(digest).toContainText('2 tasks closed, 1 added, 1 note.');
   const echo = page.getByRole('heading', { name: 'Echo Base relocation' });
   await expect(echo).toBeVisible();
   await expect(digest).toContainText('Health set to red');
-  await expect(digest).toContainText('Decided: Move the base to Hoth');
+  await expect(digest).not.toContainText('Move the base to Hoth');
   await expect(digest).not.toContainText('Status changed to paused');
   await expectAccessible(page);
 
@@ -87,7 +86,7 @@ test('the last seven days, per project, copied as Markdown', async ({
   // A week further back: the old close is not in it, and Next comes back.
   await page.getByRole('button', { name: 'Previous week' }).click();
   await expect(page).toHaveURL(/\?to=\d{4}-\d{2}-\d{2}$/);
-  await expect(digest).not.toContainText('Move the base to Hoth');
+  await expect(digest).not.toContainText('Health set to red');
   await page.getByRole('button', { name: 'Next week' }).click();
   await expect(page).toHaveURL(/\/digest$/);
   await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();

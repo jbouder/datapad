@@ -28,7 +28,6 @@ import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One note: where it belongs (project or General, and its meeting), when,
@@ -76,7 +75,6 @@ export function NoteCard({
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
   const { openTask } = useTaskPanels();
-  const { show } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
@@ -321,16 +319,6 @@ export function NoteCard({
             people={state.people}
             onSubmit={save}
             onTask={(title) => makeTask(note, title)}
-            onDecision={(title) => {
-              const made = actions.addDecision({
-                projectId: note.projectId,
-                title,
-                sourceNoteId: note.id,
-              });
-              if (made === null) return false;
-              show(`Proposed “${title}”`);
-              return true;
-            }}
             autoFocus
             rows={4}
           />

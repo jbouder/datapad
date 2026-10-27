@@ -3,12 +3,10 @@ import { useMemo } from 'react';
 import { mentionSnippet } from '#shared/mentions';
 import { mentionsOf, type PersonStats } from '#shared/select';
 import type { Note, Person, Snapshot, Task } from '#shared/types';
-import { DecisionList } from '@/components/decisions/DecisionList';
 import { Initials } from '@/components/Initials';
 import { TaskList } from '@/components/tasks/TaskList';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
-import { useToday } from '@/hooks/useNow';
 import { linkProps } from '@/lib/router';
 
 type Mention = { kind: 'note'; doc: Note } | { kind: 'task'; doc: Task };
@@ -55,7 +53,6 @@ export function PersonDetail({
   onEdit: () => void;
 }) {
   const { openTask } = useTaskPanels();
-  const today = useToday();
   const mentions = mentionsOf(state.notes, state.tasks, person.id);
   const groups = useMemo(
     () => groupMentions(mentions.notes, mentions.tasks),
@@ -147,29 +144,6 @@ export function PersonDetail({
             label={`Tasks waiting on ${person.name}`}
             open={stats.waiting}
             empty="Nothing is waiting on them."
-          />
-        </div>
-      )}
-
-      {stats.decisions.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h3 className="font-heading text-sm font-semibold">
-            Decisions{' '}
-            <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
-              {stats.decisions.length}
-            </span>
-          </h3>
-          <DecisionList
-            decisions={stats.decisions}
-            people={state.people}
-            today={today}
-            label={`Decisions ${person.name} took part in`}
-            empty=""
-            showProject={(x) =>
-              x.projectId
-                ? (state.projects[x.projectId]?.name ?? 'General')
-                : 'General'
-            }
           />
         </div>
       )}

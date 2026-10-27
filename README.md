@@ -23,7 +23,7 @@ Under construction. Milestone progress is tracked in the
 | M4        | Meetings, with prep and debrief notes                                    |
 | M5        | Focus, People, ⌘K search                                                 |
 | M6        | On-device summaries, backups, polish                                     |
-| M7        | Health, blocked, decisions, orgs, digest, templates                      |
+| M7        | Health, blocked, decisions (since retired), orgs, digest, templates      |
 | M8        | Quality, security, accessibility and docs pass                           |
 | M9        | Spaces                                                                   |
 | M10       | Meetings and milestones                                                  |

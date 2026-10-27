@@ -77,7 +77,7 @@ describe('buildDigest', () => {
     expect(g?.added).toEqual(['fresh']);
   });
 
-  it('meetings by local day, decisions, notes, and status / health lines', () => {
+  it('meetings by local day, notes, and status / health lines', () => {
     const s = world();
     const meeting = (id: string, date: string) => ({
       id,
@@ -134,7 +134,8 @@ describe('buildDigest', () => {
       'Mon 19 Oct 2026: Kickoff',
       'Sun 25 Oct 2026: Review',
     ]);
-    expect(echo?.decisions).toEqual(['Decided: Move to Hoth']);
+    // Retired decisions are not in the digest (#183).
+    expect(digestMarkdown(digest)).not.toContain('Move to Hoth');
     expect(echo?.changes).toEqual([
       'Status changed to paused',
       'Health set to red',
@@ -146,7 +147,6 @@ describe('buildDigest', () => {
       closed: 0,
       added: 0,
       notes: 1,
-      decisions: 1,
     });
   });
 

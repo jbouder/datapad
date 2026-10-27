@@ -16,7 +16,6 @@ export type Route =
   | { name: 'meetings' }
   /** One meeting's page (`/meetings/:id`). */
   | { name: 'meeting'; id: string }
-  | { name: 'decisions' }
   | { name: 'digest' }
   /** Settings → People; `person` is the one selected (`/settings/people/:id`). */
   | { name: 'people'; person?: string }
@@ -46,13 +45,15 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
+/** `/decisions` and anything under it: retired (#183), now Focus. */
+const DECISIONS = /^\/decisions(?:\/.*)?$/;
+
 const SIMPLE = new Set<RouteName>([
   'projects',
   'archive',
   'tasks',
   'notes',
   'meetings',
-  'decisions',
   'digest',
 ]);
 
@@ -67,6 +68,11 @@ export function parseRoute(
 ): Route {
   const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
   if (clean === '/' || clean === '/focus') {
+    return { name: 'focus' };
+  }
+  // Decisions were retired in #183 (their data is kept); their addresses
+  // land on Focus.
+  if (DECISIONS.test(clean)) {
     return { name: 'focus' };
   }
   // Events became meetings in #131; the old address still gets there.
@@ -158,11 +164,13 @@ export function routePath(route: Route): string | null {
 
 /**
  * The query an old address carries over to its new one: `/events?event=<id>`
- * opened that event, and `/meetings?meeting=<id>` opens the meeting.
+ * opened that event, and `/meetings?meeting=<id>` opens the meeting. A
+ * retired `/decisions` address keeps none of its query on Focus.
  * Everything else in the query is kept as it was.
  */
 export function canonicalQuery(pathname: string, search: string): string {
   const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+  if (DECISIONS.test(clean)) return '';
   if (clean !== '/events') return search;
   const params = new URLSearchParams(search);
   const id = params.get('event');
@@ -213,7 +221,6 @@ const TITLES: Partial<Record<RouteName, string>> = {
   tasks: 'Tasks',
   notes: 'Notes',
   meetings: 'Meetings',
-  decisions: 'Decisions',
   digest: 'Weekly digest',
   people: 'People',
   orgs: 'Orgs',
