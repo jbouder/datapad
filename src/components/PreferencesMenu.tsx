@@ -1,4 +1,5 @@
 import {
+  ArrowClockwiseIcon,
   GearSixIcon,
   SignOutIcon,
   UserCircleIcon,
@@ -27,7 +28,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then Settings and Sign out.
+ * quick Motion and Theme switches, then Refresh, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
@@ -109,6 +110,10 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => window.location.reload()}>
+            <ArrowClockwiseIcon />
+            Refresh
+          </DropdownMenuItem>
           <DropdownMenuItem
             render={
               <a {...linkProps({ name: 'settings', section: 'appearance' })} />

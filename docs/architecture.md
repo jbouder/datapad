@@ -172,8 +172,8 @@ come back on the next load and are sent, in order and with their original
 op ids, on the next connection. Tabs share that store and merge into it
 atomically, keeping each other's ops until some tab sees them settle. A
 change the object refuses on replay is dropped and toasted by name
-("Not saved: add task “…”. reason"). The sync status (rail footer, and the
-top bar on phones) says Saved, Saving… or "Offline, N changes waiting" in
+("Not saved: add task “…”. reason"). The sync status (first in the top bar;
+only trouble on phones) says Saved, Saving… or "Offline, N changes waiting" in
 a polite live region; it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition. Its pure half (parsing, paths, page titles, and

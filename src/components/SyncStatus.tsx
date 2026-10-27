@@ -8,17 +8,10 @@ import { cn } from '@/lib/utils';
  * and offline are announced; "Saving…" / "Saved" would chatter on every
  * keystroke that commits.
  *
- * The rail footer has it on desktop; the top bar has a compact copy on
- * phones.
+ * First in the top bar. On phones only trouble shows, and "Offline"
+ * without the count.
  */
-export function SyncStatus({
-  className,
-  compact = false,
-}: {
-  className?: string;
-  /** Phones: only trouble shows, and "Offline" without the count. */
-  compact?: boolean;
-}) {
+export function SyncStatus({ className }: { className?: string }) {
   const { status, pendingCount } = useDatapad();
   const waiting =
     pendingCount === 1 ? '1 change waiting' : `${pendingCount} changes waiting`;
@@ -43,11 +36,15 @@ export function SyncStatus({
       data-status={status}
     >
       {status === 'offline' && <CloudSlashIcon weight="bold" aria-hidden />}
-      <span role="status" className={cn(compact && 'sr-only')}>
+      <span role="status" className="max-desk:sr-only">
         {announced}
       </span>
-      {compact && status === 'offline' && <span aria-hidden>Offline</span>}
-      {quiet && <span className={cn(compact && 'sr-only')}>{quiet}</span>}
+      {status === 'offline' && (
+        <span aria-hidden className="desk:hidden">
+          Offline
+        </span>
+      )}
+      {quiet && <span className="max-desk:sr-only">{quiet}</span>}
     </p>
   );
 }

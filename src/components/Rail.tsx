@@ -2,7 +2,6 @@ import { ArchiveIcon, NewspaperIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
-import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { NAV, sectionOf } from '@/lib/nav';
@@ -14,7 +13,7 @@ const ANYONE = { kind: 'anyone' } as const;
 /**
  * The desktop rail (≥ 820px): the space switcher, the sections with live counts, the
  * active projects (most recently updated first) with their open counts,
- * Archived when there is any, and a footer with sync status. Hidden below 820px; the tab bar takes over.
+ * Archived when there is any. Hidden below 820px; the tab bar takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
@@ -170,10 +169,6 @@ export function Rail({ route }: { route: Route }) {
           </a>
         )}
       </nav>
-
-      <footer className="flex flex-col gap-2 border-t px-4 py-3">
-        <SyncStatus />
-      </footer>
     </aside>
   );
 }
