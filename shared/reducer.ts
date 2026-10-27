@@ -3,6 +3,7 @@ import { LIMITS } from './limits';
 import { byDate } from './milestones';
 import { applyPagePatch } from './pages';
 import type { Op, OpOf, ParsedExport } from './protocol';
+import { isNoteTemplate } from './templates';
 import {
   type Activity,
   blockedOf,
@@ -407,6 +408,9 @@ function apply(d: Draft, op: Op, now: string) {
         ? (d.get('templates', op.template.id) ??
           fail('That template no longer exists'))
         : null;
+      if (template && isNoteTemplate(template)) {
+        fail('That is a note template');
+      }
       if (template && op.template?.taskIds.length !== template.tasks.length) {
         fail('That template changed. Try again.');
       }
@@ -464,11 +468,18 @@ function apply(d: Draft, op: Op, now: string) {
     }
     case 'addTemplate': {
       fresh(d, 'templates', op.id, 'template');
+      if (
+        op.body !== undefined &&
+        (op.tasks?.length || op.defaultTags?.length)
+      ) {
+        fail('A note template has no tasks or tags');
+      }
       d.set('templates', op.id, {
         id: op.id,
         name: op.name,
         tasks: op.tasks ?? [],
         defaultTags: op.defaultTags ?? [],
+        ...(op.body !== undefined ? { body: op.body } : {}),
         createdAt: now,
         updatedAt: now,
       });
@@ -477,6 +488,14 @@ function apply(d: Draft, op: Op, now: string) {
     case 'editTemplate': {
       const x =
         d.get('templates', op.id) ?? fail('That template no longer exists');
+      // A template stays the kind it was made as.
+      if (isNoteTemplate(x)) {
+        if (op.patch.tasks || op.patch.defaultTags) {
+          fail('A note template has no tasks or tags');
+        }
+      } else if (op.patch.body !== undefined) {
+        fail('That is a project template');
+      }
       d.set('templates', x.id, { ...x, ...op.patch, updatedAt: now });
       return;
     }

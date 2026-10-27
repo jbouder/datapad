@@ -9,8 +9,10 @@ import {
   type Edit,
   FORMAT_SHORTCUTS,
   inList,
+  insertTemplate,
   matchCommands,
   matchFormatShortcut,
+  matchTemplates,
   slashQuery,
   toggleLink,
   toggleWrap,
@@ -159,6 +161,53 @@ describe('the / menu', () => {
     ]);
     expect(matchCommands('date tomorrow').map((c) => c.id)).toEqual(['date']);
     expect(matchCommands('h1 x')).toEqual([]);
+  });
+});
+
+describe('note templates in the / menu', () => {
+  const templates = [
+    { id: 't1', name: 'Weekly 1:1', body: '## Wins\n- ' },
+    { id: 't2', name: 'Sprint retro', body: '## Went well\n- ' },
+    { id: 't3', name: 'Q3 review', body: '# Q3' },
+  ];
+  const ids = (query: string) =>
+    matchTemplates(query, templates).map((t) => t.id);
+
+  it('lists every one on a bare / and for /t… and /template', () => {
+    expect(ids('')).toEqual(['t1', 't2', 't3']);
+    expect(ids('t')).toEqual(['t1', 't2', 't3']);
+    expect(ids('template')).toEqual(['t1', 't2', 't3']);
+    expect(ids('template ')).toEqual(['t1', 't2', 't3']);
+  });
+
+  it('matches a word of the name, and /template narrows by one', () => {
+    expect(ids('retro')).toEqual(['t2']);
+    expect(ids('week')).toEqual(['t1']);
+    expect(ids('h1')).toEqual([]);
+    expect(ids('template retro')).toEqual(['t2']);
+    expect(ids('template q3')).toEqual(['t3']);
+    expect(ids('date tomorrow')).toEqual([]);
+  });
+
+  it('reads a second word with digits after /template', () => {
+    expect(slashQuery('/template q3', 12)).toEqual({
+      start: 0,
+      query: 'template q3',
+    });
+  });
+
+  it('inserts on an empty line, or from the next one, caret after', () => {
+    expect(insertTemplate('', { start: 0, end: 0 }, '## Wins\n- \n')).toEqual({
+      text: '## Wins\n- ',
+      sel: { start: 10, end: 10 },
+    });
+    expect(insertTemplate('Notes', { start: 5, end: 5 }, '# Q3')).toEqual({
+      text: 'Notes\n# Q3',
+      sel: { start: 10, end: 10 },
+    });
+    expect(insertTemplate('', { start: 0, end: 0 }, 'Todo\n- [ ]').text).toBe(
+      'Todo\n- [ ] ',
+    );
   });
 });
 

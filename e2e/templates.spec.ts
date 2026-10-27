@@ -32,7 +32,7 @@ test('save a project’s tasks as a template, then start a project from it', asy
     page.getByRole('heading', { name: 'Yavin IV retrospective', level: 1 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Save as template' }),
+    page.getByRole('button', { name: 'Save as template', exact: true }),
   ).toHaveCount(0);
 
   // In the header, beside Edit.
@@ -40,7 +40,7 @@ test('save a project’s tasks as a template, then start a project from it', asy
   await page
     .getByRole('article', { name: 'Echo Base relocation' })
     .locator('header')
-    .getByRole('button', { name: 'Save as template' })
+    .getByRole('button', { name: 'Save as template', exact: true })
     .click();
 
   const panel = page.getByRole('dialog', { name: 'New template' });
@@ -68,12 +68,12 @@ test('save a project’s tasks as a template, then start a project from it', asy
   await expectSaved(page);
 
   await openLive(page, '/settings/templates');
-  await expect(page.getByRole('list', { name: 'Templates' })).toContainText(
-    'Base move',
-  );
-  await expect(page.getByRole('list', { name: 'Templates' })).toContainText(
-    '4 tasks',
-  );
+  await expect(
+    page.getByRole('list', { name: 'Project templates' }),
+  ).toContainText('Base move');
+  await expect(
+    page.getByRole('list', { name: 'Project templates' }),
+  ).toContainText('4 tasks');
 
   // A new project from it.
   await openLive(page, '/projects');

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { orgByName } from '#shared/orgs';
+import { templatesOf } from '#shared/templates';
 import {
   healthOf,
   type Link,
@@ -112,12 +113,10 @@ export function ProjectForm({
   const templateOptions = useMemo(
     () => [
       { value: '', label: 'No template' },
-      ...Object.values(state?.templates ?? {})
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((t) => ({
-          value: t.id,
-          label: `${t.name} (${t.tasks.length === 1 ? '1 task' : `${t.tasks.length} tasks`})`,
-        })),
+      ...templatesOf(state?.templates ?? {}, 'project').map((t) => ({
+        value: t.id,
+        label: `${t.name} (${t.tasks.length === 1 ? '1 task' : `${t.tasks.length} tasks`})`,
+      })),
     ],
     [state?.templates],
   );

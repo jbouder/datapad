@@ -117,7 +117,7 @@ test('Milestones, then Tasks, then Meetings', async ({ page }) => {
 test('the header actions wrap with no sideways scroll', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
   await expect(
-    page.getByRole('button', { name: 'Save as template' }),
+    page.getByRole('button', { name: 'Save as template', exact: true }),
   ).toBeVisible();
   // Polled: the page may still be entering (a transform) when first measured.
   if (isMobile(page)) {

@@ -1513,6 +1513,70 @@ describe('people', () => {
     expect(state.templates.tp).toBeUndefined();
   });
 
+  it('a note template keeps its body and stays a note template', () => {
+    let state = run(emptySnapshot(), {
+      type: 'addTemplate',
+      id: 'nt',
+      name: 'Weekly 1:1',
+      body: '## Wins\n-',
+    });
+    expect(state.templates.nt).toMatchObject({
+      name: 'Weekly 1:1',
+      body: '## Wins\n-',
+      tasks: [],
+      defaultTags: [],
+    });
+    // Templates are not project work: nothing is logged.
+    expect(state.activity).toEqual({});
+    state = run(state, {
+      type: 'editTemplate',
+      id: 'nt',
+      patch: { name: '1:1', body: '## Blockers' },
+    });
+    expect(state.templates.nt).toMatchObject({
+      name: '1:1',
+      body: '## Blockers',
+    });
+    expect(() =>
+      at(state, {
+        type: 'addTemplate',
+        id: 'n2',
+        name: 'Mixed',
+        body: 'x',
+        tasks: [{ title: 'Kickoff', priority: 'none', tags: [] }],
+      }),
+    ).toThrow('A note template has no tasks or tags');
+    expect(() =>
+      at(state, {
+        type: 'editTemplate',
+        id: 'nt',
+        patch: { defaultTags: ['client'] },
+      }),
+    ).toThrow('A note template has no tasks or tags');
+    expect(() =>
+      at(state, {
+        type: 'createProject',
+        id: 'p1',
+        name: 'Echo Base',
+        template: { id: 'nt', taskIds: [] },
+      }),
+    ).toThrow('That is a note template');
+    state = run(state, { type: 'addTemplate', id: 'tp', name: 'Kickoff' });
+    expect(state.templates.tp?.body).toBeUndefined();
+    expect(() =>
+      at(state, { type: 'editTemplate', id: 'tp', patch: { body: 'x' } }),
+    ).toThrow('That is a project template');
+  });
+
+  it('a note template’s body is checked like a note’s', () => {
+    for (const body of ['', '   ', 'x'.repeat(LIMITS.bodyMax + 1)]) {
+      expect(
+        OpSchema.safeParse({ type: 'addTemplate', id: 'n', name: 'N', body })
+          .success,
+      ).toBe(false);
+    }
+  });
+
   it('removePerson keeps a task blocked but on no one listed', () => {
     const state = run(base(), {
       type: 'setBlocked',
