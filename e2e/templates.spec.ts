@@ -26,8 +26,22 @@ test('save a project’s tasks as a template, then start a project from it', asy
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
+  // Not without open tasks.
+  await openLive(page, '/projects/p-yavin');
+  await expect(
+    page.getByRole('heading', { name: 'Yavin IV retrospective', level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Save as template' }),
+  ).toHaveCount(0);
+
+  // In the header, beside Edit.
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Save as template' }).click();
+  await page
+    .getByRole('article', { name: 'Echo Base relocation' })
+    .locator('header')
+    .getByRole('button', { name: 'Save as template' })
+    .click();
 
   const panel = page.getByRole('dialog', { name: 'New template' });
   await expect(panel.getByRole('textbox', { name: 'Name' })).toHaveValue(

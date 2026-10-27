@@ -6,8 +6,8 @@ import { useDatapad } from '@/hooks/useDatapad';
 
 /**
  * Settings → Templates: the kickoff checklists a new project can start
- * from. "Save as template" on a project's Tasks makes one from its open
- * tasks.
+ * from. "Save as template" in a project's header makes one from its
+ * open tasks.
  */
 export function TemplatesSettings() {
   const { state } = useDatapad();
