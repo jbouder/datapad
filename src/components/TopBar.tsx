@@ -20,8 +20,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * The current title on the left once the page's own h1 has scrolled away
- * (with the brand on phones, where there is no rail), then Search (with its shortcut on desktop), sync trouble on
- * phones, **+** (Add task), Write a note, Help and Preferences.
+ * (with the brand on phones, where there is no rail), then Search (with its shortcut on desktop), the sync status
+ * (a colored dot, with its word on desktop), **+** (Add task), Write a note, Help and Preferences.
  */
 export function TopBar({
   route,
@@ -85,7 +85,7 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <SyncStatus className="mr-1 desk:hidden" compact />
+          <SyncStatus className="desk:mr-2" />
           <Tooltip>
             <TooltipTrigger
               render={

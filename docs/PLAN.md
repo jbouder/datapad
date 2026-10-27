@@ -233,8 +233,9 @@ gets the most care:
 - **Accessibility.** WCAG 2.2 AA via axe in every theme; visible focus rings;
   live region for toasts and sync status; drag reorder has keyboard and
   touch equivalents (move up / down in the row menu).
-- **Sync status is visible but quiet.** Rail footer shows "Saved", "Saving…"
-  or "Offline, 3 changes waiting"; never a blocking spinner.
+- **Sync status is visible but quiet.** The top bar shows a dot colored by
+  state and "Saved", "Saving…" or "Offline, 3 changes waiting" (on phones
+  the dot alone, unless offline); never a blocking spinner (#187).
 
 ## Milestones
 

@@ -207,6 +207,7 @@ describe('Settings sections', () => {
   it('lists People and Orgs after Spaces, before Data', () => {
     expect(SETTINGS_SECTIONS).toEqual([
       'appearance',
+      'navigation',
       'templates',
       'summaries',
       'spaces',
@@ -215,6 +216,13 @@ describe('Settings sections', () => {
       'data',
       'account',
     ]);
+  });
+
+  it('parses Navigation (#187)', () => {
+    expect(parseRoute('/settings/navigation')).toEqual({
+      name: 'settings',
+      section: 'navigation',
+    });
   });
 
   it('round-trips each section through its route', () => {

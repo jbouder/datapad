@@ -9,6 +9,7 @@ import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { NavSettings } from '@/components/NavSettings';
 import { OrgsView } from '@/components/orgs/OrgsView';
 import { PeopleView } from '@/components/people/PeopleView';
 import { SpacesSettings } from '@/components/SpacesSettings';
@@ -34,6 +35,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
+  navigation: 'Navigation',
   templates: 'Templates',
   summaries: 'Summaries',
   spaces: 'Spaces',
@@ -45,6 +47,7 @@ const LABELS: Record<SettingsSection, string> = {
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
+ * which sections the navigation shows,
  * templates, summaries, your spaces, the people and orgs the rest of the
  * app refers to, your data in and out, and who is signed in. Each section
  * has its own address (`/settings/data`, `/settings/people/:id`); the
@@ -80,10 +83,12 @@ export function SettingsPage({
         strip.getBoundingClientRect().left +
         strip.scrollLeft;
       const right = left + link.offsetWidth;
+      // Whole pixels, rounded outward, so a fractional width never leaves
+      // the link a hair outside the strip.
       if (left < strip.scrollLeft) {
-        strip.scrollLeft = left;
+        strip.scrollLeft = Math.floor(left);
       } else if (right > strip.scrollLeft + strip.clientWidth) {
-        strip.scrollLeft = right - strip.clientWidth;
+        strip.scrollLeft = Math.ceil(right - strip.clientWidth);
       }
     };
     reveal();
@@ -101,7 +106,7 @@ export function SettingsPage({
           aria-label="Settings"
           className="-mx-4 overflow-x-auto px-4 desk:mx-0 desk:px-0"
         >
-          <ul className="flex gap-1 desk:flex-col">
+          <ul className="flex w-max gap-1 pr-4 desk:w-auto desk:flex-col desk:pr-0">
             {SETTINGS_SECTIONS.map((s) => (
               <li key={s} className="shrink-0">
                 <a
@@ -135,6 +140,7 @@ export function SettingsPage({
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
+          {section === 'navigation' && <NavSettings />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'spaces' && <SpacesSettings />}

@@ -146,10 +146,7 @@ export async function expectAccessible(page: Page) {
   expect.soft(summary).toEqual([]);
 }
 
-/**
- * The sync status. The rail has one (desktop) and the top bar a compact
- * copy (phones); the rail's comes first and is always in the DOM.
- */
+/** The sync status, in the top bar at every width (one in the DOM). */
 export function syncStatus(page: Page) {
   return page.locator('[data-status]').first();
 }

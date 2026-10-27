@@ -46,6 +46,7 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   // Its sections, People and Orgs among them.
   await expect(settingsNav(page).getByRole('link')).toHaveText([
     'Appearance',
+    'Navigation',
     'Templates',
     'Summaries',
     'Spaces',

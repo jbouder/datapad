@@ -1772,3 +1772,87 @@ describe('merge (import)', () => {
     ).toEqual(['u-leia']);
   });
 });
+
+describe('setNav', () => {
+  it('stores order, hidden and extras, unlogged, and validates names', () => {
+    const state = base();
+    expect(settingsOf(state).nav).toBeUndefined();
+    const { state: next, changed } = at(state, {
+      type: 'setNav',
+      patch: { order: ['tasks', 'focus'], hidden: ['meetings'] },
+    });
+    expect(settingsOf(next).nav).toEqual({
+      order: ['tasks', 'focus'],
+      hidden: ['meetings'],
+    });
+    expect(settingsOf(next).defaultOrg).toBe('');
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    // Not logged, like setSettings.
+    expect(next.activity).toBe(state.activity);
+    expect(
+      OpSchema.safeParse({ type: 'setNav', patch: { hidden: ['people'] } })
+        .success,
+    ).toBe(false);
+    expect(OpSchema.safeParse({ type: 'setNav', patch: {} }).success).toBe(
+      false,
+    );
+  });
+
+  it('merges extras switch by switch and keeps the other keys', () => {
+    const state = run(
+      base(),
+      { type: 'setSettings', patch: { defaultOrg: 'Rebel Alliance' } },
+      { type: 'setNav', patch: { extras: { digest: false } } },
+      { type: 'setNav', patch: { extras: { archived: false } } },
+      { type: 'setNav', patch: { hidden: ['notes', 'notes'] } },
+    );
+    expect(settingsOf(state)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      nav: { extras: { digest: false, archived: false }, hidden: ['notes'] },
+    });
+  });
+
+  it('clears keys with null, and resets to no nav at all', () => {
+    const state = run(
+      base(),
+      { type: 'setSettings', patch: { defaultOrg: 'Rebel Alliance' } },
+      {
+        type: 'setNav',
+        patch: {
+          order: ['notes'],
+          hidden: ['focus'],
+          extras: { activeProjects: false },
+        },
+      },
+    );
+    const one = at(state, { type: 'setNav', patch: { hidden: null } }).state;
+    expect(settingsOf(one).nav).toEqual({
+      order: ['notes'],
+      extras: { activeProjects: false },
+    });
+    const reset = at(state, {
+      type: 'setNav',
+      patch: { order: null, hidden: null, extras: null },
+    }).state;
+    expect(reset.settings.user).toEqual({ defaultOrg: 'Rebel Alliance' });
+  });
+
+  it('imports an export without nav unchanged, and one with stale names', () => {
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...base() }));
+    const old = merge(emptySnapshot(), ExportSchema.parse(file)).state;
+    expect(settingsOf(old).nav).toBeUndefined();
+
+    file.settings = {
+      user: {
+        defaultOrg: '',
+        nav: { order: ['reports', 'notes'], hidden: ['people'] },
+      },
+    };
+    const next = merge(emptySnapshot(), ExportSchema.parse(file)).state;
+    // Kept as stored; `navOf` ignores what it does not know.
+    expect(settingsOf(next).nav).toEqual({
+      order: ['reports', 'notes'],
+      hidden: ['people'],
+    });
+  });
+});

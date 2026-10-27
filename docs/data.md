@@ -87,9 +87,15 @@ as it is (migrated on the way in, below):
 ```
 
 - `settings` is Datapad's own (the artifact has none, and a file without
-  it imports fine): preferences that follow your data, today only the
+  it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
-  space starts with no orgs).
+  space starts with no orgs) and, optionally, `nav`, the navigation
+  preferences from Settings → Navigation (#187):
+  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "digest": false, "archived": true } }`.
+  Every key is optional and `nav` is absent until you change something, so
+  a file without it imports unchanged. Section names are kept as written
+  and checked when read: an unknown one is ignored, and a section missing
+  from `order` shows at its default place.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and project templates. Decisions are retired
   (#183): the app no longer shows them, but the collection is still
