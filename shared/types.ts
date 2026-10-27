@@ -83,7 +83,11 @@ export interface Project {
   tags: string[];
   /** Markdown. */
   desc: string;
-  /** The one-line "current state" on the card. */
+  /**
+   * The one-line "current state". Retired: nothing shows, searches or
+   * summarizes it any more, but old data and old clients' `setState` ops
+   * still carry it, so it is kept.
+   */
   state: string;
   members: string[];
   links: Link[];

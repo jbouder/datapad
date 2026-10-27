@@ -76,7 +76,7 @@ export const searchIndex = lastCall(
             kind: 'project',
             id: p.id,
             title: p.name,
-            body: flat(p.state || p.desc),
+            body: flat(p.desc),
             projectId: null,
             archived: p.archived,
             updatedAt: p.updatedAt,

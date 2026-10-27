@@ -221,7 +221,6 @@ export function projectContext(projectId: string, state: Snapshot): string {
     `Target date: ${project.targetDate ? day(project.targetDate) : 'none'}`,
     `Team: ${names(state, project.members) || 'none listed'}`,
   ];
-  if (project.state) lines.push(`Current state: ${project.state}`);
   if (project.desc.trim()) {
     lines.push(
       'Description:',

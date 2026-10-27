@@ -29,7 +29,6 @@ import { HealthPicker } from '@/components/projects/Health';
 import { Milestones } from '@/components/projects/Milestones';
 import { MoveProjectDialog } from '@/components/projects/MoveProjectDialog';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
-import { StateLine } from '@/components/projects/StateLine';
 import { StatusPill } from '@/components/projects/StatusPill';
 import { Section } from '@/components/Section';
 import { useSummaries } from '@/components/summary/SummaryProvider';
@@ -52,7 +51,7 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One project, where most entry happens: the header with its facts and
- * actions, the description, the current state line, then Tasks on the
+ * actions, the description, then Tasks on the
  * left with Milestones and Meetings under them, Notes and Activity on the right (3:2
  * above 820px, one column below). Sections remember open or closed per
  * project.
@@ -296,9 +295,6 @@ export function ProjectPage({ id }: { id: string }) {
             className="max-w-prose pt-2"
           />
         )}
-        <div className="pt-2">
-          <StateLine project={project} />
-        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

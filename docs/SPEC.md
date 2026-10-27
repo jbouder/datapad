@@ -7,7 +7,7 @@ As of 2026-10-23. Reference implementation: `datapad-reference.html` (single-fil
 Datapad is a single-user project tracker for an engineering leader who runs several concurrent projects and client engagements. It is one place to see across projects, plan the week, drill into one project, and search everything.
 
 What it is:
-- Projects with metadata, an org/client, team members, and a one-line "current state"
+- Projects with metadata, an org/client and team members
 - Tasks that are open or done, inside a project or in a General bucket
 - Notes (markdown, @mentions) on projects, meetings, or General
 - Meetings with their notes, and dated milestones on each project
@@ -23,23 +23,23 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 ### Project
 
-| Field                | Type                               | Notes                                                             |
-| -------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| id                   | string                             |                                                                   |
-| name                 | string                             | required                                                          |
-| org                  | string                             | client or org; free text with autocomplete from existing values   |
-| status               | `active` \| `paused` \| `done`     |                                                                   |
-| priority             | `none` \| `low` \| `med` \| `high` |                                                                   |
-| startDate            | date or empty                      | optional; not after targetDate; timeline falls back to created    |
-| targetDate           | date or empty                      |                                                                   |
-| tags                 | string[]                           |                                                                   |
-| desc                 | string                             | markdown                                                          |
-| state                | string                             | the one-line "current state" shown on the card                    |
-| members              | personId[]                         |                                                                   |
-| links                | Link[]                             |                                                                   |
-| milestones           | Milestone[], optional              | by date then title, 50 at most; absent reads as none              |
-| archived             | boolean                            | archived projects leave default views but stay searchable         |
-| createdAt, updatedAt | timestamp                          | updatedAt also bumps on task, note, meeting and milestone changes |
+| Field                | Type                               | Notes                                                              |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| id                   | string                             |                                                                    |
+| name                 | string                             | required                                                           |
+| org                  | string                             | client or org; free text with autocomplete from existing values    |
+| status               | `active` \| `paused` \| `done`     |                                                                    |
+| priority             | `none` \| `low` \| `med` \| `high` |                                                                    |
+| startDate            | date or empty                      | optional; not after targetDate; timeline falls back to created     |
+| targetDate           | date or empty                      |                                                                    |
+| tags                 | string[]                           |                                                                    |
+| desc                 | string                             | markdown                                                           |
+| state                | string                             | retired: the one-line "current state"; kept in data, shown nowhere |
+| members              | personId[]                         |                                                                    |
+| links                | Link[]                             |                                                                    |
+| milestones           | Milestone[], optional              | by date then title, 50 at most; absent reads as none               |
+| archived             | boolean                            | archived projects leave default views but stay searchable          |
+| createdAt, updatedAt | timestamp                          | updatedAt also bumps on task, note, meeting and milestone changes  |
 
 ### Milestone (embedded in projects)
 
@@ -142,7 +142,7 @@ Routing is by hash: `#focus` (default), `#projects`, `#archive`, `#tasks`, `#not
 | View           | Shows                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Controls                                                                                                                                                           | Empty state                                               |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | Focus          | Open tasks across all projects bucketed Overdue / Today / This week, with Later and No date collapsed; an Agenda strip of meetings and milestones in the next 7 days, by day with all-day items first, a meeting with topics showing its count (excluding archived projects)                                                                                                                                                                          | Quick-add with project picker; assignee filter (Anyone / Mine / Unassigned / each person)                                                                          | "Nothing open. Add a task above or open a project."       |
-| Projects       | Card grid: org, status pill, priority dot, name (serif), current state (italic serif), open count, target date, next milestone (nothing when none is ahead), member initials                                                                                                                                                                                                                                                                          | Status segment (Active / Paused / Done / All, default Active); org dropdown; sort (Recently updated, Priority, Name, Target date, Next milestone); Add project     | Distinguishes "no projects yet" from "none match filters" |
+| Projects       | Card grid: org, status pill, priority dot, name (serif), open count, target date, next milestone (nothing when none is ahead), member initials                                                                                                                                                                                                                                                                                                        | Status segment (Active / Paused / Done / All, default Active); org dropdown; sort (Recently updated, Priority, Name, Target date, Next milestone); Add project     | Distinguishes "no projects yet" from "none match filters" |
 | Archived       | Same cards for archived projects                                                                                                                                                                                                                                                                                                                                                                                                                      | none                                                                                                                                                               | "Nothing archived."                                       |
 | Project detail | Header: org, name, status, priority, target, members, tags, links, Summarize / Edit / Archive; description (markdown); current-state input. Two columns: left = Tasks (quick-add, open list with drag reorder, Done collapsed), then Milestones (title and date to add; by date, past ones muted; edit in place; delete with Undo), then Meetings (upcoming, Past collapsed); right = Notes (composer + list, pinned first) then Activity (collapsed) | All inline                                                                                                                                                         | Per section                                               |
 | Tasks          | Every task                                                                                                                                                                                                                                                                                                                                                                                                                                            | Add task (the new-task panel, assigned to the filtered person); a task opens its page; Open / Done / All; group by Project, Due date, or Assignee; assignee filter | "No tasks here."                                          |
@@ -171,7 +171,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header.
 
-**Current state line.** A single input under the project header. Enter blurs; blur saves if changed and logs "Updated current state".
+**Current state line (retired).** Projects used to carry a one-line "current state" under the header and on the card. It is no longer shown, edited, searched, summarized or in the digest; the field and the `setState` op remain so old data and old clients still load.
 
 **Drag reorder.** HTML5 drag on open task rows in project detail. Dropping onto a row inserts before it and rewrites `order` as 1..n for the project's open tasks, writing only rows whose order changed. Desktop only.
 
@@ -289,12 +289,12 @@ A **Summarize** action exists on four item types: project (header), task (panel 
 
 **Context assembled per item** (plain text, labeled sections):
 
-| Item    | Included                                                                                                                                                                                                                                                                                           |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project | name, org, status, priority, target date, team names, current state, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first; last 25 activity lines |
-| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                                                                                 |
-| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), all linked notes, oldest first                                                                                                                      |
-| Note    | date, project, meeting title if linked, task title if it is a task's note, body                                                                                                                                                                                                                    |
+| Item    | Included                                                                                                                                                                                                                                                                            |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project | name, org, status, priority, target date, team names, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first; last 25 activity lines |
+| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                                                                  |
+| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), all linked notes, oldest first                                                                                                       |
+| Note    | date, project, meeting title if linked, task title if it is a task's note, body                                                                                                                                                                                                     |
 
 Mentions are expanded to names before sending. Nothing outside the item is included.
 
@@ -335,31 +335,31 @@ Added in the rebuild (M9). A space is a complete, separate Datapad under the one
 
 One log per project plus one for General. Entries are `{t, text}`, prepended, capped at 150; the project page shows the latest 40 in a collapsed Activity section, and project summaries read the latest 25.
 
-| Trigger                            | Text                                                                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Task created                       | Added task "<title>"                                                                                                  |
-| Task closed / reopened             | Closed "<title>" / Reopened "<title>"                                                                                 |
-| Task edited                        | Edited task "<title>"                                                                                                 |
-| Task moved                         | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project)                      |
-| Task deleted                       | Deleted task "<title>"                                                                                                |
-| Note added / deleted               | Added a note / Deleted a note                                                                                         |
-| Note added to a task               | Added a note to "<task title>"                                                                                        |
-| Summary saved                      | Saved a Claude summary as a note                                                                                      |
-| State line changed                 | Updated current state                                                                                                 |
-| Project created / edited           | Created project / Edited project details                                                                              |
-| Status changed                     | Status changed to <status>                                                                                            |
-| Archived / restored                | Archived project / Unarchived project                                                                                 |
-| Meeting added / edited / deleted   | Added meeting "<title>" / Edited meeting "<title>" / Deleted meeting "<title>"                                        |
-| Milestone added / edited / deleted | Added milestone "<title>" (<day>) / Edited milestone "<title>" / Deleted milestone "<title>"                          |
-| Topic added / removed              | Added topic "<title>" to "<meeting>" / Removed topic "<title>" from "<meeting>" (on the meeting's project or General) |
-| Topic carried forward              | Carried topic "<title>" forward to "<meeting>" (in place of Added topic, on the target meeting's project or General)  |
-| Project moved in from a space      | Moved from <space> (rebuild only, in the target space)                                                                |
+| Trigger                                       | Text                                                                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Task created                                  | Added task "<title>"                                                                                                  |
+| Task closed / reopened                        | Closed "<title>" / Reopened "<title>"                                                                                 |
+| Task edited                                   | Edited task "<title>"                                                                                                 |
+| Task moved                                    | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project)                      |
+| Task deleted                                  | Deleted task "<title>"                                                                                                |
+| Note added / deleted                          | Added a note / Deleted a note                                                                                         |
+| Note added to a task                          | Added a note to "<task title>"                                                                                        |
+| Summary saved                                 | Saved a Claude summary as a note                                                                                      |
+| State line changed (retired; older logs only) | Updated current state                                                                                                 |
+| Project created / edited                      | Created project / Edited project details                                                                              |
+| Status changed                                | Status changed to <status>                                                                                            |
+| Archived / restored                           | Archived project / Unarchived project                                                                                 |
+| Meeting added / edited / deleted              | Added meeting "<title>" / Edited meeting "<title>" / Deleted meeting "<title>"                                        |
+| Milestone added / edited / deleted            | Added milestone "<title>" (<day>) / Edited milestone "<title>" / Deleted milestone "<title>"                          |
+| Topic added / removed                         | Added topic "<title>" to "<meeting>" / Removed topic "<title>" from "<meeting>" (on the meeting's project or General) |
+| Topic carried forward                         | Carried topic "<title>" forward to "<meeting>" (in place of Added topic, on the target meeting's project or General)  |
+| Project moved in from a space                 | Moved from <space> (rebuild only, in the target space)                                                                |
 
 Pinning a note, reordering tasks, and editing, ticking or reordering topics are not logged. The log is the data source for the deferred weekly digest.
 
 ## Design system
 
-Quiet, dense, cool-neutral. The one expressive element is the serif used for project names and the italic "current state" line; everything else is small, disciplined sans. No decorative shadows on cards, no gradients; borders carry structure.
+Quiet, dense, cool-neutral. The one expressive element is the serif used for project names; everything else is small, disciplined sans. No decorative shadows on cards, no gradients; borders carry structure.
 
 **Type.** Instrument Sans (400/500/600, italic 400) for UI; Instrument Serif (regular and italic) for page titles, project names on cards, and the state line. Base 15px / 1.45. Page title 34px serif (28px mobile), card name 24px serif, state line 17px italic serif on cards and 22px in the project header. Fallbacks: system-ui and Georgia.
 

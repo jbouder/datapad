@@ -77,7 +77,7 @@ describe('buildDigest', () => {
     expect(g?.added).toEqual(['fresh']);
   });
 
-  it('meetings by local day, decisions, notes, and status / health / state lines', () => {
+  it('meetings by local day, decisions, notes, and status / health lines', () => {
     const s = world();
     const meeting = (id: string, date: string) => ({
       id,
@@ -139,7 +139,8 @@ describe('buildDigest', () => {
       'Status changed to paused',
       'Health set to red',
     ]);
-    expect(echo?.state).toBe('Shields up');
+    // The retired current state line is not in the digest.
+    expect(digestMarkdown(digest)).not.toContain('Shields up');
     expect(digest.projects[1]?.notes).toBe(1);
     expect(digest.totals).toEqual({
       closed: 0,

@@ -18,7 +18,7 @@ const MAX_MEMBERS = 4;
 /**
  * One project as a card, the whole card a link: org, health (a colored
  * left edge and its word), status, priority,
- * name, the current state line, then open count, target, the next
+ * name, then open count, target, the next
  * milestone (none shown when nothing is ahead), and up to four members
  * (+N for the rest).
  */
@@ -75,9 +75,6 @@ export function ProjectCard({
       <h2 className="text-card-name group-hover:underline group-hover:underline-offset-4">
         {project.name}
       </h2>
-      {project.state && (
-        <p className="text-state line-clamp-2">{project.state}</p>
-      )}
       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
         <span className="count tabular-nums">
           {open === 1 ? '1 open task' : `${open} open tasks`}
