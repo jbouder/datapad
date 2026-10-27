@@ -3,22 +3,17 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { cn } from '@/lib/utils';
 
 /**
- * Whether changes are reaching the server: quiet when they are, plain about
- * it when they are not. Never a spinner, never blocking. Only connecting
- * and offline are announced; "Saving…" / "Saved" would chatter on every
- * keystroke that commits.
+ * Whether changes are reaching the server, in the top bar at every width:
+ * a dot colored by state (ok when saved, warn while connecting or with
+ * changes waiting, destructive offline) and always a word beside it, so
+ * color never carries it alone. Never a spinner, never blocking.
  *
- * The rail footer has it on desktop; the top bar has a compact copy on
- * phones.
+ * On phones only the dot shows, its label visually hidden, except
+ * offline, where "Offline" shows too. Only connecting and offline are
+ * announced; "Saving…" / "Saved" would chatter on every keystroke that
+ * commits.
  */
-export function SyncStatus({
-  className,
-  compact = false,
-}: {
-  className?: string;
-  /** Phones: only trouble shows, and "Offline" without the count. */
-  compact?: boolean;
-}) {
+export function SyncStatus({ className }: { className?: string }) {
   const { status, pendingCount } = useDatapad();
   const waiting =
     pendingCount === 1 ? '1 change waiting' : `${pendingCount} changes waiting`;
@@ -32,22 +27,39 @@ export function SyncStatus({
         ? 'Connecting…'
         : '';
   const quiet = status === 'live' ? (pendingCount ? 'Saving…' : 'Saved') : '';
+  const offline = status === 'offline';
 
   return (
     <p
       className={cn(
-        'flex items-center gap-1.5 text-xs text-muted-foreground',
-        status === 'offline' && 'text-warn',
+        'flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground',
+        offline && 'text-warn',
         className,
       )}
       data-status={status}
     >
-      {status === 'offline' && <CloudSlashIcon weight="bold" aria-hidden />}
-      <span role="status" className={cn(compact && 'sr-only')}>
+      <span
+        aria-hidden
+        data-dot
+        className={cn(
+          'inline-block size-2 shrink-0 rounded-full transition-colors duration-(--duration-base) ease-(--ease-standard)',
+          offline
+            ? 'bg-destructive'
+            : status === 'live' && !pendingCount
+              ? 'bg-ok'
+              : 'bg-warn',
+        )}
+      />
+      {offline && <CloudSlashIcon weight="bold" aria-hidden />}
+      <span role="status" className="sr-only desk:not-sr-only">
         {announced}
       </span>
-      {compact && status === 'offline' && <span aria-hidden>Offline</span>}
-      {quiet && <span className={cn(compact && 'sr-only')}>{quiet}</span>}
+      {offline && (
+        <span aria-hidden className="desk:hidden">
+          Offline
+        </span>
+      )}
+      {quiet && <span className="sr-only desk:not-sr-only">{quiet}</span>}
     </p>
   );
 }

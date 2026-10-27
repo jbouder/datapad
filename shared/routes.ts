@@ -35,6 +35,7 @@ export type RouteName = Route['name'];
  */
 export const SETTINGS_SECTIONS = [
   'appearance',
+  'navigation',
   'templates',
   'summaries',
   'spaces',

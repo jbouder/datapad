@@ -9,6 +9,7 @@ import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
+import { NavSettings } from '@/components/NavSettings';
 import { OrgsView } from '@/components/orgs/OrgsView';
 import { PeopleView } from '@/components/people/PeopleView';
 import { SpacesSettings } from '@/components/SpacesSettings';
@@ -34,6 +35,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
+  navigation: 'Navigation',
   templates: 'Templates',
   summaries: 'Summaries',
   spaces: 'Spaces',
@@ -45,6 +47,7 @@ const LABELS: Record<SettingsSection, string> = {
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
+ * which sections the navigation shows,
  * templates, summaries, your spaces, the people and orgs the rest of the
  * app refers to, your data in and out, and who is signed in. Each section
  * has its own address (`/settings/data`, `/settings/people/:id`); the
@@ -135,6 +138,7 @@ export function SettingsPage({
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
+          {section === 'navigation' && <NavSettings />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'spaces' && <SpacesSettings />}
