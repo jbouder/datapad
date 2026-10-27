@@ -977,6 +977,24 @@ html[data-vt="space"]::view-transition-new(rail) {
   cursor: grab;
 }
 .board-surface[data-tool="sticky"],
-.board-surface[data-tool="text"] {
+.board-surface[data-tool="text"],
+.board-surface[data-tool="rect"],
+.board-surface[data-tool="arrow"],
+.board-surface[data-tool="ink"],
+.board-surface[data-tool="eraser"] {
   cursor: crosshair;
+}
+
+/* Ink is a little heavier than a line, and the same width at any zoom. */
+.board-ink {
+  stroke-width: 3px;
+}
+/* What is being drawn follows the pointer exactly, and takes no input. */
+.board-draft {
+  pointer-events: none;
+  transition: none;
+}
+/* Strokes the eraser has touched, until it lifts. Opacity only. */
+.board-item[data-erasing] {
+  opacity: 0.3;
 }

@@ -210,3 +210,232 @@ export function itemsOf(
 ): readonly BoardItem[] {
   return byBoard(boardItems).get(boardId) ?? NONE;
 }
+
+/* ---------- drawing: ink, rects, arrows and what arrows attach to ---------- */
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+const tenth = (n: number) => Math.round(n * 10) / 10;
+const hundredth = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * An ink stroke from the board points it was drawn through: simplified
+ * with `simplify()` (at `tolerance`, doubled until it fits in `max`
+ * coordinates) and made relative to its top-left, which becomes the
+ * item's `x, y`. Coordinates are rounded to a tenth of a unit.
+ */
+export function strokeOf(
+  points: number[],
+  tolerance: number,
+  max: number,
+): Box & { points: number[] } {
+  let tol = Math.max(tolerance, 0.01);
+  let kept = simplify(points, tol);
+  while (kept.length > max) {
+    tol *= 2;
+    kept = simplify(points, tol);
+  }
+  const box = bounds({ kind: 'ink', x: 0, y: 0, w: 0, h: 0, points: kept });
+  const x = tenth(box.x);
+  const y = tenth(box.y);
+  return {
+    x,
+    y,
+    w: tenth(box.w),
+    h: tenth(box.h),
+    points: kept.map((n, i) => tenth(n - (i % 2 === 0 ? x : y))),
+  };
+}
+
+/** The box from `a` to `b`; with `square`, its shorter side grown to match. */
+export function dragBox(a: Point, b: Point, square = false): Box {
+  let dx = b.x - a.x;
+  let dy = b.y - a.y;
+  if (square) {
+    const side = Math.max(Math.abs(dx), Math.abs(dy));
+    dx = Math.sign(dx || 1) * side;
+    dy = Math.sign(dy || 1) * side;
+  }
+  return {
+    x: Math.min(a.x, a.x + dx),
+    y: Math.min(a.y, a.y + dy),
+    w: Math.abs(dx),
+    h: Math.abs(dy),
+  };
+}
+
+/** `to`, turned about `from` to the nearest multiple of 45°. */
+export function constrainAngle(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return { ...to };
+  const step = Math.PI / 4;
+  const angle = Math.round(Math.atan2(dy, dx) / step) * step;
+  // Exact on the axes, not 1e-14 off them.
+  const clean = (n: number) => (Math.abs(n) < 1e-9 ? 0 : n);
+  return {
+    x: from.x + clean(length * Math.cos(angle)),
+    y: from.y + clean(length * Math.sin(angle)),
+  };
+}
+
+/** Kinds an arrow's end attaches to. */
+export function attachable(item: Pick<BoardItem, 'kind'>): boolean {
+  return item.kind === 'sticky' || item.kind === 'rect';
+}
+
+/** How near a box's border a point must be to count as on it. */
+export const EDGE_TOLERANCE = 0.5;
+
+/** The point on a box's border nearest to `p` (inside it or out). */
+export function nearestEdge(box: Box, p: Point): Point {
+  const x = Math.min(box.x + box.w, Math.max(box.x, p.x));
+  const y = Math.min(box.y + box.h, Math.max(box.y, p.y));
+  if (x !== p.x || y !== p.y) return { x, y };
+  // Inside: out to whichever side is closest.
+  const left = p.x - box.x;
+  const right = box.x + box.w - p.x;
+  const top = p.y - box.y;
+  const bottom = box.y + box.h - p.y;
+  const least = Math.min(left, right, top, bottom);
+  if (least === left) return { x: box.x, y: p.y };
+  if (least === right) return { x: box.x + box.w, y: p.y };
+  if (least === top) return { x: p.x, y: box.y };
+  return { x: p.x, y: box.y + box.h };
+}
+
+/** Whether `p` lies on a box's border. */
+export function onEdge(
+  box: Box,
+  p: Point,
+  tolerance = EDGE_TOLERANCE,
+): boolean {
+  const near = nearestEdge(box, p);
+  return Math.hypot(near.x - p.x, near.y - p.y) <= tolerance;
+}
+
+/** An arrow's two ends, on the board. */
+export function arrowEnds(
+  arrow: Pick<BoardItem, 'x' | 'y' | 'points'>,
+): [Point, Point] {
+  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = arrow.points;
+  return [
+    { x: arrow.x + x0, y: arrow.y + y0 },
+    { x: arrow.x + x1, y: arrow.y + y1 },
+  ];
+}
+
+/** An arrow's `points` for two board points, relative to its `x, y`. */
+export function arrowPoints(
+  arrow: Pick<BoardItem, 'x' | 'y'>,
+  a: Point,
+  b: Point,
+): number[] {
+  return [
+    hundredth(a.x - arrow.x),
+    hundredth(a.y - arrow.y),
+    hundredth(b.x - arrow.x),
+    hundredth(b.y - arrow.y),
+  ];
+}
+
+/**
+ * What a released arrow end lands on: the topmost sticky or rect under
+ * `p` (other than `except`), or undefined. `items` is in drawing order.
+ */
+export function dropTarget(
+  items: readonly BoardItem[],
+  p: Point,
+  except?: string,
+): BoardItem | undefined {
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const b = items[i];
+    if (b && b.id !== except && attachable(b) && hitTest(b, p.x, p.y, 0)) {
+      return b;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Where a released arrow end goes: onto the nearest edge of the sticky or
+ * rect it was dropped on, where it stays attached; anywhere else, where
+ * it was let go.
+ */
+export function snapEnd(
+  items: readonly BoardItem[],
+  p: Point,
+  except?: string,
+): Point {
+  const target = dropTarget(items, p, except);
+  return target ? nearestEdge(target, p) : p;
+}
+
+/**
+ * The sticky or rect an arrow end is attached to: the topmost one whose
+ * border it lies on. An attachment is nothing more than that, an end on
+ * an edge (where `snapEnd()` puts it), so the model needs nothing new.
+ */
+export function attachedTo(
+  items: readonly BoardItem[],
+  p: Point,
+): BoardItem | undefined {
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const b = items[i];
+    if (b && attachable(b) && onEdge(b, p)) return b;
+  }
+  return undefined;
+}
+
+/** `p` on the border of `from`, at the same place on the border of `to`. */
+export function followBox(p: Point, from: Box, to: Box): Point {
+  const fx = from.w === 0 ? 0 : (p.x - from.x) / from.w;
+  const fy = from.h === 0 ? 0 : (p.y - from.y) / from.h;
+  return { x: to.x + fx * to.w, y: to.y + fy * to.h };
+}
+
+export interface BoardMove {
+  id: string;
+  x: number;
+  y: number;
+  points?: number[];
+}
+
+/**
+ * The arrows that follow when stickies or rects move or resize: every
+ * arrow with an end attached to one of `changed` (its new box, by id) is
+ * re-aimed so that end keeps its place on the item's border. An arrow in
+ * `skip` (it is moving itself) is left alone. Each is a `moveBoardItems`
+ * move: the arrow keeps its `x, y` and its `points` change.
+ */
+export function reaim(
+  items: readonly BoardItem[],
+  changed: ReadonlyMap<string, Box>,
+  skip: ReadonlySet<string> = new Set(),
+): Required<BoardMove>[] {
+  if (changed.size === 0) return [];
+  const out: Required<BoardMove>[] = [];
+  for (const arrow of items) {
+    if (arrow.kind !== 'arrow' || skip.has(arrow.id)) continue;
+    let touched = false;
+    const [a, b] = arrowEnds(arrow).map((end) => {
+      const host = attachedTo(items, end);
+      const to = host ? changed.get(host.id) : undefined;
+      if (!host || !to) return end;
+      touched = true;
+      return followBox(end, host, to);
+    }) as [Point, Point];
+    if (!touched) continue;
+    out.push({
+      id: arrow.id,
+      x: arrow.x,
+      y: arrow.y,
+      points: arrowPoints(arrow, a, b),
+    });
+  }
+  return out;
+}

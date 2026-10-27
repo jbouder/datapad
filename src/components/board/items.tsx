@@ -201,7 +201,7 @@ export const ItemShape = memo(function ItemShape({
             fill="none"
             strokeLinecap="round"
           />
-          <path className="board-line" d={linePath(item.points)} />
+          <path className="board-line board-ink" d={linePath(item.points)} />
         </>
       );
   }

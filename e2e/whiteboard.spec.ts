@@ -486,7 +486,11 @@ test('delete with Undo', async ({ page, request }) => {
   await expect(page.getByText('Deleted sticky note')).toBeVisible();
   await expectSaved(page);
   expect((await storedItems(request))['b-doors']).toBeUndefined();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  // The toast's Undo (the board's own Undo button is another way back).
+  await page
+    .locator('output.toast')
+    .getByRole('button', { name: 'Undo' })
+    .click();
   await expect(item(page, 'b-doors')).toBeVisible();
   await expectSaved(page);
   expect((await storedItems(request))['b-doors']).toMatchObject({
