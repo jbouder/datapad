@@ -74,7 +74,7 @@ for (const theme of CHECKED) {
       seed.tasks['t-5'].due = addDays(today, 30);
       seed.meetings['e-1'].date = addDays(today, 1);
       await request.post('/api/import', { data: seed });
-      await page.goto('/');
+      await page.goto('/?view=week');
       for (const name of [/^Later/, /^No date/]) {
         await page.getByRole('button', { name }).click();
       }

@@ -96,7 +96,7 @@ test('the row counts the topics; the page lists them', async ({ page }) => {
   await expectAccessible(page);
 
   // Focus's agenda counts them too.
-  await page.goto('/');
+  await page.goto('/?view=week');
   await expect(
     page
       .getByRole('region', { name: 'Next 7 days' })

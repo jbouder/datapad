@@ -217,7 +217,7 @@ test('the Timeline labels a milestone and opens the project at it', async ({
 });
 
 test('Focus lists a milestone in the next seven days', async ({ page }) => {
-  await openLive(page);
+  await openLive(page, '/?view=week');
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
   const card = agenda.locator('[data-kind="milestone"]');
   await expect(card).toHaveCount(1);

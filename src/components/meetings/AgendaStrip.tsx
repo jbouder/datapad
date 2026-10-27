@@ -15,7 +15,8 @@ const CARD =
   'relative flex w-64 shrink-0 snap-start flex-col gap-1.5 border bg-card p-3 text-card-foreground has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-ring hover:bg-accent/40';
 
 /**
- * Focus's agenda: the next seven days of meetings and milestones as a
+ * Focus's agenda: today's or the next seven days' meetings and milestones
+ * (Focus picks them and the `title`) as a
  * strip of cards that scrolls sideways (snapping card by card on phones).
  * A meeting's card links to it on the Meetings page, and Add note opens
  * a composer for it under the strip, in place; a
@@ -25,10 +26,12 @@ export function AgendaStrip({
   items,
   state,
   today,
+  title = 'Next 7 days',
 }: {
   items: AgendaItem[];
   state: Snapshot;
   today: string;
+  title?: string;
 }) {
   const clock = useClock();
   const { show } = useToast();
@@ -46,7 +49,7 @@ export function AgendaStrip({
   return (
     <section aria-labelledby="agenda-title" className="flex min-w-0 flex-col">
       <h2 id="agenda-title" className="pb-1 font-heading text-sm font-semibold">
-        Next 7 days
+        {title}
       </h2>
       <ul
         aria-labelledby="agenda-title"

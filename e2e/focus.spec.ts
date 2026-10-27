@@ -1,6 +1,14 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { addDays, endOfWeek, localDate } from '../shared/dates';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectAccessible,
+  expectNoSidewaysScroll,
+  expectSaved,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 const today = localDate(new Date());
 const tomorrow = addDays(today, 1);
@@ -8,8 +16,8 @@ const tomorrow = addDays(today, 1);
 const tomorrowBucket = tomorrow <= endOfWeek(today) ? 'This week' : 'Later';
 
 /**
- * The seed with dates around today: one task in each bucket, and an
- * meeting tomorrow for the agenda.
+ * The seed with dates around today: one task in each bucket, a meeting
+ * today (Day's agenda) and one tomorrow (only Week's).
  */
 function seed() {
   const s = structuredClone(SEED);
@@ -19,6 +27,7 @@ function seed() {
   s.tasks['t-6'].due = addDays(today, 30); // Later
   // t-2 has no date.
   s.meetings['e-1'].date = tomorrow;
+  s.meetings['e-4'].date = today; // Quarterly planning, General
   return s;
 }
 
@@ -38,7 +47,7 @@ test.beforeEach(async ({ request }, info) => {
 });
 
 test('open tasks fall into buckets by due date', async ({ page }) => {
-  await openLive(page);
+  await openLive(page, '/?view=week');
   await expect(bucket(page, 'Overdue')).toContainText(
     'Confirm shield generator delivery',
   );
@@ -111,10 +120,52 @@ test('Mine is one keypress, lives in the URL and assigns quick-adds', async ({
   await expect(page.getByText('6 open tasks')).toBeVisible();
 });
 
-test('each agenda card links to its meeting', async ({ page }) => {
+test('Day is the default: today only, with the rest of the week collapsed', async ({
+  page,
+}) => {
   await openLive(page);
-  const agenda = page.getByRole('region', { name: 'Next 7 days' });
+  await expect(page.getByRole('radio', { name: 'Day' })).toBeChecked();
+  const agenda = page.getByRole('region', { name: 'Today’s agenda' });
   await expect(agenda.getByRole('listitem')).toHaveCount(1);
+  await expect(agenda).not.toContainText('Shield review');
+  await expect(bucket(page, 'Today')).toContainText('Book the tauntaun vet');
+  if (tomorrowBucket === 'This week') {
+    await expect(bucket(page, 'This week')).toBeHidden();
+    await page.getByRole('button', { name: /^This week/ }).click();
+    await expect(bucket(page, 'This week')).toContainText(
+      'Find a replacement motivator',
+    );
+  }
+  await expectNoSidewaysScroll(page);
+  await expectAccessible(page);
+});
+
+test('Week is a choice the URL and this browser remember', async ({ page }) => {
+  await openLive(page);
+  // The radio is visually hidden; its label is what gets clicked.
+  await page
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'Week' }) })
+    .click();
+  await expect(page).toHaveURL(/\?view=week$/);
+  await expect(
+    page.getByRole('region', { name: 'Next 7 days' }).getByRole('listitem'),
+  ).toHaveCount(2);
+  await expect(bucket(page, tomorrowBucket)).toBeVisible();
+  // Back at / later, the last choice stands; v goes back to Day.
+  await openLive(page);
+  await expect(page.getByRole('radio', { name: 'Week' })).toBeChecked();
+  await page.locator('body').press('v');
+  await expect(page.getByRole('radio', { name: 'Day' })).toBeChecked();
+  await expect(
+    page.getByRole('region', { name: 'Today’s agenda' }),
+  ).toBeVisible();
+});
+
+test('each agenda card links to its meeting', async ({ page }) => {
+  await openLive(page, '/?view=week');
+  const agenda = page.getByRole('region', { name: 'Next 7 days' });
+  await expect(agenda.getByRole('listitem')).toHaveCount(2);
   await agenda.getByRole('link', { name: 'Shield review' }).click();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
   await expect(

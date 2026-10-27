@@ -265,7 +265,7 @@ test('from the Focus agenda: a project meeting and a General one', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/');
+  await openLive(page, '/?view=week');
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
   await expect(agenda.getByRole('listitem')).toHaveCount(2);
 
@@ -291,7 +291,7 @@ test('from the Focus agenda: a project meeting and a General one', async ({
   await page.keyboard.type('Budget first');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(general).toBeHidden();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/\?view=week$/);
 
   await expectSaved(page);
   const notes = Object.values((await stored(request)).notes);
