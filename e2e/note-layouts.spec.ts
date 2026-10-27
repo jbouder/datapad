@@ -18,8 +18,18 @@ const pick = async (page: Page, name: string) => {
 };
 
 /** Where an element sits on the page (not the viewport). */
+/**
+ * Where a card sits, once its own entrance (`.enter`: 8px up, after a
+ * stagger delay) is over, so a card still waiting to arrive is not read
+ * 8px low.
+ */
 async function place(page: Page, id: string) {
-  return card(page, id).evaluate((el) => {
+  return card(page, id).evaluate(async (el) => {
+    // Reading layout starts any pending transition, so it can be awaited.
+    el.getBoundingClientRect();
+    await Promise.all(
+      el.getAnimations().map((a) => a.finished.catch(() => undefined)),
+    );
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.top + window.scrollY, w: r.width, h: r.height };
   });
