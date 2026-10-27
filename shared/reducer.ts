@@ -1117,11 +1117,13 @@ function apply(d: Draft, op: Op, now: string) {
 function setNav(d: Draft, op: OpOf<'setNav'>) {
   const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
   const nav: NavPrefs = { ...current.nav };
-  const { order, hidden, extras, quickAdd } = op.patch;
+  const { order, hidden, phoneHidden, extras, quickAdd } = op.patch;
   if (order === null) delete nav.order;
   else if (order) nav.order = [...new Set(order)];
   if (hidden === null) delete nav.hidden;
   else if (hidden) nav.hidden = [...new Set(hidden)];
+  if (phoneHidden === null) delete nav.phoneHidden;
+  else if (phoneHidden) nav.phoneHidden = [...new Set(phoneHidden)];
   if (extras === null) delete nav.extras;
   else if (extras) nav.extras = { ...nav.extras, ...extras };
   if (quickAdd === null) delete nav.quickAdd;

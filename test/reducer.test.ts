@@ -2330,10 +2330,15 @@ describe('setNav', () => {
       { type: 'setNav', patch: { extras: { digest: false } } },
       { type: 'setNav', patch: { extras: { archived: false } } },
       { type: 'setNav', patch: { hidden: ['notes', 'notes'] } },
+      { type: 'setNav', patch: { phoneHidden: ['whiteboard', 'whiteboard'] } },
     );
     expect(settingsOf(state)).toEqual({
       defaultOrg: 'Rebel Alliance',
-      nav: { extras: { digest: false, archived: false }, hidden: ['notes'] },
+      nav: {
+        extras: { digest: false, archived: false },
+        hidden: ['notes'],
+        phoneHidden: ['whiteboard'],
+      },
     });
   });
 
@@ -2346,6 +2351,7 @@ describe('setNav', () => {
         patch: {
           order: ['notes'],
           hidden: ['focus'],
+          phoneHidden: ['notes'],
           extras: { activeProjects: false },
         },
       },
@@ -2353,11 +2359,12 @@ describe('setNav', () => {
     const one = at(state, { type: 'setNav', patch: { hidden: null } }).state;
     expect(settingsOf(one).nav).toEqual({
       order: ['notes'],
+      phoneHidden: ['notes'],
       extras: { activeProjects: false },
     });
     const reset = at(state, {
       type: 'setNav',
-      patch: { order: null, hidden: null, extras: null },
+      patch: { order: null, hidden: null, phoneHidden: null, extras: null },
     }).state;
     expect(reset.settings.user).toEqual({ defaultOrg: 'Rebel Alliance' });
   });

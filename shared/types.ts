@@ -405,6 +405,8 @@ export interface Settings {
 export interface NavPrefs {
   order?: string[];
   hidden?: string[];
+  /** The shown sections the phone's tab bar leaves out (the rail keeps). */
+  phoneHidden?: string[];
   extras?: { activeProjects?: boolean; digest?: boolean; archived?: boolean };
   /** The top bar's + menu (#201): its actions' order and the hidden ones. */
   quickAdd?: { order?: string[]; hidden?: string[] };

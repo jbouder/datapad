@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SIGN_OUT_URL } from '@/lib/api';
+import { useNav } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { useSpaces } from '@/providers/DatapadProvider';
@@ -31,12 +32,16 @@ import { useTheme } from '@/providers/ThemeProvider';
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
  * quick Motion and Theme switches, then the space's Whiteboard (on a
- * phone; the rail has it on desktop), Refresh, Help, Settings and Sign out.
+ * phone whose tab bar leaves it out, as it does by default; the rail has
+ * it on desktop), Refresh, Help, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const { spaces, current, switchSpace } = useSpaces();
+  const phoneHasBoard = useNav().phoneItems.some(
+    (item) => item.name === 'whiteboard',
+  );
 
   return (
     <DropdownMenu>
@@ -113,14 +118,16 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {/* The rail has it on desktop. */}
-          <DropdownMenuItem
-            className="desk:hidden"
-            render={<a {...linkProps({ name: 'whiteboard' })} />}
-          >
-            <ChalkboardSimpleIcon />
-            Whiteboard
-          </DropdownMenuItem>
+          {/* The rail has it on desktop; the tab bar can. */}
+          {!phoneHasBoard && (
+            <DropdownMenuItem
+              className="desk:hidden"
+              render={<a {...linkProps({ name: 'whiteboard' })} />}
+            >
+              <ChalkboardSimpleIcon />
+              Whiteboard
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => window.location.reload()}>
             <ArrowClockwiseIcon />
             Refresh

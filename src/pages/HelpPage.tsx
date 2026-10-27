@@ -339,14 +339,15 @@ export function HelpPage({ section }: { section?: string }) {
           The account button at the top right opens the menu: your spaces,
           Motion, Theme, Settings and Sign out. Settings has Appearance (theme,
           12-hour or 24-hour time, motion), Pages (what each page remembers,
-          with Reset), Navigation (the sections the rail and tab bar show, and
-          their order), Templates (the tasks a new project can start with, and
-          the text a new note can; Save as template on a project or a note makes
-          one), Summaries, Spaces, People (each person with their projects,
-          tasks and mentions), Orgs (each org with its projects, contacts,
-          meetings and notes), Data and Account. Signing out ends your
-          Cloudflare Access session on this browser; sign in again to come back.
-          When your device asks for reduced motion, Datapad never animates.
+          with Reset), Navigation (the sections the rail and tab bar show, their
+          order, and which stay off the phone’s tab bar), Templates (the tasks a
+          new project can start with, and the text a new note can; Save as
+          template on a project or a note makes one), Summaries, Spaces, People
+          (each person with their projects, tasks and mentions), Orgs (each org
+          with its projects, contacts, meetings and notes), Data and Account.
+          Signing out ends your Cloudflare Access session on this browser; sign
+          in again to come back. When your device asks for reduced motion,
+          Datapad never animates.
         </p>
       </Section>
 

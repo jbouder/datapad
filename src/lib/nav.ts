@@ -1,6 +1,7 @@
 import {
   CalendarBlankIcon,
   CalendarPlusIcon,
+  ChalkboardSimpleIcon,
   CheckSquareIcon,
   CrosshairIcon,
   FolderPlusIcon,
@@ -15,6 +16,7 @@ import {
   type NavExtra,
   navExtrasOf,
   navOf,
+  navPhoneOf,
   type QuickAddAction,
   quickAddOf,
   type SectionName,
@@ -62,6 +64,12 @@ export const NAV_ITEMS: Record<SectionName, NavItem> = {
     label: 'Notes',
     icon: NoteIcon,
   },
+  whiteboard: {
+    name: 'whiteboard',
+    route: { name: 'whiteboard' },
+    label: 'Whiteboard',
+    icon: ChalkboardSimpleIcon,
+  },
 };
 
 /** Every section in the default order (⌘K lists them all, hidden or not). */
@@ -94,12 +102,13 @@ export const QUICK_ADD_ITEMS: Record<QuickAddAction, QuickAddItem> = {
 };
 
 /**
- * The sections the rail and the tab bar show, in the open space's order,
- * which of the rail's extras are on, and what the top bar's + offers
- * (Settings → Navigation).
+ * The sections the rail shows, in the open space's order, those of them
+ * the phone's tab bar shows, which of the rail's extras are on, and what
+ * the top bar's + offers (Settings → Navigation).
  */
 export function useNav(): {
   items: NavItem[];
+  phoneItems: NavItem[];
   extras: Record<NavExtra, boolean>;
   quickAdd: QuickAddItem[];
 } {
@@ -108,6 +117,7 @@ export function useNav(): {
   return useMemo(
     () => ({
       items: navOf(stored).map((name) => NAV_ITEMS[name]),
+      phoneItems: navPhoneOf(stored).map((name) => NAV_ITEMS[name]),
       extras: navExtrasOf(stored),
       quickAdd: quickAddOf(stored).map((name) => QUICK_ADD_ITEMS[name]),
     }),

@@ -15,6 +15,7 @@ import {
   navExtrasOf,
   navHiddenOf,
   navOrderOf,
+  navPhoneHiddenOf,
   type QuickAddAction,
   quickAddHiddenOf,
   quickAddOrderOf,
@@ -30,6 +31,8 @@ import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 const ICON_BUTTON = 'press size-11 desk:size-8';
+/** A switch's cell: 44px on touch. */
+const CELL = 'flex size-11 shrink-0 items-center justify-center desk:size-9';
 
 const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
   {
@@ -54,9 +57,10 @@ const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
 
 /**
  * Settings → Navigation: which sections the rail and the tab bar show, in
- * what order, the rail's extras, and what the top bar's + offers. Saved
- * for this space as each change is made; Reset to default puts today's
- * nav back, with Undo.
+ * what order, which of those stay off the phone's tab bar (the
+ * Whiteboard, by default), the rail's extras, and what the top bar's +
+ * offers. Saved for this space as each change is made; Reset to default
+ * puts today's nav back, with Undo.
  */
 export function NavSettings() {
   const { state, actions } = useDatapad();
@@ -65,8 +69,12 @@ export function NavSettings() {
   const stored = state?.settings[SETTINGS_ID] ?? DEFAULT_SETTINGS;
   const order = navOrderOf(stored.nav);
   const hidden = navHiddenOf(stored.nav);
+  const phoneHidden = navPhoneHiddenOf(stored.nav);
   const extras = navExtrasOf(stored);
   const visible = order.length - hidden.size;
+  const phoneVisible = order.filter(
+    (name) => !hidden.has(name) && !phoneHidden.has(name),
+  ).length;
   const addOrder = quickAddOrderOf(stored.nav?.quickAdd);
   const addHidden = quickAddHiddenOf(stored.nav?.quickAdd);
   const addVisible = addOrder.length - addHidden.size;
@@ -129,12 +137,28 @@ export function NavSettings() {
     actions.setNav({ patch: { hidden: [...next] } });
   };
 
+  // Saved whole, with the order naming every section there is today, so
+  // one a later release adds is one the lists have never named and keeps
+  // its default.
+  const setOnPhone = (name: SectionName, on: boolean) => {
+    const next = new Set(phoneHidden);
+    if (on) next.delete(name);
+    else next.add(name);
+    actions.setNav({ patch: { order, phoneHidden: [...next] } });
+  };
+
   const reset = () => {
     const before = stored.nav;
     if (!before) return;
     if (
       !actions.setNav({
-        patch: { order: null, hidden: null, extras: null, quickAdd: null },
+        patch: {
+          order: null,
+          hidden: null,
+          phoneHidden: null,
+          extras: null,
+          quickAdd: null,
+        },
       })
     )
       return;
@@ -143,6 +167,7 @@ export function NavSettings() {
         patch: {
           order: before.order?.filter(isSectionName) ?? null,
           hidden: before.hidden?.filter(isSectionName) ?? null,
+          phoneHidden: before.phoneHidden?.filter(isSectionName) ?? null,
           extras: before.extras ?? null,
           quickAdd: before.quickAdd
             ? {
@@ -159,14 +184,25 @@ export function NavSettings() {
     <>
       <p className="text-sm text-muted-foreground">
         The sections in the rail and the tab bar, in this order, for this space.
-        A hidden section still opens from its address, ⌘K and Help. Changes save
-        as you make them.
+        Phone keeps a section off the phone’s tab bar (the Whiteboard, by
+        default; the account menu has it then). A hidden section still opens
+        from its address, ⌘K and Help. Changes save as you make them.
       </p>
 
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold" id="nav-sections">
           Sections
         </h3>
+        <div
+          aria-hidden
+          className="flex items-center gap-1 text-xs text-muted-foreground"
+        >
+          <span className="flex-1" />
+          <span className={`${CELL} text-center`}>Show</span>
+          <span className={`${CELL} text-center`}>Phone</span>
+          <span className={ICON_BUTTON} />
+          <span className={ICON_BUTTON} />
+        </div>
         <ul
           ref={list}
           aria-labelledby="nav-sections"
@@ -175,6 +211,7 @@ export function NavSettings() {
           {order.map((name, i) => {
             const { label, icon } = NAV_ITEMS[name];
             const shown = !hidden.has(name);
+            const onPhone = shown && !phoneHidden.has(name);
             return (
               <OrderRow
                 key={name}
@@ -187,6 +224,11 @@ export function NavSettings() {
                 shown={shown}
                 lastShown={shown && visible <= 1}
                 lastHint="nav-last-hint"
+                phone={{
+                  on: onPhone,
+                  last: onPhone && phoneVisible <= 1,
+                  onChange: (on) => setOnPhone(name, on),
+                }}
                 first={i === 0}
                 last={i === order.length - 1}
                 onShow={(on) => setShown(name, on)}
@@ -196,8 +238,8 @@ export function NavSettings() {
           })}
         </ul>
         <p id="nav-last-hint" className="text-xs text-muted-foreground">
-          At least one section stays in the navigation. The address{' '}
-          <code>/</code> is always Focus, shown or not.
+          At least one section stays in the navigation, and one on the phone.
+          The address <code>/</code> is always Focus, shown or not.
         </p>
       </div>
 
@@ -302,8 +344,9 @@ export function NavSettings() {
 
 /**
  * One row of an ordered list (a section, a + action): its icon and label,
- * a Show switch and Move up / Move down, 44px on touch. `moveKey` names
- * its move buttons so focus can follow a move.
+ * a Show switch, a Phone switch for a section (whether the phone's tab bar
+ * has it; off while the section is hidden) and Move up / Move down, 44px
+ * on touch. `moveKey` names its move buttons so focus can follow a move.
  */
 function OrderRow({
   name,
@@ -315,6 +358,7 @@ function OrderRow({
   shown,
   lastShown,
   lastHint,
+  phone,
   first,
   last,
   onShow,
@@ -331,6 +375,8 @@ function OrderRow({
   lastShown: boolean;
   /** The id of the line that says why. */
   lastHint: string;
+  /** A section's place on the phone's tab bar; a + action has none. */
+  phone?: { on: boolean; last: boolean; onChange: (on: boolean) => void };
   first: boolean;
   last: boolean;
   onShow: (on: boolean) => void;
@@ -358,7 +404,7 @@ function OrderRow({
           <span className="text-xs text-muted-foreground">Hidden</span>
         )}
       </label>
-      <span className="flex size-11 shrink-0 items-center justify-center desk:size-9">
+      <span className={CELL}>
         <Switch
           id={switchId}
           aria-label={`Show ${label}`}
@@ -368,6 +414,18 @@ function OrderRow({
           onCheckedChange={onShow}
         />
       </span>
+      {phone && (
+        <span className={CELL}>
+          <Switch
+            id={`${switchId}-phone`}
+            aria-label={`${label} on the phone`}
+            checked={phone.on}
+            disabled={!shown || phone.last}
+            aria-describedby={phone.last ? lastHint : undefined}
+            onCheckedChange={phone.onChange}
+          />
+        </span>
+      )}
       <Button
         variant="ghost"
         size="icon"
