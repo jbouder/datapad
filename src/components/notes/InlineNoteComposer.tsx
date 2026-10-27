@@ -10,7 +10,7 @@ import {
 import { namesToTokens } from '#shared/mentions';
 import type { Person } from '#shared/types';
 import { NoteComposer } from '@/components/NoteComposer';
-import { useNoteCommands } from '@/components/notes/NoteForm';
+import { useNoteCommands } from '@/components/notes/useNoteCommands';
 import { Button } from '@/components/ui/button';
 import { type ActionInput, useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
