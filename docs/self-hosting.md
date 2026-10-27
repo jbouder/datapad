@@ -131,6 +131,68 @@ and nothing is shared between them: add a colleague to the Access policy
 and they get a Datapad of their own in your account, with their own
 backups folder. Sharing one Datapad between emails is not a feature.
 
+## 5. MCP clients
+
+Datapad is an MCP server at `/mcp` ([mcp.md](mcp.md)). An MCP client
+cannot sign in with Access, so it gets an OAuth token from Datapad
+instead, and two things make that work.
+
+**The `OAUTH_KV` namespace.** `wrangler.jsonc` binds it without an id, and
+`wrangler deploy` creates it the first time (named `datapad-oauth-kv`) and
+reuses it after. To make it yourself instead:
+
+```bash
+npx wrangler kv namespace create OAUTH_KV
+```
+
+and put the `id` it prints on the binding:
+`"kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<id>" }]`. The id is not
+a secret. The namespace holds registered clients and grants, and tokens and
+codes only as hashes.
+
+**A Bypass application for the OAuth paths.** Access must let these paths
+through to the Worker without a sign-in, because the client calls them
+with no Access cookie:
+- `/mcp`
+- `/oauth/token`
+- `/oauth/register`
+- `/.well-known/oauth-authorization-server`
+- `/.well-known/oauth-protected-resource`
+
+Zero Trust → **Access controls** → **Applications** → **Create new
+application** → **Self-hosted and private**. Add a public hostname for
+each path above on Datapad's hostname (the path field takes the path; add
+`/.well-known/oauth-protected-resource/*` too, for the `/mcp` document),
+and give it one policy with the action **Bypass** and the selector
+**Everyone**. A more specific path wins over the main application, so
+everything else stays behind sign-in. Leave `/oauth/authorize` out: it is
+the sign-in, and must stay behind the main application.
+
+On the one-click workers.dev application, open it with **Manage Cloudflare
+Access** and check the Zero Trust form lets you type the workers.dev
+hostname with a path; if it does not, put Datapad on a custom domain for
+MCP.
+
+This does not open the data. The Worker sends exactly those paths to the
+OAuth provider before its Access check, and the provider admits nothing
+without a credential it issued: discovery is public metadata,
+registration stores a client that can do nothing until you approve it on
+the consent page (behind Access), the token endpoint wants a code or
+refresh token it issued with PKCE, and `/mcp` wants a bearer it issued.
+Every other path, `/oauth/authorize` included, is still checked against
+Access in the Worker and answers `401` without it.
+
+**Check it**, after a deploy:
+
+```bash
+curl -i https://<host>/.well-known/oauth-protected-resource/mcp   # 200, JSON
+curl -i -X POST https://<host>/mcp                                 # 401 from the Worker, WWW-Authenticate: Bearer …
+curl -i https://<host>/oauth/authorize                             # Access's sign-in redirect
+claude mcp add --transport http datapad https://<host>/mcp
+```
+
+Then, in Claude Code, ask for `whoami`: it answers with your email.
+
 ## Summaries
 
 Nothing to configure. Summaries run in the browser on a local WebLLM model;
@@ -153,7 +215,9 @@ type check, build, Vitest in workerd, then Playwright + axe (desktop and
 phone) against `vite preview`, split across four runners on the Playwright
 container image. `.github/workflows/deploy.yml` deploys `main`
 after a green CI run.
-1. Create an API token from the **Edit Cloudflare Workers** template.
+1. Create an API token from the **Edit Cloudflare Workers** template (it
+   includes Workers KV Storage, which the first deploy needs to create
+   `OAUTH_KV`).
 2. In the repository: Settings → Secrets and variables → Actions, add
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 3. Settings → Environments → create `production` (add yourself as a

@@ -16,6 +16,16 @@ under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- **Datapad is an MCP server** at `/mcp` (M14, #152): Claude Code, Claude
+  Desktop and claude.ai connect with `claude mcp add --transport http
+  datapad https://<host>/mcp` or a custom connector, sign in through Access,
+  approve the client on a consent page (read, and write if ticked), and get
+  `whoami` and `list_spaces`. Datapad is its own OAuth 2.1 server for MCP
+  clients; a deployment needs an Access Bypass application for the OAuth
+  paths and the `OAUTH_KV` namespace (docs/self-hosting.md, docs/mcp.md).
+
 ## [0.1.0] — 2026-10-27
 
 The first tagged release: the whole product in daily use on a laptop and a

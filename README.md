@@ -125,7 +125,15 @@ over WebSockets, and backs itself up to R2 every night.
 Limits: 12 spaces; titles 200 characters, bodies and descriptions 20,000;
 50 milestones per project, 50 topics per meeting, 100 members or
 attendees; 2,000 items per whiteboard; 150 activity entries per log; 16 MiB
-per import; 20 ops per second per connection; 30 backups kept per space.
+per import; 20 ops per second per connection; 30 backups kept per space;
+60 MCP tool calls a minute per connection.
+
+## Connect Claude
+
+Datapad is an MCP server at `/mcp`: `claude mcp add --transport http
+datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
+Desktop. You sign in through Access and approve the client on a consent
+page. See [docs/mcp.md](docs/mcp.md).
 
 ## Run it yourself
 

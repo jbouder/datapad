@@ -50,6 +50,14 @@ links work.
 Access's own paths (`/cdn-cgi/access/*`, including logout) are answered at
 the edge and never reach the Worker.
 
+The MCP paths are the one exception to "Access first" (`worker/mcp/`,
+[mcp.md](mcp.md)): `/mcp`, `/oauth/token`, `/oauth/register` and
+`/.well-known/oauth-*` go to the OAuth provider before the Access check, and
+the provider admits only a bearer it issued. `/oauth/authorize`, where the
+owner approves a client, is checked against Access like every page, and is
+the only place an email enters a token. On `/mcp` the grant's email names
+the Durable Object, and each tool is an RPC on it.
+
 ## One object per user
 
 `env.DATAPAD.getByName(email)` with the verified, lowercased email. That is
