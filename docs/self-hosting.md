@@ -10,7 +10,54 @@ below keeps it reachable by you and nobody else. Allow about 20 minutes.
 - Node 22+, [bun](https://bun.sh), and this repository cloned.
 - `npx wrangler login` done once on your machine.
 
-## 1. Deploy the Worker
+## What it costs
+
+A personal Datapad fits in the free plans: Workers Free includes
+SQLite-backed Durable Objects, R2 has a free tier that holds years of
+nightly backups (an export is kilobytes to a few megabytes), and Zero
+Trust is free for up to 50 users. There is no third-party service and no
+API key: summaries run in the browser. If you would rather be sure, set a
+spend notification under Billing → Notifications; nothing in this app
+needs a paid plan.
+
+## 1. Make the config yours
+
+`wrangler.jsonc` ships with the author's own Access values. Before the
+first deploy, replace them with yours, or blank `ACCESS_AUD` until step 4:
+
+```jsonc
+"vars": {
+  "ACCESS_TEAM_DOMAIN": "",
+  "ACCESS_AUD": "",
+  "BACKUP_HOUR": "3",
+  "BACKUP_TIME_ZONE": "America/New_York"
+}
+```
+
+Both Access values are public, so they live here and not in a secret. The
+app has no secrets at all; the only one you will create is the API token
+GitHub Actions deploys with (below). `name` is the Worker's name and
+`bucket_name` the backups bucket; change either if you like.
+
+## 2. Create the backups bucket
+
+```bash
+npx wrangler r2 bucket create datapad-backups
+```
+
+`wrangler.jsonc` binds the bucket as `BACKUPS`, and a deploy whose bucket
+does not exist fails, so this comes first. The bucket stays private;
+nothing serves it publicly. Each user gets a folder named by their email:
+the `main` space's backups sit directly in it
+(`<email>/datapad-YYYY-MM-DD.json`), and every other space's in a
+subfolder named by its id (`<email>/<spaceId>/datapad-YYYY-MM-DD.json`).
+
+When the backup runs is two vars in `wrangler.jsonc`: `BACKUP_HOUR` (0–23,
+default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default
+`America/New_York`). Each user's Durable Object books its own alarm for that
+hour. See [data.md § Backups](data.md#backups) for retention and restoring.
+
+## 3. Deploy the Worker
 
 ```bash
 bun install
@@ -18,15 +65,14 @@ npm run deploy
 ```
 
 This publishes `datapad` at `https://datapad.<your-subdomain>.workers.dev`.
-With `ACCESS_AUD` still empty in `wrangler.jsonc`, the Worker answers
-**401 to everything**: it fails closed until Access is set up. That is
-expected.
+With `ACCESS_AUD` empty in `wrangler.jsonc`, the Worker answers **401 to
+everything**: it fails closed until Access is set up. That is expected.
 
 `DEV_ACCESS_EMAIL` only ever lives in `.dev.vars`, which is never deployed,
 and it is ignored whenever `ACCESS_AUD` is set. Do not add it as a var or
 secret in the dashboard.
 
-## 2. Put Cloudflare Access in front
+## 4. Put Cloudflare Access in front
 
 ### On the workers.dev URL (one click)
 
@@ -69,33 +115,21 @@ same AUD (one application covering both) because the Worker checks one.
 ### Check it
 
 - In a private window, open the app. You should land on the Access login.
-- Sign in. The app loads, and Preferences shows "Signed in as <you>".
+- Sign in. The app loads, and Settings → Account shows your email.
 - In the browser's developer tools, the `/ws` request should show `101`.
 - `curl -i https://datapad.<subdomain>.workers.dev/` without a cookie gets
   Access's redirect; with a made-up `Cf-Access-Jwt-Assertion` header the
   Worker itself answers `401`.
 
-Sign out is Preferences → Sign out, which goes to
+Sign out is in the account menu (and Settings → Account), which goes to
 `/cdn-cgi/access/logout`.
 
-## 3. Create the backups bucket
+### More than one person
 
-```bash
-npx wrangler r2 bucket create datapad-backups
-```
-
-Do this before the first deploy: `wrangler.jsonc` binds the bucket as
-`BACKUPS`, and a deploy whose bucket does not exist fails. Use another
-name by changing `bucket_name` there. The bucket stays private; nothing
-serves it publicly. Each user gets a folder named by their email: the
-`main` space's backups sit directly in it
-(`<email>/datapad-YYYY-MM-DD.json`), and every other space's in a
-subfolder named by its id (`<email>/<spaceId>/datapad-YYYY-MM-DD.json`).
-
-When the backup runs is two vars in `wrangler.jsonc`: `BACKUP_HOUR` (0–23,
-default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default
-`America/New_York`). Each user's Durable Object books its own alarm for that
-hour. See [data.md § Backups](data.md#backups) for retention and restoring.
+Each email the policy allows gets its own Durable Object, empty at first,
+and nothing is shared between them: add a colleague to the Access policy
+and they get a Datapad of their own in your account, with their own
+backups folder. Sharing one Datapad between emails is not a feature.
 
 ## Summaries
 
@@ -176,4 +210,10 @@ the request path only. `npm run tail` streams live logs.
 
 Pull, `bun install`, `npm run check && npm run build && npm test`, then
 deploy. Durable Object migrations are listed in `wrangler.jsonc`; never edit
-or remove an applied one.
+or remove an applied one. The object's own schema (`SCHEMA_VERSION` in
+`worker/datapad.ts`) upgrades itself on the first wake after a deploy, in
+one transaction, and a failed upgrade leaves the old layout whole.
+
+Releases are tags on `main` (`v0.1.0`, …) with a GitHub release each;
+[CHANGELOG.md](../CHANGELOG.md) says what changed and whether the export
+format did. Every release imports every earlier export and backup.

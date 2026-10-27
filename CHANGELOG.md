@@ -1,0 +1,101 @@
+# Changelog
+
+Every release of Datapad, newest first, in the shape of
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are
+[tags](https://github.com/jbouder/datapad/tags) on `main`; each has a
+[GitHub release](https://github.com/jbouder/datapad/releases). The milestone
+numbers (M0–M17) are the
+[GitHub milestones](https://github.com/jbouder/datapad/milestones) the work
+was planned under.
+
+Datapad has no API version. The only format other software reads is the
+export file (`datapad-YYYY-MM-DD.json`, [docs/data.md](docs/data.md#the-format)),
+and every release imports every earlier one: old shapes are migrated on
+the way in, never refused. A release that changes the format says so here
+under **Export format**.
+
+## [Unreleased]
+
+## [0.1.0] — 2026-10-27
+
+The first tagged release: the whole product in daily use on a laptop and a
+phone, behind Cloudflare Access, with nothing wiped.
+
+### Added
+
+- **Projects, tasks, notes, meetings, milestones and people** in one place
+  (M1–M5), kept in one SQLite-backed Durable Object per signed-in email
+  with live updates to every open tab and device, an optimistic client and
+  an offline queue that survives a reload.
+- **Cloudflare Access in front, verified again in the Worker** on every
+  request (M0): without a valid sign-in nothing is served, assets included.
+- **Focus**, a briefing of what needs you (M5, rebuilt in M17): the week's
+  movement, today's or the week's meetings and milestones with where each
+  meeting's prep stands, blocked tasks by who they wait on, projects that
+  need attention, open action items and what is overdue or due today.
+- **Layouts for every collection** (M2–M5): Projects as cards, a table or a
+  timeline; Tasks as a list, a table, a board or a timeline, grouped and
+  filtered; Meetings as a list, a month calendar or a timeline; Notes as a
+  feed or a grid; People as a list or cards.
+- **Notes as Markdown** (M3) with `@` mentions, a `/` command menu,
+  formatting keys, clickable checklists, pinned notes, Make task from a
+  selection, and note templates (M17).
+- **Meetings** (M4, M10) with topics and carry-forward along a series
+  (M11), action items (M17), as many linked notes as you like (M16), and a
+  page of their own; **milestones** live on the project (M10).
+- **Tasks** with a page of their own from Tasks and a panel everywhere else
+  (M16), running notes (M16), blocked / waiting-on (M7), bulk close, move
+  and assign from the table, keyboard and touch reorder, and undo instead
+  of confirm.
+- **⌘K search** across every collection, with actions (M5).
+- **On-device summaries** of a project, task, meeting, note or digest with
+  WebLLM in the browser, after you agree to the model download (M6).
+- **Nightly backups** of every space to your own R2 bucket, 30 kept, with
+  download and restore in Settings → Data; **export and import** of the
+  JSON file, merged by id (M1, M6).
+- **Project health**, **orgs**, the **weekly digest** and **project
+  templates** (M7).
+- **Spaces** (M9): one or more complete, separate Datapads in the same
+  object, switched per device, with Settings → Spaces and Move to… on a
+  project.
+- **Whiteboards** (M12): a freeform canvas per project and one for the
+  space, with stickies, text, rectangles, arrows and ink, undo and redo,
+  ⌘K search of its text and download as PNG or SVG.
+- **People and Orgs under Settings** (M15), added inline from any form.
+- **Saved page and navigation preferences** (M17): each page remembers its
+  layout, sort, grouping, filters and sections per space; Settings →
+  Navigation chooses the rail's and tab bar's sections, what the phone's
+  tab bar leaves out, and what the top bar's + offers.
+- **System, Light and Dark themes**, motion that respects
+  `prefers-reduced-motion` and a Motion switch, a 12-hour or 24-hour clock,
+  an installable PWA manifest, and a Help page whose shortcut, `/` command,
+  formatting and layout tables are generated from the app's own lists.
+- **Quality gates** (M8, in progress): Biome, type check, Vitest in
+  workerd, Playwright + axe at desktop and phone width split across four
+  CI shards, and a deploy that follows a green `main`.
+
+### Changed
+
+- Events became meetings and milestones (M10); older exports and backups
+  are migrated on import and on the object's first wake.
+- Meeting notes lost their Prep / Debrief phases (M16): one Add note, as
+  many times as you like. Notes written with a phase keep it.
+- People and Orgs moved from the rail to Settings (M15).
+
+### Retired
+
+- Decisions (M17) and the project's current-state line are no longer
+  shown. Their data is kept, exported, imported and moved with the
+  project.
+
+### Export format
+
+The shape in [docs/data.md § The format](docs/data.md#the-format): the
+`projects`, `tasks`, `notes`, `people`, `activity`, `meetings`, `settings`,
+`decisions`, `orgs`, `templates` and `boardItems` collections, keyed by
+id, with `exportedAt`. The Durable Object's schema is version 3. Files from
+the original artifact (`ledger-*.json`, with `events`) and from every
+earlier Datapad build import unchanged.
+
+[Unreleased]: https://github.com/jbouder/datapad/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jbouder/datapad/releases/tag/v0.1.0

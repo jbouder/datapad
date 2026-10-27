@@ -13,7 +13,7 @@ and a configuration mistake fails closed.
 | A forged or replayed token                                                                                | RS256 signature checked against the team's published keys; `aud` must be the app's AUD tag, `iss` the team domain, `exp` and `nbf` within 60 seconds of now. Unknown key ids refetch the keys at most every 30 seconds.                                                                 |
 | A signed-in user reaching someone else's data                                                             | The Durable Object is named only by the verified email. No URL, header, body or socket message can choose another object; a space id only picks among the user's own spaces. Tests try.                                                                                                 |
 | The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored). With `ACCESS_AUD` set the bypass code path does not run. The Worker logs a loud warning whenever the bypass is active.                                       |
-| Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and (from M3) a Markdown renderer that emits no raw HTML.                                                                                                                                            |
+| Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and a Markdown renderer that emits no raw HTML.                                                                                                                                                      |
 | Clickjacking, MIME sniffing, referrer leaks                                                               | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`.                                                                                                                                                                                           |
 | Cross-site requests                                                                                       | In the Access application's cookie settings, HttpOnly is on and SameSite is Lax. Every `POST` (import, erase, backup restore, and every `/api/spaces/*` write) accepts `application/json` bodies only, which a cross-site form cannot send, and refuses any `Origin` but the app's own. |
 | Data leaving the account                                                                                  | Summaries run on-device; the item's text never leaves the tab. The CSP's `connect-src` allows only this origin plus the model's download hosts (Hugging Face, `raw.githubusercontent.com`), which receive no data and no referrer.                                                      |
@@ -73,8 +73,9 @@ Static assets get `public/_headers`:
   `https://*.huggingface.co`, `https://*.hf.co` and
   `https://raw.githubusercontent.com`, exactly as holocron allows for the
   same model; `worker-src 'self'` (the model's Web Worker); `img-src 'self'
-  data: blob:`; `font-src 'self' data:`; `object-src 'none'`; `base-uri
-  'none'`; `form-action 'self'`; `frame-ancestors 'none'`.
+  data: blob:` (`blob:` for the whiteboard's PNG export); `font-src 'self'
+  data:`; `manifest-src 'self'`; `object-src 'none'`; `base-uri 'none'`;
+  `form-action 'self'`; `frame-ancestors 'none'`.
 
 ## Summaries run on-device
 

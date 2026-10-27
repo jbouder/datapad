@@ -33,9 +33,20 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
   what each page remembers, the address over what is saved, what a change
-  saves), `routes.ts` (the app's addresses, pure:
-  parse, paths, redirects from old addresses, titles; `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order, and the
-  pure halves of moving a project between spaces).
+  saves; `PAGES` is also where Help's Layouts table comes from), `nav.ts`
+  (navigation preferences: the rail's and tab bar's sections and order,
+  what the phone's tab bar leaves out, the + menu), `routes.ts` (the app's
+  addresses, pure: parse, paths, redirects from old addresses, titles;
+  `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order,
+  and the pure halves of moving a project between spaces),
+  `shortcuts.ts` (every keyboard shortcut and the rule that keeps single
+  letters out of inputs and overlays; Help and the `?` sheet list it),
+  `composer.ts` (the note composer as pure functions: the `/` commands,
+  the formatting keys, list continuation; Help's tables come from it),
+  `mentions.ts` (`@{id}` tokens ↔ `@Name`), `notes.ts`, `tasks.ts`,
+  `projects.ts` (each view's filters, sorts and selection), `people.ts`
+  and `orgs.ts` (records by name, inline add), `templates.ts` (project
+  and note templates), `digest.ts` (the weekly digest and its Markdown).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
@@ -121,6 +132,13 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   way of `useHistory`'s `run`, so ⌘Z can undo them.
 - **The repository is public.** No real data in fixtures, tests or docs;
   never commit `.dev.vars`.
+- **Help and the docs stay true.** Help's shortcut, `/` command,
+  formatting and layout tables are generated (`SHORTCUTS`, `COMMANDS`,
+  `FORMAT_SHORTCUTS`, `PAGES`); never hand-write one. A change the owner
+  would notice gets a line under Unreleased in `CHANGELOG.md`, and a
+  change to the export file's shape says so there under **Export
+  format**. Releases are tags on `main` (`v0.1.0`, …) with a GitHub
+  release whose notes are that version's changelog section.
 - **Mobile is first class.** Every view is built and tested at phone width:
   e2e runs desktop _and_ phone; 44px touch targets on touch; no hover-only
   affordances; tables collapse to rows; nothing scrolls the page sideways.

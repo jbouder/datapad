@@ -1,9 +1,12 @@
 # Datapad — build plan
 
-As of 2026-10-23. The functional spec is [SPEC.md](SPEC.md); this document
-decides _how_ it gets built. Where the two disagree on product behavior the
-spec wins; where they disagree on look, feel, motion and plumbing, this plan
-wins (see "Deliberate departures from the spec").
+Written 2026-10-23, kept current through v0.1.0 (2026-10-27). The
+functional spec is [SPEC.md](SPEC.md); this document decides _how_ it gets
+built. Where the two disagree on product behavior the spec wins; where they
+disagree on look, feel, motion and plumbing, this plan wins (see
+"Deliberate departures from the spec"). The spec has been updated as the
+product changed, so the departures table below is also the record of what
+changed during the build and why.
 
 Datapad is a single-user project tracker for an engineering leader: projects,
 tasks, notes, meetings and milestones, people, cross-project views, search, and on-device
@@ -65,6 +68,28 @@ closed. Locally, `.dev.vars` sets `DEV_ACCESS_EMAIL`, honored only when no
 | Meeting row actions inline; attendees in a PersonPicker (multi)                    | Edit and Delete in the row's ⋯ menu (Delete confirms in the row); attendees are the same toggle chips as project members                                                                                                                                                                                                        | Phone rows stay readable at 412px; one multi-select pattern across the app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Summarize hidden when no model is available; errors `not_granted` / `rate_limited` | Summarize is always there; without WebGPU its panel says summaries are unsupported, and before the first download it asks (model picker, size, source). A Settings → Summaries section picks the model and removes the weights. Meeting Summarize is in the row's ⋯ menu                                                        | The model is local and opt-in, so "not available" is a state to explain, not to hide; there is no account to grant or rate-limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+### Departures made during the build
+
+Each of these changed the spec after the fact (SPEC.md now says what the
+app does); this is where they came from.
+
+| Was                                                                                   | Is                                                                                                                                                                                                                                                                                                                      | Why                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One `events` collection typed meeting, demo, milestone, deadline or other (M4)        | Meetings (a collection, untyped) and milestones (embedded in the project, `{id, title, date}`); `shared/migrate.ts` converts older files and the object's schema 3 converts stored data (M10, #130–#133)                                                                                                                | Owner's call (2026-10-25): events were only ever meetings, so the type goes; a milestone belongs to its project, with ops of its own; a deadline is the project's target date. Nothing is wiped. |
+| A note is linked to a meeting as Prep or Debrief (`phase`, M4, redone in #163)        | One **Add note** on every meeting, as many times as you like, newest first, exactly like a task's running notes; `phase` is kept on old notes and never set (M16, #167)                                                                                                                                                 | Owner's call (2026-10-26): one kind of note, added whenever one is needed, is how meeting notes are taken.                                                                                       |
+| Topics are not in the spec                                                            | A meeting has topics (an agenda line each: covered, outcome, order), a series (same title, project and people) and **carry forward** of uncovered topics to the next meeting (M11, #134–#137)                                                                                                                           | Owner's request (2026-10-25).                                                                                                                                                                    |
+| A meeting and a task open in panels                                                   | A meeting has a page (`/meetings/:id`: header, topics, notes, previous and next in its series, #172); a task has a page from Tasks (`/tasks/:id`, #173) and its panel everywhere else                                                                                                                                   | Topics plus notes plus action items did not fit a 460px panel; the project page was the pattern to copy.                                                                                         |
+| Decisions, a collection and page (M7)                                                 | Retired (#183): the data is kept, exported, imported and moved with the project; nothing shows it                                                                                                                                                                                                                       | Owner's call (2026-10-26): whole-feature removal rather than only the project section.                                                                                                           |
+| The project's one-line current state (spec's card line)                               | Dropped from the UI (#181); `state` and `setState` are kept so queued ops still apply                                                                                                                                                                                                                                   | Owner's call (2026-10-26).                                                                                                                                                                       |
+| Focus lists tasks in due buckets (Overdue, Today, This week, Later, No date, Blocked) | A **briefing** (#206, #207): the week's movement, the agenda with each meeting's prep line, Waiting on (blocked tasks by person), Attention (projects off health, near or past target, or quiet two weeks), Follow-ups (open action items) and Due (Overdue, Today, This week in Week); Later and No date stay on Tasks | Owner's call (2026-10-27): Focus had become a second Tasks page; the signals it should surface were already in the data.                                                                         |
+| Action items are not in the spec                                                      | A task may carry `meetingId` (#185): added from the meeting's page or panel, or from a topic; ordinary tasks in the meeting's project that say where they came from                                                                                                                                                     | Owner's call (2026-10-26): real tasks rather than a checklist on the meeting.                                                                                                                    |
+| Task notes are not in the spec                                                        | A note may carry `taskId` (#164): dated running notes on a task, in its panel and page, ordinary notes on Notes                                                                                                                                                                                                         | Owner's request (2026-10-26): a dated entry ("pinged legal, waiting on the redline") instead of rewriting the details.                                                                           |
+| One Datapad per email                                                                 | **Spaces** (M9, #113–#119): one or more complete Datapads in the same object, `main` first, switched per device, each with its own socket, sequence and backups; Move to… takes a project across                                                                                                                        | Owner's request (2026-10-25). The object stays named by the email alone, so a space id is never a credential.                                                                                    |
+| No whiteboard                                                                         | A freeform SVG canvas per project and one for the space (M12, #138–#141): stickies, text, rects, arrows, ink; undo and redo; ⌘K; PNG and SVG download. `boardItems` is a collection; board ops are silent in the activity log except one daily line                                                                     | Owner's choice (2026-10-25): a freeform canvas, hand-built on SVG, rather than a sticky board or tldraw / Excalidraw.                                                                            |
+| Templates are project task lists (M7)                                                 | A template with `body` is a note template (#204): `/template` in the composer, the Template picker on a new note, Save as template on a note                                                                                                                                                                            | Owner's request (2026-10-27): 1:1s, retros and status updates are written the same way every time.                                                                                               |
+| Filters live in the URL, layouts in `localStorage`                                    | Each page's layout, sort, grouping, filters and open sections are saved with the space (`settings.pages`, #186) and the rail, tab bar and + menu are configurable per space (`settings.nav`, #187, #201, #213); the URL still wins when it names a filter                                                               | Owner's request (2026-10-27): a page opens the way it was left on every device; six tabs crowd a phone, so the whiteboard stays off its tab bar unless chosen.                                   |
+| Reporting (M13: status reports, metrics, charts)                                      | Not built; its issues were closed on 2026-10-27 with nothing merged. The weekly Digest remains the report                                                                                                                                                                                                               | Owner's call.                                                                                                                                                                                    |
+
 ## Data model
 
 The six spec collections (project, task, note, meeting, person, activity) plus
@@ -89,7 +114,14 @@ New collections, agreed as worth having (milestone 7):
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Decision** (retired in #183: data kept, shown nowhere) | id, projectId (null = General), title, rationale (markdown, mentions), status `proposed \| decided \| revisited`, decidedAt (date), deciders personId[], links Link[], createdAt, updatedAt | Project detail (right column, under Notes), ⌘K search, project summaries, People view (decisions they took part in), activity log                                                                                                                     |
 | **Org**                                                  | id, name, kind `client \| internal \| vendor \| partner`, links Link[], notes (markdown), contacts personId[], archived, createdAt, updatedAt                                               | Orgs view (list + detail with its projects, people, upcoming meetings), the org dropdown on Projects, project header chip. `project.org` (string) stays for import; a one-time migration creates Org docs from the distinct strings and sets `orgId`. |
-| **Template**                                             | id, name, tasks `{title, priority, tags}[]`, defaultTags string[]                                                                                                                           | "Start from template" in the new-project form (deferred 4)                                                                                                                                                                                            |
+| **Template**                                             | id, name, tasks `{title, priority, tags}[]`, defaultTags string[]; or `body` (markdown) for a note template (#204)                                                                          | "Start from template" in the new-project form (deferred 4); the Template picker on a new note and `/template` in the composer                                                                                                                         |
+| **BoardItem** (M12)                                      | id, boardId (a project id or `general`), kind `sticky \| text \| rect \| arrow \| ink`, x, y, w, h, z, color (one of five tokens), text, points `[x0, y0, …]` relative to x, y              | The project's whiteboard and the space's; ⌘K (sticky, text and rect labels)                                                                                                                                                                           |
+
+Fields added since: `project.milestones` (M10, embedded), `project.startDate`
+(#109), `meeting.topics` (M11, embedded), `note.taskId` (#164),
+`task.meetingId` (#185), and `settings.nav` / `settings.pages` (#187, #186).
+Every one is optional on import and absent in older files
+([data.md § The format](data.md#the-format)).
 
 Spaces (M9): every document belongs to one of the user's spaces, each a
 complete, separate Datapad in the same Durable Object (`SpaceInfo`,
@@ -117,27 +149,12 @@ Browser ──HTTP──▶ Worker (worker/index.ts)
 
 ### Layout (mirrors holocron)
 
-- `shared/` — `types.ts`, `protocol.ts` (ops + messages, zod), `reducer.ts`
-  (**the only place state changes**), `markdown.ts` (renderer + mention
-  conversions), `summaries.ts` (context builders + prompt), `select.ts`
-  (pure selectors: buckets, counts, orgs, mentions), `limits.ts`,
-  `dates.ts` (shorthand parsing, overdue/today).
-- `worker/` — `index.ts` (routes, Access check, headers), `access.ts` (JWT
-  verification with JWKS cache), `datapad.ts` (the DO), `env.ts`.
-- `src/` — `hooks/useDatapad.ts` (socket, optimistic ops, IndexedDB cache),
-  `lib/router.ts`, `lib/motion.ts`, `hooks/useFlip.ts`, `providers/*`
-  (Motion, Theme, Toast, Datapad), `components/` (AppShell, Rail, TabBar,
-  TopBar, PreferencesMenu, TaskRow, QuickAdd, NoteCard, NoteComposer,
-  MeetingRow, SidePanel, Palette, Toast, DatePicker, PersonPicker,
-  ProjectPicker, TagInput, LinksEditor), `pages/` (Focus, Projects,
-  ProjectDetail, Tasks, Notes, Meetings, People, Archive, Orgs, Digest, Help).
-- `test/` — Vitest in workerd: reducer, markdown, selectors, dates, DO
-  storage and sync, Access verification, headers/CSP.
-- `e2e/` — Playwright + axe against `vite preview` with the dev Access
-  bypass; one spec per view plus keyboard, motion, reflow and a11y suites.
-- `docs/` — SPEC, this PLAN, architecture, self-hosting (Access setup
-  included), security (threat model), data (what is stored where, backups,
-  export).
+The shape is holocron's: `shared/` (the domain, used by both sides, with
+`reducer.ts` the only place state changes), `worker/` (Access check,
+routes, the Durable Object), `src/` (the React app), `test/` (Vitest in
+workerd), `e2e/` (Playwright + axe, desktop and phone) and `docs/`. The
+file-by-file list is kept in [AGENTS.md](../AGENTS.md#layout), which every
+change updates; this plan no longer repeats it.
 
 ## Tasks and notes come first
 
@@ -256,6 +273,18 @@ than each piece.
 | 7   | Extensions                             | Health flag; blocked / waiting-on; Decisions; Orgs; weekly Digest; Templates                                                                                                                                                                              |
 | 8   | Quality, security, accessibility, docs | Full a11y audit and WCAG 2.2 AA statement; security review and threat model; web-app maturity audit; performance budgets in CI; coverage thresholds and WebKit e2e; CodeQL; observability and error handling; docs and Help refresh; first tagged release |
 | 9   | Spaces                                 | Separate spaces in the one Durable Object (migrated in place, `main` first); per-space sockets, seq and backups; switcher in the rail, account menu and ⌘K; Settings → Spaces; move a project between spaces; docs                                        |
+| 10  | Meetings and milestones                | Events become meetings; milestones move onto the project; `migrate.ts` for files and schema 3 for stored data; Meetings page as list, calendar and timeline; milestones on the project page and timelines                                                 |
+| 11  | Meeting topics                         | Topics beside the note (covered, outcome, order); a meeting's series; carry forward with Undo; the Focus agenda's topic count                                                                                                                             |
+| 12  | Whiteboard                             | `boardItems` model and ops; the SVG canvas (viewport, select, move, resize); stickies, text, rects, arrows, ink; undo and redo; ⌘K; PNG and SVG download; a nav section of its own, off the phone's tab bar by default                                    |
+| 13  | Reporting                              | Not built (closed 2026-10-27); see the departures table                                                                                                                                                                                                   |
+| 14  | MCP                                    | Planned: OAuth on top of Access, a `/mcp` endpoint, read tools over the shared selectors, then write tools through `reduce()` and Settings → Connected apps                                                                                               |
+| 15  | People and Orgs under Settings         | The two pages leave the rail for `/settings/people` and `/settings/orgs`; forms add a person or an org inline by name                                                                                                                                     |
+| 16  | Notes on meetings and tasks            | Running notes on a task (`Note.taskId`); meeting notes the same way, Prep / Debrief gone; a meeting page and a task page                                                                                                                                  |
+| 17  | Action items, a leaner project page    | Decisions retired; the project header holds Save as template; `Task.meetingId` action items; Focus as a briefing; saved page and navigation preferences; note templates; the top bar's + menu                                                             |
+
+M8 is the one milestone still open at v0.1.0: the e2e shards and test
+depth landed, and the accessibility, security, performance, supply-chain
+and observability audits (#39, #53–#58) follow the release.
 
 ## Setting up Cloudflare Access (once)
 

@@ -5,17 +5,26 @@ import {
   FORMAT_SHORTCUTS,
   type FormatShortcut,
 } from '#shared/composer';
+import { PAGES, type PageSpec } from '#shared/pages';
 import { ShortcutList } from '@/components/ShortcutList';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { linkProps, type Route } from '@/lib/router';
 
 /**
  * Using Datapad, in holocron's Help style: short sections, one address
- * each (`/help#keyboard`). The shortcut, `/` command and formatting tables
- * are generated from the lists the app binds (`SHORTCUTS`, `COMMANDS`,
- * `FORMAT_SHORTCUTS`), so they cannot drift. Self-hosting lives in the
- * repository's docs, not here.
+ * each (`/help#keyboard`). The shortcut, `/` command, formatting and
+ * layout tables are generated from the lists the app binds (`SHORTCUTS`,
+ * `COMMANDS`, `FORMAT_SHORTCUTS`, `PAGES`), so they cannot drift.
+ * Self-hosting lives in the repository's docs, not here.
  */
+
+/** The pages with a layout switcher, each with its layouts and default. */
+const LAYOUTS = Object.values(PAGES).flatMap((page: PageSpec) => {
+  const field = page.fields.find((f) => f.key === 'view');
+  if (!field?.options) return [];
+  const def = field.options.find((o) => o.value === field.def)?.label ?? '';
+  return [{ page: page.label, options: field.options, def }];
+});
 
 const SECTIONS = [
   { id: 'about', title: 'What Datapad is' },
@@ -130,12 +139,24 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
         </dl>
         <p className="text-sm">
-          Most pages switch layout from the buttons at the top right of the
-          list. Each page remembers how you left it: its layout, sort and
-          grouping, filters and the sections you open or close, saved with the
-          space so every device opens it the same way. A link that names its own
-          filters still shows them, and the search text is never kept. Settings
-          → Pages shows, changes and resets them.
+          Most pages switch layout from the buttons at the top right of the list
+          (<Key>v</Key> cycles them). Each page remembers how you left it: its
+          layout, sort and grouping, filters and the sections you open or close,
+          saved with the space so every device opens it the same way. A link
+          that names its own filters still shows them, and the search text is
+          never kept. Settings → Pages shows, changes and resets them.
+        </p>
+        <Table
+          caption="Layouts"
+          head={['Page', 'Layouts', 'Opens as']}
+          rows={LAYOUTS.map((l) => [
+            l.page,
+            l.options.map((o) => o.label).join(' · '),
+            l.def,
+          ])}
+        />
+        <p className="text-sm">
+          Tasks opens as a list on a phone, where the table would not fit.
         </p>
         <p className="text-sm">
           Settings → Navigation chooses which sections the rail and the tab bar

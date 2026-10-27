@@ -14,7 +14,9 @@ commit `.dev.vars`.
 | Nightly backups                          | The `BACKUPS` R2 bucket in your account, one folder per space (see [Backups](#backups)), latest 30 kept in each                                                                                      | You, through the Cloudflare dashboard or API         |
 | Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`), and the unsaved changes again in `localStorage` (`datapad:pending-now`); spaces other than `main` add `:<id>` to each key | That browser profile                                 |
 | Which space is open                      | `localStorage` (`datapad:space`) in each browser                                                                                                                                                     | That browser profile                                 |
-| Theme and motion preferences             | `localStorage` in each browser                                                                                                                                                                       | That browser profile                                 |
+| Theme, motion and clock preferences      | `localStorage` (`datapad:theme`, `datapad:motion`, `datapad:clock`) in each browser                                                                                                                  | That browser profile                                 |
+| A note you are still writing             | `localStorage` (`datapad:draft:…`) in each browser, until it is saved or discarded                                                                                                                   | That browser profile                                 |
+| Where each whiteboard was left scrolled  | `localStorage` (`datapad:board-view:…`) in each browser                                                                                                                                              | That browser profile                                 |
 | Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                                                                                                                                    | That browser profile                                 |
 | Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                                                                             | That browser profile                                 |
 
@@ -198,13 +200,14 @@ alarm writes each space's export JSON to the `BACKUPS` R2 bucket (the
 day in that zone), deletes all but that space's latest 30, and books the
 next night. A space with no documents writes nothing.
 
-````
+```
 datapad-backups/
   you@example.com/
-    datapad-2026-10-24.json          main, where backups were before spaces
+    datapad-2026-10-24.json             main, where backups were before spaces
     <spaceId>/datapad-2026-10-24.json   every other space, in a folder named by its id
-``` If a night is missed, the next time any tab
-connects writes one at once.
+```
+
+If a night is missed, the next time any tab connects writes one at once.
 
 The alarm only adds to and prunes the bucket. It never changes or deletes
 a document; the only way to delete your data is the erase below.
@@ -219,7 +222,7 @@ nothing else is deleted. A document you created after the backup stays.
 ```bash
 npx wrangler r2 object get "datapad-backups/you@example.com/datapad-2026-10-24.json" \
   --file datapad-2026-10-24.json --remote
-````
+```
 
 The file is an ordinary export: read it as JSON, or import it into any
 Datapad through Settings → Data → Import… once the app is back.
