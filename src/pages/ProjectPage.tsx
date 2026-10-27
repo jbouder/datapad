@@ -18,7 +18,6 @@ import { Markdown } from '@/components/Markdown';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingList } from '@/components/meetings/MeetingList';
 import { NoteCard } from '@/components/notes/NoteCard';
-import { NoteForm } from '@/components/notes/NoteForm';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
@@ -75,7 +74,7 @@ export function ProjectPage({ id }: { id: string }) {
   const [moveOpen, setMoveOpen] = useState(false);
   /** Moved away just now: on the way to Projects. */
   const [leaving, setLeaving] = useState(false);
-  const { hidden } = useNotes();
+  const { hidden, newNote } = useNotes();
   const { active } = useMotion();
   const notesList = useRef<HTMLDivElement>(null);
   useFlip(notesList, active);
@@ -389,26 +388,37 @@ export function ProjectPage({ id }: { id: string }) {
           </Section>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
-          <Section title="Notes" count={notes.length} remember={key('notes')}>
-            <div className="flex flex-col gap-3 pt-2">
-              <NoteForm projectId={id} people={state.people} />
-              <div ref={notesList} className="flex flex-col gap-2">
-                {notes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No notes on this project yet.
-                  </p>
-                ) : (
-                  notes.map((n) => (
-                    <NoteCard
-                      key={n.id}
-                      note={n}
-                      state={state}
-                      showProject={false}
-                      when="day"
-                    />
-                  ))
-                )}
-              </div>
+          <Section
+            title="Notes"
+            count={notes.length}
+            remember={key('notes')}
+            actions={
+              <Button
+                variant="outline"
+                className="press h-11 desk:h-8"
+                onClick={() => newNote(id)}
+              >
+                <PlusIcon />
+                Add note
+              </Button>
+            }
+          >
+            <div ref={notesList} className="flex flex-col gap-2 pt-2">
+              {notes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No notes on this project yet.
+                </p>
+              ) : (
+                notes.map((n) => (
+                  <NoteCard
+                    key={n.id}
+                    note={n}
+                    state={state}
+                    showProject={false}
+                    when="day"
+                  />
+                ))
+              )}
             </div>
           </Section>
           <Section

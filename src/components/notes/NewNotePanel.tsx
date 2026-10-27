@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { namesToTokens } from '#shared/mentions';
 import { Field } from '@/components/Field';
 import { NoteComposer } from '@/components/NoteComposer';
-import { useNoteCommands } from '@/components/notes/NoteForm';
+import { useNoteCommands } from '@/components/notes/useNoteCommands';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
 import { SidePanel, SidePanelCancel } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';

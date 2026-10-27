@@ -181,23 +181,34 @@ test('long notes clamp with Show more', async ({ page, request }) => {
   await expect(long.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
 
-test('a project’s composer is one line until you use it', async ({ page }) => {
+test('Add note on a project page opens the panel, preset to it', async ({
+  page,
+}) => {
   await openLive(page, '/projects/p-falcon');
-  const box = page.getByRole('combobox', { name: 'New note' });
-  const form = page.getByRole('group', { name: 'Write a note' });
-  const add = form.getByRole('button', { name: 'Add note' });
-  await expect(box).toHaveAttribute('placeholder', 'Write a note…');
-  await expect(add).toBeHidden();
+  // No composer on the page: Add note in the Notes section opens the panel.
+  await expect(page.getByRole('combobox', { name: 'New note' })).toHaveCount(0);
+  // Exact: a meeting row's own is "Add note to “…”".
+  const add = page
+    .getByRole('main')
+    .getByRole('button', { name: 'Add note', exact: true });
+  await expectAccessible(page);
+  const box = await add.boundingBox();
+  const touch = await page.evaluate(
+    () => matchMedia('(pointer: coarse)').matches,
+  );
+  if (touch) expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
 
-  await box.click();
-  await expect(add).toBeVisible();
-
-  // Left empty, it folds away again; with text in it, it stays open.
-  await page.getByRole('heading', { level: 1 }).click();
-  await expect(add).toBeHidden();
-  await box.fill('Half a thought');
-  await page.getByRole('heading', { level: 1 }).click();
-  await expect(add).toBeVisible();
+  await add.click();
+  const panel = page.getByRole('dialog', { name: 'New note' });
+  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
+  await expect(
+    panel.getByRole('combobox', { name: 'Project', exact: true }),
+  ).toHaveValue('Falcon hyperdrive refit');
+  await page.keyboard.type('Swap the motivator');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(panel).toBeHidden();
+  await expect(card(page, 'Swap the motivator')).toBeVisible();
+  await expect(add).toBeFocused();
 });
 
 test('Add note on Notes opens the panel, at any width', async ({ page }) => {
