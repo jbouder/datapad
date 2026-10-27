@@ -17,6 +17,11 @@ export type Route =
   /** One meeting's page (`/meetings/:id`). */
   | { name: 'meeting'; id: string }
   | { name: 'digest' }
+  /**
+   * A whiteboard: a project's (`/projects/:id/whiteboard`) or, without
+   * `project`, the space's own (`/whiteboard`).
+   */
+  | { name: 'whiteboard'; project?: string }
   /** Settings → People; `person` is the one selected (`/settings/people/:id`). */
   | { name: 'people'; person?: string }
   /** Settings → Orgs; `org` is the one open (`/settings/orgs/:id`). */
@@ -58,6 +63,7 @@ const SIMPLE = new Set<RouteName>([
   'notes',
   'meetings',
   'digest',
+  'whiteboard',
 ]);
 
 /**
@@ -110,6 +116,10 @@ export function parseRoute(
   if (devRoutes && clean === '/dev/components') {
     return { name: 'devComponents' };
   }
+  const board = /^\/projects\/([^/]+)\/whiteboard$/.exec(clean);
+  if (board?.[1]) {
+    return { name: 'whiteboard', project: decodeURIComponent(board[1]) };
+  }
   const project = /^\/projects\/([^/]+)$/.exec(clean);
   if (project?.[1]) {
     return { name: 'project', id: decodeURIComponent(project[1]) };
@@ -148,6 +158,10 @@ export function routePath(route: Route): string | null {
         : `/settings/${route.section}`;
     case 'project':
       return `/projects/${encodeURIComponent(route.id)}`;
+    case 'whiteboard':
+      return route.project
+        ? `/projects/${encodeURIComponent(route.project)}/whiteboard`
+        : '/whiteboard';
     case 'task':
       return `/tasks/${encodeURIComponent(route.id)}`;
     case 'meeting':
@@ -197,6 +211,8 @@ export function linkedMeeting(pathname: string, search: string): string | null {
 /** The top-level section a route belongs to, for `aria-current` in the nav. */
 export function sectionOf(route: Route): RouteName {
   if (route.name === 'project' || route.name === 'archive') return 'projects';
+  // A project's board is part of the project; the space's has the rail.
+  if (route.name === 'whiteboard' && route.project) return 'projects';
   if (route.name === 'task') return 'tasks';
   if (route.name === 'meeting') return 'meetings';
   if (route.name === 'people' || route.name === 'orgs') return 'settings';
@@ -225,6 +241,7 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notes: 'Notes',
   meetings: 'Meetings',
   digest: 'Weekly digest',
+  whiteboard: 'Whiteboard',
   people: 'People',
   orgs: 'Orgs',
   settings: 'Settings',

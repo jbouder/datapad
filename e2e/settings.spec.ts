@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectSaved,
+  isMobile,
   openLive,
   openPreferences,
   SEED,
@@ -33,6 +34,8 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'System',
     'Light',
     'Dark',
+    // The space's whiteboard: the rail has it on desktop.
+    ...(isMobile(page) ? ['Whiteboard'] : []),
     'Refresh',
     'Help',
     'Settings',

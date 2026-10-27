@@ -21,6 +21,7 @@ import {
   useRoute,
 } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
+import { cn } from '@/lib/utils';
 import { ArchivePage } from '@/pages/ArchivePage';
 import { DigestPage } from '@/pages/DigestPage';
 import { FocusPage } from '@/pages/FocusPage';
@@ -34,6 +35,7 @@ import { ProjectsPage } from '@/pages/ProjectsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TaskPage } from '@/pages/TaskPage';
 import { TasksPage } from '@/pages/TasksPage';
+import { WhiteboardPage } from '@/pages/WhiteboardPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -69,7 +71,12 @@ export function AppShell() {
           : undefined;
 
   // Add task opens the new-task panel, preset to the project you are on.
-  const currentProject = route.name === 'project' ? route.id : null;
+  const currentProject =
+    route.name === 'project'
+      ? route.id
+      : route.name === 'whiteboard'
+        ? (route.project ?? null)
+        : null;
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
@@ -154,8 +161,14 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [newTask, newNote, currentProject, noteProject]);
 
+  // A whiteboard takes the whole viewport below the top bar (and above
+  // the tab bar): the page itself never scrolls.
+  const fullBleed = route.name === 'whiteboard';
+
   return (
-    <div className="flex min-h-dvh">
+    <div
+      className={cn('flex', fullBleed ? 'h-dvh overflow-hidden' : 'min-h-dvh')}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-background focus:px-3 focus:py-2"
@@ -163,7 +176,7 @@ export function AppShell() {
         Skip to content
       </a>
       <Rail route={route} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar
           title={titleOf(route, pageName)}
           pageKey={pageKey(route)}
@@ -176,7 +189,12 @@ export function AppShell() {
         <main
           id="main"
           key={pageKey(route)}
-          className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6"
+          className={cn(
+            'page flex w-full min-w-0 flex-1 flex-col',
+            fullBleed
+              ? 'min-h-0 pb-[calc(var(--tabbar-height)+env(safe-area-inset-bottom))]'
+              : 'px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6',
+          )}
         >
           <Page route={route} />
         </main>
@@ -201,6 +219,7 @@ function pageKey(route: Route): string {
   if (route.name === 'project') return `project:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
+  if (route.name === 'whiteboard') return `whiteboard:${route.project ?? ''}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
 }
@@ -229,6 +248,8 @@ function Page({ route }: { route: Route }) {
       return <MeetingPage id={route.id} />;
     case 'digest':
       return <DigestPage />;
+    case 'whiteboard':
+      return <WhiteboardPage project={route.project} />;
     case 'people':
       return <SettingsPage section="people" person={route.person} />;
     case 'orgs':

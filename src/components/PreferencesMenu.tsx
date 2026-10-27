@@ -1,5 +1,6 @@
 import {
   ArrowClockwiseIcon,
+  ChalkboardSimpleIcon,
   GearSixIcon,
   QuestionIcon,
   SignOutIcon,
@@ -29,7 +30,8 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then Refresh, Help, Settings and Sign out.
+ * quick Motion and Theme switches, then the space's Whiteboard (on a
+ * phone; the rail has it on desktop), Refresh, Help, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
@@ -111,6 +113,14 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          {/* The rail has it on desktop. */}
+          <DropdownMenuItem
+            className="desk:hidden"
+            render={<a {...linkProps({ name: 'whiteboard' })} />}
+          >
+            <ChalkboardSimpleIcon />
+            Whiteboard
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => window.location.reload()}>
             <ArrowClockwiseIcon />
             Refresh

@@ -32,6 +32,9 @@ export function routeAfterSwitch(route: {
   [key: string]: unknown;
 }): { name: 'focus' | 'tasks' | 'meetings' } | null {
   if (route.name === 'project') return { name: 'focus' };
+  // A project's whiteboard belongs to the space too; the space's own
+  // board stays (the next space's board).
+  if (route.name === 'whiteboard' && route.project) return { name: 'focus' };
   if (route.name === 'task') return { name: 'tasks' };
   if (route.name === 'meeting') return { name: 'meetings' };
   if (route.name === 'people' && route.person) return { name: 'focus' };
