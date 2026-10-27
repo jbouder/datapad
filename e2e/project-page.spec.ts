@@ -117,22 +117,27 @@ test('the header actions wrap with no sideways scroll', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Save as template' }),
   ).toBeVisible();
+  // Polled: the page may still be entering (a transform) when first measured.
   if (isMobile(page)) {
     for (const name of ['Summarize', 'Edit', 'Archive', 'Save as template']) {
-      const box = await page
+      const button = page
         .getByRole('article', { name: 'Echo Base relocation' })
         .locator('header')
-        .getByRole('button', { name, exact: true })
-        .boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+        .getByRole('button', { name, exact: true });
+      await expect
+        .poll(async () => (await button.boundingBox())?.height ?? 0)
+        .toBeGreaterThanOrEqual(44);
     }
   }
-  const overflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth -
-      document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
 });
 
 test.describe('section motion', () => {
