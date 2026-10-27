@@ -822,7 +822,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       .max(LIMITS.batchMax),
   }),
 
-  /* decisions */
+  /* decisions: retired (#183); kept so old clients' queued ops still apply */
   /** Logs "Proposed "<title>"" or "Decided "<title>"". */
   z.object({
     type: z.literal('addDecision'),

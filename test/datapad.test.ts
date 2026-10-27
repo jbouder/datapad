@@ -705,6 +705,44 @@ describe('export and import', () => {
     });
   });
 
+  it('keeps decisions through import and export, though they are retired', async () => {
+    const email = 'decisions-kept@example.com';
+    const decisions = {
+      'd-1': {
+        id: 'd-1',
+        projectId: 'p-echo',
+        title: 'Hoth it is',
+        rationale: 'Remote.',
+        status: 'decided' as const,
+        decidedAt: '2026-10-01',
+        deciders: ['u-mon'],
+        links: [],
+        sourceNoteId: 'n-1',
+        createdAt: '2026-10-01T09:00:00.000Z',
+        updatedAt: '2026-10-01T09:00:00.000Z',
+      },
+    };
+    const response = await post(email, '/api/import', {
+      ...fixture,
+      decisions,
+    });
+    expect(response.status).toBe(200);
+    const imported = (await response.json()) as {
+      imported: Record<string, number>;
+    };
+    expect(imported.imported.decisions).toBe(1);
+    const exported = await get(email, '/api/export.json');
+    const file = (await exported.json()) as Snapshot;
+    expect(file.decisions).toEqual(decisions);
+    // And the exported file imports again, unchanged.
+    const again = 'decisions-kept-again@example.com';
+    expect((await post(again, '/api/import', file)).status).toBe(200);
+    const back = (await (
+      await get(again, '/api/export.json')
+    ).json()) as Snapshot;
+    expect(back.decisions).toEqual(decisions);
+  });
+
   it('merges by id, so importing twice changes nothing', async () => {
     const email = 'twice@example.com';
     await post(email, '/api/import', fixture);

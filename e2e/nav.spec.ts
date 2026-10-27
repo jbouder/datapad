@@ -91,6 +91,55 @@ test('/ is Focus, and every section has its route', async ({ page }) => {
   }
 });
 
+test('Decisions are retired: their address is Focus and kept ones show nowhere', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', {
+    data: {
+      ...SEED,
+      decisions: {
+        'd-1': {
+          id: 'd-1',
+          projectId: 'p-echo',
+          title: 'Zebra protocol',
+          status: 'decided',
+          decidedAt: '2026-10-01',
+          createdAt: '2026-10-01T09:00:00.000Z',
+          updatedAt: '2026-10-01T09:00:00.000Z',
+        },
+      },
+    },
+  });
+  for (const path of ['/decisions', '/decisions/d-1?project=p-echo']) {
+    await openLive(page, path);
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Focus' }),
+    ).toBeVisible();
+  }
+  await expect(page.getByRole('link', { name: /Decisions/ })).toHaveCount(0);
+
+  await page.goto('/projects/p-echo');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Echo Base relocation' }),
+  ).toBeVisible();
+  await expect(page.getByRole('main')).not.toContainText('Decision');
+
+  await page.getByRole('button', { name: 'Search' }).click();
+  const palette = page.getByRole('dialog', { name: 'Search' });
+  await palette.getByRole('combobox').fill('Zebra');
+  await expect(palette).toContainText('Nothing matches');
+  await palette.getByRole('combobox').fill('Decisions');
+  await expect(
+    palette.getByRole('option', { name: /Go to Decisions/ }),
+  ).toHaveCount(0);
+
+  // The data is kept.
+  const data = await (await request.get('/api/export.json')).json();
+  expect(Object.keys(data.decisions)).toEqual(['d-1']);
+});
+
 test('an unknown project or path says Not found, with a way back', async ({
   page,
 }) => {

@@ -311,36 +311,28 @@ describe('projectContext', () => {
       doneTasks: 15,
       notes: 20,
       activity: 25,
-      decisions: 10,
     });
   });
 });
 
 describe('project decisions in the summary', () => {
-  it('lists the last 10, newest first, with status, date and deciders', () => {
+  it('leaves retired decisions out (#183)', () => {
     const state = world();
-    for (let i = 0; i < 12; i += 1) {
-      const day = String(i + 1).padStart(2, '0');
-      state.decisions[`d${i}`] = {
-        id: `d${i}`,
-        projectId: 'p1',
-        title: `Call ${i}`,
-        rationale: i === 11 ? 'Because @{leia} said so' : '',
-        status: 'decided',
-        decidedAt: `2026-10-${day}`,
-        deciders: i === 11 ? ['leia'] : [],
-        links: [],
-        createdAt: '2026-10-01T09:00:00.000Z',
-        updatedAt: '2026-10-01T09:00:00.000Z',
-      };
-    }
+    state.decisions.d1 = {
+      id: 'd1',
+      projectId: 'p1',
+      title: 'Go to Hoth',
+      rationale: '',
+      status: 'decided',
+      decidedAt: '2026-10-12',
+      deciders: [],
+      links: [],
+      createdAt: '2026-10-01T09:00:00.000Z',
+      updatedAt: '2026-10-01T09:00:00.000Z',
+    };
     const text = projectContext('p1', state);
-    expect(text).toContain(
-      'Decisions, newest first:\n- [decided Mon 12 Oct 2026] Call 11 (Leia Organa)\n  Because @Leia Organa said so',
-    );
-    expect(text.match(/^- \[decided/gm)).toHaveLength(10);
-    expect(text).not.toContain('Call 1 ');
-    expect(text).not.toMatch(/Call 0\b/);
+    expect(text).not.toContain('Decisions');
+    expect(text).not.toContain('Go to Hoth');
   });
 });
 

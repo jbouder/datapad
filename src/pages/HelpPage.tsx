@@ -84,7 +84,7 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Projects">
             Every active project as cards, a table or a timeline. A project page
-            has its tasks, milestones, meetings, notes, decisions and activity.
+            has its tasks, milestones, meetings, notes and activity.
           </Term>
           <Term name="Tasks">
             Every task, as a list, table, board or timeline, grouped and
@@ -103,22 +103,17 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Digest">
             Your own status report: what happened in each project over a week,
-            from tasks, notes, meetings, decisions and the activity logs. Copy
-            it as Markdown, keep it as a note, or Summarize it.
+            from tasks, notes, meetings and the activity logs. Copy it as
+            Markdown, keep it as a note, or Summarize it.
           </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
-            meeting, decision or person.
-          </Term>
-          <Term name="Decisions">
-            Why things are the way they are: every decision, by project, with
-            who decided and when. Add them on a project page, or turn a line of
-            a note into one with <code>/decision</code>.
+            meeting, org or person.
           </Term>
           <Term name="People">
             In Settings → People: everyone you assign, add to projects and
-            mention, each with their projects, open tasks, decisions and
-            mentions, for a quick check before a 1:1.
+            mention, each with their projects, open tasks and mentions, for a
+            quick check before a 1:1.
           </Term>
           <Term name="Orgs">
             In Settings → Orgs: the clients, teams, vendors and partners your
@@ -237,7 +232,7 @@ export function HelpPage({ section }: { section?: string }) {
           ticking and the outcome are separate. Click a title or an outcome to
           change it. Drag to reorder, or use Move up and Move down in a topic’s
           menu (<Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> from the keyboard);
-          the menu also makes a task or a decision from a topic.
+          the menu also makes a task from a topic.
         </p>
         <p className="text-sm">
           Meetings with the same title, project and people are a series. A new
@@ -272,8 +267,8 @@ export function HelpPage({ section }: { section?: string }) {
           Spaces, which also renames, reorders and deletes them; deleting asks
           you to type the name, and the last space cannot go.{' '}
           <strong>Move to…</strong> on a project page takes the project, with
-          its tasks, notes, meetings, milestones and decisions, to another
-          space, and copies the people and org it needs.
+          its tasks, notes, meetings and milestones, to another space, and
+          copies the people and org it needs.
         </p>
       </Section>
       <Section id="data">

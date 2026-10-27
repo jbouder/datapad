@@ -198,7 +198,11 @@ export interface Topic {
   carriedFrom?: DateString;
 }
 
-/** Why something was decided, kept so it can be found and cited later. */
+/**
+ * Why something was decided. Retired (#183): nothing shows, searches,
+ * digests or summarizes decisions any more, but old data, exports and old
+ * clients' decision ops still carry them, so the collection is kept.
+ */
 export interface Decision {
   id: string;
   /** null = General. */
@@ -211,7 +215,7 @@ export interface Decision {
   decidedAt: DateString | '';
   deciders: string[];
   links: Link[];
-  /** Set when it was made from a note's line (`/decision`). */
+  /** Set when it was made from a note's line (the retired `/decision`). */
   sourceNoteId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

@@ -9,13 +9,10 @@ import {
 } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
-import { projectDecisions } from '#shared/decisions';
 import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
-import { DecisionList } from '@/components/decisions/DecisionList';
 import { Initials } from '@/components/Initials';
-import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
@@ -43,7 +40,7 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { moveProject } from '@/lib/api';
-import { linkProps, navigate } from '@/lib/router';
+import { navigate } from '@/lib/router';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
@@ -82,10 +79,6 @@ export function ProjectPage({ id }: { id: string }) {
   const { active } = useMotion();
   const notesList = useRef<HTMLDivElement>(null);
   useFlip(notesList, active);
-  const decisions = useMemo(
-    () => projectDecisions(state?.decisions ?? {}, id),
-    [state?.decisions, id],
-  );
   const notes = useMemo(
     () => projectNotes(state?.notes ?? {}, id, hidden),
     [state?.notes, id, hidden],
@@ -410,39 +403,6 @@ export function ProjectPage({ id }: { id: string }) {
                   ))
                 )}
               </div>
-            </div>
-          </Section>
-          <Section
-            title="Decisions"
-            count={decisions.length}
-            storageKey={key('decisions')}
-            actions={
-              <a
-                {...linkProps({ name: 'decisions' }, `project=${id}`)}
-                className="press inline-flex h-11 items-center px-2 text-xs underline-offset-4 hover:underline desk:h-8"
-              >
-                All decisions
-              </a>
-            }
-          >
-            <div className="flex flex-col gap-3 pt-2">
-              <QuickAdd
-                label="Add a decision"
-                main={false}
-                onAdd={(title) =>
-                  actions.addDecision({
-                    projectId: id,
-                    title: title.trim(),
-                  }) !== null
-                }
-              />
-              <DecisionList
-                decisions={decisions}
-                people={state.people}
-                today={today}
-                label={`Decisions in ${project.name}`}
-                empty="No decisions recorded yet."
-              />
             </div>
           </Section>
           <Section

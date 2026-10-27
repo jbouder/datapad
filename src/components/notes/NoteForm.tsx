@@ -10,16 +10,9 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
 import { useToast } from '@/providers/ToastProvider';
 
-/**
- * `/task` and `/decision` in a note composer: a task in the note's
- * project, or a decision pointing back at the note about to be added.
- */
-export function useNoteCommands(
-  projectId: string | null,
-  noteId: string,
-): {
+/** `/task` in a note composer: a task in the note's project. */
+export function useNoteCommands(projectId: string | null): {
   onTask: (title: string) => boolean;
-  onDecision: (title: string) => boolean;
 } {
   const { actions } = useDatapad();
   const { show } = useToast();
@@ -27,16 +20,6 @@ export function useNoteCommands(
     onTask: (title) => {
       if (actions.addTask({ projectId, title }) === null) return false;
       show(`Added “${title}”`);
-      return true;
-    },
-    onDecision: (title) => {
-      const made = actions.addDecision({
-        projectId,
-        title,
-        sourceNoteId: noteId,
-      });
-      if (made === null) return false;
-      show(`Proposed “${title}”`);
       return true;
     },
   };
@@ -67,7 +50,7 @@ export function NoteForm({
 
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
-  const commands = useNoteCommands(projectId, noteId.current);
+  const commands = useNoteCommands(projectId);
 
   // Open while it has focus or anything in it; a picker's popup (outside
   // the form, in a portal) still counts as in it. Left with a press, it
@@ -103,7 +86,7 @@ export function NoteForm({
     if (actions.addNote({ id: noteId.current, projectId, body }) === null) {
       return;
     }
-    // The next note gets a fresh id (decisions made from it point there).
+    // The next note gets a fresh id.
     noteId.current = newId();
     setText('');
     document.getElementById(id)?.focus();

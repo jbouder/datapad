@@ -6,7 +6,6 @@ import {
   CheckSquareOffsetIcon,
   DotsSixVerticalIcon,
   DotsThreeIcon,
-  GavelIcon,
   PlusIcon,
   TrashIcon,
   XIcon,
@@ -17,7 +16,6 @@ import { LIMITS } from '#shared/limits';
 import { restoredOrder, topicCount } from '#shared/meetings';
 import type { Op } from '#shared/protocol';
 import { type Meeting, type Topic, topicsOf } from '#shared/types';
-import { useDecisionPanel } from '@/components/decisions/DecisionPanelProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,7 +45,7 @@ const INLINE_INPUT =
  * A meeting's topics, on its page and in its panel: a checkbox (covered),
  * the title (click to edit), the outcome when there is one (muted; click
  * to edit), an Outcome button that opens a one-line input, and a menu
- * with Make a task, Record a decision, Move up / Move down and Delete
+ * with Make a task, Move up / Move down and Delete
  * (Undo in the toast). Drag the handle to reorder with a mouse; touch and
  * keyboard move from the menu (or Alt+↑ / Alt+↓).
  *
@@ -537,9 +535,8 @@ function TopicRow({
   onMove: (to: number) => void;
   onRemove: () => void;
 }) {
-  const { state, actions } = useDatapad();
+  const { actions } = useDatapad();
   const { newTask } = useTaskPanels();
-  const { newDecision } = useDecisionPanel();
   const today = useToday();
   const [editing, setEditing] = useState<'title' | 'outcome' | null>(null);
   const titleButton = useRef<HTMLButtonElement>(null);
@@ -586,8 +583,6 @@ function TopicRow({
         finish(field, null, true);
       }
     };
-
-  const deciders = meeting.attendees.filter((id) => state?.people[id]);
 
   return (
     <div className="flex min-w-0 flex-1 items-start text-sm">
@@ -718,14 +713,6 @@ function TopicRow({
           >
             <CheckSquareOffsetIcon />
             Make a task
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() =>
-              newDecision(meeting.projectId, topic.title, deciders)
-            }
-          >
-            <GavelIcon />
-            Record a decision
           </DropdownMenuItem>
           {count > 1 && (
             <>

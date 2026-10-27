@@ -11,15 +11,7 @@ function seeded(): Snapshot {
 }
 
 const indexOf = (s: Snapshot) =>
-  searchIndex(
-    s.projects,
-    s.tasks,
-    s.notes,
-    s.meetings,
-    s.people,
-    s.decisions,
-    s.orgs,
-  );
+  searchIndex(s.projects, s.tasks, s.notes, s.meetings, s.people, s.orgs);
 
 const ids = (hits: { entry: { id: string } }[]) => hits.map((h) => h.entry.id);
 

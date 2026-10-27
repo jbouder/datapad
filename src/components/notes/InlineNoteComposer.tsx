@@ -64,7 +64,7 @@ export function InlineNoteComposer({
   const [text, setText] = useState('');
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
-  const commands = useNoteCommands(fields.projectId, noteId.current);
+  const commands = useNoteCommands(fields.projectId);
 
   const focus = () => {
     // After the frame: a menu that opened this hands focus back first.
