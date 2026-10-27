@@ -7,6 +7,7 @@ import { type Snapshot, topicsOf } from '#shared/types';
 import { MeetingNoteComposer } from '@/components/meetings/MeetingNoteComposer';
 import type { InlineNoteComposerHandle } from '@/components/notes/InlineNoteComposer';
 import { Button } from '@/components/ui/button';
+import { useClock } from '@/hooks/useClock';
 import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -29,6 +30,7 @@ export function AgendaStrip({
   state: Snapshot;
   today: string;
 }) {
+  const clock = useClock();
   const { show } = useToast();
   // The note being written, under the strip: one at a time.
   const [composing, setComposing] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export function AgendaStrip({
           }
           const e = item.meeting;
           const project = e.projectId ? state.projects[e.projectId] : null;
-          const range = timeRange(e);
+          const range = timeRange(e, clock);
           return (
             <li
               key={`meeting-${e.id}`}

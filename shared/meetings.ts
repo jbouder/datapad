@@ -1,4 +1,4 @@
-import { formatDay } from './dates';
+import { type Clock, formatDay, formatTimeRange } from './dates';
 import { LIMITS } from './limits';
 import type { OpOf } from './protocol';
 import {
@@ -59,15 +59,22 @@ export function byWhen(a: Meeting, b: Meeting): number {
   );
 }
 
-/** "14:00–15:00", "14:00", or `''` for an all-day meeting. */
-export function timeRange(meeting: Pick<Meeting, 'time' | 'end'>): string {
+/** "2:00–3:00 PM", "14:00", or `''` for an all-day meeting. */
+export function timeRange(
+  meeting: Pick<Meeting, 'time' | 'end'>,
+  clock: Clock,
+): string {
   if (!meeting.time) return '';
-  return meeting.end ? `${meeting.time}–${meeting.end}` : meeting.time;
+  return formatTimeRange(meeting.time, meeting.end, clock);
 }
 
-/** "Mon 27 Oct, 14:00–15:00". */
-export function describeWhen(meeting: Meeting, today: DateString): string {
-  const range = timeRange(meeting);
+/** "Mon 27 Oct, 2:00–3:00 PM". */
+export function describeWhen(
+  meeting: Meeting,
+  today: DateString,
+  clock: Clock,
+): string {
+  const range = timeRange(meeting, clock);
   const day = formatDay(meeting.date, today);
   return range ? `${day}, ${range}` : day;
 }

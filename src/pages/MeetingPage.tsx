@@ -30,6 +30,7 @@ import { MeetingTopics } from '@/components/meetings/MeetingTopics';
 import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -46,6 +47,7 @@ import { useToast } from '@/providers/ToastProvider';
  * 820px), and the previous and next meeting of its series at the foot.
  */
 export function MeetingPage({ id }: { id: string }) {
+  const clock = useClock();
   const { state, actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
   const { summarize } = useSummaries();
@@ -91,7 +93,7 @@ export function MeetingPage({ id }: { id: string }) {
   const attendees = meeting.attendees
     .map((p) => state.people[p])
     .filter((p): p is Person => Boolean(p));
-  const range = timeRange(meeting);
+  const range = timeRange(meeting, clock);
   const { next } = series;
   const canCarry = next !== null && topicsToCarry(meeting, next).length > 0;
 

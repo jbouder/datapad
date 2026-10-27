@@ -19,7 +19,7 @@ What it is not: multi-user collaboration, recurring tasks, subtasks, time tracki
 
 ## Data model
 
-Six collections, each a flat map of id → document. Ids are client-generated random strings; timestamps are ISO 8601; dates are `YYYY-MM-DD`; times are `HH:MM` 24-hour local. In the rebuild every collection lives inside a space, and each space holds a complete, separate set of them (see Spaces).
+Six collections, each a flat map of id → document. Ids are client-generated random strings; timestamps are ISO 8601; dates are `YYYY-MM-DD`; times are `HH:MM` 24-hour local (stored that way; shown on a 12-hour clock by default, or 24-hour, per Settings → Appearance → Time, remembered per device). In the rebuild every collection lives inside a space, and each space holds a complete, separate set of them (see Spaces).
 
 ### Project
 

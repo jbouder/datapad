@@ -134,7 +134,7 @@ export function meetingContext(
   state: Pick<Snapshot, 'projects' | 'people' | 'notes'>,
 ): string {
   const attendees = names(state, meeting.attendees);
-  const range = timeRange(meeting);
+  const range = timeRange(meeting, '24h');
   const lines = [
     `Meeting: ${meeting.title}`,
     `Date: ${day(meeting.date)}${range ? `, ${range}` : ''}`,
@@ -262,7 +262,7 @@ export function projectContext(projectId: string, state: Snapshot): string {
   if (meetings.length > 0) {
     lines.push('', 'Meetings:');
     for (const m of meetings) {
-      const range = timeRange(m);
+      const range = timeRange(m, '24h');
       const topics = topicsOf(m);
       const covered = topics.filter((t) => t.done).length;
       lines.push(

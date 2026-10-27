@@ -125,13 +125,18 @@ describe('selecting meetings', () => {
 
 describe('describing when', () => {
   it('shows the range, the start, or the day alone', () => {
-    expect(timeRange({ time: '14:00', end: '15:00' })).toBe('14:00–15:00');
-    expect(timeRange({ time: '14:00', end: '' })).toBe('14:00');
-    expect(timeRange({ time: '', end: '' })).toBe('');
-    expect(describeWhen(meeting('x', { time: '09:30' }), '2026-10-24')).toBe(
-      'Tue 27 Oct, 09:30',
+    expect(timeRange({ time: '14:00', end: '15:00' }, '24h')).toBe(
+      '14:00–15:00',
     );
-    expect(describeWhen(meeting('x', {}), '2025-01-01')).toBe(
+    expect(timeRange({ time: '14:00', end: '15:00' }, '12h')).toBe(
+      '2:00–3:00 PM',
+    );
+    expect(timeRange({ time: '14:00', end: '' }, '24h')).toBe('14:00');
+    expect(timeRange({ time: '', end: '' }, '12h')).toBe('');
+    expect(
+      describeWhen(meeting('x', { time: '09:30' }), '2026-10-24', '12h'),
+    ).toBe('Tue 27 Oct, 9:30 AM');
+    expect(describeWhen(meeting('x', {}), '2025-01-01', '12h')).toBe(
       'Tue 27 Oct 2026',
     );
   });

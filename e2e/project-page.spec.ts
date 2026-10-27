@@ -79,7 +79,7 @@ test('activity times say when exactly on focus', async ({ page }) => {
   await page.keyboard.press('Tab');
   await expect(first.getByRole('button')).toBeFocused();
   await expect(page.locator('[data-slot="tooltip-content"]')).toContainText(
-    /Thu 22 Oct 2026, \d\d:30/,
+    /Thu 22 Oct 2026, \d{1,2}:30 [AP]M/,
   );
 });
 

@@ -24,6 +24,7 @@ import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -70,6 +71,7 @@ export function NoteCard({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  const clock = useClock();
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
   const { summarize } = useSummaries();
@@ -207,7 +209,7 @@ export function NoteCard({
       data-flip-id={layout ? note.id : undefined}
       data-layout-id={layout ? note.id : undefined}
       data-note-id={layout ? note.id : undefined}
-      aria-label={`Note, ${formatTimestamp(note.createdAt)}`}
+      aria-label={`Note, ${formatTimestamp(note.createdAt, clock)}`}
       className={cn(
         'enter note-card relative flex flex-col gap-2 border bg-card p-3 outline-none',
         className,
@@ -265,11 +267,14 @@ export function NoteCard({
               Task deleted
             </span>
           ))}
-        <time dateTime={note.createdAt} title={formatTimestamp(note.createdAt)}>
+        <time
+          dateTime={note.createdAt}
+          title={formatTimestamp(note.createdAt, clock)}
+        >
           {when === 'time' ? hhmm : relativeTime(note.createdAt, new Date())}
         </time>
         {note.editedAt && (
-          <span title={formatTimestamp(note.editedAt)}>· edited</span>
+          <span title={formatTimestamp(note.editedAt, clock)}>· edited</span>
         )}
         <span className="ml-auto flex items-center gap-1">
           {note.pinned && (

@@ -4,6 +4,7 @@ import {
   UploadSimpleIcon,
 } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
+import { formatTime } from '#shared/dates';
 import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
@@ -15,6 +16,7 @@ import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { setClock, useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { SIGN_OUT_URL } from '@/lib/api';
@@ -149,6 +151,7 @@ export function SettingsPage({
 function Appearance() {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
+  const clock = useClock();
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -162,6 +165,21 @@ function Appearance() {
         />
         <p className="text-xs text-muted-foreground">
           System follows your device. Remembered on this device.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Segmented
+          legend="Time"
+          value={clock}
+          onChange={(value) => setClock(value === '24h' ? '24h' : '12h')}
+          options={[
+            { value: '12h', label: '12-hour' },
+            { value: '24h', label: '24-hour' },
+          ]}
+        />
+        <p className="text-xs text-muted-foreground">
+          {formatTime('14:30', clock)} or {formatTime('09:05', clock)}.
+          Remembered on this device.
         </p>
       </div>
       <div className="flex flex-col gap-2">

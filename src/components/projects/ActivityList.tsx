@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useClock } from '@/hooks/useClock';
 
 /** Shown on the project page; the log keeps 150. */
 export const ACTIVITY_SHOWN = 40;
@@ -15,6 +16,7 @@ export const ACTIVITY_SHOWN = 40;
  * focusing the time shows the exact one. Times refresh every minute.
  */
 export function ActivityList({ entries }: { entries: ActivityEntry[] }) {
+  const clock = useClock();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -42,9 +44,11 @@ export function ActivityList({ entries }: { entries: ActivityEntry[] }) {
               }
             >
               <time dateTime={entry.t}>{relativeTime(entry.t, now)}</time>
-              <span className="sr-only">, {formatTimestamp(entry.t)}</span>
+              <span className="sr-only">
+                , {formatTimestamp(entry.t, clock)}
+              </span>
             </TooltipTrigger>
-            <TooltipContent>{formatTimestamp(entry.t)}</TooltipContent>
+            <TooltipContent>{formatTimestamp(entry.t, clock)}</TooltipContent>
           </Tooltip>
         </li>
       ))}

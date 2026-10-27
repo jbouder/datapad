@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react';
-import { formatDay } from '#shared/dates';
+import { type Clock, formatDay, formatTime } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import {
   carryOps,
@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { newId } from '@/lib/ids';
@@ -62,16 +63,20 @@ interface Values {
 
 type MeetingOp = OpOf<'addMeeting'> | OpOf<'editMeeting'>;
 
+/** The form's values; with `clock`, times read as the fields show them. */
 function valuesOf(
   meeting: Meeting | undefined,
   preset?: MeetingPreset,
+  clock?: Clock,
 ): Values {
+  const shown = (time: string) =>
+    clock && time ? formatTime(time, clock) : time;
   return {
     title: meeting?.title ?? '',
     projectId: meeting ? meeting.projectId : (preset?.projectId ?? null),
     date: meeting?.date ?? preset?.date ?? '',
-    time: meeting?.time ?? '',
-    end: meeting?.end ?? '',
+    time: shown(meeting?.time ?? ''),
+    end: shown(meeting?.end ?? ''),
     attendees: meeting?.attendees ?? [],
     link: meeting?.link ?? '',
     note: meeting?.note ?? '',
@@ -80,8 +85,9 @@ function valuesOf(
 }
 
 /**
- * A time you can type (`9`, `930`, `2pm`; see `parseTime`), tidied to
- * `HH:MM` when you leave the field. Text it cannot read stays, marked.
+ * A time you can type (`9`, `930`, `2pm`, `14:00`; see `parseTime`),
+ * tidied to the clock's format ("2:00 PM" or "14:00") when you leave the
+ * field. Text it cannot read stays, marked.
  */
 function TimeInput({
   id,
@@ -97,6 +103,7 @@ function TimeInput({
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
 }) {
+  const clock = useClock();
   return (
     <Input
       id={id}
@@ -110,7 +117,7 @@ function TimeInput({
       onChange={(e) => onChange(e.target.value, parseTime(e.target.value))}
       onBlur={(e) => {
         const time = parseTime(e.target.value);
-        if (time !== null) onChange(time, time);
+        if (time) onChange(formatTime(time, clock), time);
       }}
     />
   );
@@ -140,7 +147,8 @@ export function MeetingForm({
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const [initial] = useState(() => valuesOf(meeting, preset));
+  const clock = useClock();
+  const [initial] = useState(() => valuesOf(meeting, preset, clock));
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<Partial<Record<keyof Values, string>>>(
     {},

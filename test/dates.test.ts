@@ -4,6 +4,8 @@ import {
   describeDay,
   endOfWeek,
   formatDay,
+  formatTime,
+  formatTimeRange,
   formatTimestamp,
   localDate,
   longDay,
@@ -145,10 +147,30 @@ describe('relativeTime', () => {
       'Mon 20 Oct 2025',
     );
   });
-  it('formats an absolute time with the year', () => {
-    expect(formatTimestamp(at(new Date(2026, 9, 23, 14, 5)))).toBe(
-      'Fri 23 Oct 2026, 14:05',
-    );
+  it('formats an absolute time with the year, on either clock', () => {
+    const when = at(new Date(2026, 9, 23, 14, 5));
+    expect(formatTimestamp(when, '12h')).toBe('Fri 23 Oct 2026, 2:05 PM');
+    expect(formatTimestamp(when, '24h')).toBe('Fri 23 Oct 2026, 14:05');
+  });
+});
+
+describe('formatTime and formatTimeRange', () => {
+  it('reads a time on a 12-hour clock without padding the hour', () => {
+    expect(formatTime('09:05', '12h')).toBe('9:05 AM');
+    expect(formatTime('00:00', '12h')).toBe('12:00 AM');
+    expect(formatTime('12:00', '12h')).toBe('12:00 PM');
+    expect(formatTime('23:59', '12h')).toBe('11:59 PM');
+  });
+
+  it('keeps a 24-hour time as it is', () => {
+    expect(formatTime('09:05', '24h')).toBe('09:05');
+  });
+
+  it('shares one AM or PM across a range when it can', () => {
+    expect(formatTimeRange('14:00', '15:00', '12h')).toBe('2:00–3:00 PM');
+    expect(formatTimeRange('11:30', '12:30', '12h')).toBe('11:30 AM–12:30 PM');
+    expect(formatTimeRange('14:00', '', '12h')).toBe('2:00 PM');
+    expect(formatTimeRange('14:00', '15:00', '24h')).toBe('14:00–15:00');
   });
 });
 

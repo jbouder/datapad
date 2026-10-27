@@ -29,6 +29,7 @@ import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
@@ -68,6 +69,7 @@ export function TaskPanel({
   onClose: () => void;
   onExited: () => void;
 }) {
+  const clock = useClock();
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const { summarize } = useSummaries();
@@ -377,11 +379,11 @@ export function TaskPanel({
       )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <dt>Created</dt>
-        <dd>{formatTimestamp(task.createdAt)}</dd>
+        <dd>{formatTimestamp(task.createdAt, clock)}</dd>
         {task.completedAt && (
           <>
             <dt>Closed</dt>
-            <dd>{formatTimestamp(task.completedAt)}</dd>
+            <dd>{formatTimestamp(task.completedAt, clock)}</dd>
           </>
         )}
       </dl>

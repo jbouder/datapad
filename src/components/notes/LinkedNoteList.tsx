@@ -13,6 +13,7 @@ import {
 } from '@/components/notes/InlineNoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 
 /**
@@ -112,11 +113,12 @@ function LinkedNote({
   note: Note;
   people: Record<string, Person>;
 }) {
+  const clock = useClock();
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
   const [editing, setEditing] = useState<string | null>(null);
   const editId = useId();
-  const when = formatTimestamp(note.createdAt);
+  const when = formatTimestamp(note.createdAt, clock);
 
   const save = () => {
     if (editing === null) return;
@@ -136,7 +138,7 @@ function LinkedNote({
           {relativeTime(note.createdAt, new Date())}
         </time>
         {note.editedAt && (
-          <span title={formatTimestamp(note.editedAt)}>· edited</span>
+          <span title={formatTimestamp(note.editedAt, clock)}>· edited</span>
         )}
       </div>
       {editing !== null ? (

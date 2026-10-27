@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
 import { linkProps } from '@/lib/router';
@@ -70,6 +71,7 @@ export function MeetingRow({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  const clock = useClock();
   const { actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
   // Whether a note is being written under the row.
@@ -87,7 +89,7 @@ export function MeetingRow({
   const attendees = meeting.attendees
     .map((id) => state.people[id])
     .filter((p): p is Person => Boolean(p));
-  const range = timeRange(meeting);
+  const range = timeRange(meeting, clock);
   const count = topicCount(topicsOf(meeting));
   const notes = Object.values(state.notes).filter(
     (n) => n.meetingId === meeting.id,
