@@ -4,6 +4,16 @@ const PORT = 4318;
 const CI = Boolean(process.env.CI);
 
 /**
+ * One timezone for the runner (Node, which works out `today()` and builds
+ * the seed) and the browser (the app's today): `E2E_TZ`, or UTC as in CI.
+ * Set here, before the workers start, so they inherit it. Try a zone a day
+ * ahead or behind to shake out date bugs:
+ * `E2E_TZ=Pacific/Kiritimati npm run e2e`, `E2E_TZ=Pacific/Pago_Pago …`.
+ */
+const TZ = process.env.E2E_TZ || 'UTC';
+process.env.TZ = TZ;
+
+/**
  * End-to-end tests against the built app under `vite preview`: the Worker
  * and the Durable Object run in workerd (Miniflare) exactly as they would
  * deploy, with public/_headers (and so the CSP) applied, which `vite dev`
@@ -33,6 +43,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    timezoneId: TZ,
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },

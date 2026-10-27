@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, formatDay, localDate } from '../shared/dates';
+import { addDays, formatDay } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -9,9 +9,8 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
-
-const today = localDate(new Date());
 
 /** The seed, with Echo Base's milestones around today. */
 function seeded() {
@@ -20,10 +19,10 @@ function seeded() {
     {
       id: 'm-past',
       title: 'Generator ordered',
-      date: addDays(today, -10),
+      date: addDays(today(), -10),
     },
-    { id: 'm-soon', title: 'Hangar doors hung', date: addDays(today, 2) },
-    { id: 'm-later', title: 'Base operational', date: addDays(today, 20) },
+    { id: 'm-soon', title: 'Hangar doors hung', date: addDays(today(), 2) },
+    { id: 'm-later', title: 'Base operational', date: addDays(today(), 20) },
   ];
   return seed;
 }
@@ -62,7 +61,7 @@ test('add, edit and delete milestones on the project page, with Undo', async ({
   await expect(row(page, 'm-past')).toHaveAttribute('data-past');
   await expect(row(page, 'm-soon')).not.toHaveAttribute('data-past');
   await expect(row(page, 'm-soon')).toContainText(
-    formatDay(addDays(today, 2), today),
+    formatDay(addDays(today(), 2), today()),
   );
   await expectNoSidewaysScroll(page);
 
@@ -90,7 +89,7 @@ test('add, edit and delete milestones on the project page, with Undo', async ({
     (await milestonesOf(request, 'p-echo')).find(
       (m) => m.title === 'Tauntaun stables open',
     )?.date,
-  ).toBe(addDays(today, 5));
+  ).toBe(addDays(today(), 5));
 
   // Edit in place: title and date; Enter saves, focus goes back to Edit.
   await page.getByRole('button', { name: 'Edit “Hangar doors hung”' }).click();
@@ -115,7 +114,7 @@ test('add, edit and delete milestones on the project page, with Undo', async ({
   ).toEqual({
     id: 'm-soon',
     title: 'Hangar doors sealed',
-    date: addDays(today, 7),
+    date: addDays(today(), 7),
   });
 
   // Esc cancels an edit.
@@ -164,7 +163,9 @@ test('the card shows the next milestone', async ({ page }) => {
   const cards = page.getByRole('list', { name: 'Projects' });
   await expect(
     cards.getByRole('link', { name: /Echo Base relocation/ }),
-  ).toContainText(`Hangar doors hung · ${formatDay(addDays(today, 2), today)}`);
+  ).toContainText(
+    `Hangar doors hung · ${formatDay(addDays(today(), 2), today())}`,
+  );
   // None ahead: nothing shown.
   await expect(
     cards
@@ -194,7 +195,7 @@ test('the Timeline labels a milestone and opens the project at it', async ({
   const point = page.locator('button[data-label="Hangar doors hung"]');
   const label = point.locator('+ .timeline-point-label');
   await expect(label).toHaveText(
-    `Hangar doors hung · ${formatDay(addDays(today, 2), today)}`,
+    `Hangar doors hung · ${formatDay(addDays(today(), 2), today())}`,
   );
   if (!isMobile(page)) {
     await expect(label).toHaveCSS('opacity', '0');

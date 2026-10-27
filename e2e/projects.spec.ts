@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { expect, openLive, SEED, test } from './fixtures';
+import { formatDay } from '../shared/dates';
+import { expect, openLive, SEED, seedDay, test, today } from './fixtures';
 
 const cards = (page: Page) =>
   page.getByRole('list', { name: 'Projects' }).getByRole('link');
@@ -111,7 +112,9 @@ test('cards carry org, status, state, counts, target, next marker and members', 
   // The retired current state line is not shown.
   await expect(echo).not.toContainText('Shield generator parts arrive Friday');
   await expect(echo).toContainText('3 open tasks');
-  await expect(echo).toContainText('Target Sat 14 Nov');
+  await expect(echo).toContainText(
+    `Target ${formatDay(seedDay('2026-11-14'), today())}`,
+  );
   await expect(echo).toContainText('Base operational');
   // Four initials, then +1.
   await expect(echo).toContainText('+1 more');

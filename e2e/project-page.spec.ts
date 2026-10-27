@@ -1,4 +1,14 @@
-import { expect, isMobile, openLive, SEED, test } from './fixtures';
+import { formatDay, formatTimestamp } from '../shared/dates';
+import {
+  expect,
+  isMobile,
+  openLive,
+  SEED,
+  seedDay,
+  seedTime,
+  test,
+  today,
+} from './fixtures';
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
@@ -34,7 +44,7 @@ test('activity times say when exactly on focus', async ({ page }) => {
   await page.keyboard.press('Tab');
   await expect(first.getByRole('button')).toBeFocused();
   await expect(page.locator('[data-slot="tooltip-content"]')).toContainText(
-    /Thu 22 Oct 2026, \d{1,2}:30 [AP]M/,
+    formatTimestamp(seedTime('2026-10-22T16:30:00.000Z'), '12h'),
   );
 });
 
@@ -63,7 +73,9 @@ test('the header carries the project’s facts', async ({ page }) => {
   const details = page.getByRole('list', { name: 'Details' });
   await expect(details).toContainText('Active');
   await expect(details).toContainText('High');
-  await expect(details).toContainText('Target Sat 14 Nov');
+  await expect(details).toContainText(
+    `Target ${formatDay(seedDay('2026-11-14'), today())}`,
+  );
   await expect(details).toContainText('Leia Organa');
   await expect(details).toContainText('infra');
   const link = details.getByRole('link', { name: /Relocation plan/ });
@@ -105,22 +117,27 @@ test('the header actions wrap with no sideways scroll', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Save as template' }),
   ).toBeVisible();
+  // Polled: the page may still be entering (a transform) when first measured.
   if (isMobile(page)) {
     for (const name of ['Summarize', 'Edit', 'Archive', 'Save as template']) {
-      const box = await page
+      const button = page
         .getByRole('article', { name: 'Echo Base relocation' })
         .locator('header')
-        .getByRole('button', { name, exact: true })
-        .boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+        .getByRole('button', { name, exact: true });
+      await expect
+        .poll(async () => (await button.boundingBox())?.height ?? 0)
+        .toBeGreaterThanOrEqual(44);
     }
   }
-  const overflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth -
-      document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
 });
 
 test.describe('section motion', () => {

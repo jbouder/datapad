@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, endOfWeek, localDate } from '../shared/dates';
+import { addDays, endOfWeek } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -8,12 +8,13 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
-const today = localDate(new Date());
-const tomorrow = addDays(today, 1);
+const tomorrow = () => addDays(today(), 1);
 /** Tomorrow is still this week unless today is Sunday. */
-const tomorrowBucket = tomorrow <= endOfWeek(today) ? 'This week' : 'Later';
+const tomorrowBucket = () =>
+  tomorrow() <= endOfWeek(today()) ? 'This week' : 'Later';
 
 /**
  * The seed with dates around today: one task in each bucket, a meeting
@@ -21,13 +22,13 @@ const tomorrowBucket = tomorrow <= endOfWeek(today) ? 'This week' : 'Later';
  */
 function seed() {
   const s = structuredClone(SEED);
-  s.tasks['t-1'].due = addDays(today, -2); // Overdue (Leia's)
-  s.tasks['t-4'].due = today; // Today
-  s.tasks['t-5'].due = tomorrow; // This week, or Later on a Sunday
-  s.tasks['t-6'].due = addDays(today, 30); // Later
+  s.tasks['t-1'].due = addDays(today(), -2); // Overdue (Leia's)
+  s.tasks['t-4'].due = today(); // Today
+  s.tasks['t-5'].due = tomorrow(); // This week, or Later on a Sunday
+  s.tasks['t-6'].due = addDays(today(), 30); // Later
   // t-2 has no date.
-  s.meetings['e-1'].date = tomorrow;
-  s.meetings['e-4'].date = today; // Quarterly planning, General
+  s.meetings['e-1'].date = tomorrow();
+  s.meetings['e-4'].date = today(); // Quarterly planning, General
   return s;
 }
 
@@ -55,7 +56,7 @@ test('open tasks fall into buckets by due date', async ({ page }) => {
   // Later and No date start collapsed.
   await page.getByRole('button', { name: /^Later/ }).click();
   await page.getByRole('button', { name: /^No date/ }).click();
-  await expect(bucket(page, tomorrowBucket)).toContainText(
+  await expect(bucket(page, tomorrowBucket())).toContainText(
     'Find a replacement motivator',
   );
   await expect(bucket(page, 'Later')).toContainText('Renew the docking permit');
@@ -129,7 +130,7 @@ test('Day is the default: today only, with the rest of the week collapsed', asyn
   await expect(agenda.getByRole('listitem')).toHaveCount(1);
   await expect(agenda).not.toContainText('Shield review');
   await expect(bucket(page, 'Today')).toContainText('Book the tauntaun vet');
-  if (tomorrowBucket === 'This week') {
+  if (tomorrowBucket() === 'This week') {
     await expect(bucket(page, 'This week')).toBeHidden();
     await page.getByRole('button', { name: /^This week/ }).click();
     await expect(bucket(page, 'This week')).toContainText(
@@ -151,7 +152,7 @@ test('Week is a choice the URL and this browser remember', async ({ page }) => {
   await expect(
     page.getByRole('region', { name: 'Next 7 days' }).getByRole('listitem'),
   ).toHaveCount(2);
-  await expect(bucket(page, tomorrowBucket)).toBeVisible();
+  await expect(bucket(page, tomorrowBucket())).toBeVisible();
   // Back at / later, the last choice stands; v goes back to Day.
   await openLive(page);
   await expect(page.getByRole('radio', { name: 'Week' })).toBeChecked();

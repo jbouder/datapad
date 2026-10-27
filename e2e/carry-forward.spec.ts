@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, formatDay, localDate } from '../shared/dates';
+import { addDays, formatDay } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -8,6 +8,7 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
 interface StoredTopic {
@@ -30,8 +31,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-const today = localDate(new Date());
-const nextWeek = addDays(today, 7);
+const nextWeek = () => addDays(today(), 7);
 
 const TOPICS = [
   { id: 't-power', title: 'Power budget', done: true, outcome: 'Approved' },
@@ -50,13 +50,13 @@ async function seed(request: APIRequestContext, next = false) {
   const shield = data.meetings['e-1'] as (typeof SEED.meetings)['e-1'] & {
     topics?: unknown;
   };
-  shield.date = today;
+  shield.date = today();
   shield.topics = TOPICS;
   if (next) {
     data.meetings['e-5'] = {
       ...shield,
       id: 'e-5',
-      date: nextWeek,
+      date: nextWeek(),
       topics: [],
     };
   }
@@ -80,7 +80,7 @@ test('a new meeting in the series carries the uncovered topics', async ({
   await form.getByLabel('Date').fill('+7d');
   await form.getByLabel('Date').press('Tab');
   const carry = form.getByRole('checkbox', {
-    name: `Carry forward 2 topics from ${formatDay(today, today)}`,
+    name: `Carry forward 2 topics from ${formatDay(today(), today())}`,
   });
   await expect(carry).toHaveCount(0);
   await form.getByText('Leia Organa').click();
@@ -99,20 +99,20 @@ test('a new meeting in the series carries the uncovered topics', async ({
   await expectSaved(page);
   const data = await stored(request);
   const added = Object.values(data.meetings).find(
-    (m) => m.date === nextWeek && m.id !== 'e-1',
+    (m) => m.date === nextWeek() && m.id !== 'e-1',
   );
   expect(added?.topics?.map(({ id: _, ...t }) => t)).toEqual([
     {
       title: 'North ridge',
       done: false,
       outcome: '',
-      carriedFrom: today,
+      carriedFrom: today(),
     },
     {
       title: 'Probe droid sightings',
       done: false,
       outcome: '',
-      carriedFrom: today,
+      carriedFrom: today(),
     },
     { title: 'Hangar doors', done: false, outcome: '' },
   ]);
@@ -133,8 +133,8 @@ test('a new meeting in the series carries the uncovered topics', async ({
     .click();
   const list = page.getByRole('list', { name: 'Topics for “shield REVIEW”' });
   await expect(list.locator('[data-topic-carried]')).toHaveText([
-    `carried forward from ${formatDay(today, today)}`,
-    `carried forward from ${formatDay(today, today)}`,
+    `carried forward from ${formatDay(today(), today())}`,
+    `carried forward from ${formatDay(today(), today())}`,
   ]);
   await expectNoSidewaysScroll(page);
 });
@@ -159,7 +159,7 @@ test('unchecked, a new meeting starts without them', async ({
   await expectSaved(page);
   const data = await stored(request);
   const added = Object.values(data.meetings).find(
-    (m) => m.date === nextWeek && m.id !== 'e-1',
+    (m) => m.date === nextWeek() && m.id !== 'e-1',
   );
   expect(added).toBeDefined();
   expect(added?.topics ?? []).toEqual([]);
@@ -190,7 +190,7 @@ test('Carry forward moves them to the next meeting, and Undo takes it back', asy
   await menu().click();
   await page.getByRole('menuitem', { name: 'Carry forward' }).click();
   await expect(
-    page.getByText(`Carried 2 topics to ${formatDay(nextWeek, today)}`),
+    page.getByText(`Carried 2 topics to ${formatDay(nextWeek(), today())}`),
   ).toBeVisible();
 
   await expect(
@@ -207,8 +207,8 @@ test('Carry forward moves them to the next meeting, and Undo takes it back', asy
   expect(
     data.meetings['e-5']?.topics?.map((t) => [t.title, t.carriedFrom]),
   ).toEqual([
-    ['North ridge', today],
-    ['Probe droid sightings', today],
+    ['North ridge', today()],
+    ['Probe droid sightings', today()],
   ]);
 
   await page.getByRole('button', { name: 'Undo' }).click();

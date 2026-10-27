@@ -69,7 +69,7 @@ test('the date field reads shorthand and refuses nonsense', async ({
   await due.fill('tomorrow');
   await due.press('Enter');
   await expect(due).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
-  // The field's own resolved day: a seeded task may be due tomorrow too.
+  // The field's own resolved day: the seed has a task due tomorrow too.
   await expect(due).toHaveAccessibleDescription(/Tomorrow/);
 
   await due.fill('+2w');
