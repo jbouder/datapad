@@ -536,7 +536,21 @@ describe('the /mcp endpoint', () => {
       expect(instructions).toContain('YYYY-MM-DD');
 
       const { tools } = await client.listTools();
-      expect(tools.map((t) => t.name)).toEqual(['whoami', 'list_spaces']);
+      expect(tools.map((t) => t.name)).toEqual([
+        'whoami',
+        'list_spaces',
+        'get_overview',
+        'get_focus',
+        'list_projects',
+        'get_project',
+        'list_tasks',
+        'list_notes',
+        'list_meetings',
+        'list_people',
+        'list_orgs',
+        'get_digest',
+        'search',
+      ]);
       for (const tool of tools) {
         expect(tool.inputSchema.type).toBe('object');
         expect(tool.annotations?.readOnlyHint).toBe(true);
@@ -803,6 +817,7 @@ describe('the tool registry', () => {
         email: 'leia@example.com',
         scopes,
         datapad: base.DATAPAD.getByName('leia@example.com'),
+        timeZone: 'UTC',
       },
       instructions: 'Testing.',
       admit: async () => true,

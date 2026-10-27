@@ -58,7 +58,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   bearer check: the DO from `props.email`, the rate limit, the
   `initialize` instructions), `protocol.ts` (stateless JSON-RPC, after
   holotable's), `tool.ts` (`defineTool`, `ToolError`, `requireSpace`) and
-  `tools/` (one file per area; `tools/index.ts` is the registry).
+  `tools/` (one file per area; `tools/index.ts` is the registry;
+  `tools/read.ts` is what the read tools (#153) share: `readSpace()` over
+  the DO's `snapshot(space)` RPC, the id-or-name rule `resolveByName()`,
+  the 200-item `cap()`, documents read out with mentions as `@Name`).
+  Tools select with `shared/`, never their own copy of a filter.
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
@@ -85,7 +89,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   everywhere else).
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
-  and the SDK client over `SELF`).
+  and the SDK client over `SELF`; `mcp-tools.test.ts`: each tool over a
+  seeded object).
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a
   phone project**. `fixtures.ts` signs each test in as its own address
   (fresh DO), blocks every request off localhost, has `expectAccessible`.

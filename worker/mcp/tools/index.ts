@@ -1,5 +1,10 @@
 import type { McpTool } from '../tool';
+import { getDigest, searchTool } from './digest';
+import { listMeetings, listNotes } from './notes';
+import { listOrgs, listPeople } from './people';
+import { getOverview, getProject, listProjects } from './projects';
 import { listSpaces, whoami } from './spaces';
+import { getFocus, listTasks } from './tasks';
 
 /**
  * Every tool `/mcp` offers, in the order `tools/list` shows them. A new
@@ -7,4 +12,18 @@ import { listSpaces, whoami } from './spaces';
  * with `scope: 'read'`, writes (#154) with `scope: 'write'`. A token sees
  * and may call only the tools its scopes allow.
  */
-export const TOOLS: readonly McpTool[] = [whoami, listSpaces];
+export const TOOLS: readonly McpTool[] = [
+  whoami,
+  listSpaces,
+  getOverview,
+  getFocus,
+  listProjects,
+  getProject,
+  listTasks,
+  listNotes,
+  listMeetings,
+  listPeople,
+  listOrgs,
+  getDigest,
+  searchTool,
+];

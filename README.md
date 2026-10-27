@@ -133,7 +133,9 @@ per import; 20 ops per second per connection; 30 backups kept per space;
 Datapad is an MCP server at `/mcp`: `claude mcp add --transport http
 datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
 Desktop. You sign in through Access and approve the client on a consent
-page. See [docs/mcp.md](docs/mcp.md).
+page. Claude can then read everything the app shows: the overview, Focus,
+projects, tasks, notes, meetings, people, orgs, the digest and search. See
+[docs/mcp.md](docs/mcp.md).
 
 ## Run it yourself
 

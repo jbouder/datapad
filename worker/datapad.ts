@@ -37,7 +37,7 @@ import {
   type Snapshot,
   type SpaceInfo,
 } from '#shared/types';
-import type { Bindings } from './env';
+import { type Bindings, ownerTimeZone } from './env';
 
 /**
  * One Durable Object per signed-in user, named by the verified email (see
@@ -195,7 +195,7 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   private backupZone(): string {
-    return this.env.BACKUP_TIME_ZONE || 'America/New_York';
+    return ownerTimeZone(this.env);
   }
 
   private nextBackupAt(now: number): number {
@@ -697,6 +697,16 @@ export class DatapadObject extends DurableObject<Bindings> {
         counts: spaceCounts(data ? data.state : emptySnapshot()),
       };
     });
+  }
+
+  /**
+   * One space's documents and change count, read-only and with no socket
+   * (the MCP read tools, #153, select over it with `shared/`). Throws the
+   * `SpaceError` for a space this user does not have.
+   */
+  async snapshot(space: string): Promise<{ state: Snapshot; seq: number }> {
+    const { state, seq } = this.space(space);
+    return { state, seq };
   }
 
   /**
