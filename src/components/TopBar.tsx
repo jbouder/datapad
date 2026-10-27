@@ -1,4 +1,5 @@
 import {
+  ArrowClockwiseIcon,
   MagnifyingGlassIcon,
   NotePencilIcon,
   PlusIcon,
@@ -20,8 +21,12 @@ import { cn } from '@/lib/utils';
 
 /**
  * The current title on the left once the page's own h1 has scrolled away
- * (with the brand on phones, where there is no rail), then Search (with its shortcut on desktop), the sync status
- * (a colored dot, with its word on desktop), **+** (Add task), Write a note, Help and Preferences.
+ * (with the brand on phones, where there is no rail), then the sync status
+ * (a colored dot, with its word on desktop), Refresh on desktop (a full
+ * reload: it picks up a new deploy, and unsent changes are already stored;
+ * phones have it in the account menu, the bar has no room), Search (with
+ * its shortcut on desktop), **+** (Add task), Write a note, Help and
+ * Preferences.
  */
 export function TopBar({
   route,
@@ -68,6 +73,23 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
+          <SyncStatus className="desk:mr-1" />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="press hidden size-9 desk:mr-1 desk:inline-flex"
+                  onClick={() => window.location.reload()}
+                />
+              }
+            >
+              <ArrowClockwiseIcon weight="bold" />
+              <span className="sr-only">Refresh</span>
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
           <Button
             variant="outline"
             className="press size-11 p-0 text-muted-foreground sm:size-9 desk:mr-1 desk:h-9 desk:w-auto desk:gap-2 desk:px-2.5"
@@ -85,7 +107,6 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <SyncStatus className="desk:mr-2" />
           <Tooltip>
             <TooltipTrigger
               render={

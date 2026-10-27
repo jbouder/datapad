@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, isMobile, test } from './fixtures';
 
 /** The Focus quick-add. */
 async function addTask(page: Page, title: string) {
@@ -171,6 +171,66 @@ test('offline changes survive a reload and replay once, in order', async ({
     exported.notes as Record<string, { body: string }>,
   );
   expect(notes.map((n) => n.body)).toEqual(['Shield numbers look low']);
+});
+
+test('Refresh reloads the page and keeps changes still waiting', async ({
+  page,
+}) => {
+  let blocked = false;
+  let live: WebSocketRoute | null = null;
+  await page.routeWebSocket('**/ws', (ws) => {
+    if (blocked) {
+      ws.close();
+      return;
+    }
+    live = ws;
+    ws.connectToServer();
+  });
+
+  await openLive(page);
+  blocked = true;
+  await (live as WebSocketRoute | null)?.close();
+  await expect(status(page)).toContainText('Offline');
+  await addTask(page, 'Patch the hangar roof');
+  await expect(status(page)).toContainText('Offline, 1 change waiting');
+
+  // A marker on the old page tells a real reload from a re-render.
+  await page.evaluate(() => {
+    (window as unknown as { before?: boolean }).before = true;
+  });
+  blocked = false;
+  let reloaded = page.waitForEvent('load');
+  if (isMobile(page)) {
+    // No room in the phone's bar: it is in the account menu.
+    await page.getByRole('button', { name: 'Account and settings' }).click();
+    await page.getByRole('menuitem', { name: 'Refresh' }).click();
+  } else {
+    await page.getByRole('button', { name: 'Refresh' }).click();
+  }
+  await reloaded;
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { before?: boolean }).before,
+    ),
+  ).toBeUndefined();
+  await expect(status(page)).toHaveAttribute('data-status', 'live');
+  await expect(status(page)).toContainText('Saved');
+  await expect(openTasks(page)).toContainText('Patch the hangar roof');
+
+  // ⌘K has it too.
+  await page.evaluate(() => {
+    (window as unknown as { before?: boolean }).before = true;
+  });
+  await page.getByRole('button', { name: 'Search' }).click();
+  reloaded = page.waitForEvent('load');
+  await page.getByRole('option', { name: 'Refresh' }).click();
+  await reloaded;
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { before?: boolean }).before,
+    ),
+  ).toBeUndefined();
+  await expect(openTasks(page).locator('[data-task-id]')).toHaveCount(1);
 });
 
 test('first paint on a warm cache shows data before the socket connects', async ({

@@ -1,5 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog';
 import {
+  ArrowClockwiseIcon,
   BuildingsIcon,
   CalendarBlankIcon,
   CheckSquareIcon,
@@ -163,6 +164,12 @@ export function Palette({
         label: 'Export',
         icon: DownloadSimpleIcon,
         run: () => void exportNow(),
+      },
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        icon: ArrowClockwiseIcon,
+        run: () => window.location.reload(),
       },
     ];
   }, [
