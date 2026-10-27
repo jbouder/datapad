@@ -48,10 +48,10 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One project, where most entry happens: the header with its facts and
- * actions, the description, then Tasks on the
- * left with Milestones and Meetings under them, Notes and Activity on the right (3:2
- * above 820px, one column below). Sections remember open or closed per
- * project.
+ * actions (Save as template among them while it has open tasks), the
+ * description, then Milestones, Tasks and Meetings on the left, Notes and
+ * Activity on the right (3:2 above 820px, one column below). Sections
+ * remember open or closed per project.
  */
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
@@ -142,6 +142,18 @@ export function ProjectPage({ id }: { id: string }) {
     );
   };
 
+  /** A kickoff template from the open tasks, in the template panel. */
+  const saveAsTemplate = () =>
+    newTemplate({
+      name: `${project.name} kickoff`,
+      defaultTags: project.tags,
+      tasks: tasks.open.map((t) => ({
+        title: t.title,
+        priority: t.priority,
+        tags: t.tags,
+      })),
+    });
+
   /**
    * Move it to another space, on the server (it spans two spaces, so it
    * is not an op). It is gone from this one after, so on to Projects;
@@ -184,7 +196,7 @@ export function ProjectPage({ id }: { id: string }) {
           <div className="flex flex-wrap gap-1">
             <Button
               variant="outline"
-              className="press"
+              className="press h-11 desk:h-8"
               onClick={() => summarize({ kind: 'project', id: project.id })}
             >
               <SparkleIcon />
@@ -192,24 +204,38 @@ export function ProjectPage({ id }: { id: string }) {
             </Button>
             <Button
               variant="outline"
-              className="press"
+              className="press h-11 desk:h-8"
               onClick={() => openProjectForm(project.id)}
             >
               <PencilSimpleIcon />
               Edit
             </Button>
-            <Button variant="outline" className="press" onClick={toggleArchive}>
+            <Button
+              variant="outline"
+              className="press h-11 desk:h-8"
+              onClick={toggleArchive}
+            >
               <ArchiveIcon />
               {project.archived ? 'Unarchive' : 'Archive'}
             </Button>
             {elsewhere.length > 0 && (
               <Button
                 variant="outline"
-                className="press"
+                className="press h-11 desk:h-8"
                 onClick={() => setMoveOpen(true)}
               >
                 <ArrowsLeftRightIcon />
                 Move to…
+              </Button>
+            )}
+            {tasks.open.length > 0 && (
+              <Button
+                variant="outline"
+                className="press h-11 desk:h-8"
+                onClick={saveAsTemplate}
+              >
+                <CopySimpleIcon />
+                Save as template
               </Button>
             )}
           </div>
@@ -292,6 +318,11 @@ export function ProjectPage({ id }: { id: string }) {
 
       <div className="grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="flex min-w-0 flex-col gap-6">
+          <Milestones
+            project={project}
+            today={today}
+            storageKey={key('milestones')}
+          />
           <Section
             title="Tasks"
             count={tasks.open.length}
@@ -325,34 +356,8 @@ export function ProjectPage({ id }: { id: string }) {
                   }}
                 />
               )}
-              {tasks.open.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="press mt-1 h-11 text-xs desk:h-8"
-                  onClick={() =>
-                    newTemplate({
-                      name: `${project.name} kickoff`,
-                      defaultTags: project.tags,
-                      tasks: tasks.open.map((t) => ({
-                        title: t.title,
-                        priority: t.priority,
-                        tags: t.tags,
-                      })),
-                    })
-                  }
-                >
-                  <CopySimpleIcon />
-                  Save as template
-                </Button>
-              )}
             </div>
           </Section>
-          <Milestones
-            project={project}
-            today={today}
-            storageKey={key('milestones')}
-          />
           <Section
             title="Meetings"
             count={meetings.filter((e) => e.date >= today).length}

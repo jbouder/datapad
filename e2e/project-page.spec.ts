@@ -75,18 +75,52 @@ test('the header carries the project’s facts', async ({ page }) => {
 
 test('two columns above 820px, one below', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
-  const tasks = await page
-    .getByRole('button', { name: /^Tasks/ })
+  const milestones = await page
+    .getByRole('button', { name: /^Milestones/ })
     .boundingBox();
   const notes = await page
     .getByRole('button', { name: /^Notes/ })
     .boundingBox();
   if (isMobile(page)) {
-    expect(notes?.y ?? 0).toBeGreaterThan(tasks?.y ?? 0);
+    expect(notes?.y ?? 0).toBeGreaterThan(milestones?.y ?? 0);
   } else {
-    expect(Math.abs((notes?.y ?? 0) - (tasks?.y ?? 0))).toBeLessThan(4);
-    expect(notes?.x ?? 0).toBeGreaterThan(tasks?.x ?? 0);
+    expect(Math.abs((notes?.y ?? 0) - (milestones?.y ?? 0))).toBeLessThan(4);
+    expect(notes?.x ?? 0).toBeGreaterThan(milestones?.x ?? 0);
   }
+});
+
+test('Milestones, then Tasks, then Meetings', async ({ page }) => {
+  await openLive(page, '/projects/p-echo');
+  const top = async (name: RegExp) =>
+    (await page.getByRole('button', { name }).boundingBox())?.y ?? 0;
+  const milestones = await top(/^Milestones/);
+  const tasks = await top(/^Tasks/);
+  const meetings = await top(/^Meetings/);
+  expect(tasks).toBeGreaterThan(milestones);
+  expect(meetings).toBeGreaterThan(tasks);
+});
+
+test('the header actions wrap with no sideways scroll', async ({ page }) => {
+  await openLive(page, '/projects/p-echo');
+  await expect(
+    page.getByRole('button', { name: 'Save as template' }),
+  ).toBeVisible();
+  if (isMobile(page)) {
+    for (const name of ['Summarize', 'Edit', 'Archive', 'Save as template']) {
+      const box = await page
+        .getByRole('article', { name: 'Echo Base relocation' })
+        .locator('header')
+        .getByRole('button', { name, exact: true })
+        .boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  }
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
 });
 
 test.describe('section motion', () => {
