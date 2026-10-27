@@ -253,3 +253,36 @@ export function removeSubtree(
   if (tasks) next.tasks = tasks;
   return { state: next, changed };
 }
+
+/** How much one space holds, for an MCP client's `whoami` (#152). */
+export interface SpaceCounts {
+  /** Not archived. */
+  projects: number;
+  archivedProjects: number;
+  openTasks: number;
+  tasks: number;
+  notes: number;
+  meetings: number;
+  people: number;
+}
+
+/** A space and its counts, in switcher order. */
+export interface SpaceSummary extends SpaceInfo {
+  counts: SpaceCounts;
+}
+
+/** What `state` holds, counted. Pure; carries no document content. */
+export function spaceCounts(state: Snapshot): SpaceCounts {
+  const projects = Object.values(state.projects);
+  const tasks = Object.values(state.tasks);
+  const archived = projects.filter((p) => p.archived).length;
+  return {
+    projects: projects.length - archived,
+    archivedProjects: archived,
+    openTasks: tasks.filter((t) => t.status !== 'done').length,
+    tasks: tasks.length,
+    notes: Object.keys(state.notes).length,
+    meetings: Object.keys(state.meetings).length,
+    people: Object.keys(state.people).length,
+  };
+}

@@ -17,6 +17,8 @@ import { MAIN_SPACE } from '#shared/types';
 import { type AccessVerifier, verifyAccess } from './access';
 import { type DatapadObject, isNoSuchSpace } from './datapad';
 import type { Bindings } from './env';
+import { authorize } from './mcp/authorize';
+import { AUTHORIZE_PATH, isProviderPath, providerFor } from './mcp/oauth';
 
 export { DatapadObject } from './datapad';
 
@@ -33,6 +35,15 @@ export { DatapadObject } from './datapad';
  * only chooses among the spaces of the object the email already named, so
  * the worst a forged one can do is reach another of your own spaces, or
  * get a 404.
+ *
+ * The one exception to "Access first" is MCP (#152, worker/mcp/): `/mcp`,
+ * `/oauth/token`, `/oauth/register` and `/.well-known/oauth-*` go to the
+ * OAuth provider instead (`createWorker` below), because an MCP client
+ * cannot sign in with Access. They still fail closed: `/mcp` admits only a
+ * bearer token the provider issued, and a token is issued only after the
+ * owner approved the client at `/oauth/authorize`, which is behind Access
+ * like every other path. The email in a token comes from that verified
+ * identity and nowhere else.
  */
 
 /**
@@ -61,6 +72,11 @@ export function createHandler(verify: AccessVerifier) {
         return unauthorized(pathname);
       }
       const { email } = identity;
+
+      // The MCP sign-in: behind Access, like everything below.
+      if (pathname === AUTHORIZE_PATH) {
+        return await authorize(request, env, identity);
+      }
 
       if (pathname === '/api/config') {
         if (request.method !== 'GET') {
@@ -420,11 +436,51 @@ async function readBody<T>(
   return { ok: true, value: parsed.data };
 }
 
-const handle = createHandler(verifyAccess);
+/**
+ * The Worker, with the verifier injectable for tests: the OAuth provider's
+ * own paths first (and only those, `isProviderPath`), everything else
+ * through `createHandler`, Access first.
+ */
+export function createWorker(verify: AccessVerifier) {
+  const handle = createHandler(verify);
+  return {
+    async fetch(
+      request: Request,
+      env: Bindings,
+      ctx: ExecutionContext,
+    ): Promise<Response> {
+      const { pathname } = new URL(request.url);
+      if (isProviderPath(pathname)) {
+        try {
+          return withApiHeaders(
+            await providerFor(request).fetch(request, env, ctx),
+          );
+        } catch (error) {
+          console.error(
+            JSON.stringify({
+              level: 'error',
+              path: pathname,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+          return json({ error: 'Something went wrong' }, 500);
+        }
+      }
+      return handle(request, env);
+    },
+  } satisfies ExportedHandler<Bindings>;
+}
 
-export default {
-  fetch: (request, env) => handle(request, env),
-} satisfies ExportedHandler<Bindings>;
+/** The provider's answers, with whichever of `API_HEADERS` they lack. */
+function withApiHeaders(response: Response): Response {
+  const out = new Response(response.body, response);
+  for (const [name, value] of Object.entries(API_HEADERS)) {
+    if (!out.headers.has(name)) out.headers.set(name, value);
+  }
+  return out;
+}
+
+export default createWorker(verifyAccess);
 
 /** JSON for the API, a short page for everything a browser navigates to. */
 function unauthorized(pathname: string): Response {

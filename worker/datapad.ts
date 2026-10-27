@@ -25,6 +25,8 @@ import {
   orderedSpaces,
   projectSubtree,
   removeSubtree,
+  type SpaceSummary,
+  spaceCounts,
   validSpaceName,
 } from '#shared/spaces';
 import {
@@ -163,6 +165,12 @@ export class DatapadObject extends DurableObject<Bindings> {
   private seenOps = new Set<string>();
   /** Recent op times per socket, for the flood limit. */
   private readonly recent = new Map<WebSocket, number[]>();
+  /**
+   * Recent MCP tool-call times per access token (keyed by the token's
+   * hash, never the token), for `LIMITS.mcpCallsPerMinute`. In memory: an
+   * evicted object forgets, which only ever lets a client through sooner.
+   */
+  private readonly mcpCalls = new Map<string, number[]>();
 
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
@@ -678,6 +686,36 @@ export class DatapadObject extends DurableObject<Bindings> {
   /** Every space, in switcher order. */
   async listSpaces(): Promise<SpaceList> {
     return { spaces: this.spaces };
+  }
+
+  /** Every space with what it holds, in switcher order (MCP `whoami`). */
+  async spaceSummaries(): Promise<SpaceSummary[]> {
+    return this.spaces.map((info) => {
+      const data = this.data.get(info.id);
+      return {
+        ...info,
+        counts: spaceCounts(data ? data.state : emptySnapshot()),
+      };
+    });
+  }
+
+  /**
+   * Whether one more MCP tool call fits the minute for this token: true
+   * and counted when it does, false (and not counted) when it does not.
+   * `key` is a hash of the token, chosen by the Worker; it only ever picks
+   * a counter inside the object the verified email already named.
+   */
+  async admitMcpCall(key: string, now = Date.now()): Promise<boolean> {
+    for (const [k, stamps] of this.mcpCalls) {
+      const live = stamps.filter((t) => now - t < 60_000);
+      if (live.length === 0) this.mcpCalls.delete(k);
+      else this.mcpCalls.set(k, live);
+    }
+    const stamps = this.mcpCalls.get(key) ?? [];
+    if (stamps.length >= LIMITS.mcpCallsPerMinute) return false;
+    stamps.push(now);
+    this.mcpCalls.set(key, stamps);
+    return true;
   }
 
   /** Every document in a space, in the artifact's export format. */

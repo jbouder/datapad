@@ -77,6 +77,8 @@ export const LIMITS = {
   opIdsKept: 1_000,
   /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
+  /** MCP tool calls one access token may make per minute (`/mcp`). */
+  mcpCallsPerMinute: 60,
   /** Nightly backups kept per user; older ones are deleted. */
   backupsKept: 30,
   /** How long an erase confirmation token works. */

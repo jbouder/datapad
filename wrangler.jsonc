@@ -27,6 +27,13 @@
   // `npx wrangler r2 bucket create datapad-backups` (docs/self-hosting.md).
   "r2_buckets": [{ "binding": "BACKUPS", "bucket_name": "datapad-backups" }],
 
+  // MCP clients' OAuth state (#152): registered clients, grants, and
+  // tokens and codes stored only as hashes. `wrangler deploy` creates the
+  // namespace the first time and keeps using it; to make it yourself,
+  // `npx wrangler kv namespace create OAUTH_KV` and add its `id` here
+  // (docs/self-hosting.md).
+  "kv_namespaces": [{ "binding": "OAUTH_KV" }],
+
   // Cloudflare Access (Zero Trust). Both values are public. With ACCESS_AUD
   // empty the Worker answers 401 to everything, unless .dev.vars sets
   // DEV_ACCESS_EMAIL for local development. See docs/self-hosting.md.
