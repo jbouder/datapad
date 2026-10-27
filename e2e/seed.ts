@@ -100,6 +100,7 @@ export const SEED_COUNTS = {
   decisions: 0,
   orgs: 0,
   templates: 0,
+  boardItems: 0,
 };
 
 /** Noon on `day` in the local zone, as an ISO timestamp. */

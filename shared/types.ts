@@ -1,5 +1,5 @@
 /**
- * The domain, exactly as in docs/SPEC.md § Data model: six collections, each
+ * The domain, exactly as in docs/SPEC.md § Data model: the collections, each
  * a flat map of id → document. Ids are client-generated random strings,
  * timestamps ISO 8601, dates `YYYY-MM-DD`, times `HH:MM` (24-hour, local).
  * An empty string means "not set" for dates, times and the assignee, as in
@@ -227,6 +227,49 @@ export interface Decision {
   updatedAt: Timestamp;
 }
 
+/** What a whiteboard item is. */
+export const BOARD_KINDS = ['sticky', 'text', 'rect', 'arrow', 'ink'] as const;
+export type BoardKind = (typeof BOARD_KINDS)[number];
+
+/** A whiteboard item's color: a token, never a literal. */
+export const BOARD_COLORS = [
+  'neutral',
+  'accent',
+  'ok',
+  'warn',
+  'danger',
+] as const;
+export type BoardColor = (typeof BOARD_COLORS)[number];
+
+/** The space's own whiteboard; any other board id is a project's id. */
+export const GENERAL_BOARD = 'general';
+
+/**
+ * One thing on a whiteboard: a sticky note, free text, a rectangle, an
+ * arrow or an ink stroke. A board has no document of its own: `boardId`
+ * is a project's id, or `GENERAL_BOARD` for the space's board.
+ * Coordinates are board units (px at zoom 1).
+ */
+export interface BoardItem {
+  id: string;
+  boardId: string;
+  kind: BoardKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Drawing order: higher draws on top. */
+  z: number;
+  color: BoardColor;
+  /** A sticky's, a text's or a rect's label; empty otherwise. */
+  text: string;
+  /**
+   * Flat `[x0, y0, x1, y1, …]`, relative to `x, y`: an ink stroke's
+   * points, an arrow's two ends. Empty for the other kinds.
+   */
+  points: number[];
+}
+
 /** A client, an internal team, a vendor or a partner, with its contacts. */
 export interface Org {
   id: string;
@@ -421,6 +464,7 @@ export interface Collections {
   decisions: Decision;
   orgs: Org;
   templates: Template;
+  boardItems: BoardItem;
   activity: Activity;
   settings: Settings;
 }
@@ -436,6 +480,7 @@ export const COLLECTIONS = [
   'decisions',
   'orgs',
   'templates',
+  'boardItems',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -452,6 +497,7 @@ export const DOC_COLLECTIONS = [
   'decisions',
   'orgs',
   'templates',
+  'boardItems',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -469,6 +515,7 @@ export function emptySnapshot(): Snapshot {
     decisions: {},
     orgs: {},
     templates: {},
+    boardItems: {},
     activity: {},
     settings: {},
   };

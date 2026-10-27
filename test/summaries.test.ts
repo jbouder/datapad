@@ -340,7 +340,56 @@ describe('projectContext', () => {
       doneTasks: 15,
       notes: 20,
       activity: 25,
+      boardNotes: 30,
     });
+  });
+});
+
+describe('whiteboard notes in the summary', () => {
+  const item = (
+    id: string,
+    z: number,
+    kind: 'sticky' | 'text' | 'rect' | 'ink',
+    text: string,
+    boardId = 'p1',
+  ) => ({
+    id,
+    boardId,
+    kind,
+    x: 0,
+    y: 0,
+    w: 200,
+    h: 200,
+    z,
+    color: 'neutral' as const,
+    text,
+    points: kind === 'ink' ? [0, 0, 5, 5] : [],
+  });
+
+  it('lists sticky and text items in drawing order, the first 30', () => {
+    const state = world();
+    state.boardItems = {
+      a: item('a', 2, 'text', 'Second'),
+      b: item('b', 1, 'sticky', 'First'),
+      c: item('c', 3, 'rect', 'A box label'),
+      d: item('d', 4, 'ink', ''),
+      e: item('e', 5, 'sticky', '   '),
+      f: item('f', 6, 'sticky', 'Elsewhere', 'general'),
+    };
+    for (let i = 0; i < 40; i += 1) {
+      state.boardItems[`s${i}`] = item(`s${i}`, 10 + i, 'sticky', `idea ${i}`);
+    }
+    const text = projectContext('p1', state);
+    expect(text).toContain('Whiteboard notes:\n- First\n- Second\n- idea 0');
+    expect(text).not.toContain('A box label');
+    expect(text).not.toContain('Elsewhere');
+    expect(text.match(/^- (First|Second|idea \d+)$/gm)).toHaveLength(30);
+    expect(text).toContain('- idea 27');
+    expect(text).not.toContain('- idea 28');
+  });
+
+  it('leaves the section out without notes on the board', () => {
+    expect(projectContext('p1', world())).not.toContain('Whiteboard');
   });
 });
 

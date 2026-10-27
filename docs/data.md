@@ -20,7 +20,7 @@ commit `.dev.vars`.
 
 **Spaces.** Your object holds one or more spaces, each a complete,
 separate Datapad: its own projects, tasks, notes, meetings, people, orgs,
-decisions, templates, settings and activity. Nothing is shared between
+decisions, templates, whiteboards, settings and activity. Nothing is shared between
 them. Everyone starts with one, Main (id `main`); data from before spaces
 is in it. You can have up to 12. Each browser remembers which space it
 has open; the URL does not say.
@@ -82,7 +82,8 @@ as it is (migrated on the way in, below):
   "settings": { "user": { "defaultOrg": "Rebel Alliance", "pages": { "tasks": { "view": "board", "group": "due", "filters": { "status": "all" } } } } },
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
   "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
-  "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } }
+  "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } },
+  "boardItems": { "<id>": { "id": "<id>", "boardId": "<projectId>", "kind": "sticky", "x": 0, "y": 0, "w": 200, "h": 200, "z": 0, "color": "warn", "text": "…", "points": [] } }
 }
 ```
 
@@ -112,6 +113,12 @@ as it is (migrated on the way in, below):
   is kept, and Orgs offers to organize it into records
   (`project.orgId` links one). Deleting an org leaves the text. Projects may carry `health` and tasks `blocked`; both
   are optional and absent in older files.
+- `boardItems` is Datapad's own (M12): whiteboard stickies, text, rects,
+  arrows and ink strokes. `boardId` is a project's id, or `general` for
+  the space's board; `points` (arrows and ink) are `[x0, y0, x1, y1, …]`
+  relative to `x, y`; `color` is `neutral`, `accent`, `ok`, `warn` or
+  `danger`. A project's items go with it when it moves to another space
+  and when it is deleted. A file without them imports with empty boards.
 - Each collection is a map from id to document, fields exactly as in
   [SPEC.md § Data model](SPEC.md#data-model). An array of documents that
   carry their `id` is accepted too.

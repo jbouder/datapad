@@ -3,6 +3,7 @@ import { LIMITS } from '#shared/limits';
 import { ExportSchema, type Op, OpSchema } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import {
+  type BoardItem,
   emptySnapshot,
   GENERAL,
   type Project,
@@ -1246,6 +1247,303 @@ describe('milestones', () => {
     expect(() => at(state, add('one-more', 'Too many', '2026-11-02'))).toThrow(
       `A project has ${LIMITS.milestonesMax} milestones at most`,
     );
+  });
+});
+
+describe('whiteboards', () => {
+  const item = (id: string, overrides: Partial<BoardItem> = {}): BoardItem => ({
+    id,
+    boardId: 'p1',
+    kind: 'sticky',
+    x: 10,
+    y: 20,
+    w: 200,
+    h: 200,
+    z: 0,
+    color: 'warn',
+    text: 'Shield generator',
+    points: [],
+    ...overrides,
+  });
+  const add = (b: BoardItem, dayStart?: string): Op =>
+    dayStart
+      ? { type: 'addBoardItem', item: b, dayStart }
+      : { type: 'addBoardItem', item: b };
+  const drew = (state: Snapshot) =>
+    (state.activity.p1?.events ?? []).filter(
+      (e) => e.text === 'Drew on the whiteboard',
+    );
+  const zs = (state: Snapshot) =>
+    Object.fromEntries(Object.values(state.boardItems).map((b) => [b.id, b.z]));
+
+  it('addBoardItem adds the whole item, on a project board or the space’s', () => {
+    const { state, changed } = at(base(), add(item('b1')));
+    expect(state.boardItems.b1).toEqual(item('b1'));
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'boardItems', id: 'b1' },
+    ]);
+    // Not project work: the project's updatedAt stays.
+    expect(state.projects.p1?.updatedAt).toBe(base().projects.p1?.updatedAt);
+    const general = at(base(), add(item('g1', { boardId: GENERAL })));
+    expect(general.state.boardItems.g1?.boardId).toBe('general');
+    // The space board is silent, always.
+    expect(general.changed).toEqual([{ col: 'boardItems', id: 'g1' }]);
+  });
+
+  it('refuses an unknown board, a duplicate id and points that do not fit', () => {
+    expect(() => at(base(), add(item('b1', { boardId: 'nowhere' })))).toThrow(
+      'That project no longer exists',
+    );
+    const state = run(base(), add(item('b1')));
+    expect(() => at(state, add(item('b1')))).toThrow(
+      'That item already exists',
+    );
+    expect(() =>
+      at(base(), add(item('a1', { kind: 'arrow', points: [0, 0] }))),
+    ).toThrow('An arrow has two ends');
+    expect(() =>
+      at(base(), add(item('i1', { kind: 'ink', points: [] }))),
+    ).toThrow('An ink stroke needs a point');
+    expect(() => at(base(), add(item('s1', { points: [0, 0, 1, 1] })))).toThrow(
+      'Only arrows and ink have points',
+    );
+  });
+
+  it('logs "Drew on the whiteboard" once per project per day', () => {
+    const day1 = '2026-10-23T09:00:00.000Z';
+    let state = reduce(base(), add(item('b1')), day1).state;
+    state = reduce(state, add(item('b2')), '2026-10-23T18:00:00.000Z').state;
+    state = reduce(
+      state,
+      { type: 'moveBoardItems', moves: [{ id: 'b1', x: 0, y: 0 }] },
+      '2026-10-23T19:00:00.000Z',
+    ).state;
+    expect(drew(state)).toHaveLength(1);
+    expect(lastLog(state, 'p1')).toBe('Drew on the whiteboard');
+    // The next UTC day, without the sender's midnight: a new line.
+    state = reduce(state, add(item('b3')), '2026-10-24T00:30:00.000Z').state;
+    expect(drew(state)).toHaveLength(2);
+    // With it, the sender's day decides: 01:00 UTC on the 24th is still
+    // the 23rd in UTC−7, whose day began at 07:00 UTC on the 23rd.
+    let west = reduce(base(), add(item('b1')), day1).state;
+    west = reduce(
+      west,
+      add(item('b2'), '2026-10-23T07:00:00.000Z'),
+      '2026-10-24T01:00:00.000Z',
+    ).state;
+    expect(drew(west)).toHaveLength(1);
+    // Each project has its own line.
+    const both = run(
+      base(),
+      { type: 'createProject', id: 'p2', name: 'Falcon' },
+      add(item('b1')),
+      add(item('b2', { boardId: 'p2' })),
+      add(item('b3')),
+    );
+    expect(drew(both)).toHaveLength(1);
+    expect(both.activity.p2?.events[0]?.text).toBe('Drew on the whiteboard');
+  });
+
+  it('logs once for a batch of adds', () => {
+    const state = run(base(), {
+      type: 'batch',
+      ops: [add(item('b1')), add(item('b2')), add(item('b3'))],
+    } as Op);
+    expect(Object.keys(state.boardItems)).toHaveLength(3);
+    expect(drew(state)).toHaveLength(1);
+  });
+
+  it('editBoardItem changes text, color, size and points, silently', () => {
+    const state = run(
+      base(),
+      add(item('b1')),
+      add(item('a1', { kind: 'arrow', text: '', points: [0, 0, 50, 50] })),
+    );
+    const { state: next, changed } = at(state, {
+      type: 'editBoardItem',
+      id: 'b1',
+      patch: { text: 'Ion cannon', color: 'ok', w: 300, h: 120 },
+    });
+    expect(next.boardItems.b1).toEqual(
+      item('b1', { text: 'Ion cannon', color: 'ok', w: 300, h: 120 }),
+    );
+    expect(changed).toEqual([{ col: 'boardItems', id: 'b1' }]);
+    expect(
+      at(state, {
+        type: 'editBoardItem',
+        id: 'a1',
+        patch: { points: [0, 0, 80, -10] },
+      }).state.boardItems.a1?.points,
+    ).toEqual([0, 0, 80, -10]);
+    expect(() =>
+      at(state, {
+        type: 'editBoardItem',
+        id: 'a1',
+        patch: { points: [0, 0, 1, 1, 2, 2] },
+      }),
+    ).toThrow('An arrow has two ends');
+    expect(() =>
+      at(state, { type: 'editBoardItem', id: 'gone', patch: { text: 'x' } }),
+    ).toThrow('That item is no longer there');
+  });
+
+  it('moveBoardItems moves a selection in one op, skipping what is gone', () => {
+    const state = run(
+      base(),
+      add(item('b1')),
+      add(item('b2', { z: 1 })),
+      add(item('a1', { kind: 'arrow', text: '', points: [0, 0, 50, 50] })),
+    );
+    const { state: next, changed } = at(state, {
+      type: 'moveBoardItems',
+      moves: [
+        { id: 'b1', x: 100, y: -50 },
+        { id: 'b2', x: 10, y: 20 }, // where it already is
+        { id: 'a1', x: 5, y: 5, points: [0, 0, 95, 15] },
+        { id: 'gone', x: 0, y: 0 },
+      ],
+    });
+    expect(next.boardItems.b1).toMatchObject({ x: 100, y: -50 });
+    expect(next.boardItems.a1).toMatchObject({
+      x: 5,
+      y: 5,
+      points: [0, 0, 95, 15],
+    });
+    expect(sorted(changed)).toEqual([
+      { col: 'boardItems', id: 'a1' },
+      { col: 'boardItems', id: 'b1' },
+    ]);
+    // Nothing logged for a move.
+    expect(next.activity).toBe(state.activity);
+  });
+
+  it('raiseBoardItems takes them to the top, keeping their order', () => {
+    const state = run(
+      base(),
+      add(item('b1', { z: 0 })),
+      add(item('b2', { z: 1 })),
+      add(item('b3', { z: 2 })),
+      add(item('b4', { z: 3 })),
+      add(item('g1', { boardId: GENERAL, z: 50 })),
+    );
+    const { state: next } = at(state, {
+      type: 'raiseBoardItems',
+      ids: ['b2', 'b1'],
+    });
+    // Another board's z does not count.
+    expect(zs(next)).toEqual({ b1: 4, b2: 5, b3: 2, b4: 3, g1: 50 });
+    // Already on top: nothing changes.
+    expect(
+      at(state, { type: 'raiseBoardItems', ids: ['b4', 'b3'] }).changed,
+    ).toEqual([]);
+    expect(
+      at(state, { type: 'raiseBoardItems', ids: ['gone'] }).changed,
+    ).toEqual([]);
+  });
+
+  it('lowerBoardItems takes them to the bottom, keeping their order', () => {
+    const state = run(
+      base(),
+      add(item('b1', { z: 0 })),
+      add(item('b2', { z: 1 })),
+      add(item('b3', { z: 2 })),
+      add(item('b4', { z: 3 })),
+    );
+    const { state: next } = at(state, {
+      type: 'lowerBoardItems',
+      ids: ['b4', 'b3'],
+    });
+    expect(zs(next)).toEqual({ b1: 0, b2: 1, b3: -2, b4: -1 });
+    expect(
+      at(state, { type: 'lowerBoardItems', ids: ['b1', 'b2'] }).changed,
+    ).toEqual([]);
+  });
+
+  it('deleteBoardItems removes them, silently, skipping what is gone', () => {
+    const state = run(base(), add(item('b1')), add(item('b2')));
+    const { state: next, changed } = at(state, {
+      type: 'deleteBoardItems',
+      ids: ['b1', 'gone'],
+    });
+    expect(Object.keys(next.boardItems)).toEqual(['b2']);
+    expect(changed).toEqual([{ col: 'boardItems', id: 'b1', deleted: true }]);
+  });
+
+  it('deleteProject deletes its whiteboard and leaves the others', () => {
+    const state = run(
+      base(),
+      { type: 'createProject', id: 'p2', name: 'Falcon' },
+      add(item('b1')),
+      add(item('b2', { boardId: 'p2' })),
+      add(item('g1', { boardId: GENERAL })),
+    );
+    const { state: next, changed } = at(state, {
+      type: 'deleteProject',
+      id: 'p1',
+    });
+    expect(Object.keys(next.boardItems).sort()).toEqual(['b2', 'g1']);
+    expect(changed).toContainEqual({
+      col: 'boardItems',
+      id: 'b1',
+      deleted: true,
+    });
+  });
+
+  it(`caps a board at ${LIMITS.boardItemsMax} items`, () => {
+    const full: Snapshot['boardItems'] = {};
+    for (let i = 0; i < LIMITS.boardItemsMax; i += 1) {
+      full[`b${i}`] = item(`b${i}`, { z: i });
+    }
+    const crowded = { ...base(), boardItems: full };
+    expect(() => at(crowded, add(item('one-more')))).toThrow(
+      `A whiteboard has ${LIMITS.boardItemsMax} items at most`,
+    );
+    // Another board still has room.
+    expect(
+      at(crowded, add(item('g1', { boardId: GENERAL }))).state.boardItems.g1,
+    ).toBeDefined();
+  });
+
+  it('the schema bounds text, ink points, coordinates and colors', () => {
+    const op = (b: Partial<BoardItem>) =>
+      OpSchema.safeParse(add(item('b1', b))).success;
+    expect(op({})).toBe(true);
+    expect(op({ text: 'x'.repeat(LIMITS.boardTextMax) })).toBe(true);
+    expect(op({ text: 'x'.repeat(LIMITS.boardTextMax + 1) })).toBe(false);
+    const ink = (n: number) => Array.from({ length: n }, (_, i) => i % 50);
+    expect(op({ kind: 'ink', points: ink(LIMITS.inkPointsMax) })).toBe(true);
+    expect(op({ kind: 'ink', points: ink(LIMITS.inkPointsMax + 2) })).toBe(
+      false,
+    );
+    expect(op({ kind: 'ink', points: [0, 0, 1] })).toBe(false);
+    expect(op({ x: LIMITS.boardCoordMax, y: -LIMITS.boardCoordMax })).toBe(
+      true,
+    );
+    expect(op({ x: LIMITS.boardCoordMax + 1 })).toBe(false);
+    expect(op({ kind: 'ink', points: [0, LIMITS.boardCoordMax + 1] })).toBe(
+      false,
+    );
+    expect(op({ w: -1 })).toBe(false);
+    expect(op({ color: '#ff0000' as never })).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'moveBoardItems',
+        moves: Array.from({ length: LIMITS.batchMax + 1 }, (_, i) => ({
+          id: `b${i}`,
+          x: 0,
+          y: 0,
+        })),
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({ type: 'deleteBoardItems', ids: ['b1', 'b1'] })
+        .success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({ type: 'editBoardItem', id: 'b1', patch: {} })
+        .success,
+    ).toBe(false);
   });
 });
 

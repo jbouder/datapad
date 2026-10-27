@@ -1,3 +1,4 @@
+import { itemsOf } from './board';
 import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
 import { byWhen, timeRange } from './meetings';
@@ -89,6 +90,8 @@ export const SUMMARY_LIMITS = {
   doneTasks: 15,
   notes: 20,
   activity: 25,
+  /** Sticky and text items from its whiteboard, in drawing order. */
+  boardNotes: 30,
 } as const;
 
 const PRIORITY_WORDS = {
@@ -214,7 +217,8 @@ function indent(text: string): string {
 
 /**
  * A project: its fields, open tasks with their details, the last 15 done
- * tasks, every milestone, every meeting, the last 20 notes newest first,
+ * tasks, every milestone, every meeting, its whiteboard's first 30 sticky
+ * and text items, the last 20 notes newest first,
  * the last 25
  * activity lines.
  */
@@ -281,6 +285,17 @@ export function projectContext(projectId: string, state: Snapshot): string {
             : ''
         }`,
       );
+    }
+  }
+
+  // Absent in a snapshot cached before whiteboards.
+  const board = itemsOf(state.boardItems ?? {}, projectId)
+    .filter((b) => (b.kind === 'sticky' || b.kind === 'text') && b.text.trim())
+    .slice(0, SUMMARY_LIMITS.boardNotes);
+  if (board.length > 0) {
+    lines.push('', 'Whiteboard notes:');
+    for (const b of board) {
+      lines.push(`- ${tokensToNames(b.text, state.people).trim()}`);
     }
   }
 

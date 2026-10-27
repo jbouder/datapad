@@ -4,6 +4,9 @@ import { migrate } from './migrate';
 import { NAV_SECTIONS, QUICK_ADD_ACTIONS } from './nav';
 import {
   type Activity,
+  BOARD_COLORS,
+  BOARD_KINDS,
+  type BoardItem,
   type COLLECTIONS,
   DECISION_STATUSES,
   DEFAULT_SETTINGS,
@@ -243,6 +246,36 @@ export const DecisionSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Decision, unknown>;
 
+/** A whiteboard coordinate, in board units. */
+const coord = z.number().min(-LIMITS.boardCoordMax).max(LIMITS.boardCoordMax);
+/** A width or height: never negative, at most the board's full span. */
+const extent = z
+  .number()
+  .min(0)
+  .max(2 * LIMITS.boardCoordMax);
+/** Drawing order: whole numbers, plenty either way of zero. */
+const zOrder = z.number().int().min(-1e9).max(1e9);
+const boardColor = z.enum(BOARD_COLORS);
+/** Flat `[x0, y0, x1, y1, …]` pairs, relative to the item's `x, y`. */
+const points = z
+  .array(coord)
+  .max(LIMITS.inkPointsMax)
+  .refine((p) => p.length % 2 === 0, 'Points come in x, y pairs');
+
+export const BoardItemSchema = z.object({
+  id,
+  boardId: id,
+  kind: z.enum(BOARD_KINDS),
+  x: coord,
+  y: coord,
+  w: extent,
+  h: extent,
+  z: zOrder,
+  color: boardColor.default('neutral'),
+  text: text(LIMITS.boardTextMax).default(''),
+  points: points.default([]),
+}) satisfies z.ZodType<BoardItem, unknown>;
+
 export const PersonSchema = z.object({
   id,
   name: z.string().min(1).max(LIMITS.nameMax),
@@ -365,6 +398,7 @@ export const DocumentSchemas = {
   decisions: DecisionSchema,
   orgs: OrgSchema,
   templates: TemplateSchema,
+  boardItems: BoardItemSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -451,6 +485,8 @@ export const ExportSchema = z.preprocess(
     orgs: collectionOf(OrgSchema),
     /** Datapad only (M7). */
     templates: collectionOf(TemplateSchema),
+    /** Datapad only (M12); older files have no whiteboards. */
+    boardItems: collectionOf(BoardItemSchema),
     activity: keyedCollection(ActivitySchema),
     settings: keyedCollection(SettingsSchema),
   }),
@@ -488,6 +524,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     decisions: Object.keys(snapshot.decisions).length,
     orgs: Object.keys(snapshot.orgs).length,
     templates: Object.keys(snapshot.templates).length,
+    boardItems: Object.keys(snapshot.boardItems).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -636,6 +673,22 @@ const decisionFields = {
   links,
 };
 
+/** What an edit may change on a whiteboard item (not where, not its order). */
+const boardItemFields = {
+  text: text(LIMITS.boardTextMax),
+  color: boardColor,
+  w: extent,
+  h: extent,
+  points,
+};
+
+/** Ids of whiteboard items: as many as a board holds, each once. */
+const boardIds = z
+  .array(id)
+  .min(1)
+  .max(LIMITS.boardItemsMax)
+  .refine((ids) => new Set(ids).size === ids.length, 'Each item once');
+
 const personFields = {
   name: required(LIMITS.nameMax),
   role: z.string().trim().max(LIMITS.nameMax),
@@ -692,6 +745,11 @@ const PutSchema = z.discriminatedUnion('col', [
     type: z.literal('put'),
     col: z.literal('templates'),
     doc: TemplateSchema,
+  }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('boardItems'),
+    doc: BoardItemSchema,
   }),
 ]);
 
@@ -964,6 +1022,46 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('deleteDecision'), id }),
 
+  /*
+   * whiteboards (a project's, or the space's: `general`). Silent, but the
+   * first item added to a project's board in a day logs "Drew on the
+   * whiteboard". Ops that name items another device has deleted skip them.
+   */
+  z.object({
+    type: z.literal('addBoardItem'),
+    item: BoardItemSchema,
+    /**
+     * When the sender's day began (its local midnight), so "in a day" is
+     * the owner's day; absent, the UTC day of the op.
+     */
+    dayStart: timestamp.optional(),
+  }),
+  z.object({
+    type: z.literal('editBoardItem'),
+    id,
+    patch: patch(boardItemFields),
+  }),
+  /**
+   * One op for a whole drag. `points` re-aims an arrow whose end is
+   * attached to an item that moved.
+   */
+  z.object({
+    type: z.literal('moveBoardItems'),
+    moves: z
+      .array(z.object({ id, x: coord, y: coord, points: points.optional() }))
+      .min(1)
+      .max(LIMITS.batchMax)
+      .refine(
+        (moves) => new Set(moves.map((m) => m.id)).size === moves.length,
+        'Each item once',
+      ),
+  }),
+  /** To the top of their board, keeping their order among themselves. */
+  z.object({ type: z.literal('raiseBoardItems'), ids: boardIds }),
+  /** To the bottom of their board, keeping their order among themselves. */
+  z.object({ type: z.literal('lowerBoardItems'), ids: boardIds }),
+  z.object({ type: z.literal('deleteBoardItems'), ids: boardIds }),
+
   /* people */
   z.object({
     type: z.literal('addPerson'),
@@ -1091,6 +1189,11 @@ const LABELS: Record<string, string> = {
   meetingId: 'Meeting',
   taskId: 'Task',
   topics: 'Topics',
+  boardId: 'Board',
+  boardItems: 'Whiteboard items',
+  w: 'Width',
+  h: 'Height',
+  z: 'Order',
   sourceNoteId: 'Source note',
   createdAt: 'Created',
   updatedAt: 'Updated',

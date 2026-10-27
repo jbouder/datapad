@@ -95,5 +95,6 @@ test('export downloads every document as datapad-<date>.json', async ({
     decisions: {},
     orgs: {},
     templates: {},
+    boardItems: {},
   });
 });

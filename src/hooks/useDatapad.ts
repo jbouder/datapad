@@ -19,7 +19,7 @@ import {
 } from '#shared/protocol';
 import { OpError, reduce } from '#shared/reducer';
 import { orderedSpaces } from '#shared/spaces';
-import type { Snapshot, SpaceInfo } from '#shared/types';
+import { emptySnapshot, type Snapshot, type SpaceInfo } from '#shared/types';
 import { fetchSpaces, socketUrl } from '@/lib/api';
 import { newId } from '@/lib/ids';
 import { keyFor } from '@/lib/spaces';
@@ -145,6 +145,12 @@ const OP_TYPES = {
   setNav: true,
   setPagePrefs: true,
   resetPagePrefs: true,
+  addBoardItem: true,
+  editBoardItem: true,
+  moveBoardItems: true,
+  raiseBoardItems: true,
+  lowerBoardItems: true,
+  deleteBoardItems: true,
   batch: true,
 } as const satisfies Record<OpType, true>;
 
@@ -483,7 +489,11 @@ export function useDatapadConnection(
           value.state &&
           'meetings' in value.state
         ) {
-          setCached(value);
+          // Collections added since it was cached (whiteboards) are empty.
+          setCached({
+            ...value,
+            state: { ...emptySnapshot(), ...value.state },
+          });
           // Offline, the switcher still knows the spaces' names.
           if (value.spaces) {
             const known = value.spaces;
@@ -612,6 +622,16 @@ export function useDatapadConnection(
     const out: Record<string, (input: Record<string, unknown>) => unknown> = {};
     for (const type of Object.keys(OP_TYPES) as OpType[]) {
       out[type] = (input) => {
+        if (type === 'addBoardItem' && input.dayStart === undefined) {
+          // "In a day" is the owner's day: it began at local midnight.
+          const midnight = new Date();
+          midnight.setHours(0, 0, 0, 0);
+          return submit({
+            ...input,
+            type,
+            dayStart: midnight.toISOString(),
+          } as Op);
+        }
         if (type in CREATES) {
           const id = (input.id as string | undefined) ?? newId();
           return submit({ ...input, type, id } as Op) ? id : null;

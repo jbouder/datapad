@@ -169,6 +169,33 @@ const cases = {
       updatedAt: at,
     },
   },
+  boardItems: {
+    valid: {
+      id: 'b-1',
+      boardId: 'p-1',
+      kind: 'arrow',
+      x: 10,
+      y: -20,
+      w: 0,
+      h: 0,
+      z: 3,
+      color: 'accent',
+      text: '',
+      points: [0, 0, 120, 40],
+    },
+    invalid: {
+      id: 'b-1',
+      boardId: 'p-1',
+      kind: 'ink',
+      x: 10,
+      y: 20,
+      w: 0,
+      h: 0,
+      z: 0,
+      color: '#ff0000',
+      points: [0, 0, 1],
+    },
+  },
 } as const;
 
 describe('document schemas', () => {
@@ -187,7 +214,8 @@ describe('document schemas', () => {
         c !== 'settings' &&
         c !== 'decisions' &&
         c !== 'orgs' &&
-        c !== 'templates',
+        c !== 'templates' &&
+        c !== 'boardItems',
     )) {
       const docs = fixture[col] as Record<string, unknown>;
       expect(Object.keys(docs).length).toBeGreaterThan(0);

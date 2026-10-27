@@ -24,7 +24,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
   mapping, counts; a meeting's series and carrying topics
   forward),
-  `milestones.ts` (they live on the project), `migrate.ts` (the typed
+  `milestones.ts` (they live on the project), `board.ts` (whiteboards:
+  stroke simplification, bounds, hit-testing, z order, a board's items), `migrate.ts` (the typed
   collection from before meetings → meetings and milestones; every import
   and the DO's schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize

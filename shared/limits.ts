@@ -29,6 +29,14 @@ export const LIMITS = {
   topicOutcomeMax: 300,
   /** Milestones on one project. */
   milestonesMax: 50,
+  /** Items on one whiteboard. */
+  boardItemsMax: 2_000,
+  /** A sticky's, a text's or a rect's text. */
+  boardTextMax: 2_000,
+  /** Coordinates in one ink stroke (the client simplifies before sending). */
+  inkPointsMax: 1_000,
+  /** How far from the origin a whiteboard coordinate may be, either way. */
+  boardCoordMax: 100_000,
   tagsMax: 20,
   tagMax: 30,
   linksMax: 20,
