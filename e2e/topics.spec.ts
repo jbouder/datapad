@@ -67,7 +67,11 @@ async function topicAction(page: Page, topic: string, name: string) {
   await topicList(page)
     .getByRole('button', { name: `More for topic “${topic}”` })
     .click();
-  await page.getByRole('menuitem', { name }).click();
+  // Scoped: a menu that is still closing can share the page with it.
+  await page
+    .getByRole('menu', { name: `More for topic “${topic}”` })
+    .getByRole('menuitem', { name })
+    .click();
 }
 
 test('the row counts the topics; the page lists them', async ({ page }) => {
@@ -446,6 +450,7 @@ test('Make a task starts from the topic; there is no decision', async ({
     0,
   );
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
 
   await topicAction(page, 'North ridge', 'Make a task');
   const task = page.getByRole('dialog', { name: 'New task' });
