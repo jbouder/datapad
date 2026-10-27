@@ -65,6 +65,7 @@ import {
   boxBetween,
   type Corner,
   centred,
+  centreOn,
   clampCoord,
   fitTo,
   gridStep,
@@ -84,6 +85,7 @@ import {
 import { ZoomControls } from '@/components/board/ZoomControls';
 import { useDatapad } from '@/hooks/useDatapad';
 import { newId } from '@/lib/ids';
+import { BOARD_ITEM_PARAM, setQuery, useQuery } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -646,6 +648,24 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     },
     [byId],
   );
+
+  /*
+   * `?item=<id>` (a ⌘K result): once the board has its first view, select
+   * that item, centre it and give it focus, then drop the key so moving
+   * on does not snap back. An id that is no longer there just opens the
+   * board.
+   */
+  const target = useQuery().get(BOARD_ITEM_PARAM);
+  const hasView = view !== null;
+  useEffect(() => {
+    if (!target || !loaded || !size || !hasView) return;
+    const item = byId.get(target);
+    setQuery({ [BOARD_ITEM_PARAM]: null }, { replace: true });
+    if (!item) return;
+    setView((v) => centreOn(v, bounds(item), size.w, size.h));
+    setSelected([item.id]);
+    focusItem(item.id);
+  }, [target, loaded, size, hasView, byId, setView, focusItem]);
 
   const fit = useCallback(() => {
     if (!size) return;

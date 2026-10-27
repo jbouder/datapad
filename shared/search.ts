@@ -1,6 +1,6 @@
 import { tokensToNames } from './mentions';
 import { lastCall } from './select';
-import { type Snapshot, topicsOf } from './types';
+import { GENERAL_BOARD, type Snapshot, topicsOf } from './types';
 
 /**
  * Search everything (the ⌘K palette). The index is a selector: one entry
@@ -15,6 +15,7 @@ export const SEARCH_KINDS = [
   'meeting',
   'org',
   'person',
+  'whiteboard',
 ] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
 
@@ -29,7 +30,10 @@ export interface SearchEntry {
   text: string;
   /** Lowercased title, for ranking. */
   key: string;
-  /** Null for General, people, and projects themselves. */
+  /**
+   * Null for General, people, projects themselves and the space's own
+   * whiteboard; a whiteboard item's is its board's project.
+   */
   projectId: string | null;
   /** In (or is) an archived project. */
   archived: boolean;
@@ -55,6 +59,7 @@ export const searchIndex = lastCall(
     meetings: Snapshot['meetings'],
     people: Snapshot['people'],
     orgs: Snapshot['orgs'],
+    boardItems: Snapshot['boardItems'],
   ): SearchIndex => {
     const archived = (projectId: string | null) =>
       projectId !== null && projects[projectId]?.archived === true;
@@ -152,6 +157,30 @@ export const searchIndex = lastCall(
           updatedAt: '',
         }),
       ),
+      // A sticky's, a text's or a rect's words; arrows and ink have none.
+      whiteboard: Object.values(boardItems).flatMap((b) => {
+        if (b.kind !== 'sticky' && b.kind !== 'text' && b.kind !== 'rect') {
+          return [];
+        }
+        const text = flat(tokensToNames(b.text, people));
+        if (!text) return [];
+        const firstLine =
+          flat(tokensToNames(b.text.trim().split('\n', 1)[0] ?? '', people)) ||
+          text;
+        const projectId = b.boardId === GENERAL_BOARD ? null : b.boardId;
+        return [
+          entry({
+            kind: 'whiteboard',
+            id: b.id,
+            title: firstLine.slice(0, 120),
+            body: text,
+            projectId,
+            archived: archived(projectId),
+            // Items carry no time; recent work is found by its words.
+            updatedAt: '',
+          }),
+        ];
+      }),
     };
   },
 );
@@ -223,7 +252,10 @@ export function search(
       return {
         entry,
         snippet:
-          at >= 0 && (kind === 'note' ? at >= entry.title.length : true)
+          at >= 0 &&
+          (kind === 'note' || kind === 'whiteboard'
+            ? at >= entry.title.length
+            : true)
             ? excerpt(entry.body, at, word.length)
             : '',
       };

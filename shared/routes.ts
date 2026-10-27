@@ -1,3 +1,5 @@
+import { GENERAL_BOARD } from './types';
+
 /**
  * The app's addresses, as pure functions: what a path means, the path for
  * a route, the old addresses that settle on new ones, the nav section and
@@ -206,6 +208,30 @@ export function linkedMeeting(pathname: string, search: string): string | null {
   const route = parseRoute(pathname);
   if (route.name !== 'meetings') return null;
   return new URLSearchParams(canonicalQuery(pathname, search)).get('meeting');
+}
+
+/**
+ * The query key that opens a whiteboard on one item (`?item=<id>`): the
+ * board selects it and centres the view on it, then drops the key.
+ */
+export const BOARD_ITEM_PARAM = 'item';
+
+/** The whiteboard a board id names: a project's, or the space's own. */
+export function boardRoute(boardId: string): Route {
+  return boardId === GENERAL_BOARD
+    ? { name: 'whiteboard' }
+    : { name: 'whiteboard', project: boardId };
+}
+
+/** The address of one whiteboard item (⌘K): its board, and the item. */
+export function boardItemLink(
+  boardId: string,
+  itemId: string,
+): { route: Route; query: string } {
+  return {
+    route: boardRoute(boardId),
+    query: new URLSearchParams({ [BOARD_ITEM_PARAM]: itemId }).toString(),
+  };
 }
 
 /** The top-level section a route belongs to, for `aria-current` in the nav. */

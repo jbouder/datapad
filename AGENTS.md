@@ -25,7 +25,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   mapping, counts; a meeting's series and carrying topics
   forward),
   `milestones.ts` (they live on the project), `board.ts` (whiteboards:
-  stroke simplification, bounds, hit-testing, z order, a board's items), `migrate.ts` (the typed
+  stroke simplification, bounds, hit-testing, z order, a board's items,
+  arrows' attachment and re-aiming), `migrate.ts` (the typed
   collection from before meetings → meetings and milestones; every import
   and the DO's schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
@@ -55,6 +56,10 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   the topics (`MeetingTopics` on the meeting's page and in its panel,
   `PendingTopics` for a new meeting's), the meeting note composer and
   the Focus agenda strip;
+  `board/` is the whiteboard canvas (`Board`, its toolbar, Edit bar,
+  zoom, `useViewport`, `useHistory` for undo; `BoardMenu` with
+  `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
+  half: tokens resolved, the PNG on a canvas);
   `notes/LinkedNoteList` is the Notes section a task's page and panel and
   a meeting's page and panel share), `pages/*` (`MeetingPage` is
   `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
@@ -109,7 +114,11 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   project's `milestones` and bump its `updatedAt`; topic ops rewrite
   their meeting's `topics` and bump the meeting's and the project's. An op changes one space; moving a
   project spans two, so it is `merge()` plus `removeSubtree()` in one
-  transaction (`shared/spaces.ts`), not an op.
+  transaction (`shared/spaces.ts`), not an op. Whiteboard ops are
+  silent in Activity except the daily line (the first item added to a
+  project's board each day logs "Drew on the whiteboard"); keep it that
+  way. The canvas sends its changes through `sendOps`, almost all by
+  way of `useHistory`'s `run`, so ⌘Z can undo them.
 - **The repository is public.** No real data in fixtures, tests or docs;
   never commit `.dev.vars`.
 - **Mobile is first class.** Every view is built and tested at phone width:

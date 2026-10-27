@@ -119,6 +119,15 @@ as it is (migrated on the way in, below):
   relative to `x, y`; `color` is `neutral`, `accent`, `ok`, `warn` or
   `danger`. A project's items go with it when it moves to another space
   and when it is deleted. A file without them imports with empty boards.
+  Sizes: at most `boardItemsMax` (2 000) items on one board,
+  `boardTextMax` (2 000) characters of text on one, and `inkPointsMax`
+  (1 000) coordinates in one ink stroke (the client simplifies a stroke
+  until it fits). Board ops are silent in Activity, except the first item
+  on a project's board each day ("Drew on the whiteboard").
+- A whiteboard's own **Download as PNG / SVG** (its ⋯ menu) is a picture,
+  not data: it is made in the browser from the items with the theme's
+  colors resolved, and never sent anywhere. The JSON export above is the
+  way to keep or move a board.
 - Each collection is a map from id to document, fields exactly as in
   [SPEC.md § Data model](SPEC.md#data-model). An array of documents that
   carry their `id` is accepted too.
