@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { addDays, localDate, longDay, weekday } from '../shared/dates';
+import { addDays, longDay, weekday } from '../shared/dates';
 import {
   expect,
   expectNoSidewaysScroll,
@@ -7,11 +7,11 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
-const today = localDate(new Date());
 // Inside this week, so the phone's week strip shows it too.
-const day = weekday(today) === 6 ? today : addDays(today, 1);
+const day = () => (weekday(today()) === 6 ? today() : addDays(today(), 1));
 
 async function pick(page: Page, name: string) {
   await page
@@ -24,7 +24,7 @@ async function pick(page: Page, name: string) {
 
 test.beforeEach(async ({ request }) => {
   const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = day;
+  seed.meetings['e-1'].date = day();
   await request.post('/api/import', { data: seed });
 });
 
@@ -35,7 +35,7 @@ test('Calendar: open a day, add a meeting, see it in List', async ({
   await pick(page, 'Calendar');
   await expect(page).toHaveURL(/view=calendar/);
 
-  const label = longDay(day, today);
+  const label = longDay(day(), today());
   if (!isMobile(page)) {
     const cell = page.getByRole('cell', {
       name: new RegExp(`^${label}, 1 meeting`),
@@ -51,7 +51,7 @@ test('Calendar: open a day, add a meeting, see it in List', async ({
 
   await page.getByRole('button', { name: `Add a meeting on ${label}` }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
-  await expect(form.getByLabel('Date')).toHaveValue(day);
+  await expect(form.getByLabel('Date')).toHaveValue(day());
   await form.getByLabel('Title').fill('Hangar tour');
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
@@ -79,23 +79,24 @@ test('Calendar: a busy day overflows into a popover of rows', async ({
   test.skip(isMobile(page), 'Phones list every meeting in the week strip.');
   const seed = structuredClone(SEED);
   const meetings = seed.meetings as Record<string, object>;
-  // Only the four drills today, whatever day the seed's meetings fall on.
+  // Only the four drills today: the seed's shield review is on today on a
+  // Sunday (`day()`).
   for (const m of Object.values(seed.meetings)) {
-    if (m.date === today) m.date = addDays(today, -60);
+    if (m.date === today()) m.date = addDays(today(), -60);
   }
   for (const n of [1, 2, 3, 4]) {
     meetings[`e-x${n}`] = {
       ...seed.meetings['e-1'],
       id: `e-x${n}`,
       title: `Drill ${n}`,
-      date: today,
+      date: today(),
       time: `0${n}:00`,
     };
   }
   await request.post('/api/import', { data: seed });
   await openLive(page, '/meetings?view=calendar');
   const cell = page.getByRole('cell', {
-    name: `${longDay(today, today)}, 4 meetings`,
+    name: `${longDay(today(), today())}, 4 meetings`,
   });
   await expect(cell).toHaveAttribute('aria-current', 'date');
   await cell.getByRole('button', { name: /^\+1 more/ }).click();

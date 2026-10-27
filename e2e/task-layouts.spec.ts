@@ -6,6 +6,7 @@ import {
   isMobile,
   openLive,
   SEED,
+  seedDay,
   test,
 } from './fixtures';
 
@@ -117,7 +118,7 @@ test('Timeline: drag a point to a later day, and date an undated task', async ({
     page.getByText(/^Moved “Book the tauntaun vet” to /),
   ).toBeVisible();
   await expectSaved(page);
-  expect((await stored(request)).tasks['t-4'].due).toBe('2026-11-02');
+  expect((await stored(request)).tasks['t-4'].due).toBe(seedDay('2026-11-02'));
 
   const tray = page.getByRole('region', { name: /No date/ });
   await expect(tray).toContainText('Insulate the hangar doors');

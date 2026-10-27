@@ -7,9 +7,30 @@ import {
   type Page,
 } from '@playwright/test';
 import type { ThemeId } from '../src/lib/themes';
-import { SEED, SEED_COUNTS } from './seed';
+import {
+  refreshSeed,
+  SEED,
+  SEED_COUNTS,
+  seedDay,
+  seedTime,
+  today,
+} from './seed';
 
-export { expect, SEED, SEED_COUNTS };
+/**
+ * Dates in specs. The suite passes on any date, at any time of day and in
+ * any timezone (`E2E_TZ`, UTC by default, sets both the runner's and the
+ * browser's), without faking a clock:
+ *
+ * - Never compute `today` when a file loads: call `today()` inside the test
+ *   (or the helper it calls), so a run that crosses midnight stays right.
+ * - Never write a literal date, or a formatted one, for something the seed
+ *   holds. `SEED` is shifted to today before every test, so the export's
+ *   dates move; `seedDay('2026-11-14')` is where one landed, and the app's
+ *   own formatters (`formatDay`, `longDay`, …) say how it reads.
+ * - Dates a test sets up go relative to `today()` (`addDays(today(), 3)`),
+ *   and allow for the seed's own around them.
+ */
+export { expect, SEED, SEED_COUNTS, seedDay, seedTime, today };
 
 /**
  * Nothing leaves localhost: fonts are bundled and Datapad talks only to its
@@ -37,6 +58,8 @@ interface Options {
 }
 
 interface Fixtures {
+  /** Rebuilds `SEED` for today before every test (automatic). */
+  freshSeed: undefined;
   /**
    * The address this test is signed in as. The dev Access bypass honors the
    * `x-dev-access-email` header (only while ACCESS_AUD is empty), so every
@@ -47,6 +70,14 @@ interface Fixtures {
 
 export const test = base.extend<Options & Fixtures>({
   theme: [null, { option: true }],
+  freshSeed: [
+    // biome-ignore lint/correctness/noEmptyPattern: Playwright needs the destructuring.
+    async ({}, use) => {
+      refreshSeed();
+      await use(undefined);
+    },
+    { auto: true },
+  ],
   // biome-ignore lint/correctness/noEmptyPattern: Playwright needs the destructuring.
   email: async ({}, use) => {
     await use(`e2e-${randomUUID()}@datapad.test`);

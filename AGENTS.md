@@ -62,7 +62,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a
   phone project**. `fixtures.ts` signs each test in as its own address
   (fresh DO), blocks every request off localhost, has `expectAccessible`.
-  `seed.ts` is fictional data.
+  `seed.ts` is fictional data, shifted to today before every test.
 - `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting.
 
 ## Stack
@@ -159,3 +159,21 @@ build`, as the e2e server does, and again after app changes), but the full
 `npm run e2e` is still the gate before finishing (first time: `bunx playwright
 install chromium`). Check UI changes at phone width in the browser too, and
 add an e2e spec for every flow worth keeping.
+
+The e2e suite passes on any date, at any time of day, in any timezone, with
+no fake clock. The runner and the browser share one zone: `E2E_TZ`, UTC by
+default (as in CI). The seed (`e2e/seed.ts`) is shifted by the days between
+`SEED_ANCHOR` and today, so it always sits in the same place relative to
+today. In a spec:
+- never compute `today` when the file loads; call `today()` (from
+  `e2e/fixtures.ts`) inside the test or its helpers;
+- never write a literal or formatted date for something the seed holds:
+  `seedDay('2026-11-14')` (`seedTime()` for timestamps) is where it landed,
+  and the app's formatters (`formatDay`, `longDay`, `formatTimestamp`) say
+  how it reads;
+- set up dates relative to `today()` (`addDays(today(), 3)`), allowing for
+  the seed's own around them.
+
+A change that touches dates runs the full suite under
+`E2E_TZ=Pacific/Kiritimati` (UTC+14) and `E2E_TZ=Pacific/Pago_Pago` (UTC−11)
+as well as UTC.

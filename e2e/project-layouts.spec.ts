@@ -6,6 +6,7 @@ import {
   isMobile,
   openLive,
   SEED,
+  seedDay,
   test,
 } from './fixtures';
 
@@ -18,20 +19,21 @@ const pick = async (page: Page, name: string) => {
   await expect(group.getByRole('radio', { name })).toBeChecked();
 };
 
-const MORE = {
+/** One more project, due before Echo Base. */
+const more = () => ({
   'p-hoth': {
     ...SEED.projects['p-echo'],
     id: 'p-hoth',
     name: 'Hoth comms array',
-    targetDate: '2026-11-02',
+    targetDate: seedDay('2026-11-02'),
     priority: 'low',
     milestones: [],
   },
-};
+});
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', {
-    data: { ...SEED, projects: { ...SEED.projects, ...MORE } },
+    data: { ...SEED, projects: { ...SEED.projects, ...more() } },
   });
 });
 

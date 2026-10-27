@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { addDays } from '../shared/dates';
 import {
   expect,
   expectSaved,
@@ -6,6 +7,7 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
 const openList = (page: Page) => page.getByRole('list', { name: 'Open tasks' });
@@ -115,8 +117,12 @@ test('inline popovers change priority, due and assignee from the row', async ({
   await task.getByRole('button', { name: /^Assignee: Han Solo/ }).click();
   const who = page.getByRole('combobox', { name: 'Assignee' });
   await who.fill('chew');
-  // Enter picks the highlighted option, so let the list filter first.
+  // Enter picks the highlighted option, so let the list filter and
+  // highlight it first.
   await expect(page.getByRole('option')).toHaveText([/Chewbacca/]);
+  await expect(page.getByRole('option', { name: /Chewbacca/ })).toHaveAttribute(
+    'data-highlighted',
+  );
   await who.press('Enter');
   await expect(
     task.getByRole('button', { name: /^Assignee: Chewbacca/ }),
@@ -157,18 +163,13 @@ test('due dates say overdue and today in words, not only color', async ({
   page,
   request,
 }) => {
-  const today = new Date();
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
   await request.post('/api/import', {
     data: {
       ...SEED,
       tasks: {
         ...SEED.tasks,
-        't-1': { ...SEED.tasks['t-1'], due: iso(yesterday) },
-        't-2': { ...SEED.tasks['t-2'], due: iso(today) },
+        't-1': { ...SEED.tasks['t-1'], due: addDays(today(), -1) },
+        't-2': { ...SEED.tasks['t-2'], due: today() },
       },
     },
   });

@@ -29,10 +29,24 @@ test('drag a row onto another to insert before it; it persists', async ({
   await openLive(page, '/projects/p-echo');
   await expect(titles(page)).toHaveText(ORIGINAL);
   const rows = page.getByRole('list', { name: 'Open tasks' }).locator('li');
-  const handle = rows.nth(2).locator('[title="Drag to reorder"]');
+  const source = rows.nth(2);
+  const target = rows.nth(0);
+  const handle = source.locator('[title="Drag to reorder"]');
+  // Each step waits for the list to catch up: the handle arms the row on
+  // pointerdown, the drag marks it, and only then does the row under the
+  // pointer take the drop.
   await handle.hover();
   await page.mouse.down();
-  await handle.dragTo(rows.nth(0));
+  await expect(source).toHaveAttribute('draggable', 'true');
+  const from = await handle.boundingBox();
+  const to = await target.boundingBox();
+  if (!from || !to) throw new Error('No rows');
+  await page.mouse.move(from.x + from.width / 2, from.y - 4, { steps: 4 });
+  await expect(source).toHaveClass(/opacity-50/);
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 8,
+  });
+  await expect(target).toHaveAttribute('data-drop-before', '');
   await page.mouse.up();
   await expect(titles(page)).toHaveText([
     'Book the tauntaun vet',

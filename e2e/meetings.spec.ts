@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, localDate } from '../shared/dates';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import { addDays } from '../shared/dates';
+import { expect, expectSaved, openLive, SEED, test, today } from './fixtures';
 
 interface Stored {
   meetings: Record<string, { title: string; time: string; end: string }>;
@@ -16,12 +16,10 @@ function row(page: Page, title: string) {
   return page.locator('[data-meeting-id]').filter({ hasText: title });
 }
 
-const today = localDate(new Date());
-
 test.beforeEach(async ({ request }) => {
   // The seed's dates are fixed; keep Shield review a few days ahead.
   const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = addDays(today, 3);
+  seed.meetings['e-1'].date = addDays(today(), 3);
   await request.post('/api/import', { data: seed });
 });
 

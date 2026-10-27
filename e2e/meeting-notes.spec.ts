@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, localDate } from '../shared/dates';
+import { addDays } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -8,7 +8,9 @@ import {
   isMobile,
   openLive,
   SEED,
+  seedTime,
   test,
+  today,
 } from './fixtures';
 
 interface Stored {
@@ -27,9 +29,8 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-const today = localDate(new Date());
-const shieldDay = addDays(today, 3);
-const planningDay = addDays(today, 2);
+const shieldDay = () => addDays(today(), 3);
+const planningDay = () => addDays(today(), 2);
 
 function row(page: Page, title: string) {
   return page.locator('[data-meeting-id]').filter({ hasText: title }).first();
@@ -66,8 +67,8 @@ function linked(page: Page) {
 test.beforeEach(async ({ request }) => {
   // The seed's dates are fixed; bring two meetings into the coming week.
   const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = shieldDay;
-  seed.meetings['e-4'].date = planningDay;
+  seed.meetings['e-1'].date = shieldDay();
+  seed.meetings['e-4'].date = planningDay();
   await request.post('/api/import', { data: seed });
 });
 
@@ -312,7 +313,7 @@ test('the page lists every note on the meeting, newest first', async ({
   request,
 }) => {
   const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = shieldDay;
+  seed.meetings['e-1'].date = shieldDay();
   const notes: Record<string, object> = seed.notes;
   for (const [i, phase] of (['pre', 'post', null] as const).entries()) {
     notes[`n-x${i}`] = {
@@ -320,7 +321,7 @@ test('the page lists every note on the meeting, newest first', async ({
       id: `n-x${i}`,
       body: `Extra ${i}`,
       phase,
-      createdAt: `2026-10-23T1${i}:00:00.000Z`,
+      createdAt: seedTime(`2026-10-23T1${i}:00:00.000Z`),
     };
   }
   await request.post('/api/import', { data: seed });

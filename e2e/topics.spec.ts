@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { addDays, localDate } from '../shared/dates';
+import { addDays } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -9,6 +9,7 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
 interface StoredTopic {
@@ -30,8 +31,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-const today = localDate(new Date());
-const shieldDay = addDays(today, 3);
+const shieldDay = () => addDays(today(), 3);
 
 const TOPICS = [
   { id: 't-power', title: 'Power budget', done: true, outcome: 'Approved' },
@@ -43,7 +43,7 @@ test.beforeEach(async ({ request }) => {
   // The seed's dates are fixed: Shield review a few days ahead, with
   // three topics (one covered, with an outcome).
   const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = shieldDay;
+  seed.meetings['e-1'].date = shieldDay();
   (seed.meetings['e-1'] as { topics?: unknown }).topics = TOPICS;
   await request.post('/api/import', { data: seed });
 });

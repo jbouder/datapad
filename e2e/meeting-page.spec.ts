@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { addDays, formatDay, localDate } from '../shared/dates';
+import { addDays, formatDay } from '../shared/dates';
 import {
   expect,
   expectAccessible,
@@ -9,6 +9,7 @@ import {
   openLive,
   SEED,
   test,
+  today,
 } from './fixtures';
 
 interface Stored {
@@ -20,8 +21,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-const today = localDate(new Date());
-const nextWeek = addDays(today, 7);
+const nextWeek = () => addDays(today(), 7);
 
 /**
  * Shield review today with three topics (one covered), and the same
@@ -34,13 +34,13 @@ test.beforeEach(async ({ request }) => {
   const shield = data.meetings['e-1'] as (typeof SEED.meetings)['e-1'] & {
     topics?: unknown;
   };
-  shield.date = today;
+  shield.date = today();
   shield.topics = [
     { id: 't-power', title: 'Power budget', done: true, outcome: 'Approved' },
     { id: 't-ridge', title: 'North ridge', done: false, outcome: '' },
     { id: 't-probe', title: 'Probe droid sightings', done: false, outcome: '' },
   ];
-  data.meetings['e-5'] = { ...shield, id: 'e-5', date: nextWeek, topics: [] };
+  data.meetings['e-5'] = { ...shield, id: 'e-5', date: nextWeek(), topics: [] };
   await request.post('/api/import', { data });
 });
 
@@ -71,7 +71,7 @@ test('a meeting’s page: its facts, agenda, topics and notes', async ({
   ).toBeVisible();
   const details = main.getByRole('list', { name: 'Details' });
   await expect(details).toContainText(
-    `${formatDay(today, today)} · 2:00–3:00 PM`,
+    `${formatDay(today(), today())} · 2:00–3:00 PM`,
   );
   await expect(details).toContainText('Leia Organa');
   await expect(details).toContainText('Han Solo');
@@ -110,7 +110,7 @@ test('previous and next in the series, and Carry forward', async ({
 
   await page.getByRole('button', { name: 'Carry forward' }).click();
   await expect(
-    page.getByText(`Carried 2 topics to ${formatDay(nextWeek, today)}`),
+    page.getByText(`Carried 2 topics to ${formatDay(nextWeek(), today())}`),
   ).toBeVisible();
   await expect(
     page.getByRole('main').locator('[data-topic-outcome]'),
@@ -121,7 +121,7 @@ test('previous and next in the series, and Carry forward', async ({
   );
 
   await series
-    .getByRole('link', { name: `Next: ${formatDay(nextWeek, today)}` })
+    .getByRole('link', { name: `Next: ${formatDay(nextWeek(), today())}` })
     .click();
   await expect(page).toHaveURL(/\/meetings\/e-5$/);
   const main = page.getByRole('main');
@@ -131,13 +131,13 @@ test('previous and next in the series, and Carry forward', async ({
       .locator('[data-topic-title]'),
   ).toHaveText(['North ridge', 'Probe droid sightings']);
   await expect(main.locator('[data-topic-carried]')).toHaveText([
-    `carried forward from ${formatDay(today, today)}`,
-    `carried forward from ${formatDay(today, today)}`,
+    `carried forward from ${formatDay(today(), today())}`,
+    `carried forward from ${formatDay(today(), today())}`,
   ]);
   await expectNoSidewaysScroll(page);
 
   await series
-    .getByRole('link', { name: `Previous: ${formatDay(today, today)}` })
+    .getByRole('link', { name: `Previous: ${formatDay(today(), today())}` })
     .click();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
 
