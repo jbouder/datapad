@@ -83,10 +83,12 @@ export function SettingsPage({
         strip.getBoundingClientRect().left +
         strip.scrollLeft;
       const right = left + link.offsetWidth;
+      // Whole pixels, rounded outward, so a fractional width never leaves
+      // the link a hair outside the strip.
       if (left < strip.scrollLeft) {
-        strip.scrollLeft = left;
+        strip.scrollLeft = Math.floor(left);
       } else if (right > strip.scrollLeft + strip.clientWidth) {
-        strip.scrollLeft = right - strip.clientWidth;
+        strip.scrollLeft = Math.ceil(right - strip.clientWidth);
       }
     };
     reveal();
@@ -104,7 +106,7 @@ export function SettingsPage({
           aria-label="Settings"
           className="-mx-4 overflow-x-auto px-4 desk:mx-0 desk:px-0"
         >
-          <ul className="flex gap-1 desk:flex-col">
+          <ul className="flex w-max gap-1 pr-4 desk:w-auto desk:flex-col desk:pr-0">
             {SETTINGS_SECTIONS.map((s) => (
               <li key={s} className="shrink-0">
                 <a

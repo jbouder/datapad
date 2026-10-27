@@ -85,7 +85,7 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <SyncStatus className="mx-1 desk:mr-2 desk:ml-0" />
+          <SyncStatus className="desk:mr-2" />
           <Tooltip>
             <TooltipTrigger
               render={
