@@ -28,6 +28,11 @@ export interface McpToolContext {
   scopes: readonly Scope[];
   /** That email's Durable Object, and only that. */
   datapad: DurableObjectStub<DatapadObject>;
+  /**
+   * The owner's IANA zone (`BACKUP_TIME_ZONE`): what "today" means to a
+   * read that buckets by day, unless the caller passes `today`.
+   */
+  timeZone: string;
 }
 
 /** The protocol's tool annotations: hints, never authority. */
@@ -85,10 +90,13 @@ export const SpaceArg = z
   .min(1)
   .max(64)
   .optional()
-  .describe('A space id from list_spaces. Defaults to "main".');
+  .describe(
+    'A space id or name from list_spaces (names match ignoring case). Defaults to "main".',
+  );
 
 /**
- * The space id `asked` for, checked against the caller's own spaces; a
+ * The space id `asked` for (an id, or a name ignoring case; space names
+ * are unique that way), checked against the caller's own spaces; a
  * `ToolError` naming `list_spaces` when it is not one of them.
  */
 export async function requireSpace(
@@ -96,12 +104,14 @@ export async function requireSpace(
   asked: string | undefined,
 ): Promise<string> {
   const space = asked ?? MAIN_SPACE;
-  if (!(await ctx.datapad.hasSpace(space))) {
-    throw new ToolError(
-      `There is no space "${space}". Call list_spaces for the ids.`,
-    );
-  }
-  return space;
+  if (await ctx.datapad.hasSpace(space)) return space;
+  const key = space.trim().toLowerCase();
+  const { spaces } = await ctx.datapad.listSpaces();
+  const named = spaces.find((s) => s.name.trim().toLowerCase() === key);
+  if (named) return named.id;
+  throw new ToolError(
+    `There is no space "${space}". Call list_spaces for the ids.`,
+  );
 }
 
 /** A zod schema as the JSON Schema a client is shown. */

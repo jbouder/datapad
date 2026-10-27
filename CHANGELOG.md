@@ -25,6 +25,12 @@ under **Export format**.
   `whoami` and `list_spaces`. Datapad is its own OAuth 2.1 server for MCP
   clients; a deployment needs an Access Bypass application for the OAuth
   paths and the `OAUTH_KV` namespace (docs/self-hosting.md, docs/mcp.md).
+- **MCP read tools** (#153): `get_overview`, `get_focus`, `list_projects`,
+  `get_project`, `list_tasks`, `list_notes`, `list_meetings`,
+  `list_people`, `list_orgs`, `get_digest` and `search`, over the same
+  selectors the app's pages use. Each takes a space by id or name; projects,
+  people, orgs and meetings can be named, and an ambiguous name returns the
+  candidates.
 
 ## [0.1.0] — 2026-10-27
 

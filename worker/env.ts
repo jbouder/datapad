@@ -30,3 +30,11 @@ export interface Bindings
   /** The IANA zone that hour is in. */
   BACKUP_TIME_ZONE?: string;
 }
+
+/**
+ * The owner's zone: the backup's, and what "today" is for an MCP read
+ * (#153) that buckets by day.
+ */
+export function ownerTimeZone(env: Pick<Bindings, 'BACKUP_TIME_ZONE'>): string {
+  return env.BACKUP_TIME_ZONE || 'America/New_York';
+}
