@@ -1,6 +1,6 @@
 # Datapad — build plan
 
-Written 2026-10-23, kept current through v1.0.0 (2026-10-27). The
+Written 2026-10-23, kept current through v0.1.0 (2026-10-27). The
 functional spec is [SPEC.md](SPEC.md); this document decides _how_ it gets
 built. Where the two disagree on product behavior the spec wins; where they
 disagree on look, feel, motion and plumbing, this plan wins (see
@@ -282,7 +282,7 @@ than each piece.
 | 16  | Notes on meetings and tasks            | Running notes on a task (`Note.taskId`); meeting notes the same way, Prep / Debrief gone; a meeting page and a task page                                                                                                                                  |
 | 17  | Action items, a leaner project page    | Decisions retired; the project header holds Save as template; `Task.meetingId` action items; Focus as a briefing; saved page and navigation preferences; note templates; the top bar's + menu                                                             |
 
-M8 is the one milestone still open at v1.0.0: the e2e shards and test
+M8 is the one milestone still open at v0.1.0: the e2e shards and test
 depth landed, and the accessibility, security, performance, supply-chain
 and observability audits (#39, #53–#58) follow the release.
 

@@ -137,7 +137,7 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   `FORMAT_SHORTCUTS`, `PAGES`); never hand-write one. A change the owner
   would notice gets a line under Unreleased in `CHANGELOG.md`, and a
   change to the export file's shape says so there under **Export
-  format**. Releases are tags on `main` (`v1.0.0`, …) with a GitHub
+  format**. Releases are tags on `main` (`v0.1.0`, …) with a GitHub
   release whose notes are that version's changelog section.
 - **Mobile is first class.** Every view is built and tested at phone width:
   e2e runs desktop _and_ phone; 44px touch targets on touch; no hover-only

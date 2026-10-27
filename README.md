@@ -1,81 +1,178 @@
+<p align="center">
+  <img src="public/icon-192.png" alt="" width="96" height="96" />
+</p>
+
 # Datapad
 
-A private project tracker for an engineering leader: projects, tasks, notes,
-meetings, milestones, whiteboards and people in one place, with
-cross-project views, search and summaries that run on your own device.
-Built for daily use on a laptop and a phone.
+A private project tracker for one engineering leader.
 
-Datapad is a sibling of [Holocron](https://github.com/jbouder/holocron): the
-same stack, look, motion and quality bar. The difference is that Datapad
-keeps your data, and only you can reach it.
+Projects, tasks, notes, meetings, milestones, whiteboards and people in one
+place, with cross-project views, search and summaries that run on your own
+device. Only you can open it, your data stays in your own Cloudflare
+account, and nothing is ever wiped. Built for daily use on a laptop and a
+phone.
 
-## Status
+Runs entirely on Cloudflare: Cloudflare Access signs you in, one Worker
+serves the app and checks your sign-in again on every request, and one
+SQLite-backed Durable Object per email holds your data, pushes live updates
+over WebSockets, and backs itself up to R2 every night.
 
-Released: [v1.0.0](https://github.com/jbouder/datapad/releases/tag/v1.0.0)
-is in daily use. [CHANGELOG.md](CHANGELOG.md) lists what each release
-holds; the [roadmap issue](https://github.com/jbouder/datapad/issues/46)
-tracks the milestones, which were:
+## Features
 
-| Milestone | What landed                                                              |
-| --------- | ------------------------------------------------------------------------ |
-| M0        | Scaffold, CI and deploy, Cloudflare Access, themes and motion foundation |
-| M1        | Data model, sync, import and export                                      |
-| M2        | App shell, Projects, Tasks                                               |
-| M3        | Notes and mentions                                                       |
-| M4        | Events (since reworked into meetings and milestones, M10)                |
-| M5        | Focus, People, ⌘K search                                                 |
-| M6        | On-device summaries, backups, polish                                     |
-| M7        | Health, blocked, decisions (since retired), orgs, digest, templates      |
-| M8        | Quality, security, accessibility and docs pass (the audits continue)     |
-| M9        | Spaces                                                                   |
-| M10       | Meetings and milestones                                                  |
-| M11       | Meeting topics and carry-forward                                         |
-| M12       | Whiteboards                                                              |
-| M15       | People and Orgs under Settings, added inline from forms                  |
-| M16       | Notes on tasks and meetings; task and meeting pages                      |
-| M17       | Action items, a leaner project page, saved page and nav preferences      |
+- **Projects.** Name, org, status (active, paused, done), priority,
+  start and target dates, members, tags, links, a Markdown description,
+  a health flag (green, yellow, red) and an activity log. A project page
+  holds its milestones, tasks, meetings, notes and whiteboard. Archive
+  when done; start a new one from a template.
+- **Tasks.** Quick-add on every list (Enter adds, stays put), a circular
+  checkbox to close with Undo, priority, due date (type `fri`, `+3d`,
+  `10/31`), assignee, tags, links, Markdown details and dated running
+  notes. Mark a task blocked on someone. Select several in the table to
+  close, move or assign at once. Reorder by drag, keyboard or touch. Each
+  task has a page of its own from Tasks and a side panel everywhere else.
+- **Notes.** Markdown with three heading levels, lists, clickable
+  checklists, code, quotes and links; `@` mentions of people; a `/`
+  command menu and formatting keys in the composer; pinned notes; select
+  text to make a task from it; note templates for the 1:1s and status
+  updates you write the same way every time.
+- **Meetings.** Date, times, project, attendees and a link. Topics are the
+  agenda: tick them off, note an outcome, reorder; a new meeting in a
+  series (same title, project and people) offers to carry the uncovered
+  ones forward. Action items are real tasks that say which meeting they
+  came from. Add as many notes as you like, before, during or after.
+- **Milestones.** Dated marks on a project, shown on the project page, the
+  Projects timeline and the Focus agenda.
+- **Focus.** A briefing of what needs you: the week's movement, today's or
+  the week's meetings and milestones with where each meeting's prep
+  stands, blocked tasks by who they wait on, projects off health or near
+  their target, open action items, and what is overdue or due today.
+- **Layouts.** Projects as cards, a table or a timeline; Tasks as a list,
+  a table, a board or a timeline, grouped by project, due, assignee or
+  priority; Meetings as a list, a month calendar or a timeline; Notes as
+  a feed or a grid. Every page remembers its layout, sort, filters and
+  open sections, saved with your data so every device opens it the same
+  way. Settings → Navigation picks which sections the rail and the
+  phone's tab bar show.
+- **Whiteboards.** A freeform canvas for each project and one for the
+  space: sticky notes, text, rectangles, arrows and freehand ink in five
+  colors, undo and redo, zoom and pan, download as PNG or SVG. Live on
+  every device like everything else.
+- **Search.** `⌘K` finds any project, task, note, meeting, org, person or
+  whiteboard item and runs actions.
+- **People and orgs.** Everyone you assign, add to projects and mention,
+  each with their projects, open tasks and mentions for a quick check
+  before a 1:1; the clients, teams, vendors and partners your projects
+  belong to. Both are added inline from any form.
+- **Spaces.** One or more complete, separate Datapads under one sign-in
+  (work and personal, say). Switch from the rail, the account menu or
+  `⌘K`; move a project between them with everything it owns.
+- **Weekly digest.** What happened in each project over a week, from the
+  tasks, notes, meetings and activity logs; copy as Markdown or keep it
+  as a note.
+- **Summaries.** Summarize a project, task, meeting, note or digest with a
+  small language model ([WebLLM](https://github.com/mlc-ai/web-llm);
+  Qwen3 1.7B by default, 4B and 8B selectable) that runs in your browser
+  on your GPU. Nothing about your data leaves the device. Opt-in: the
+  model downloads from Hugging Face only after you agree, and stays
+  cached in that browser. Needs WebGPU.
+- **Works offline.** The last snapshot paints at once; changes made
+  offline, or in a tab closed before they were saved, wait on the device
+  and send when you are back, even after a reload. The status says Saved,
+  Saving… or Offline with how many changes are waiting.
+- **Export, import, backups.** One JSON file per space, yours to keep;
+  import merges by id so repeating it is safe. Every night each space is
+  written to your own R2 bucket, 30 kept, with download and restore in
+  Settings → Data.
+- **Phone first.** Every view is built and tested at phone width: a
+  bottom tab bar, 44px touch targets, full-screen panels, tables that
+  collapse to rows, nothing hover-only. Installs to the home screen.
+- **Themes.** System, Light and Dark; a Motion switch, with
+  `prefers-reduced-motion` as a hard override; a 12-hour or 24-hour
+  clock.
+- **In-app help** at `/help`: the views, the common path, every keyboard
+  shortcut, `/` command, formatting key and layout, generated from the
+  app's own lists so they cannot drift.
 
-M13 (Reporting) was closed without being built; the weekly Digest stays.
-M14 (MCP) is planned.
+## Privacy and data
 
-## Privacy
+- **Only you can open it.** Cloudflare Access stands in front of the
+  hostname with a policy that allows your email. The Worker verifies the
+  Access token again on every request, assets included; without a valid
+  sign-in nothing is served, not even the page shell, and a hostname the
+  Access application does not cover fails closed.
+- **Your data lives in your account.** One Durable Object, named by your
+  verified email and reachable no other way, holds every space. Nightly
+  backups go to an R2 bucket in the same account. Nothing is ever deleted
+  on a timer: the only way to erase a space is a deliberate, single-use
+  token you ask for yourself.
+- **Nothing leaves.** No third-party service, no analytics, no API key.
+  Summaries run on-device; the only download is the model's weights,
+  after you agree, with no referrer and none of your data. The content
+  security policy allows no other origin.
+- **More than one person** in the Access policy means more than one
+  Datapad: each email gets its own object, empty at first, and nothing is
+  shared.
+- **The browser stores** the last snapshot and unsaved changes (IndexedDB
+  and `localStorage`, keys prefixed `datapad:`), which space is open, the
+  theme, motion and clock preferences, drafts you have not saved, each
+  whiteboard's viewport and, if you use Summaries, the model weights in
+  Cache Storage. Clearing site data removes them.
+- **Logs.** Access logs record your email and sign-ins, by design. The
+  Worker logs errors with the request path only, never document content.
+- **This repository is public** and contains no data; the fixtures are
+  fictional.
 
-- Cloudflare Access stands in front of the app, and the Worker checks the
-  Access token again on every request. Without a valid sign-in nothing is
-  served, not even the page shell.
-- Your data lives in one Durable Object in your own Cloudflare account,
-  named by your verified email, plus a nightly backup in your own R2 bucket.
-- Summaries run in your browser on a local model. Only the model's weights
-  are downloaded, after you agree; your projects and notes never leave the
-  device for them.
-- This repository is public and contains no data.
+Limits: 12 spaces; titles 200 characters, bodies and descriptions 20,000;
+50 milestones per project, 50 topics per meeting, 100 members or
+attendees; 2,000 items per whiteboard; 150 activity entries per log; 16 MiB
+per import; 20 ops per second per connection; 30 backups kept per space.
 
 ## Run it yourself
 
-You need a Cloudflare account with Zero Trust (the free plan is enough).
-[docs/self-hosting.md](docs/self-hosting.md) walks from zero to a signed-in
-deployment.
+See **[docs/self-hosting.md](docs/self-hosting.md)**. Short version: a
+Cloudflare account with Zero Trust (the free plans cover it), make the
+config in `wrangler.jsonc` yours, `bun install`, `npx wrangler login`,
+create the R2 bucket, `npm run deploy`, then put Access in front and paste
+its two public values into the config. About 20 minutes. No secrets, no
+paid plan.
 
-For local development:
+Also: [docs/architecture.md](docs/architecture.md) for how it fits
+together, [docs/data.md](docs/data.md) for what is stored where, the
+export format, backups and deleting, [docs/security.md](docs/security.md)
+for the threat model and headers, [docs/design.md](docs/design.md) for
+tokens, density and copy, [docs/SPEC.md](docs/SPEC.md) for what the
+product does and [docs/PLAN.md](docs/PLAN.md) for how it was built.
+[CHANGELOG.md](CHANGELOG.md) lists every release; [AGENTS.md](AGENTS.md)
+is the guide to working in this repository.
+
+## Stack
+
+React 19 + TypeScript + Vite, Tailwind CSS v4, stock shadcn (base-lyra on
+Base UI), Oxanium + JetBrains Mono, Phosphor icons, `cmdk`, zod, Biome.
+Cloudflare Workers + Durable Objects (SQLite storage, WebSocket
+hibernation) and R2 through `@cloudflare/vite-plugin`. Tests with Vitest
+inside workerd via `@cloudflare/vitest-plugin`; Playwright + axe at desktop
+and phone width. No animation library for the app's own motion: View
+Transitions, the Web Animations API, `@starting-style` and CSS `linear()`
+springs. (The stock shadcn overlays ship with `tw-animate-css` for their
+open and close transitions; nothing else uses it.)
+
+## Commands
 
 ```bash
-bun install
-cp .dev.vars.example .dev.vars
-npm run dev
+bun install          # npm's resolver currently trips on Vitest 4.1 peers
+cp .dev.vars.example .dev.vars   # once: who you are while developing
+npm run dev          # http://localhost:5173 with the Worker and DO running locally
+npm test             # type-gen + vitest in workerd (reducer, DO, Access, routes, headers)
+npm run e2e          # playwright + axe, desktop and phone: every view, keyboard, offline, a11y
+npm run check        # biome
+npm run build        # types + tsc + vite build (client + worker)
+npm run deploy       # build + wrangler deploy
 ```
 
-## Docs
-
-- [SPEC](docs/SPEC.md): what the product does
-- [PLAN](docs/PLAN.md): how it is built, and where it departs from the spec
-- [Architecture](docs/architecture.md)
-- [Data](docs/data.md): what is stored where, export, backups, deleting
-- [Design](docs/design.md): tokens, density and copy rules
-- [Security](docs/security.md): threat model and headers
-- [Self-hosting](docs/self-hosting.md)
-- [CHANGELOG](CHANGELOG.md): every release, and the export format
-- [AGENTS.md](AGENTS.md): working in this repository
+Change `DEV_ACCESS_EMAIL` in `.dev.vars` to get a fresh, empty Datapad;
+local data lives in `.wrangler/state`.
 
 ## License
 
-[MIT](LICENSE)
+MIT.

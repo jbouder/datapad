@@ -16,7 +16,7 @@ under **Export format**.
 
 ## [Unreleased]
 
-## [1.0.0] — 2026-10-27
+## [0.1.0] — 2026-10-27
 
 The first tagged release: the whole product in daily use on a laptop and a
 phone, behind Cloudflare Access, with nothing wiped.
@@ -97,5 +97,5 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/jbouder/datapad/releases/tag/v1.0.0
+[Unreleased]: https://github.com/jbouder/datapad/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jbouder/datapad/releases/tag/v0.1.0

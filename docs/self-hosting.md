@@ -214,6 +214,6 @@ or remove an applied one. The object's own schema (`SCHEMA_VERSION` in
 `worker/datapad.ts`) upgrades itself on the first wake after a deploy, in
 one transaction, and a failed upgrade leaves the old layout whole.
 
-Releases are tags on `main` (`v1.0.0`, …) with a GitHub release each;
+Releases are tags on `main` (`v0.1.0`, …) with a GitHub release each;
 [CHANGELOG.md](../CHANGELOG.md) says what changed and whether the export
 format did. Every release imports every earlier export and backup.
