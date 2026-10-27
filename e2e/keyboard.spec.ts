@@ -26,12 +26,18 @@ test('add, move, complete, edit and reorder without the mouse', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  await page.locator('body').press('n');
-  await page.keyboard.type('Patch the hull');
-  await page.keyboard.press('Enter');
-  await page.keyboard.type('Tune the deflector');
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('Escape');
+  // `n` opens the new-task panel, preset to the project; Enter adds.
+  const adding = page.getByRole('dialog', { name: 'New task' });
+  for (const title of ['Patch the hull', 'Tune the deflector']) {
+    await page.locator('body').press('n');
+    await expect(adding.getByRole('textbox', { name: 'Title' })).toBeFocused();
+    await page.keyboard.type(title);
+    await page.keyboard.press('Enter');
+    await expect(adding).toBeHidden();
+    await expect(
+      page.locator('[data-task-id]').filter({ hasText: title }),
+    ).toBeVisible();
+  }
   await page.locator('body').click({ position: { x: 5, y: 300 } });
 
   // j moves into the list from wherever focus is, then down; k back up.
@@ -129,7 +135,8 @@ test.describe('the shortcut sheet', () => {
 test('letters type, not trigger, while you are in a field', async ({
   page,
 }) => {
-  await openLive(page, '/projects/p-echo');
+  // Focus's quick-add.
+  await openLive(page, '/');
   const input = page.getByRole('textbox', { name: 'Add a task' });
   await input.click();
   await page.keyboard.type('jxen?');

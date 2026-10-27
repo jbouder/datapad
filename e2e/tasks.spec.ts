@@ -22,7 +22,7 @@ async function toggle(page: Page, name: string) {
 const row = (page: Page, title: string) =>
   page.locator('[data-task-id]').filter({ hasText: title });
 
-test('add three tasks by keyboard, close one, undo', async ({
+test('add three tasks from the project page, close one, undo', async ({
   page,
   request,
 }) => {
@@ -30,25 +30,33 @@ test('add three tasks by keyboard, close one, undo', async ({
   await openLive(page, '/projects/p-falcon');
   await expect(openList(page).getByRole('listitem')).toHaveCount(1);
 
-  // `n` finds the quick-add; Enter adds and stays.
-  await page.locator('body').press('n');
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await expect(input).toBeFocused();
-  for (const title of [
+  // No quick-add on a project page: `n` (or Add task) opens the panel,
+  // preset to the project; Enter in the title adds.
+  await expect(page.getByRole('textbox', { name: 'Add a task' })).toHaveCount(
+    0,
+  );
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  for (const [i, title] of [
     'Patch the hull',
     'Clean the dejarik board',
     'Tune the deflector',
-  ]) {
+  ].entries()) {
+    if (i === 0) await page.locator('body').press('n');
+    else
+      await page
+        .getByRole('main')
+        .getByRole('button', { name: 'Add task', exact: true })
+        .click();
+    const name = panel.getByRole('textbox', { name: 'Title' });
+    await expect(name).toBeFocused();
+    await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(
+      'Falcon hyperdrive refit',
+    );
     await page.keyboard.type(title);
-    await page.keyboard.press('Enter');
-    await expect(input).toHaveValue('');
-    await expect(input).toBeFocused();
+    await name.press('Enter');
+    await expect(panel).toBeHidden();
+    await expect(row(page, title)).toBeVisible();
   }
-  // An empty Enter does nothing; Esc clears what you typed.
-  await page.keyboard.press('Enter');
-  await page.keyboard.type('Never mind');
-  await page.keyboard.press('Escape');
-  await expect(input).toHaveValue('');
   // New tasks go after the rest (order = max + 1).
   await expect(openList(page).getByRole('listitem')).toHaveText([
     /Find a replacement motivator/,
