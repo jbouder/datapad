@@ -51,7 +51,14 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
   migrations in `ensureTables()`, the space RPCs,
-  its nightly R2 backup alarm), `env.ts` (bindings).
+  its nightly R2 backup alarm), `env.ts` (bindings). `mcp/` is the MCP
+  server (#152): `oauth.ts` (the provider per origin, its paths, scopes
+  `read`/`write`, token lifetimes), `authorize.ts` + `consent.ts` (the
+  consent page behind Access, no script), `server.ts` (`/mcp` after the
+  bearer check: the DO from `props.email`, the rate limit, the
+  `initialize` instructions), `protocol.ts` (stateless JSON-RPC, after
+  holotable's), `tool.ts` (`defineTool`, `ToolError`, `requireSpace`) and
+  `tools/` (one file per area; `tools/index.ts` is the registry).
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
@@ -77,12 +84,13 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `/projects/:id`; a task opens its page only from Tasks, its panel
   everywhere else).
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
-  the DO, routes, headers/CSP, theme tokens.
+  the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
+  and the SDK client over `SELF`).
 - `e2e/` — Playwright + axe against `vite preview`, in a **desktop and a
   phone project**. `fixtures.ts` signs each test in as its own address
   (fresh DO), blocks every request off localhost, has `expectAccessible`.
   `seed.ts` is fictional data, shifted to today before every test.
-- `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting.
+- `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting, mcp.
 
 ## Stack
 
@@ -90,15 +98,30 @@ React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
 · stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do
 not hand-edit) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
-resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`).
+resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`)
+· `@cloudflare/workers-oauth-provider` (MCP sign-in, KV `OAUTH_KV`) ·
+`@modelcontextprotocol/sdk` (dev only: the client the MCP tests drive).
 
 ## Rules
 
 - **Access fails closed.** `verifyAccess()` runs before anything else on
   every path, assets included (`run_worker_first: true`). No route may skip
-  it. A request without a verified email gets 401.
+  it. A request without a verified email gets 401. **The one exception is
+  MCP** (`worker/mcp/`, `docs/mcp.md`): exactly the paths in
+  `isProviderPath()` (`/mcp`, `/oauth/token`, `/oauth/register`,
+  `/.well-known/oauth-authorization-server`,
+  `/.well-known/oauth-protected-resource`, and below them) go to the OAuth
+  provider before `verifyAccess()`, because an MCP client cannot sign in
+  with Access. It still fails closed: the provider answers those paths
+  itself and admits nothing without a credential it issued, `/mcp` only
+  with an unexpired, unrevoked bearer for this origin (no cookie fallback:
+  an Access cookie alone is 401), and a token exists only after the owner
+  approved the client at `/oauth/authorize`, which stays behind Access. Do
+  not add a path to that list, or let a bearer reach `/api/*` or `/ws`.
 - **The DO is named only by the verified email.** `env.DATAPAD.getByName()`
-  takes `identity.email` and nothing else: no query string, header, body or
+  takes `identity.email` (or, on `/mcp`, the grant's `props.email`, which
+  only `completeAuthorization()` in `worker/mcp/authorize.ts` writes, from
+  the identity Access verified) and nothing else: no query string, header, body or
   socket message may choose or influence the name. `?space=` on `/ws` and
   on the scoped routes (export, import, backups, erase) and the ids in the
   `/api/spaces*` bodies select a space _within_ that object, never the

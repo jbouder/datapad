@@ -4,6 +4,7 @@ import html from '../index.html?raw';
 import headers from '../public/_headers?raw';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
+import { consentPage, problemPage } from '../worker/mcp/consent';
 
 /** The value of one header in public/_headers (all rules are under /*). */
 function header(name: string): string {
@@ -129,5 +130,85 @@ describe('Worker response headers', () => {
         "frame-ancestors 'none'",
       );
     }
+  });
+});
+
+/** Every inline `<style>` body, parsed. */
+async function inlineStyles(source: string): Promise<string[]> {
+  const bodies: string[] = [];
+  await new HTMLRewriter()
+    .on('style', {
+      element() {
+        bodies.push('');
+      },
+      text(chunk) {
+        bodies[bodies.length - 1] += chunk.text;
+      },
+    })
+    .transform(new Response(source))
+    .text();
+  return bodies;
+}
+
+describe('the MCP consent page (#152)', () => {
+  const details = {
+    clientId: 'c1',
+    clientName: 'Claude Code',
+    redirectUri: 'http://localhost:43123/callback',
+    redirectHost: 'localhost',
+    redirectIsLoopback: true,
+    scope: [],
+  };
+
+  it('runs no script, allows its one style by hash, and cannot be framed', async () => {
+    const pages = [
+      await consentPage(details, 'handle-1', 'leia@example.com', new Headers()),
+      await problemPage('Expired.'),
+    ];
+    for (const page of pages) {
+      const html = await page.text();
+      expect(await inlineScripts(html)).toEqual([]);
+      expect(html).not.toMatch(/\son[a-z]+=/i);
+      const csp = page.headers.get('content-security-policy') ?? '';
+      expect(directive(csp, 'default-src')).toEqual(["'none'"]);
+      expect(directive(csp, 'frame-ancestors')).toEqual(["'none'"]);
+      expect(directive(csp, 'base-uri')).toEqual(["'none'"]);
+      expect(csp).not.toContain('script-src');
+      const styles = await inlineStyles(html);
+      expect(styles).toHaveLength(1);
+      expect(directive(csp, 'style-src')).toEqual([
+        `'sha256-${await sha256(styles[0] ?? '')}'`,
+      ]);
+      expect(page.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(page.headers.get('x-frame-options')).toBe('DENY');
+      expect(page.headers.get('cache-control')).toBe('no-store');
+      expect(page.headers.get('referrer-policy')).toBe('no-referrer');
+    }
+  });
+
+  it('posts its form only here, and to the client the redirect goes to', async () => {
+    const page = await consentPage(
+      details,
+      'h',
+      'leia@example.com',
+      new Headers(),
+    );
+    const csp = page.headers.get('content-security-policy') ?? '';
+    expect(directive(csp, 'form-action')).toEqual([
+      "'self'",
+      'http://localhost:43123',
+    ]);
+    const odd = await consentPage(
+      { ...details, redirectUri: 'com.example.app:/cb' },
+      'h',
+      'leia@example.com',
+      new Headers(),
+    );
+    expect(
+      directive(
+        odd.headers.get('content-security-policy') ?? '',
+        'form-action',
+      ),
+    ).toEqual(["'self'"]);
   });
 });

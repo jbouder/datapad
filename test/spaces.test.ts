@@ -7,6 +7,7 @@ import {
   orderedSpaces,
   projectSubtree,
   removeSubtree,
+  spaceCounts,
   validSpaceName,
 } from '#shared/spaces';
 import {
@@ -537,5 +538,32 @@ describe('removeSubtree', () => {
     // The input is left alone.
     expect(state.projects['p-echo']).toBeDefined();
     expect(Object.keys(state.tasks)).toHaveLength(7);
+  });
+});
+
+describe('spaceCounts', () => {
+  it('counts an empty space as nothing', () => {
+    expect(spaceCounts(emptySnapshot())).toEqual({
+      projects: 0,
+      archivedProjects: 0,
+      openTasks: 0,
+      tasks: 0,
+      notes: 0,
+      meetings: 0,
+      people: 0,
+    });
+  });
+
+  it('counts the fixture, archived projects and done tasks apart', () => {
+    const { exportedAt: _, ...docs } = ExportSchema.parse(fixture);
+    expect(spaceCounts(docs as unknown as Snapshot)).toEqual({
+      projects: 2,
+      archivedProjects: 1,
+      openTasks: 5,
+      tasks: 7,
+      notes: 4,
+      meetings: 3,
+      people: 4,
+    });
   });
 });

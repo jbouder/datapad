@@ -1658,3 +1658,27 @@ describe('moving a project', () => {
     expect((await stub.export(MAIN_SPACE)).projects['p-echo']).toBeDefined();
   });
 });
+
+describe('MCP support (#152)', () => {
+  it('summarises every space with its counts, in order', async () => {
+    const stub = bindings.DATAPAD.getByName('summaries@example.com');
+    expect((await stub.import(MAIN_SPACE, fixture)).ok).toBe(true);
+    const created = await stub.createSpace('Side');
+    expect(created.ok).toBe(true);
+    const summaries = await stub.spaceSummaries();
+    expect(summaries.map((s) => s.name)).toEqual(['Main', 'Side']);
+    expect(summaries[0]?.counts).toMatchObject({ projects: 2, tasks: 7 });
+    expect(summaries[1]?.counts).toMatchObject({ projects: 0, tasks: 0 });
+  });
+
+  it('admits mcpCallsPerMinute calls per token key, then refuses until the minute passes', async () => {
+    const stub = bindings.DATAPAD.getByName('ratelimit@example.com');
+    const t0 = 1_000_000;
+    for (let i = 0; i < LIMITS.mcpCallsPerMinute; i++) {
+      expect(await stub.admitMcpCall('a', t0 + i)).toBe(true);
+    }
+    expect(await stub.admitMcpCall('a', t0 + 100)).toBe(false);
+    expect(await stub.admitMcpCall('b', t0 + 100)).toBe(true);
+    expect(await stub.admitMcpCall('a', t0 + 60_001)).toBe(true);
+  });
+});
