@@ -187,7 +187,10 @@ test('Make a task from a topic links it; deleting the meeting keeps it', async (
     .getByRole('region', { name: /^Topics/ })
     .getByRole('button', { name: 'More for topic “North ridge”' })
     .click();
-  await page.getByRole('menuitem', { name: 'Make a task' }).click();
+  await page
+    .getByRole('menu', { name: 'More for topic “North ridge”' })
+    .getByRole('menuitem', { name: 'Make a task' })
+    .click();
   const task = page.getByRole('dialog', { name: 'New task' });
   await expect(task.getByLabel('Title')).toHaveValue('North ridge');
   await expect(task).toContainText('An action item of Shield review');
