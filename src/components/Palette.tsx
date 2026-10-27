@@ -3,6 +3,7 @@ import {
   ArrowClockwiseIcon,
   BuildingsIcon,
   CalendarBlankIcon,
+  ChalkboardSimpleIcon,
   CheckSquareIcon,
   CircleHalfIcon,
   DownloadSimpleIcon,
@@ -139,6 +140,17 @@ export function Palette({
         label: 'Go to Weekly digest',
         icon: NewspaperIcon,
         run: go({ name: 'digest' }),
+      },
+      {
+        // On a project (or its board), its board; anywhere else the space's.
+        id: 'whiteboard',
+        label: 'Open whiteboard',
+        icon: ChalkboardSimpleIcon,
+        run: go(
+          currentProject
+            ? { name: 'whiteboard', project: currentProject }
+            : { name: 'whiteboard' },
+        ),
       },
       {
         id: 'go-people',

@@ -2,16 +2,19 @@ import {
   ArchiveIcon,
   ArrowSquareOutIcon,
   ArrowsLeftRightIcon,
+  ChalkboardSimpleIcon,
   CopySimpleIcon,
   PencilSimpleIcon,
   PlusIcon,
   SparkleIcon,
 } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
+import { itemsOf } from '#shared/board';
 import { formatDay, localDate } from '#shared/dates';
 import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
+import { BoardPreview } from '@/components/board/BoardPreview';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
@@ -35,12 +38,13 @@ import {
 import { TaskList } from '@/components/tasks/TaskList';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { moveProject } from '@/lib/api';
-import { navigate } from '@/lib/router';
+import { linkProps, navigate } from '@/lib/router';
+import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
@@ -49,8 +53,8 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One project, where most entry happens: the header with its facts and
  * actions (Save as template among them while it has open tasks), the
- * description, then Milestones, Tasks and Meetings on the left, Notes and
- * Activity on the right (3:2 above 820px, one column below). Sections
+ * description, then Milestones, Tasks and Meetings on the left, Notes,
+ * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
  * remember open or closed, one set for every project (#186).
  */
 export function ProjectPage({ id }: { id: string }) {
@@ -125,6 +129,7 @@ export function ProjectPage({ id }: { id: string }) {
   }
 
   const today = localDate(new Date());
+  const boardItems = itemsOf(state.boardItems, id);
   const members = project.members
     .map((m) => state.people[m])
     .filter((p): p is Person => Boolean(p));
@@ -426,6 +431,33 @@ export function ProjectPage({ id }: { id: string }) {
                     when="day"
                   />
                 ))
+              )}
+            </div>
+          </Section>
+          <Section
+            title="Whiteboard"
+            count={boardItems.length}
+            remember={key('whiteboard')}
+            actions={
+              <a
+                {...linkProps({ name: 'whiteboard', project: id })}
+                className={cn(
+                  buttonVariants({ variant: 'outline' }),
+                  'press h-11 desk:h-8',
+                )}
+              >
+                <ChalkboardSimpleIcon />
+                Open whiteboard
+              </a>
+            }
+          >
+            <div className="pt-2">
+              {boardItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nothing on this project's whiteboard yet.
+                </p>
+              ) : (
+                <BoardPreview items={boardItems} people={state.people} />
               )}
             </div>
           </Section>

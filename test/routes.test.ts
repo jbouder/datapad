@@ -173,6 +173,31 @@ describe('linkedMeeting', () => {
   });
 });
 
+describe('whiteboards', () => {
+  it('reads and writes the space board and a project board', () => {
+    expect(parseRoute('/whiteboard')).toEqual({ name: 'whiteboard' });
+    expect(parseRoute('/whiteboard/')).toEqual({ name: 'whiteboard' });
+    expect(parseRoute('/projects/p%201/whiteboard')).toEqual({
+      name: 'whiteboard',
+      project: 'p 1',
+    });
+    expect(routePath({ name: 'whiteboard' })).toBe('/whiteboard');
+    expect(routePath({ name: 'whiteboard', project: 'p 1' })).toBe(
+      '/projects/p%201/whiteboard',
+    );
+    expect(parseRoute('/projects/p/whiteboard/x')).toEqual({
+      name: 'notFound',
+    });
+  });
+
+  it('puts a project board under Projects and titles both', () => {
+    expect(sectionOf({ name: 'whiteboard', project: 'p' })).toBe('projects');
+    expect(sectionOf({ name: 'whiteboard' })).toBe('whiteboard');
+    expect(titleOf({ name: 'whiteboard' })).toBe('Whiteboard');
+    expect(titleOf({ name: 'whiteboard', project: 'p' })).toBe('Whiteboard');
+  });
+});
+
 describe('sectionOf and titleOf', () => {
   it('puts a project and the archive under Projects, a task under Tasks, a meeting under Meetings', () => {
     expect(sectionOf({ name: 'project', id: 'p' })).toBe('projects');

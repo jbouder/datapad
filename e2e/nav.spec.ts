@@ -210,6 +210,9 @@ test('sections run Focus, Projects, Tasks, Meetings, Notes; People and Orgs are 
     /Tasks/,
     /Meetings/,
     /Notes/,
+    // The rail's extras: the space's whiteboard (desktop only; the account
+    // menu has it on a phone).
+    ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
   // People and Orgs live under Settings (#159), in neither the rail nor
   // the tab bar.

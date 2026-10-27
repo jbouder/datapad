@@ -852,3 +852,131 @@ html[data-vt="space"]::view-transition-new(rail) {
   opacity: 0;
   scale: 0.98;
 }
+
+/* ------------------------------------------------------------------ */
+/* Whiteboard (M12)                                                    */
+/* ------------------------------------------------------------------ */
+
+/* An item's color is a token: the five board colors, each a tint that
+   fills a sticky and a stroke that outlines it. Text stays the card's. */
+.board-item {
+  --board-tint: var(--muted-foreground);
+}
+.board-item[data-color="accent"] {
+  --board-tint: var(--primary);
+}
+.board-item[data-color="ok"] {
+  --board-tint: var(--ok);
+}
+.board-item[data-color="warn"] {
+  --board-tint: var(--warn);
+}
+.board-item[data-color="danger"] {
+  --board-tint: var(--destructive);
+}
+.board-swatch[data-color="neutral"] {
+  --board-tint: var(--muted-foreground);
+}
+.board-swatch[data-color="accent"] {
+  --board-tint: var(--primary);
+}
+.board-swatch[data-color="ok"] {
+  --board-tint: var(--ok);
+}
+.board-swatch[data-color="warn"] {
+  --board-tint: var(--warn);
+}
+.board-swatch[data-color="danger"] {
+  --board-tint: var(--destructive);
+}
+.board-swatch-dot {
+  background: color-mix(in oklab, var(--board-tint) 35%, var(--card));
+  border: 2px solid var(--board-tint);
+}
+
+.board-sticky-body {
+  fill: color-mix(in oklab, var(--board-tint) 20%, var(--card));
+  stroke: color-mix(in oklab, var(--board-tint) 55%, var(--card));
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.board-rect-body {
+  fill: none;
+  stroke: var(--board-tint);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+.board-line {
+  fill: none;
+  stroke: var(--board-tint);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.board-text {
+  color: var(--card-foreground);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+/* An item moves with its `transform`. Another device's move slides into
+   place; a local drag (and a resize) follows the pointer exactly, and the
+   two switches turn the slide into a cut (the rules at Motion). */
+.board-item {
+  outline: none;
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.board-item[data-dragging] {
+  transition: none;
+}
+
+/* The selection and keyboard focus: a ring around the item. */
+.board-ring {
+  fill: none;
+  stroke: var(--ring);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+.board-item[data-selected] .board-ring,
+.board-item:focus-visible .board-ring {
+  opacity: 1;
+}
+.board-item:focus-visible .board-ring {
+  stroke: var(--foreground);
+  stroke-dasharray: 4 3;
+}
+.board-handle {
+  fill: var(--background);
+  stroke: var(--foreground);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.board-marquee {
+  fill: color-mix(in oklab, var(--ring) 12%, transparent);
+  stroke: var(--ring);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The board owns every gesture inside it: no page scroll, no browser zoom. */
+.board-surface {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.board-surface[data-panning] {
+  cursor: grabbing;
+}
+.board-surface[data-pan-ready] {
+  cursor: grab;
+}
+.board-surface[data-tool="sticky"],
+.board-surface[data-tool="text"] {
+  cursor: crosshair;
+}

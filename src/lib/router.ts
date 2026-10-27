@@ -46,6 +46,13 @@ export function pathFor(route: Route): string {
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
+  if (a.name === 'whiteboard' || b.name === 'whiteboard') {
+    return (
+      a.name === 'whiteboard' &&
+      b.name === 'whiteboard' &&
+      a.project === b.project
+    );
+  }
   return (
     a.name === b.name &&
     ((a.name !== 'project' && a.name !== 'task' && a.name !== 'meeting') ||

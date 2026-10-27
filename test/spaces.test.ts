@@ -148,6 +148,9 @@ describe('routeAfterSwitch', () => {
       focus,
     );
     expect(routeAfterSwitch({ name: 'orgs', org: 'o-rebels' })).toEqual(focus);
+    expect(routeAfterSwitch({ name: 'whiteboard', project: 'p-echo' })).toEqual(
+      focus,
+    );
   });
 
   it('leaves a task or meeting for its list', () => {
@@ -161,6 +164,7 @@ describe('routeAfterSwitch', () => {
 
   it('keeps section pages', () => {
     expect(routeAfterSwitch({ name: 'tasks' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'whiteboard' })).toBeNull();
     expect(routeAfterSwitch({ name: 'people' })).toBeNull();
     expect(routeAfterSwitch({ name: 'orgs' })).toBeNull();
     expect(routeAfterSwitch({ name: 'settings', section: 'data' })).toBeNull();
