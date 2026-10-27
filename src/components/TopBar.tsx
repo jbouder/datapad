@@ -77,7 +77,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
-          <SyncStatus className="desk:mr-1" />
+          <SyncStatus className="desk:hidden" />
           <Tooltip>
             <TooltipTrigger
               render={

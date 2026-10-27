@@ -38,7 +38,7 @@ const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
     name: 'digest',
     label: 'Weekly digest',
     icon: NewspaperIcon,
-    hint: 'At the foot of the rail, once there is a project.',
+    hint: 'Under Active projects in the rail, once there is a project.',
   },
   {
     name: 'archived',

@@ -173,7 +173,7 @@ test('the rail extras can be hidden', async ({ page, request }) => {
   ).toBeVisible();
 });
 
-test('the top bar shows the sync status with a dot; the digest sits at the foot of the rail', async ({
+test('the sync status sits at the foot of the rail (the top bar on phones); the digest above Archived', async ({
   page,
   request,
 }) => {
@@ -184,10 +184,12 @@ test('the top bar shows the sync status with a dot; the digest sits at the foot 
     ws.connectToServer();
   });
   await openLive(page, '/');
-  const bar = page.getByRole('banner');
-  const status = bar.locator('[data-status]');
-  await expect(status).toHaveCount(1);
-  await expect(page.locator('[data-status]')).toHaveCount(1);
+  const rail = page.getByRole('complementary', { name: 'Datapad' });
+  const status = isMobile(page)
+    ? page.getByRole('banner').locator('[data-status]')
+    : rail.locator('footer [data-status]');
+  await expect(status).toBeVisible();
+  await expect(page.locator('[data-status]:visible')).toHaveCount(1);
   const dot = status.locator('[data-dot]');
 
   const input = page.getByRole('textbox', { name: 'Add a task' });
@@ -202,23 +204,18 @@ test('the top bar shows the sync status with a dot; the digest sits at the foot 
   else expect(await width()).toBeGreaterThan(30);
 
   if (!isMobile(page)) {
-    const rail = page.getByRole('complementary', { name: 'Datapad' });
-    const digest = rail.locator('footer').getByRole('link', {
-      name: 'Weekly digest',
-    });
-    await expect(digest).toBeVisible();
-    await expect(rail.locator('[data-status]')).toHaveCount(0);
+    // The digest sits under Active projects, above Archived, in the nav.
+    const nav = rail.getByRole('navigation');
+    const links = await nav.getByRole('link').allInnerTexts();
+    const names = links.map((t) => t.split('\n')[0].trim());
+    const digestAt = names.indexOf('Weekly digest');
+    expect(digestAt).toBeGreaterThan(names.indexOf('Falcon hyperdrive refit'));
+    expect(digestAt).toBeGreaterThan(names.indexOf('Echo Base relocation'));
+    expect(digestAt).toBe(names.indexOf('Archived') - 1);
+    const digest = nav.getByRole('link', { name: 'Weekly digest' });
     await digest.click();
     await expect(page).toHaveURL(/\/digest$/);
     await expect(digest).toHaveAttribute('aria-current', 'page');
-    // Pinned at the foot of the rail.
-    const railBox = await rail.boundingBox();
-    const box = await digest.boundingBox();
-    expect(
-      (railBox?.y ?? 0) +
-        (railBox?.height ?? 0) -
-        ((box?.y ?? 0) + (box?.height ?? 0)),
-    ).toBeLessThan(24);
   }
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
