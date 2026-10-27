@@ -1,5 +1,6 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { type ReactNode, useId, useState } from 'react';
+import { holdFlip } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 function read(key: string, fallback: boolean): boolean {
@@ -15,6 +16,10 @@ function read(key: string, fallback: boolean): boolean {
  * A titled section whose header is a button with `aria-expanded`. With
  * `storageKey`, open or closed is remembered in this browser. Pass `open`
  * to override it (a section opened to show what was just added).
+ *
+ * Motion is minimal on purpose: the caret turns, an opening body fades in
+ * quickly (nothing inside it replays its entrance) and closing is
+ * instant; what moves below it jumps rather than sliding.
  */
 export function Section({
   title,
@@ -44,9 +49,15 @@ export function Section({
   const [remembered, setOpen] = useState(() =>
     storageKey ? read(storageKey, defaultOpen) : defaultOpen,
   );
+  /** Opened by a click just now: its contents appear without entrances. */
+  const [opening, setOpening] = useState(false);
   const open = forced || remembered;
   const toggle = () => {
     const next = !open;
+    holdFlip();
+    setOpening(next);
+    // Past the fade: whatever is added later enters as usual.
+    if (next) window.setTimeout(() => setOpening(false), 250);
     setOpen(next);
     if (storageKey) {
       try {
@@ -89,7 +100,12 @@ export function Section({
         </h2>
         {actions}
       </div>
-      <div id={`${id}-body`} hidden={!open}>
+      <div
+        id={`${id}-body`}
+        hidden={!open}
+        className="section-body"
+        data-opening={opening || undefined}
+      >
         {children}
       </div>
     </section>

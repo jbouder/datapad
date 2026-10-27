@@ -133,3 +133,27 @@ test('two columns above 820px, one below', async ({ page }) => {
     expect(notes?.x ?? 0).toBeGreaterThan(tasks?.x ?? 0);
   }
 });
+
+test.describe('section motion', () => {
+  test.use({ reducedMotion: 'no-preference' });
+  test('opening a section only fades it in; nothing inside replays or slides', async ({
+    page,
+  }) => {
+    await openLive(page, '/projects/p-echo');
+    const tasks = page.getByRole('button', { name: /^Tasks/ });
+    await tasks.click();
+    await expect(tasks).toHaveAttribute('aria-expanded', 'false');
+    await page.waitForTimeout(400);
+    await tasks.click();
+    const moving = await page.evaluate(() =>
+      document.getAnimations().flatMap((a) => {
+        const target = (a.effect as KeyframeEffect | null)?.target;
+        if (!(target instanceof Element)) return [];
+        // The caret turning and the body's one fade are all there is.
+        if (target.matches('.section-body, svg')) return [];
+        return [target.outerHTML.slice(0, 80)];
+      }),
+    );
+    expect(moving).toEqual([]);
+  });
+});
