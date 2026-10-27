@@ -2,6 +2,7 @@ import { ArchiveIcon, NewspaperIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
+import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { sectionOf, useNav } from '@/lib/nav';
@@ -13,9 +14,10 @@ const ANYONE = { kind: 'anyone' } as const;
 /**
  * The desktop rail (≥ 820px): the space switcher, the sections with live
  * counts (those Settings → Navigation shows, in its order), the active
- * projects (most recently updated first) with their open counts, Archived
- * when there is any, and the Weekly digest pinned at the foot. Each extra
- * can be switched off. Hidden below 820px; the tab bar takes over.
+ * projects (most recently updated first) with their open counts, the
+ * Weekly digest and Archived when there is any (each extra can be switched
+ * off), and the sync status at the foot. Hidden below 820px; the tab bar
+ * (and the top bar's copy of the status) takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
@@ -144,6 +146,20 @@ export function Rail({ route }: { route: Route }) {
           </section>
         )}
 
+        {showDigest && (
+          <a
+            {...linkProps({ name: 'digest' })}
+            aria-current={route.name === 'digest' ? 'page' : undefined}
+            className={cn(
+              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
+              route.name === 'digest' &&
+                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
+            )}
+          >
+            <NewspaperIcon aria-hidden />
+            <span className="flex-1">Weekly digest</span>
+          </a>
+        )}
         {nav.extras.archived && archived > 0 && (
           <a
             {...linkProps({ name: 'archive' })}
@@ -161,22 +177,9 @@ export function Rail({ route }: { route: Route }) {
         )}
       </nav>
 
-      {showDigest && (
-        <footer className="border-t px-2 py-2">
-          <a
-            {...linkProps({ name: 'digest' })}
-            aria-current={route.name === 'digest' ? 'page' : undefined}
-            className={cn(
-              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-              route.name === 'digest' &&
-                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-            )}
-          >
-            <NewspaperIcon aria-hidden />
-            <span className="flex-1">Weekly digest</span>
-          </a>
-        </footer>
-      )}
+      <footer className="flex flex-col gap-2 border-t px-4 py-3">
+        <SyncStatus />
+      </footer>
     </aside>
   );
 }

@@ -3,8 +3,8 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { cn } from '@/lib/utils';
 
 /**
- * Whether changes are reaching the server, in the top bar at every width:
- * a dot colored by state (ok when saved, warn while connecting or with
+ * Whether changes are reaching the server, at the foot of the rail on
+ * desktop and in the top bar on phones: a dot colored by state (ok when saved, warn while connecting or with
  * changes waiting, destructive offline) and always a word beside it, so
  * color never carries it alone. Never a spinner, never blocking.
  *

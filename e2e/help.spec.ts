@@ -1,6 +1,6 @@
 import { COMMANDS, FORMAT_SHORTCUTS } from '../shared/composer';
 import { SHORTCUTS } from '../shared/shortcuts';
-import { expect, openLive, test } from './fixtures';
+import { expect, openHelp, openLive, test } from './fixtures';
 
 /**
  * The Help page's tables come from the lists the app binds, so every
@@ -42,9 +42,9 @@ test('each section has its own address', async ({ page }) => {
   ).toBeInViewport();
 });
 
-test('the header’s question mark opens it', async ({ page }) => {
+test('the account menu opens it', async ({ page }) => {
   await openLive(page, '/');
-  await page.getByRole('link', { name: 'Help' }).click();
+  await openHelp(page);
   await expect(page).toHaveURL(/\/help$/);
   await expect(
     page.getByRole('heading', { level: 1, name: 'Help' }),

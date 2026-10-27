@@ -149,7 +149,6 @@ export function AppShell() {
       <Rail route={route} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
-          route={route}
           title={titleOf(route, pageName)}
           pageKey={pageKey(route)}
           email={email}

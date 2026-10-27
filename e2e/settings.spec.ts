@@ -34,6 +34,7 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'Light',
     'Dark',
     'Refresh',
+    'Help',
     'Settings',
     'Sign out',
   ]);

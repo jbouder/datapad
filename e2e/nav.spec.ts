@@ -1,4 +1,11 @@
-import { expect, isMobile, openLive, SEED, test } from './fixtures';
+import {
+  addFromTopBar,
+  expect,
+  isMobile,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 test('the rail shows live counts, active projects and Archived', async ({
   page,
@@ -183,10 +190,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   page,
 }) => {
   await page.goto('/help');
-  await page
-    .getByRole('banner')
-    .getByRole('button', { name: 'Add task' })
-    .click();
+  await addFromTopBar(page, 'Add task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();

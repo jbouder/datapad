@@ -1,23 +1,29 @@
 import {
   ArrowClockwiseIcon,
+  CheckSquareIcon,
   MagnifyingGlassIcon,
   NotePencilIcon,
   PlusIcon,
-  QuestionIcon,
 } from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
-import { linkProps, type Route } from '@/lib/router';
-import { cn } from '@/lib/utils';
+import { linkProps } from '@/lib/router';
 
 /**
  * The current title on the left once the page's own h1 has scrolled away
@@ -25,11 +31,10 @@ import { cn } from '@/lib/utils';
  * (a colored dot, with its word on desktop), Refresh on desktop (a full
  * reload: it picks up a new deploy, and unsent changes are already stored;
  * phones have it in the account menu, the bar has no room), Search (with
- * its shortcut on desktop), **+** (Add task), Write a note, Help and
- * Preferences.
+ * its shortcut on desktop), **+** (a menu: Add task and Write a note) and
+ * the account menu (Help is there).
  */
 export function TopBar({
-  route,
   title,
   pageKey,
   email,
@@ -37,7 +42,6 @@ export function TopBar({
   onAddNote,
   onSearch,
 }: {
-  route: Route;
   title: string;
   /** Changes when the page does, so the h1 is found again. */
   pageKey: string;
@@ -73,7 +77,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
-          <SyncStatus className="desk:mr-1" />
+          <SyncStatus className="desk:hidden" />
           <Tooltip>
             <TooltipTrigger
               render={
@@ -107,61 +111,36 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <Tooltip>
-            <TooltipTrigger
+          <DropdownMenu>
+            <DropdownMenuTrigger
               render={
                 <Button
                   variant="ghost"
                   size="icon"
                   className="press size-11 sm:size-9"
-                  onClick={onAddTask}
+                  aria-label="Add"
                 />
               }
             >
               <PlusIcon weight="bold" />
-              <span className="sr-only">Add task</span>
-            </TooltipTrigger>
-            <TooltipContent>Add task</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="press size-11 sm:size-9"
-                  aria-keyshortcuts="Shift+N"
-                  onClick={onAddNote}
-                />
-              }
-            >
-              <NotePencilIcon weight="bold" />
-              <span className="sr-only">Write a note</span>
-            </TooltipTrigger>
-            <TooltipContent>Write a note</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                // A real link (role link), styled as an icon button.
-                <a
-                  {...linkProps({ name: 'help' })}
-                  aria-current={route.name === 'help' ? 'page' : undefined}
-                  className={cn(
-                    buttonVariants({
-                      variant: route.name === 'help' ? 'secondary' : 'ghost',
-                      size: 'icon',
-                    }),
-                    'press size-11 sm:size-9',
-                  )}
-                />
-              }
-            >
-              <QuestionIcon weight="bold" />
-              <span className="sr-only">Help</span>
-            </TooltipTrigger>
-            <TooltipContent>Help</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem aria-keyshortcuts="N" onClick={onAddTask}>
+                <CheckSquareIcon />
+                Add task
+                <DropdownMenuShortcut className="hidden desk:inline">
+                  N
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem aria-keyshortcuts="Shift+N" onClick={onAddNote}>
+                <NotePencilIcon />
+                Write a note
+                <DropdownMenuShortcut className="hidden desk:inline">
+                  ⇧N
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <PreferencesMenu email={email} />
         </div>
       </div>
