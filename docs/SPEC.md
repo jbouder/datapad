@@ -47,21 +47,22 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 ### Task
 
-| Field                             | Type                               | Notes                                        |
-| --------------------------------- | ---------------------------------- | -------------------------------------------- |
-| id                                | string                             |                                              |
-| title                             | string                             | required; the only field needed to create    |
-| projectId                         | string or null                     | null = General                               |
-| status                            | `open` \| `done`                   | two states only, by design                   |
-| priority                          | `none` \| `low` \| `med` \| `high` |                                              |
-| due                               | date or empty                      |                                              |
-| desc                              | string                             | markdown with mentions                       |
-| tags                              | string[]                           |                                              |
-| assignee                          | personId or empty                  | single assignee                              |
-| links                             | Link[]                             |                                              |
-| order                             | number                             | manual position among a project's open tasks |
-| sourceNoteId                      | string, optional                   | set when created from a note                 |
-| createdAt, updatedAt, completedAt | timestamp                          | completedAt null while open                  |
+| Field                             | Type                               | Notes                                         |
+| --------------------------------- | ---------------------------------- | --------------------------------------------- |
+| id                                | string                             |                                               |
+| title                             | string                             | required; the only field needed to create     |
+| projectId                         | string or null                     | null = General                                |
+| status                            | `open` \| `done`                   | two states only, by design                    |
+| priority                          | `none` \| `low` \| `med` \| `high` |                                               |
+| due                               | date or empty                      |                                               |
+| desc                              | string                             | markdown with mentions                        |
+| tags                              | string[]                           |                                               |
+| assignee                          | personId or empty                  | single assignee                               |
+| links                             | Link[]                             |                                               |
+| order                             | number                             | manual position among a project's open tasks  |
+| sourceNoteId                      | string, optional                   | set when created from a note                  |
+| meetingId                         | string or null, optional           | an action item of that meeting; absent = null |
+| createdAt, updatedAt, completedAt | timestamp                          | completedAt null while open                   |
 
 ### Note
 
@@ -229,6 +230,19 @@ Added in the rebuild (#164). Running notes on a task: dated entries such as "pin
 4. A note card with `taskId` shows a chip naming its task; it opens the task panel. When the task has been deleted the chip reads "Task deleted" and the note stays.
 5. `moveTask` moves the task's notes to the new project in the same op; moving a project to another space carries them with it, `taskId` and all.
 
+## Action items
+
+Added in the rebuild (#185). A meeting's **action items** are real tasks linked to it (`Task.meetingId`), so they also show on Focus, Tasks, the project page and a person's page, and are found by ⌘K as tasks.
+1. The meeting's page (under Topics, in the left column) and its panel (between Topics and Notes) each have an **Action items** section, in the same inline style as Topics and Notes: the heading, the open count ("2 open"; nothing once all are done; it does not animate) and **Add an action item**, which opens a one-line field (Enter adds one and keeps the field open for the next; Escape closes it and returns focus to the button). The list is the shared task row: open first, oldest first, then done (struck through), the most recently closed first. Its checkbox closes and reopens (with Undo), and the title opens the task's panel. With none and the field closed it reads "No action items yet".
+2. A topic's **Make a task** opens the new-task panel with the topic's title, as an action item of the meeting: the panel says "An action item of <meeting>" in place of the project picker.
+3. `addTask` with `meetingId` checks the meeting exists ("That meeting no longer exists"), takes the meeting's project (General for a General meeting; the op's `projectId` is ignored) and logs `Added action item "<title>" to "<meeting>"`. The meeting itself is not changed. `meetingId` is optional in the schema and the type, and is written only on tasks that have one, so exports from before it import unchanged.
+4. A task with a meeting shows "From <meeting> · <day>" on its panel and its page, linking to the meeting's page. Moving the task to another project keeps the link.
+5. Deleting a meeting keeps its action items as plain tasks: the same op sets their `meetingId` to null. The delete question says so ("Its 2 notes and 3 action items are kept.").
+6. Moving a project to another space carries its tasks, action items among them; an action item keeps its meeting when the meeting goes too, and loses the link when it does not (in either space).
+7. Summarize for a meeting lists its action items; for a task, the meeting it came from.
+
+Carrying open action items forward to the next meeting in a series is out of scope.
+
 ## Meetings and notes linkage
 
 Notes on a meeting are written on the meeting, never by going somewhere else, and work as a task's do ([Task notes](#task-notes)): one kind of note, added as needed (#167; the Prep / Debrief / Note split of #163 is gone from the UI).
@@ -250,15 +264,15 @@ Meetings are created from a project page (project fixed) or the Meetings page (p
 ### Meeting page
 
 Each meeting has a page of its own at `/meetings/<id>`, as a project does, under Meetings in the nav and titled with the meeting's title. Everything that opens a meeting goes there: the title on a row (Meetings page, project page, a calendar day's popover), a calendar chip, a timeline point, an agenda card on Focus, ⌘K, a note's meeting chip and an org's meetings. `/meetings?meeting=<id>` and `/events?event=<id>`, the addresses that used to open the row, redirect to it.
-- **Header**: the project (a link) or General; the title; **Summarize**, **Edit** (the meeting's panel), **Carry forward** (when it applies; see below) and **Delete** (asks in place, keeps the notes, then goes to Meetings); then the day and times, the attendees and the link; then the agenda note.
-- **Body**: **Topics** on the left and **Notes** on the right (3:2 above 820px, one column below), the same sections as the meeting's panel.
+- **Header**: the project (a link) or General; the title; **Summarize**, **Edit** (the meeting's panel), **Carry forward** (when it applies; see below) and **Delete** (asks in place, keeps the notes and the action items, then goes to Meetings); then the day and times, the attendees and the link; then the agenda note.
+- **Body**: **Topics** and **Action items** on the left and **Notes** on the right (3:2 above 820px, one column below), the same sections as the meeting's panel.
 - **Series**: at the foot, **Previous** and **Next** link to the neighbouring meetings of its series, by day.
 - An unknown id shows Not found with Back to Meetings.
 
 ### Task page
 
 A task opened from the Tasks page (its title in any layout, a board card, a timeline bar, `e` on a row) goes to its page at `/tasks/<id>`, under Tasks in the nav and titled with the task's title. Anywhere else (Focus, a project page, a person, a note's task chip, ⌘K) a task opens in its panel, and adding a task always uses the new-task panel.
-- **Header**: the project (a link) or General; the title (struck through when done); **Close** / **Reopen** (with Undo), **Summarize**, **Edit** (the task's panel) and **Delete** (with Undo, then goes to Tasks); then its status, priority, due date, assignee, blocker (which edits it), tags and links.
+- **Header**: the project (a link) or General; "From <meeting>" when it is an action item; the title (struck through when done); **Close** / **Reopen** (with Undo), **Summarize**, **Edit** (the task's panel) and **Delete** (with Undo, then goes to Tasks); then its status, priority, due date, assignee, blocker (which edits it), tags and links.
 - **Body**: **Details** (the markdown) and the note it was made from on the left, **Notes** on the right (3:2 above 820px, one column below), the same Notes section as the task's panel; created and closed times at the foot.
 - An unknown id shows Not found with Back to Tasks. Switching spaces on a task or meeting page goes to Tasks or Meetings.
 
@@ -268,7 +282,7 @@ Added in the rebuild (M11). A meeting's agenda as a list of topics (see [Topic](
 - **On the meeting's page and in its panel** (the row shows only the count, "2 of 4 topics"; covered of all; counts do not animate): each topic has a checkbox (covered), its title (click to edit; Enter saves, Escape cancels), its outcome (muted, when set; click to edit), an **Outcome** button that opens a one-line input, and a menu: **Make a task**, **Move up** / **Move down** and **Delete**.
 - **Reorder**: drag the handle with a mouse (desktop); on touch and keyboard, Move up / Move down in the menu or Alt+↑ / Alt+↓ on a topic. Each move is announced.
 - **Delete** has no confirm step; the toast's Undo puts the topic back where it was, with its checkbox and outcome.
-- **Make a task** opens the new-task panel with the topic's title and the meeting's project. It does not change the topic.
+- **Make a task** opens the new-task panel with the topic's title, as an action item of the meeting (see [Action items](#action-items)). It does not change the topic.
 - **Topics section** (the page's left column; above Notes in the panel), laid out like Notes: the heading, the count ("1 of 3 topics") and an **Add topic** button, which opens an inline one-line field (Enter adds and keeps the field open for the next; Escape closes it and returns focus to the button; pressing Add topic again goes back to the field). With no topics and the field closed it reads "No topics yet". On an **existing** meeting every change is an op at once, as the meeting's notes are, not on Save. On a **new** meeting, which has no id yet, each Enter adds a pending topic (shown with a **Remove** button); on save they become `addTopic` ops in the same batch as `addMeeting`. More than 50 topics in all (the carried ones counted) is refused as you add, and again on save.
 - **Focus agenda and Calendar**: a meeting with topics shows its count (" · 1 of 3 topics" on the agenda card, "1/3" on a calendar chip, read as "1 of 3 topics").
 
@@ -294,8 +308,8 @@ A **Summarize** action exists on four item types: project (header), task (panel 
 | Item    | Included                                                                                                                                                                                                                                                                            |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project | name, org, status, priority, target date, team names, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first; last 25 activity lines |
-| Task    | title, project, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                                                                  |
-| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), all linked notes, oldest first                                                                                                       |
+| Task    | title, project, the meeting it is an action item of, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                             |
+| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), action items (`- [ ]` open, then `- [x]` done, with due, assignee and when closed), all linked notes, oldest first                   |
 | Note    | date, project, meeting title if linked, task title if it is a task's note, body                                                                                                                                                                                                     |
 
 Mentions are expanded to names before sending. Nothing outside the item is included.
@@ -324,14 +338,14 @@ Model tier is the default (not the quick tier); the artifact caches identical re
 
 Added in the rebuild (M9). A space is a complete, separate Datapad under the one signed-in user: its own projects, tasks, notes, meetings, people, orgs, templates, settings and activity (and any retired decisions). Nothing is shared or searched across spaces; every view, count, summary and ⌘K result is the open space's.
 
-| Topic     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Model     | `{id, name, position, createdAt}`. Every user starts with Main (`main`), which holds any data from before spaces. Names are trimmed, not empty, at most 40 characters and unique ignoring case; at most 12 spaces. `position` is the switcher order.                                                                                                                                                                                                                                       |
-| Switching | The rail header (desktop), the account menu (every width; the switcher on phones) and ⌘K list the spaces; the rail and ⌘K have New space…, and the rail Manage spaces. The account menu only switches (#159). The choice is remembered per device, not in the URL. Switching from a project, person or org page goes to Focus; section pages stay. The page and rail crossfade. With more than one space, the tab title carries its name ("Tasks · Personal · Datapad").                   |
-| Settings  | Settings → Spaces (`/settings/spaces`) lists them in switcher order: rename in place (Enter saves, Esc or leaving the field reverts), Move up / Move down, New space, Delete…. Settings → Data acts on the open space: Export <space>, Import into <space>, Backups of <space>.                                                                                                                                                                                                            |
-| Moving    | Move to… on a project page (with more than one space). The project goes with its tasks, notes, meetings (with their topics), milestones, activity log and any retired decisions; the people it refers to and its org are copied, and the source keeps its copies. A same-named org in the target is reused; a copied person is not `me` if the target has one. The log gains "Moved from <space>". One transaction across both spaces; not undoable from the toast, but moving back works. |
-| Deleting  | Delete… asks for the space's name typed exactly, then deletes it with a one-time token issued for that space (good for five minutes). The last space cannot be deleted; Main can, once another exists. Tabs open on it go to the first space left. Its nightly backups stay in R2 but are no longer listed in the app.                                                                                                                                                                     |
-| Backups   | Nightly, per space, 30 kept each: Main at `<email>/datapad-YYYY-MM-DD.json` as before, others at `<email>/<spaceId>/datapad-YYYY-MM-DD.json`.                                                                                                                                                                                                                                                                                                                                              |
+| Topic     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model     | `{id, name, position, createdAt}`. Every user starts with Main (`main`), which holds any data from before spaces. Names are trimmed, not empty, at most 40 characters and unique ignoring case; at most 12 spaces. `position` is the switcher order.                                                                                                                                                                                                                                                                                         |
+| Switching | The rail header (desktop), the account menu (every width; the switcher on phones) and ⌘K list the spaces; the rail and ⌘K have New space…, and the rail Manage spaces. The account menu only switches (#159). The choice is remembered per device, not in the URL. Switching from a project, person or org page goes to Focus; section pages stay. The page and rail crossfade. With more than one space, the tab title carries its name ("Tasks · Personal · Datapad").                                                                     |
+| Settings  | Settings → Spaces (`/settings/spaces`) lists them in switcher order: rename in place (Enter saves, Esc or leaving the field reverts), Move up / Move down, New space, Delete…. Settings → Data acts on the open space: Export <space>, Import into <space>, Backups of <space>.                                                                                                                                                                                                                                                              |
+| Moving    | Move to… on a project page (with more than one space). The project goes with its tasks (action items among them, linked to its meetings), notes, meetings (with their topics), milestones, activity log and any retired decisions; the people it refers to and its org are copied, and the source keeps its copies. A same-named org in the target is reused; a copied person is not `me` if the target has one. The log gains "Moved from <space>". One transaction across both spaces; not undoable from the toast, but moving back works. |
+| Deleting  | Delete… asks for the space's name typed exactly, then deletes it with a one-time token issued for that space (good for five minutes). The last space cannot be deleted; Main can, once another exists. Tabs open on it go to the first space left. Its nightly backups stay in R2 but are no longer listed in the app.                                                                                                                                                                                                                       |
+| Backups   | Nightly, per space, 30 kept each: Main at `<email>/datapad-YYYY-MM-DD.json` as before, others at `<email>/<spaceId>/datapad-YYYY-MM-DD.json`.                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ## Activity log
 
@@ -340,6 +354,7 @@ One log per project plus one for General. Entries are `{t, text}`, prepended, ca
 | Trigger                                       | Text                                                                                                                  |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Task created                                  | Added task "<title>"                                                                                                  |
+| Action item added                             | Added action item "<title>" to "<meeting>" (in place of Added task)                                                   |
 | Task closed / reopened                        | Closed "<title>" / Reopened "<title>"                                                                                 |
 | Task edited                                   | Edited task "<title>"                                                                                                 |
 | Task moved                                    | Moved "<title>" to <project> (old project) and Moved "<title>" here from <project> (new project)                      |

@@ -312,6 +312,22 @@ describe('projectSubtree', () => {
     expect(subtree?.tasks['t-1']).toBeDefined();
   });
 
+  it('carries action items with their meeting, and unlinks one whose meeting stays', () => {
+    const state = source();
+    const t1 = state.tasks['t-1'] as Task;
+    const t2 = state.tasks['t-2'] as Task;
+    state.tasks = {
+      ...state.tasks,
+      // An action item of the project's own meeting.
+      't-1': { ...t1, meetingId: 'e-1' },
+      // Moved here from Yavin's meeting, which stays behind.
+      't-2': { ...t2, meetingId: 'e-3' },
+    };
+    const subtree = projectSubtree(state, 'p-echo', emptySnapshot(), arrival);
+    expect(subtree?.tasks['t-1']).toMatchObject({ meetingId: 'e-1' });
+    expect(subtree?.tasks['t-2']).toMatchObject({ meetingId: null });
+  });
+
   it('takes people mentioned in the description and the org’s notes', () => {
     const state = source();
     const echo = state.projects['p-echo'] as Snapshot['projects'][string];
@@ -436,6 +452,28 @@ describe('projectSubtree', () => {
 });
 
 describe('removeSubtree', () => {
+  it('unlinks action items left behind from a meeting that went', () => {
+    const state = source();
+    const t5 = state.tasks['t-5'] as Task;
+    const t7 = state.tasks['t-7'] as Task;
+    state.tasks = {
+      ...state.tasks,
+      't-5': { ...t5, meetingId: 'e-1' },
+      't-7': { ...t7, meetingId: 'e-3' },
+    };
+    const subtree = projectSubtree(
+      state,
+      'p-echo',
+      emptySnapshot(),
+      arrival,
+    ) as ParsedExport;
+    const { state: next, changed } = removeSubtree(state, subtree);
+    expect(next.tasks['t-5']).toEqual({ ...t5, meetingId: null });
+    expect(next.tasks['t-7']).toBe(state.tasks['t-7']);
+    expect(changed).toContainEqual({ col: 'tasks', id: 't-5' });
+    expect(changed).not.toContainEqual({ col: 'tasks', id: 't-7' });
+  });
+
   it('deletes only what the project took, and reports every row', () => {
     const state = source();
     const subtree = projectSubtree(

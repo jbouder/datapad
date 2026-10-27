@@ -709,7 +709,12 @@ function TopicRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem
-            onClick={() => newTask(meeting.projectId, { title: topic.title })}
+            onClick={() =>
+              newTask(meeting.projectId, {
+                title: topic.title,
+                meetingId: meeting.id,
+              })
+            }
           >
             <CheckSquareOffsetIcon />
             Make a task

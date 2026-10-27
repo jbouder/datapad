@@ -112,6 +112,10 @@ as it is (migrated on the way in, below):
   task's project. It is optional: a file from before it imports
   unchanged, its notes without one (read as null), and an export writes
   it only on notes that have it.
+- A task may carry `meetingId` (#185): an action item of that meeting,
+  in the meeting's project. It is optional too: a file from before it
+  imports unchanged (read as null), and an export writes it only on
+  tasks that have it. Deleting the meeting sets it to null.
 - A project may carry `milestones` (`[{ "id", "title", "date" }]`, by
   date, 50 at most); a deadline is its `targetDate`.
 - A meeting may carry `topics` (`[{ "id", "title", "done", "outcome" }]`,
@@ -195,7 +199,7 @@ the bucket in the dashboard). A space's id is in the `/api/spaces` list.
 ## Moving a project to another space
 
 With more than one space, a project page's menu has **Move to…**. The
-project goes with its tasks, notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, decisions and
+project goes with its tasks (action items keep `meetingId` when their meeting goes too), notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it
 refers to (members, assignees, who its tasks are blocked on, meeting

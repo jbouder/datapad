@@ -764,6 +764,131 @@ describe('meetings', () => {
   });
 });
 
+describe('action items', () => {
+  const meetingIn = (projectId: string | null): Op => ({
+    type: 'addMeeting',
+    id: 'e1',
+    projectId,
+    title: 'Review',
+    date: '2026-10-27',
+  });
+
+  it('addTask with a meeting: the meeting’s project, linked, its log line', () => {
+    const state = run(base(), meetingIn('p1'), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Hoth',
+    });
+    const T2 = '2026-10-23T11:00:00.000Z';
+    const { state: next, changed } = at(
+      state,
+      {
+        type: 'addTask',
+        id: 't3',
+        projectId: 'p2',
+        title: 'Send the redline',
+        meetingId: 'e1',
+      },
+      T2,
+    );
+    expect(next.tasks.t3).toMatchObject({
+      projectId: 'p1',
+      meetingId: 'e1',
+      status: 'open',
+      order: 3,
+    });
+    expect(lastLog(next, 'p1')).toBe(
+      'Added action item "Send the redline" to "Review"',
+    );
+    expect(lastLog(next, 'p2')).not.toContain('Send the redline');
+    expect(next.projects.p1?.updatedAt).toBe(T2);
+    // The meeting itself is not rewritten.
+    expect(next.meetings.e1).toBe(state.meetings.e1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'tasks', id: 't3' },
+    ]);
+  });
+
+  it('a General meeting’s action item is General’s', () => {
+    const state = run(base(), meetingIn(null));
+    const { state: next } = at(state, {
+      type: 'addTask',
+      id: 't3',
+      projectId: 'p1',
+      title: 'Book the room',
+      meetingId: 'e1',
+    });
+    expect(next.tasks.t3).toMatchObject({ projectId: null, meetingId: 'e1' });
+    expect(lastLog(next, GENERAL)).toBe(
+      'Added action item "Book the room" to "Review"',
+    );
+  });
+
+  it('a task from no meeting has no meetingId at all', () => {
+    expect(base().tasks.t1).not.toHaveProperty('meetingId');
+  });
+
+  it('addTask refuses a meeting that is gone', () => {
+    expect(() =>
+      at(base(), {
+        type: 'addTask',
+        id: 't3',
+        projectId: 'p1',
+        title: 'x',
+        meetingId: 'e9',
+      }),
+    ).toThrow('That meeting no longer exists');
+  });
+
+  it('deleteMeeting keeps its action items, unlinked', () => {
+    const state = run(
+      base(),
+      meetingIn('p1'),
+      {
+        type: 'addTask',
+        id: 't3',
+        projectId: 'p1',
+        title: 'Send the redline',
+        meetingId: 'e1',
+      },
+      { type: 'toggleTask', id: 't3', done: true },
+    );
+    const { state: next, changed } = at(state, {
+      type: 'deleteMeeting',
+      id: 'e1',
+    });
+    expect(next.meetings.e1).toBeUndefined();
+    expect(next.tasks.t3).toEqual({ ...state.tasks.t3, meetingId: null });
+    expect(next.tasks.t1).toBe(state.tasks.t1);
+    expect(changed).toContainEqual({ col: 'tasks', id: 't3' });
+    expect(changed).not.toContainEqual({ col: 'tasks', id: 't1' });
+    expect(lastLog(next, 'p1')).toBe('Deleted meeting "Review"');
+  });
+
+  it('moving an action item to another project keeps its meeting', () => {
+    const state = run(
+      base(),
+      meetingIn('p1'),
+      { type: 'createProject', id: 'p2', name: 'Hoth' },
+      {
+        type: 'addTask',
+        id: 't3',
+        projectId: 'p1',
+        title: 'Send the redline',
+        meetingId: 'e1',
+      },
+    );
+    const { state: next } = at(state, {
+      type: 'moveTask',
+      id: 't3',
+      projectId: 'p2',
+    });
+    expect(next.tasks.t3).toMatchObject({ projectId: 'p2', meetingId: 'e1' });
+  });
+});
+
 describe('topics', () => {
   const meeting: Op = {
     type: 'addMeeting',
@@ -1582,6 +1707,39 @@ describe('merge (import)', () => {
     const merged = merge(emptySnapshot(), before).state.notes.n2;
     expect(merged).toEqual(old);
     expect(merged?.taskId ?? null).toBeNull();
+  });
+
+  it('round-trips an action item, and leaves a task without meetingId as it was', () => {
+    const state = run(
+      base(),
+      {
+        type: 'addMeeting',
+        id: 'e1',
+        projectId: 'p1',
+        title: 'Review',
+        date: '2026-10-27',
+      },
+      {
+        type: 'addTask',
+        id: 't3',
+        projectId: 'p1',
+        title: 'Send the redline',
+        meetingId: 'e1',
+      },
+    );
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(next.tasks).toEqual(state.tasks);
+    expect(next.tasks.t3?.meetingId).toBe('e1');
+
+    // An export from before meetingId.
+    const old = state.tasks.t1 as NonNullable<typeof state.tasks.t1>;
+    expect(old).not.toHaveProperty('meetingId');
+    const before = ExportSchema.parse({ exportedAt: T1, tasks: { t1: old } });
+    expect(before.tasks.t1).toEqual(old);
+    const merged = merge(emptySnapshot(), before).state.tasks.t1;
+    expect(merged).toEqual(old);
+    expect(merged?.meetingId ?? null).toBeNull();
   });
 
   it('adds new documents and replaces same ids', () => {

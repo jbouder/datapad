@@ -130,6 +130,12 @@ export interface Task {
   /** Set when the task was made from a note. */
   sourceNoteId?: string;
   /**
+   * An action item from this meeting. Absent on tasks written before it
+   * existed, and on tasks from no meeting: read it as null. Kept when the
+   * task moves to another project; cleared when the meeting is deleted.
+   */
+  meetingId?: string | null;
+  /**
    * Waiting on someone. Absent on documents written before it existed:
    * read it with `blockedOf()`.
    */

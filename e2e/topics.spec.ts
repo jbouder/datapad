@@ -450,19 +450,26 @@ test('Make a task starts from the topic; there is no decision', async ({
   await topicAction(page, 'North ridge', 'Make a task');
   const task = page.getByRole('dialog', { name: 'New task' });
   await expect(task.getByLabel('Title')).toHaveValue('North ridge');
-  await expect(task.getByRole('combobox', { name: 'Project' })).toHaveValue(
-    'Echo Base relocation',
-  );
+  // An action item of the meeting, in its project (#185).
+  await expect(task).toContainText('An action item of Shield review');
+  await expect(task.getByRole('combobox', { name: 'Project' })).toHaveCount(0);
   await task.getByRole('button', { name: 'Add task' }).click();
   await expect(task).toBeHidden();
 
   await expectSaved(page);
   const data = (await (await request.get('/api/export.json')).json()) as {
-    tasks: Record<string, { title: string; projectId: string | null }>;
+    tasks: Record<
+      string,
+      { title: string; projectId: string | null; meetingId?: string | null }
+    >;
     meetings: Stored['meetings'];
   };
   expect(Object.values(data.tasks)).toContainEqual(
-    expect.objectContaining({ title: 'North ridge', projectId: 'p-echo' }),
+    expect.objectContaining({
+      title: 'North ridge',
+      projectId: 'p-echo',
+      meetingId: 'e-1',
+    }),
   );
   // It does not write back to the topic.
   expect(data.meetings['e-1']?.topics).toEqual(TOPICS);

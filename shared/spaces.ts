@@ -136,7 +136,13 @@ export function projectSubtree(
   ) => Object.entries(docs).filter(([, d]) => d.projectId === projectId);
 
   for (const [id, t] of mine(state.tasks)) {
-    out.tasks[id] = t;
+    // An action item keeps its meeting when the meeting comes too (an
+    // action item moved here from another project's meeting does not).
+    const meeting = t.meetingId ? state.meetings[t.meetingId] : undefined;
+    out.tasks[id] =
+      t.meetingId && meeting?.projectId !== projectId
+        ? { ...t, meetingId: null }
+        : t;
     if (t.assignee) people.add(t.assignee);
     const on = blockedOf(t)?.on;
     if (on) people.add(on);
@@ -206,7 +212,8 @@ export function projectSubtree(
  * The source's side of a move: `state` without the documents `subtree`
  * carries away (the project, its tasks, notes, meetings, decisions and
  * log). People and orgs stay: other projects may still need them.
- * Returns every row it deleted, for the Durable Object to write. Pure,
+ * Returns every row it deleted (and any action item it unlinked from a
+ * meeting that went), for the Durable Object to write. Pure,
  * and the counterpart of `merge()` on the target, which is why it is not
  * an op: a move spans two spaces, and an op only ever changes one.
  */
@@ -226,5 +233,16 @@ export function removeSubtree(
     }
     (next as Record<Collection, unknown>)[col] = kept;
   }
+  // Action items left behind (moved to another project) lose the meeting
+  // that went.
+  const gone = new Set(Object.keys(subtree.meetings));
+  let tasks: Snapshot['tasks'] | null = null;
+  for (const t of Object.values(next.tasks)) {
+    if (!t.meetingId || !gone.has(t.meetingId)) continue;
+    tasks ??= { ...next.tasks };
+    tasks[t.id] = { ...t, meetingId: null };
+    changed.push({ col: 'tasks', id: t.id });
+  }
+  if (tasks) next.tasks = tasks;
   return { state: next, changed };
 }

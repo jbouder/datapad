@@ -141,6 +141,11 @@ export const TaskSchema = z.object({
   links: links.default([]),
   order: z.number().finite().default(0),
   sourceNoteId: id.optional(),
+  /**
+   * The meeting it is an action item of. Absent in older exports, and
+   * kept absent so they import unchanged: read it as null.
+   */
+  meetingId: nullableId.optional(),
   /** Absent in older exports; `blockedOf()` reads that as not blocked. */
   blocked: blocked.nullable().optional(),
   createdAt: timestamp,
@@ -621,6 +626,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     assignee: taskFields.assignee.optional(),
     links: taskFields.links.optional(),
     sourceNoteId: id.optional(),
+    /**
+     * An action item of this meeting: its project is the meeting's
+     * (`projectId` is ignored). Logs `Added action item "<title>" to
+     * "<meeting>"`.
+     */
+    meetingId: nullableId.optional(),
   }),
   /** Close (`done: true`) or reopen. Says the outcome, so it is idempotent. */
   z.object({ type: z.literal('toggleTask'), id, done: z.boolean() }),
@@ -721,7 +732,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     id,
     patch: patch(meetingFields),
   }),
-  /** Keeps the meeting's notes. */
+  /** Keeps the meeting's notes, and its action items, unlinked. */
   z.object({ type: z.literal('deleteMeeting'), id }),
 
   /* topics (they live on their meeting) */

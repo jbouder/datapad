@@ -20,7 +20,11 @@ import {
 import { notesOfMeeting } from '#shared/select';
 import type { Meeting, Person } from '#shared/types';
 import { Initials } from '@/components/Initials';
-import { deleteMeetingQuestion } from '@/components/meetings/MeetingForm';
+import { MeetingActionItems } from '@/components/meetings/MeetingActionItems';
+import {
+  actionItemCount,
+  deleteMeetingQuestion,
+} from '@/components/meetings/MeetingForm';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import {
   meetingDraftKey,
@@ -42,9 +46,10 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One meeting, where it is run: the header with its project, day and
  * time, attendees, link and actions (Summarize, Edit in the panel, Carry
- * forward, Delete, which asks first and keeps the notes), the agenda,
- * then Topics on the left and Notes on the right (one column below
- * 820px), and the previous and next meeting of its series at the foot.
+ * forward, Delete, which asks first and keeps the notes and action
+ * items), the agenda, then Topics and Action items on the left and Notes
+ * on the right (one column below 820px), and the previous and next
+ * meeting of its series at the foot.
  */
 export function MeetingPage({ id }: { id: string }) {
   const clock = useClock();
@@ -182,7 +187,11 @@ export function MeetingPage({ id }: { id: string }) {
             className="flex flex-wrap items-center gap-2 bg-muted px-2 py-2"
           >
             <p id="meeting-page-delete" className="flex-1 text-sm">
-              {deleteMeetingQuestion(meeting.title, notes.length)}
+              {deleteMeetingQuestion(
+                meeting.title,
+                notes.length,
+                actionItemCount(state.tasks, meeting.id),
+              )}
             </p>
             <Button
               type="button"
@@ -250,7 +259,10 @@ export function MeetingPage({ id }: { id: string }) {
       </header>
 
       <div className="grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <MeetingTopics meeting={meeting} headingLevel={2} />
+        <div className="flex min-w-0 flex-col gap-6">
+          <MeetingTopics meeting={meeting} headingLevel={2} />
+          <MeetingActionItems meeting={meeting} headingLevel={2} />
+        </div>
         <LinkedNoteList
           notes={notes}
           fields={{ projectId: meeting.projectId, meetingId: meeting.id }}

@@ -2,6 +2,7 @@ import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
+import { tasksOfMeeting } from './select';
 import {
   blockedOf,
   healthOf,
@@ -124,13 +125,14 @@ function noteDay(note: Note): string {
 
 /**
  * A meeting: title, date and times, project, attendees, agenda, its
- * topics in order (`- [x] title — outcome` once covered), and every
- * linked note, oldest first, each labeled `[note]` (a legacy `phase` is
- * not shown).
+ * topics in order (`- [x] title — outcome` once covered), its action
+ * items (open, then done), and every linked note, oldest first, each
+ * labeled `[note]` (a legacy `phase` is not shown).
  */
 export function meetingContext(
   meeting: Meeting,
-  state: Pick<Snapshot, 'projects' | 'people' | 'notes'>,
+  state: Pick<Snapshot, 'projects' | 'people' | 'notes'> &
+    Partial<Pick<Snapshot, 'tasks'>>,
 ): string {
   const attendees = names(state, meeting.attendees);
   const range = timeRange(meeting, '24h');
@@ -151,6 +153,15 @@ export function meetingContext(
           ? `- [x] ${t.title}${t.outcome ? ` — ${t.outcome}` : ''}`
           : `- [ ] ${t.title}`,
       );
+    }
+  }
+
+  const items = tasksOfMeeting(state.tasks ?? {}, meeting.id);
+  if (items.open.length + items.done.length > 0) {
+    lines.push('', 'Action items:');
+    for (const t of [...items.open, ...items.done]) {
+      const line = taskLine(t, state).slice(2);
+      lines.push(`- [${t.status === 'done' ? 'x' : ' '}] ${line}`);
     }
   }
 
@@ -303,16 +314,21 @@ export function projectContext(projectId: string, state: Snapshot): string {
 }
 
 /**
- * A task: its fields, details, link labels, the note it was made from,
- * if any, and its running notes, oldest first (the last 20).
+ * A task: its fields, the meeting it is an action item of, details,
+ * link labels, the note it was made from, if any, and its running notes, oldest first (the last 20).
  */
 export function taskContext(
   task: Task,
-  state: Pick<Snapshot, 'projects' | 'people' | 'notes'>,
+  state: Pick<Snapshot, 'projects' | 'people' | 'notes'> &
+    Partial<Pick<Snapshot, 'meetings'>>,
 ): string {
+  const meeting = task.meetingId ? state.meetings?.[task.meetingId] : undefined;
   const lines = [
     `Task: ${task.title}`,
     `Project: ${projectName(state, task.projectId)}`,
+    ...(meeting
+      ? [`Action item from: ${meeting.title} on ${day(meeting.date)}`]
+      : []),
     `Status: ${task.status}`,
     `Priority: ${PRIORITY_WORDS[task.priority]}`,
     `Due: ${task.due ? day(task.due) : 'none'}`,
