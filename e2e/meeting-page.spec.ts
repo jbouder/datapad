@@ -71,7 +71,7 @@ test('a meeting’s page: its facts, agenda, topics and notes', async ({
   ).toBeVisible();
   const details = main.getByRole('list', { name: 'Details' });
   await expect(details).toContainText(
-    `${formatDay(today, today)} · 14:00–15:00`,
+    `${formatDay(today, today)} · 2:00–3:00 PM`,
   );
   await expect(details).toContainText('Leia Organa');
   await expect(details).toContainText('Han Solo');

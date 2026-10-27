@@ -20,6 +20,7 @@ import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
+import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -37,6 +38,7 @@ import { useToast } from '@/providers/ToastProvider';
  * below 820px). Anywhere else a task opens in its panel.
  */
 export function TaskPage({ id }: { id: string }) {
+  const clock = useClock();
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { summarize } = useSummaries();
@@ -266,11 +268,11 @@ export function TaskPage({ id }: { id: string }) {
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
         <dt>Created</dt>
-        <dd>{formatTimestamp(task.createdAt)}</dd>
+        <dd>{formatTimestamp(task.createdAt, clock)}</dd>
         {task.completedAt && (
           <>
             <dt>Closed</dt>
-            <dd>{formatTimestamp(task.completedAt)}</dd>
+            <dd>{formatTimestamp(task.completedAt, clock)}</dd>
           </>
         )}
       </dl>

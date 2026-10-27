@@ -113,6 +113,28 @@ test.describe('Appearance', () => {
   });
 });
 
+test('Time: 12-hour by default, 24-hour when chosen, remembered', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/meetings/e-1');
+  const details = page.getByRole('list', { name: 'Details' });
+  await expect(details).toContainText('2:00–3:00 PM');
+
+  await page.goto('/settings');
+  const time = page.getByRole('group', { name: 'Time' });
+  await expect(time.getByRole('radio', { name: '12-hour' })).toBeChecked();
+  await time.locator('label', { hasText: '24-hour' }).click();
+  await expect(time.getByRole('radio', { name: '24-hour' })).toBeChecked();
+  await expect(page.getByText('14:30 or 09:05.')).toBeVisible();
+
+  await openLive(page, '/meetings/e-1');
+  await expect(details).toContainText('14:00–15:00');
+  await page.reload();
+  await expect(details).toContainText('14:00–15:00');
+});
+
 test('People: add, mark yourself, edit and remove', async ({
   page,
   request,

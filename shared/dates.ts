@@ -243,11 +243,44 @@ export function relativeTime(timestamp: string, now: Date): string {
   return formatDay(day, today);
 }
 
-/** "Fri 23 Oct 2026, 14:05", for a title or tooltip. */
-export function formatTimestamp(timestamp: string): string {
+/** How times read: "2:05 PM" (the default) or "14:05" (Settings). */
+export type Clock = '12h' | '24h';
+
+/** The two halves of a 12-hour time: "2:05" and "PM". */
+function twelve(hhmm: string): [string, 'AM' | 'PM'] {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return [`${hour}:${String(m).padStart(2, '0')}`, h < 12 ? 'AM' : 'PM'];
+}
+
+/** An `HH:MM` time as the clock reads it: "2:05 PM" or "14:05". */
+export function formatTime(hhmm: string, clock: Clock): string {
+  if (clock === '24h') return hhmm;
+  const [time, half] = twelve(hhmm);
+  return `${time} ${half}`;
+}
+
+/**
+ * A start and end: "2:00–3:00 PM" (one AM/PM when both share it),
+ * "11:30 AM–12:30 PM", or "14:00–15:00"; just the start without an end.
+ */
+export function formatTimeRange(
+  start: string,
+  end: string,
+  clock: Clock,
+): string {
+  if (!end) return formatTime(start, clock);
+  if (clock === '24h') return `${start}–${end}`;
+  const [a, aHalf] = twelve(start);
+  const [b, bHalf] = twelve(end);
+  return aHalf === bHalf ? `${a}–${b} ${bHalf}` : `${a} ${aHalf}–${b} ${bHalf}`;
+}
+
+/** "Fri 23 Oct 2026, 2:05 PM" (or "…, 14:05"), for a title or tooltip. */
+export function formatTimestamp(timestamp: string, clock: Clock): string {
   const when = new Date(timestamp);
   const day = localDate(when);
   const hh = String(when.getHours()).padStart(2, '0');
   const mm = String(when.getMinutes()).padStart(2, '0');
-  return `${formatDay(day, '0000-01-01')}, ${hh}:${mm}`;
+  return `${formatDay(day, '0000-01-01')}, ${formatTime(`${hh}:${mm}`, clock)}`;
 }

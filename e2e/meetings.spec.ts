@@ -46,15 +46,15 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   await form.getByLabel('Time', { exact: true }).fill('930');
   await form.getByLabel('End', { exact: true }).fill('10:15');
   await form.getByLabel('End', { exact: true }).press('Tab');
-  await expect(form.getByLabel('Time', { exact: true })).toHaveValue('09:30');
+  await expect(form.getByLabel('Time', { exact: true })).toHaveValue('9:30 AM');
   await form.locator('label').filter({ hasText: 'Han Solo' }).click();
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
   const added = row(page, 'Hangar walkthrough');
-  await expect(added).toContainText('09:30–10:15');
+  await expect(added).toContainText('9:30–10:15 AM');
 
-  // Edit the time: `2pm` reads as 14:00, and the end must come after.
+  // Edit the time: `2pm` reads as 2:00 PM, and the end must come after.
   await added
     .getByRole('button', { name: 'More for “Hangar walkthrough”' })
     .click();
@@ -66,7 +66,7 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   await edit.getByLabel('End', { exact: true }).fill('3pm');
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(edit).toBeHidden();
-  await expect(added).toContainText('14:00–15:00');
+  await expect(added).toContainText('2:00–3:00 PM');
 
   await expectSaved(page);
   const data = await stored(request);
@@ -80,7 +80,7 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   // On Meetings, under its month, with its project.
   await page.goto('/meetings');
   const there = row(page, 'Hangar walkthrough');
-  await expect(there).toContainText('14:00–15:00');
+  await expect(there).toContainText('2:00–3:00 PM');
   await expect(
     there.getByRole('link', { name: 'Echo Base relocation' }),
   ).toBeVisible();

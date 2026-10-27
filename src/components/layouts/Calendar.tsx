@@ -20,8 +20,10 @@ import { cn } from '@/lib/utils';
 export interface CalendarItem {
   id: string;
   date: DateString;
-  /** `HH:MM` or empty. */
+  /** `HH:MM` or empty; orders a day's items. */
   time?: string;
+  /** The time as shown ("2:00 PM"); `time` when absent. */
+  timeLabel?: string;
   label: string;
   /** A short muted note after the label (a meeting's topics, "1/3"). */
   meta?: ReactNode;
@@ -131,7 +133,9 @@ export function Calendar({
         item.className,
       )}
     >
-      {item.time && <span className="mr-1 tabular-nums">{item.time}</span>}
+      {item.time && (
+        <span className="mr-1 tabular-nums">{item.timeLabel ?? item.time}</span>
+      )}
       {item.label}
       {item.meta && (
         <span className="count ml-1 text-muted-foreground tabular-nums">

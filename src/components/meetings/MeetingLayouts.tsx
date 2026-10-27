@@ -3,6 +3,7 @@ import {
   ChartBarHorizontalIcon,
   RowsIcon,
 } from '@phosphor-icons/react';
+import { formatTime } from '#shared/dates';
 import { topicCount } from '#shared/meetings';
 import {
   type DateString,
@@ -16,6 +17,7 @@ import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingList } from '@/components/meetings/MeetingList';
 import { MeetingRow } from '@/components/meetings/MeetingRow';
+import { useClock } from '@/hooks/useClock';
 import { navigate } from '@/lib/router';
 
 export type MeetingView = 'list' | 'calendar' | 'timeline';
@@ -66,6 +68,7 @@ export function MeetingLayouts({
   empty,
 }: Props) {
   const { newMeeting } = useMeetingForm();
+  const clock = useClock();
   const open = (id: string) => navigate({ name: 'meeting', id });
 
   if (view === 'calendar') {
@@ -78,6 +81,7 @@ export function MeetingLayouts({
           id: e.id,
           date: e.date,
           time: e.time,
+          timeLabel: e.time ? formatTime(e.time, clock) : undefined,
           label: e.title,
           meta: topicMeta(e),
           className: 'bg-muted',
