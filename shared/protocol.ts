@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
 import { migrate } from './migrate';
+import { NAV_SECTIONS } from './nav';
 import {
   type Activity,
   type COLLECTIONS,
@@ -254,8 +255,22 @@ export const ActivitySchema = z.object({
   events: z.array(ActivityEntrySchema).max(LIMITS.activityMax).default([]),
 }) satisfies z.ZodType<Activity, unknown>;
 
+/** Navigation preferences: names are free text here, checked on read. */
+const navName = z.string().max(40);
+const NavExtrasSchema = z.object({
+  activeProjects: z.boolean().optional(),
+  digest: z.boolean().optional(),
+  archived: z.boolean().optional(),
+});
+const NavPrefsSchema = z.object({
+  order: z.array(navName).max(20).optional(),
+  hidden: z.array(navName).max(20).optional(),
+  extras: NavExtrasSchema.optional(),
+});
+
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
+  nav: NavPrefsSchema.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
 
 /** One schema per collection, for imports and `put`. */
@@ -880,6 +895,15 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('setSettings'),
     patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
+  }),
+  /** Navigation preferences; `null` clears a key (all three: the default). */
+  z.object({
+    type: z.literal('setNav'),
+    patch: patch({
+      order: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
+      hidden: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
+      extras: NavExtrasSchema.nullable(),
+    }),
   }),
 ]);
 

@@ -13,6 +13,7 @@ import {
   type Meeting,
   type Milestone,
   milestonesOf,
+  type NavPrefs,
   type Person,
   type Project,
   SETTINGS_ID,
@@ -1004,7 +1005,34 @@ function apply(d: Draft, op: Op, now: string) {
       d.set('settings', SETTINGS_ID, { ...current, ...op.patch });
       return;
     }
+    case 'setNav': {
+      setNav(d, op);
+      return;
+    }
   }
+}
+
+/**
+ * Navigation preferences (not logged). Each key replaces what is stored,
+ * except `extras`, which merges switch by switch; `null` clears a key, and
+ * a nav with nothing left in it goes, so the default nav is no `nav`.
+ */
+function setNav(d: Draft, op: OpOf<'setNav'>) {
+  const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+  const nav: NavPrefs = { ...current.nav };
+  const { order, hidden, extras } = op.patch;
+  if (order === null) delete nav.order;
+  else if (order) nav.order = [...new Set(order)];
+  if (hidden === null) delete nav.hidden;
+  else if (hidden) nav.hidden = [...new Set(hidden)];
+  if (extras === null) delete nav.extras;
+  else if (extras) nav.extras = { ...nav.extras, ...extras };
+  const { nav: _, ...rest } = current;
+  d.set(
+    'settings',
+    SETTINGS_ID,
+    Object.keys(nav).length > 0 ? { ...rest, nav } : rest,
+  );
 }
 
 function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {

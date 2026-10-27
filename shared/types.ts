@@ -336,6 +336,19 @@ export const MAIN_SPACE = 'main';
 export interface Settings {
   /** The org a new project starts with; empty for none. */
   defaultOrg: string;
+  /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
+  nav?: NavPrefs;
+}
+
+/**
+ * Which sections the rail and tab bar show, and in what order, and which
+ * of the rail's extras. Names are kept as stored and checked when read, so
+ * a name from another release is ignored rather than refused.
+ */
+export interface NavPrefs {
+  order?: string[];
+  hidden?: string[];
+  extras?: { activeProjects?: boolean; digest?: boolean; archived?: boolean };
 }
 
 export const SETTINGS_ID = 'user';
