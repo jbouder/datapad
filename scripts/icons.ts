@@ -87,3 +87,35 @@ header.writeUInt32LE(22, 18); // offset of the image
 writeFileSync(resolve(OUT, 'favicon.ico'), Buffer.concat([header, png]));
 
 console.log(`Wrote ${pngs.size} files to public/`);
+
+// The home-screen icons go into the manifest and index.html as data: URLs
+// (#219). Behind Cloudflare Access, a phone that fetches an icon on its
+// own, without the session cookie, gets the sign-in page and draws a
+// letter instead; an embedded icon needs no fetch at all.
+// test/icons.test.ts checks they match the files above.
+const dataUrl = (file: string, type: string) =>
+  `data:${type};base64,${readFileSync(resolve(OUT, file)).toString('base64')}`;
+
+const manifestPath = resolve(OUT, 'site.webmanifest');
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+const ICON_FILES: Record<string, [string, string]> = {
+  '192x192 any': ['icon-192.png', 'image/png'],
+  '512x512 any': ['icon-512.png', 'image/png'],
+  '512x512 maskable': ['icon-maskable-512.png', 'image/png'],
+  'any any': ['favicon.svg', 'image/svg+xml'],
+};
+for (const icon of manifest.icons) {
+  const [file, type] = ICON_FILES[`${icon.sizes} ${icon.purpose}`];
+  icon.src = dataUrl(file, type);
+}
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+const htmlPath = resolve(ROOT, 'index.html');
+writeFileSync(
+  htmlPath,
+  readFileSync(htmlPath, 'utf8').replace(
+    /(<link rel="apple-touch-icon" href=")[^"]*(")/,
+    `$1${dataUrl('apple-touch-icon.png', 'image/png')}$2`,
+  ),
+);
+console.log('Embedded the icons in site.webmanifest and index.html');

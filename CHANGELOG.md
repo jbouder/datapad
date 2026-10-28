@@ -67,6 +67,11 @@ under **Export format**.
   current items stay visible in forced colours (Windows High Contrast).
   docs/accessibility.md is the conformance statement, with every drag's
   keyboard and touch way.
+- **Summaries can be turned off** (#219): Settings → Summaries has an
+  on/off switch, remembered on this device. Off, nothing offers Summarize
+  (task panel and page, note cards, meeting rows and page, project page,
+  digest) and the model is never loaded; Settings still offers to remove
+  weights already downloaded. Help says how to turn it back on.
 - **Notepad** (#218): Notes opens on a Notepad, one running note for the
   space, written in place with the note composer (`/` styles, `@`
   mentions, `/task`) and saved as you type, a second after you stop and
@@ -103,6 +108,17 @@ under **Export format**.
   version; deploy that version again". docs/self-hosting.md has a
   **Rolling back** section: `wrangler rollback`, and what to do across a
   schema bump.
+- **The phone's tab bar stays solid during transitions** (#219): it no
+  longer goes see-through while a page, layout or space change animates;
+  it holds still on top, as does the top bar.
+- **The installed app shows the Datapad icon** (#219), not a letter "D":
+  the home-screen icons are embedded in the manifest and the page, so a
+  phone never has to fetch one past Access. Remove and re-add an icon
+  installed before. The manifest's description says meetings and
+  milestones, not events.
+- **Segmented controls** (layout switcher, Theme and Time, Status,
+  Priority): the selected segment no longer covers the frame's edge, and
+  the dividers are the frame's colour.
 
 ### Security
 

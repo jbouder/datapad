@@ -52,7 +52,7 @@ export function TopBar({
   return (
     <header
       ref={bar}
-      className="sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70"
+      className="vt-topbar sticky top-0 z-30 border-b bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-background/70"
     >
       <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
         <a

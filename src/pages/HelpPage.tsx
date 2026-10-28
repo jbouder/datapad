@@ -359,6 +359,11 @@ export function HelpPage({ section }: { section?: string }) {
           Edge, Safari and Firefox have on most hardware. Stop keeps what it has
           written; Save as note keeps the summary with the item’s project.
         </p>
+        <p className="text-sm">
+          Summaries can be turned off on this device in Settings → Summaries:
+          then nothing offers Summarize and the model is never loaded. Turn the
+          same switch back on to bring Summarize back.
+        </p>
       </Section>
 
       <Section id="spaces">

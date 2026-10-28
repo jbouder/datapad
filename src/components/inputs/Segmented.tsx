@@ -40,7 +40,7 @@ export function Segmented<T extends string>({
       </legend>
       <div
         className={cn(
-          'grid outline -outline-offset-1 outline-input',
+          'grid border border-input',
           wrap &&
             'grid-cols-3 gap-px bg-input sm:grid-cols-(--cols) sm:gap-0 sm:bg-transparent',
         )}
@@ -62,10 +62,10 @@ export function Segmented<T extends string>({
                 : undefined
             }
             className={cn(
-              'press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-2 text-xs has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-8',
+              'press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-2 text-xs has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-7.5',
               wrap
-                ? 'bg-background last:max-sm:col-span-(--span) sm:not-last:border-r'
-                : 'not-last:border-r',
+                ? 'bg-background last:max-sm:col-span-(--span) sm:not-last:border-r sm:not-last:border-input'
+                : 'not-last:border-r not-last:border-input',
             )}
           >
             <input

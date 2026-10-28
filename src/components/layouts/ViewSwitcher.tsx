@@ -75,14 +75,11 @@ export function ViewSwitcher<T extends string>({
   return (
     <fieldset className={cn('flex flex-col', className)}>
       <legend className="sr-only">Layout (press v to cycle)</legend>
-      <div
-        className="flex outline -outline-offset-1 outline-input"
-        title="Layout (v)"
-      >
+      <div className="flex border border-input" title="Layout (v)">
         {views.map(({ id, label, icon: ViewIcon }) => (
           <label
             key={id}
-            className="press relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 px-2.5 text-xs not-last:border-r has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-8"
+            className="press relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 px-2.5 text-xs not-last:border-r not-last:border-input has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-7.5"
           >
             <input
               type="radio"

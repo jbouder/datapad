@@ -24,7 +24,7 @@ export function TabBar({ route }: { route: Route }) {
   return (
     <nav
       aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 desk:hidden"
+      className="vt-tabbar fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 desk:hidden"
     >
       <ul className={cn('grid h-(--tabbar-height)', COLUMNS[items.length])}>
         {items.map(({ route: to, label, icon: Icon }) => {

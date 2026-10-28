@@ -48,6 +48,13 @@ export type Run =
   | { status: 'error'; text: string; message: string };
 
 export interface Summaries {
+  /**
+   * Summaries are on for this device (Settings → Summaries). Off, nothing
+   * offers Summarize and the model is never loaded.
+   */
+  enabled: boolean;
+  /** Turn summaries on or off on this device; off unloads the model. */
+  setEnabled: (on: boolean) => void;
   model: ModelState;
   /** The model the owner picked; remembered on this device. */
   choice: SummaryModel;
@@ -66,6 +73,25 @@ export interface Summaries {
 }
 
 const CHOICE_KEY = 'datapad:summary-model';
+const ENABLED_KEY = 'datapad:summaries';
+
+/** On unless this device turned them off. */
+function storedEnabled(): boolean {
+  try {
+    return localStorage.getItem(ENABLED_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function rememberEnabled(on: boolean) {
+  try {
+    if (on) localStorage.removeItem(ENABLED_KEY);
+    else localStorage.setItem(ENABLED_KEY, 'off');
+  } catch {
+    // Private mode or a full store: the switch still holds for this visit.
+  }
+}
 
 function storedChoice(): SummaryModel {
   try {
@@ -117,6 +143,9 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       : { kind: 'unsupported' },
   );
   const [choice, setChoice] = useState<SummaryModel>(storedChoice);
+  const [enabled, setEnabledState] = useState(storedEnabled);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
   const [session, setSession] = useState<Session | null>(null);
   const [run, setRun] = useState<Run>({ status: 'idle' });
   const engine = useRef<SummaryEngine | null>(null);
@@ -178,7 +207,7 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
   );
 
   const load = useCallback(() => {
-    if (engine.current) return;
+    if (engine.current || !enabledRef.current) return;
     const next = new SummaryEngine(engineFactory());
     engine.current = next;
     setModel({ kind: 'loading', fraction: 0, text: 'Starting…' });
@@ -236,6 +265,7 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const summarize = useCallback((target: SummaryTarget) => {
+    if (!enabledRef.current) return;
     const current = stateRef.current;
     const request = current ? summaryRequest(target, current) : null;
     if (!request) return;
@@ -260,8 +290,25 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     setSession((s) => (s ? { ...s, open: false } : s));
   }, []);
 
+  const setEnabled = useCallback(
+    (on: boolean) => {
+      enabledRef.current = on;
+      setEnabledState(on);
+      rememberEnabled(on);
+      // Off: close any summary and free the GPU. The cache keeps the
+      // weights; Settings offers to remove them.
+      if (!on) {
+        close();
+        unload();
+      }
+    },
+    [close, unload],
+  );
+
   const value = useMemo(
     () => ({
+      enabled,
+      setEnabled,
       model,
       choice,
       summarize,
@@ -271,7 +318,18 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       remove,
       checkCache,
     }),
-    [model, choice, summarize, choose, load, unload, remove, checkCache],
+    [
+      enabled,
+      setEnabled,
+      model,
+      choice,
+      summarize,
+      choose,
+      load,
+      unload,
+      remove,
+      checkCache,
+    ],
   );
 
   return (

@@ -4,6 +4,7 @@ import {
   expectAccessible,
   expectSaved,
   openLive,
+  openNotes,
   SEED,
   test,
 } from './fixtures';
@@ -248,4 +249,115 @@ test('Settings picks the model and removes the download', async ({ page }) => {
   await page.reload();
   await expect(page.getByRole('radio', { name: /Qwen3 4B/ })).toBeChecked();
   await expectAccessible(page);
+});
+
+/**
+ * Every place that offers Summarize, by name: how many it shows on each.
+ * The task panel opens from the project page; a meeting row's is in its
+ * More menu.
+ */
+async function summarizeOffers(page: Page): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  const summarize = page.getByRole('button', {
+    name: 'Summarize',
+    exact: true,
+  });
+
+  await openLive(page, '/projects/p-echo');
+  counts.project = await summarize.count();
+  await page.locator('[data-task-id] [data-task-title]').first().click();
+  const taskPanel = page.getByRole('dialog');
+  await expect(taskPanel).toBeVisible();
+  counts.taskPanel = await taskPanel
+    .getByRole('button', { name: 'Summarize', exact: true })
+    .count();
+  await page.keyboard.press('Escape');
+
+  await openLive(page, '/tasks/t-2');
+  counts.taskPage = await summarize.count();
+
+  await openLive(page, '/meetings/e-1');
+  counts.meetingPage = await summarize.count();
+
+  await openLive(page, '/meetings?view=list');
+  await page
+    .locator('[data-meeting-id]')
+    .filter({ hasText: 'Shield review' })
+    .first()
+    .getByRole('button', { name: 'More for “Shield review”' })
+    .click();
+  await expect(page.getByRole('menuitem').first()).toBeVisible();
+  counts.meetingRow = await page
+    .getByRole('menuitem', { name: 'Summarize' })
+    .count();
+  await page.keyboard.press('Escape');
+
+  // List, with one note open as its full card.
+  await openNotes(page, '', ['n-3']);
+  await expect(
+    page.getByRole('button', { name: 'Edit note' }).first(),
+  ).toBeVisible();
+  counts.notes = await page
+    .getByRole('button', { name: 'Summarize note' })
+    .count();
+
+  await openLive(page, '/digest');
+  counts.digest = await summarize.count();
+  return counts;
+}
+
+test('Settings turns summaries off on this device, and back on', async ({
+  page,
+}) => {
+  await fakeModel(page, ['ok']);
+  const loaded = () =>
+    page.evaluate(
+      () =>
+        (window as { __datapadFakeModel?: { cached?: boolean } })
+          .__datapadFakeModel?.cached === true,
+    );
+
+  // On by default: every place offers it.
+  const on = await summarizeOffers(page);
+  for (const [where, count] of Object.entries(on)) {
+    expect(count, where).toBeGreaterThan(0);
+  }
+
+  await openLive(page, '/settings/summaries');
+  const toggle = page.getByRole('switch', { name: /Summaries/ });
+  await expect(toggle).toBeChecked();
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByText('Off on this device')).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Qwen3/ })).toHaveCount(0);
+  await expectAccessible(page);
+
+  // Remembered on this device; nothing offers Summarize; nothing loads.
+  await page.reload();
+  await expect(
+    page.getByRole('switch', { name: /Summaries/ }),
+  ).not.toBeChecked();
+  const off = await summarizeOffers(page);
+  for (const [where, count] of Object.entries(off)) {
+    expect(count, where).toBe(0);
+  }
+  expect(await loaded()).toBe(false);
+
+  // Help says how to turn them back on.
+  await openLive(page, '/help');
+  await expect(
+    page.getByText('Turn the same switch back on to bring Summarize back.'),
+  ).toBeVisible();
+
+  // Back on: Summarize returns and works.
+  await openLive(page, '/settings/summaries');
+  await page.getByRole('switch', { name: /Summaries/ }).click();
+  await expect(
+    page.getByRole('radio', { name: /Qwen3/ }).first(),
+  ).toBeAttached();
+  const dialog = await summarizeProject(page);
+  await dialog
+    .getByRole('button', { name: 'Download Qwen3 1.7B and summarize' })
+    .click();
+  await expect(dialog.getByText('ok')).toBeVisible();
 });

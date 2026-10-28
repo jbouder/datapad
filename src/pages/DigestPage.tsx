@@ -27,7 +27,7 @@ import { useToast } from '@/providers/ToastProvider';
 export function DigestPage() {
   usePageTitle('Weekly digest');
   const { state, actions } = useDatapad();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { show } = useToast();
   const today = useToday();
   const asked = useQuery().get('to');
@@ -106,14 +106,16 @@ export function DigestPage() {
             <NotePencilIcon />
             Save as note
           </Button>
-          <Button
-            variant="outline"
-            className="press"
-            onClick={() => summarize({ kind: 'digest', toDay })}
-          >
-            <SparkleIcon />
-            Summarize
-          </Button>
+          {summariesOn && (
+            <Button
+              variant="outline"
+              className="press"
+              onClick={() => summarize({ kind: 'digest', toDay })}
+            >
+              <SparkleIcon />
+              Summarize
+            </Button>
+          )}
         </div>
       </div>
       {!state ? (

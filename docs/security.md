@@ -107,6 +107,34 @@ reach the Worker. `test/datapad.test.ts`, `test/backups.test.ts`,
 identity, the wrong method, another origin, a body that is not JSON, an
 unknown space, another user's object.
 
+### The home-screen icon
+
+The icons are static files, and like every other path they are behind
+Access. A phone adding Datapad to its home screen can fetch an icon on its
+own, outside the page and without the session cookie (or after the
+session has ended); that request gets Access's sign-in page, not an
+image, and the phone draws a letter "D" instead (#219).
+
+The fix keeps the rule and changes only the client: nothing a phone
+installs from needs fetching.
+
+- The manifest is linked with `crossorigin="use-credentials"`, so the page
+  fetches it with the Access cookie (without it, the fetch gets the sign-in
+  page).
+- Every icon in `public/site.webmanifest` and the `apple-touch-icon` in
+  `index.html` is embedded as a `data:` URL (a few KB in all; `npm run
+  icons` writes them, and `test/icons.test.ts` checks they match the files
+  in `public/`). The CSP already allows `data:` images.
+
+No path skips `verifyAccess()` for this. If a device still shows a letter
+after a fresh install, an Access **Bypass** application on the icon paths
+is the next step to consider, but it is not enough on its own: the Worker
+checks Access itself and answers 401 to a request without a verified JWT,
+so the icons would still not be served. Making them public would also mean
+the Worker skipping its check for exactly those paths, which changes the
+"Access fails closed" rule in AGENTS.md and needs its own decision and
+test.
+
 ## Spaces
 
 A user's spaces all live in that one object. The space id (`?space=` on

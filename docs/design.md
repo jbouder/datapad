@@ -134,7 +134,10 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
   alike. 192 and 512 (`any`), a 512 `maskable` with the mark inside the
   safe zone, a 180 `apple-touch-icon`, `favicon.ico` (32) and the SVG
   favicon. `og.png` (1200×630) for link previews. `npm run icons`
-  (`scripts/icons.ts`) redraws them all from the mark; commit the output.
+  (`scripts/icons.ts`) redraws them all from the mark and embeds the
+  home-screen ones in the manifest and `index.html` as `data:` URLs, so a
+  phone never has to fetch one past Access (security.md § The home-screen
+  icon); commit the output.
 - `theme-color` has one value per scheme in `index.html` and follows the
   theme picked in the app (`ThemeProvider`). `viewport-fit=cover` with
   safe-area padding on the top bar, the tab bar, panel footers and toasts.

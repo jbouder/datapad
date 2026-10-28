@@ -88,7 +88,7 @@ export function MeetingRow({
     if (composing) composer.current?.focus();
     else setComposing(true);
   };
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { show } = useToast();
   const [confirming, setConfirming] = useState(false);
   const row = useRef<HTMLDivElement>(null);
@@ -220,12 +220,14 @@ export function MeetingRow({
             <DotsThreeIcon weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
-            >
-              <SparkleIcon />
-              Summarize
-            </DropdownMenuItem>
+            {summariesOn && (
+              <DropdownMenuItem
+                onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
+              >
+                <SparkleIcon />
+                Summarize
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={startNote}>
               <NotePencilIcon />
               Add note
