@@ -13,11 +13,14 @@ import type { Bindings } from './env';
  * Object (see worker/index.ts).
  *
  * Local development: with ACCESS_AUD empty *and* DEV_ACCESS_EMAIL set (only
- * ever in .dev.vars) the check is bypassed and that email is used, or the
+ * ever in .dev.vars), on a localhost hostname only (#232), the check is
+ * bypassed and that email is used, or the
  * `x-dev-access-email` header when present (the e2e suite gives each test
  * its own Durable Object that way, and `x-dev-session-seconds` a session
  * that ends soon, to test a socket outliving it). With ACCESS_AUD set there
- * is no bypass; with neither set, everything is refused.
+ * is no bypass; with neither set, or on any other hostname, everything is
+ * refused. The deploy workflow also refuses to ship an empty ACCESS_AUD
+ * (scripts/check-deploy.ts).
  *
  * A verified identity carries when it stops being accepted (`expiresAt`);
  * a socket opened with it is closed after that (#228, docs/security.md).
@@ -54,6 +57,11 @@ const JWKS_TTL_MS = 10 * 60 * 1000;
 const REFETCH_MIN_MS = 30 * 1000;
 /** Clock skew tolerated on `exp` and `nbf`. */
 const LEEWAY_S = 60;
+/**
+ * How long the key fetch may take before the request fails closed (#232):
+ * a slow certs endpoint cannot hold every request open.
+ */
+export const JWKS_TIMEOUT_MS = 5000;
 
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 
@@ -85,6 +93,8 @@ export interface VerifierOptions {
   fetch?: typeof fetch;
   /** Milliseconds since the epoch. */
   now?: () => number;
+  /** How long the key fetch may take; `JWKS_TIMEOUT_MS` by default. */
+  timeoutMs?: number;
 }
 
 export type AccessVerifier = (
@@ -102,6 +112,20 @@ export function teamOrigin(domain: string): string {
 }
 
 /**
+ * Where the dev bypass may answer: this machine only (#232). A deployment
+ * with the bypass misconfigured on a real hostname still refuses.
+ */
+export function isLocalHost(url: string): boolean {
+  const { hostname } = new URL(url);
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]'
+  );
+}
+
+/**
  * A verifier with its own key cache. The Worker uses one per isolate
  * (`verifyAccess` below); tests make their own with a fake fetch and clock.
  */
@@ -110,11 +134,48 @@ export function createAccessVerifier(
 ): AccessVerifier {
   const doFetch = options.fetch ?? ((...args) => fetch(...args));
   const now = options.now ?? Date.now;
+  const timeoutMs = options.timeoutMs ?? JWKS_TIMEOUT_MS;
   const cache = new Map<string, KeySet>();
+  /** One key fetch at a time per origin: concurrent requests share it. */
+  const inflight = new Map<string, Promise<KeySet>>();
   let warned = false;
 
-  async function loadKeys(origin: string): Promise<KeySet> {
-    const response = await doFetch(`${origin}/cdn-cgi/access/certs`);
+  function loadKeys(origin: string): Promise<KeySet> {
+    let pending = inflight.get(origin);
+    if (!pending) {
+      pending = fetchKeysInTime(origin).finally(() => inflight.delete(origin));
+      inflight.set(origin, pending);
+    }
+    return pending;
+  }
+
+  /** `fetchKeys`, failed (and the fetch aborted) after `timeoutMs`. */
+  async function fetchKeysInTime(origin: string): Promise<KeySet> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error('Access certs timed out'));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        fetchKeys(origin, controller.signal),
+        timeout,
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  async function fetchKeys(
+    origin: string,
+    signal: AbortSignal,
+  ): Promise<KeySet> {
+    const response = await doFetch(`${origin}/cdn-cgi/access/certs`, {
+      signal,
+    });
     if (!response.ok) {
       throw new Error(`Access certs answered ${response.status}`);
     }
@@ -155,7 +216,7 @@ export function createAccessVerifier(
 
   function devBypass(request: Request, env: Bindings): AccessIdentity | null {
     const fallback = env.DEV_ACCESS_EMAIL?.trim().toLowerCase() ?? '';
-    if (!fallback) {
+    if (!fallback || !isLocalHost(request.url)) {
       return null;
     }
     if (!warned) {

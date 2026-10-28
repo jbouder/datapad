@@ -51,7 +51,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
   migrations in `ensureTables()`, the space RPCs,
-  its nightly R2 backup alarm), `env.ts` (bindings). `mcp/` is the MCP
+  its nightly R2 backup alarm), `env.ts` (bindings), `log.ts` (request
+  ids from `cf-ray`, the JSON error and security-event lines). `mcp/` is the MCP
   server (#152): `oauth.ts` (the provider per origin, its paths, scopes
   `read`/`write`, token lifetimes), `authorize.ts` + `consent.ts` (the
   consent page behind Access, no script), `server.ts` (`/mcp` after the
@@ -145,8 +146,10 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   the URL.
 - **The dev bypass is dev only.** `DEV_ACCESS_EMAIL` and the
   `x-dev-access-email` header work only while `ACCESS_AUD` is empty _and_
-  `DEV_ACCESS_EMAIL` is set (only ever in `.dev.vars`). Never set
-  `DEV_ACCESS_EMAIL` as a deployed var.
+  `DEV_ACCESS_EMAIL` is set (only ever in `.dev.vars`), on a localhost
+  hostname. Never set `DEV_ACCESS_EMAIL` as a deployed var; the deploy
+  workflow refuses one, and an empty `ACCESS_AUD`
+  (`scripts/check-deploy.ts`).
 - **No credential on a URL.** Sessions are Access cookies; nothing secret
   goes in a path or query string.
 - **Every change is an op through `reduce()`.** Add the op to
