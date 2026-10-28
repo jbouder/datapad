@@ -30,7 +30,8 @@ first deploy, replace them with yours, or blank `ACCESS_AUD` until step 4:
   "ACCESS_TEAM_DOMAIN": "",
   "ACCESS_AUD": "",
   "BACKUP_HOUR": "3",
-  "BACKUP_TIME_ZONE": "America/New_York"
+  "BACKUP_TIME_ZONE": "America/New_York",
+  "BEFORE_COPIES_MAX_DAYS": ""
 }
 ```
 
@@ -56,6 +57,11 @@ When the backup runs is two vars in `wrangler.jsonc`: `BACKUP_HOUR` (0–23,
 default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default
 `America/New_York`). Each user's Durable Object books its own alarm for that
 hour. See [data.md § Backups](data.md#backups) for retention and restoring.
+
+The copies written before an erase, a space's deletion, an import or a
+restore (`before-*.json`) are kept until you delete them. To give them an
+age limit instead, set `BEFORE_COPIES_MAX_DAYS` to a number of days; the
+nightly alarm then deletes older ones. Empty (the default) keeps them all.
 
 ## 3. Deploy the Worker
 
@@ -243,12 +249,14 @@ workflows themselves, on every pull request, on `main` and weekly.
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 3. Settings → Environments → create `production` (add yourself as a
    required reviewer if you want a manual gate).
-4. Settings → Branches (or Rules) → protect `main`: require a pull request
-   and the `check`, `e2e`, `codeql (javascript-typescript)` and
-   `codeql (actions)` status checks. The browser suite runs as four
+4. Settings → Branches (or Rules) → protect `main`: require the `check`
+   and `e2e` status checks. The browser suite runs as four
    `e2e shard n/4` jobs; `e2e` is the one job that passes only when all of
    them do, so require it, not the shards. GitHub only offers a check once
-   it has run.
+   it has run. That is what this repository requires today. Recommended
+   on top: require `codeql (javascript-typescript)` and `codeql (actions)`
+   too, so a CodeQL finding blocks a merge, and require a pull request, so
+   nothing reaches `main` (and so deploys) without one.
 5. Settings → Advanced Security: turn on secret scanning and push
    protection (a push that contains a recognised credential is refused).
 

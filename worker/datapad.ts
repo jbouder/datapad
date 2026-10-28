@@ -197,7 +197,8 @@ const BACKUP_RETRY_MS = [15 * 60_000, 60 * 60_000, 4 * 60 * 60_000];
 const BACKUP_PREFIX = 'datapad-';
 /**
  * The copy kept before a destructive change (`keepCopy`). Outside
- * `BACKUP_PREFIX`, so Settings never lists it and pruning never deletes it.
+ * `BACKUP_PREFIX`, so Settings never lists it and the nightly prune never
+ * deletes it; only the optional age limit does (`pruneKeptCopies`).
  */
 const KEPT_PREFIX = 'before-';
 
@@ -323,14 +324,57 @@ export class DatapadObject extends DurableObject<Bindings> {
         at: object.uploaded.toISOString(),
       });
     }
+    await this.pruneKeptCopies(now);
     return written;
+  }
+
+  /**
+   * `BEFORE_COPIES_MAX_DAYS`, the age limit for the `before-*` copies, in
+   * whole days; null (keep them all, the default) when unset, empty, zero
+   * or not a positive whole number.
+   */
+  private keptCopiesMaxDays(): number | null {
+    const raw = this.env.BEFORE_COPIES_MAX_DAYS?.trim();
+    if (!raw) return null;
+    const days = Number(raw);
+    return Number.isInteger(days) && days > 0 ? days : null;
+  }
+
+  /**
+   * With `BEFORE_COPIES_MAX_DAYS` set, delete every `before-*` copy under
+   * this email uploaded more than that many days before `now`: every
+   * space's folder, a deleted space's too. Only those copies; the nightly
+   * files are `prune()`'s. Off by default, so nothing is deleted.
+   */
+  private async pruneKeptCopies(now: number) {
+    const days = this.keptCopiesMaxDays();
+    if (days === null) return;
+    const cutoff = now - days * 86_400_000;
+    const root = this.backupFolder(MAIN_SPACE);
+    const old: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await this.env.BACKUPS.list({ prefix: root, cursor });
+      for (const o of page.objects) {
+        const name = o.key.slice(o.key.lastIndexOf('/') + 1);
+        if (name.startsWith(KEPT_PREFIX) && o.uploaded.getTime() < cutoff) {
+          old.push(o.key);
+        }
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    // R2 deletes at most 1 000 keys a call.
+    for (let i = 0; i < old.length; i += 1000) {
+      await this.env.BACKUPS.delete(old.slice(i, i + 1000));
+    }
   }
 
   /**
    * Before erase, delete, import or restore change a space wholesale, its
    * export goes to R2 at `<folder>before-<what>-<time>.json`, so a mistake
-   * is never worse than one file to import. Nothing lists or prunes these;
-   * they are kept until the owner deletes them. An empty space has nothing
+   * is never worse than one file to import. Nothing lists these, and they
+   * are kept until the owner deletes them, unless `BEFORE_COPIES_MAX_DAYS`
+   * is set (`pruneKeptCopies()`). An empty space has nothing
    * to keep. Throws when R2 does, and the change then does not happen.
    */
   private async keepCopy(

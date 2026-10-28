@@ -18,6 +18,15 @@ under **Export format**.
 
 ### Added
 
+- **An age limit for the copies kept before a destructive change** (#242):
+  set `BEFORE_COPIES_MAX_DAYS` in `wrangler.jsonc` and the nightly backup
+  deletes `before-*` copies older than that many days, in every space's
+  folder. Off by default: they are kept until you delete them.
+  docs/data.md has a checklist for deleting everything of one email
+  across the object, R2 and KV.
+- **`SECURITY.md`** (#230): what is in scope and how to report a
+  vulnerability privately.
+
 - **The whiteboard without a pointer** (#222): with S, T or R picked,
   Enter places a sticky, text or rectangle in the middle of the view, open
   to type in; Alt+arrow keys resize the selection (Shift: 10); with A

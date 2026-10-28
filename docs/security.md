@@ -4,6 +4,9 @@ Datapad holds one person's working notes about projects, clients and
 colleagues. The goal is simple: nobody but the owner can read or change it,
 and a configuration mistake fails closed.
 
+Found a vulnerability? Report it privately, as
+[SECURITY.md](../SECURITY.md) says, not in a public issue.
+
 ## Threat model
 
 | Threat                                                                                                    | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -13,7 +16,7 @@ and a configuration mistake fails closed.
 | A forged or replayed token                                                                                | RS256 signature checked against the team's published keys; `aud` must be the app's AUD tag, `iss` the team domain, `exp` and `nbf` within 60 seconds of now. Unknown key ids refetch the keys at most every 30 seconds.                                                                                                                                                                                                                                                            |
 | A signed-in user reaching someone else's data                                                             | The Durable Object is named only by the verified email. No URL, header, body or socket message can choose another object; a space id only picks among the user's own spaces. Tests try.                                                                                                                                                                                                                                                                                            |
 | An MCP client reaching data without Access                                                                | Only `/mcp`, `/oauth/token`, `/oauth/register` and `/.well-known/oauth-*` skip the Access check (a Bypass application at the edge, and the Worker sends just those paths to the OAuth provider). `/mcp` admits only an unexpired, unrevoked bearer the provider issued for this origin; a token is issued only after the owner approved the client at `/oauth/authorize`, which is behind Access. See [MCP clients](#mcp-clients).                                                 |
-| A stolen or replayed MCP token                                                                            | Access tokens live an hour, grants 30 days; refresh tokens rotate on use. PKCE (S256) is required, codes work once. Tokens, codes and client secrets are stored in KV only as hashes; the grant's email is encrypted with a key only the token unwraps. Revoking a grant refuses its next call. Each token is held to 60 tool calls a minute.                                                                                                                                      |
+| A stolen or replayed MCP token                                                                            | Access tokens live an hour, grants 30 days; refresh tokens rotate on use, and the one replaced stays valid until the new one is first used. PKCE (S256) is required, codes work once. Tokens, codes and client secrets are stored in KV only as hashes; the grant's email is encrypted with a key only the token unwraps, though KV key names carry it URL-encoded. Revoking a grant refuses its next call. Each token is held to 60 tool calls a minute.                          |
 | A malicious app registering itself as a known client                                                      | The consent page says a registered name is unverified, shows the host the tokens go to and warns when it is a local app; nothing is granted without the owner's Allow, behind Access. The form's handle works once, for ten minutes, in the browser holding its `__Host-` cookie, and a cross-site post is refused.                                                                                                                                                                |
 | The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored). With `ACCESS_AUD` set the bypass code path does not run. The Worker logs a loud warning whenever the bypass is active.                                                                                                                                                                                                                                  |
 | Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and a Markdown renderer that emits no raw HTML. A document's links (a project's, task's, org's, a meeting's) become links only for `https:`, `http:` and `mailto:`, as in Markdown; a `javascript:` one from an import or an MCP client is shown as text.                                                                                                                                       |
@@ -102,10 +105,10 @@ unknown one is 404.
 | everything else                           | GET       | Access             | The built app (static assets); unknown paths get `index.html`                                                                                                                                                                      |
 
 Access's own `/cdn-cgi/access/*` paths are answered at the edge and never
-reach the Worker. `test/datapad.test.ts`, `test/backups.test.ts`,
-`test/spaces.test.ts` and `test/mcp.test.ts` try each row's refusals: no
-identity, the wrong method, another origin, a body that is not JSON, an
-unknown space, another user's object.
+reach the Worker. `test/datapad.test.ts`, `test/backups.test.ts` and
+`test/mcp.test.ts` try each row's refusals: no identity, the wrong method,
+another origin, a body that is not JSON, an unknown space, another user's
+object.
 
 ### The home-screen icon
 
@@ -218,7 +221,8 @@ The copy is written before the change and the change waits for it: if R2
 refuses, nothing is erased, deleted or merged and the call fails
 (`test/backups.test.ts`). An empty space writes no copy. The copies are
 outside the names the app lists and the nightly prune deletes, so they stay
-until the owner deletes them. Restore one by hand like any backup
+until the owner deletes them, or until an optional age limit
+(`BEFORE_COPIES_MAX_DAYS`, off by default) ages them out. Restore one by hand like any backup
 ([data.md](data.md#backups)).
 
 Over MCP none of these exist: no tool deletes, archives, erases, imports,
@@ -241,6 +245,8 @@ refuses the whole change otherwise.
   readable only by its members.
 - **R2**: the backup keys start with the email (`<email>/…`), in the
   owner's private bucket.
+- **KV**: the `OAUTH_KV` key names of grants and tokens carry the email,
+  URL-encoded (`grant:you%40example.com:…`), in the owner's account.
 
 ## Transport and headers
 
@@ -295,9 +301,13 @@ Worker and before these headers.
   `pull_request_target`, so a fork's PR runs with a read-only token and no
   secrets.
 - **Code scanning.** CodeQL (security-extended) over the TypeScript and the
-  workflows, on every PR, on `main` and weekly; its two checks are among
-  `main`'s required checks (docs/self-hosting.md). An alert is fixed, or
+  workflows, on every PR, on `main` and weekly. An alert is fixed, or
   dismissed with the reason it cannot happen (the review below lists them).
+- **Branch protection.** `main` requires the `check` and `e2e` checks
+  (Biome, types, build, Vitest, `bun audit`, Playwright + axe) and refuses
+  force pushes and deletion. CodeQL's two checks are not required yet, and
+  neither is a pull request; both are recommended
+  ([self-hosting.md](self-hosting.md#deploy-from-github-actions)).
 - **Secrets.** GitHub secret scanning and push protection are on. `.dev.vars`
   is ignored by git, and the repository holds no real data (AGENTS.md).
 
