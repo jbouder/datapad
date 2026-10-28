@@ -91,10 +91,8 @@ function useImportExportState() {
 
   const failed = useCallback(
     (error: unknown, fallback: string) => {
-      if (error instanceof SignedOutError) {
-        window.location.reload();
-        return;
-      }
+      // Signed out: the app shows "Sign in again" in place of everything.
+      if (error instanceof SignedOutError) return;
       show(error instanceof Error && error.message ? error.message : fallback);
     },
     [show],
@@ -105,7 +103,7 @@ function useImportExportState() {
     try {
       text = await fetchExport(space);
     } catch (error) {
-      failed(error, 'Export failed. Try again.');
+      failed(error, 'Could not export. Try again.');
       return;
     }
     const name = `datapad-${localDate(new Date())}.json`;
@@ -117,7 +115,7 @@ function useImportExportState() {
         await navigator.clipboard.writeText(text);
         show('Could not save a file, so the export is on your clipboard');
       } catch {
-        show('Export failed: no download and no clipboard here');
+        show('Could not export: this browser can neither download nor copy.');
       }
     }
   }, [space, failed, show]);

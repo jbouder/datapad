@@ -338,6 +338,50 @@ describe('Worker routes', () => {
     expect(await response.json()).toEqual({ email: 'leia@example.com' });
   });
 
+  it('answers /api/health with reachability and nothing else', async () => {
+    const response = await as('leia@example.com')(
+      new Request('http://datapad.test/api/health'),
+      bindings,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({ ok: true });
+
+    const post = await as('leia@example.com')(
+      new Request('http://datapad.test/api/health', { method: 'POST' }),
+      bindings,
+    );
+    expect(post.status).toBe(405);
+
+    // Signed out is 401, like every route: how the app tells a lapsed
+    // session from a dropped socket.
+    const signedOut = await as(null)(
+      new Request('http://datapad.test/api/health'),
+      bindings,
+    );
+    expect(signedOut.status).toBe(401);
+  });
+
+  it('answers /api/health with 503 when the object cannot be reached', async () => {
+    const down = {
+      ...bindings,
+      DATAPAD: {
+        getByName: () => ({
+          ping: () => Promise.reject(new Error('no object')),
+        }),
+      },
+    } as unknown as Bindings;
+    const response = await as('leia@example.com')(
+      new Request('http://datapad.test/api/health'),
+      down,
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: 'Datapad is not reachable',
+    });
+  });
+
   it('answers unknown API paths with 404 JSON', async () => {
     const response = await as('leia@example.com')(
       new Request('http://datapad.test/api/nope'),

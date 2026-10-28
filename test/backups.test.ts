@@ -144,6 +144,81 @@ describe('nightly backups', () => {
   });
 });
 
+/** Make this object's R2 puts throw until `restore()` is called. */
+async function breakR2(stub: DurableObjectStub<DatapadObject>) {
+  await runInDurableObject(stub, (o: DatapadObject) => {
+    const own = o as unknown as { env: Bindings };
+    const real = own.env.BACKUPS;
+    own.env = {
+      ...own.env,
+      BACKUPS: new Proxy(real, {
+        get: (target, key) =>
+          key === 'put'
+            ? () => Promise.reject(new Error('R2 is down'))
+            : Reflect.get(target, key).bind(target),
+      }),
+    };
+  });
+  return () =>
+    runInDurableObject(stub, (o: DatapadObject) => {
+      const own = o as unknown as { env: Bindings };
+      own.env = { ...own.env, BACKUPS: bindings.BACKUPS };
+    });
+}
+
+function alarmAt(stub: DurableObjectStub<DatapadObject>) {
+  return runInDurableObject(stub, (_o, state) => state.storage.getAlarm());
+}
+
+describe('a failed backup', () => {
+  it('is retried after 15 minutes, an hour and four hours, then the next night', async () => {
+    const { email, stub } = await seeded();
+    const restore = await breakR2(stub);
+    const night = await alarmAt(stub);
+    const waits: number[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const before = Date.now();
+      expect(await runDurableObjectAlarm(stub)).toBe(true);
+      waits.push(((await alarmAt(stub)) ?? 0) - before);
+    }
+    const minutes = waits.map((w) => Math.round(w / 60_000));
+    // Each retry is capped at the next night, which may come first; the
+    // fourth failure waits for it.
+    const cap = Math.round(((night ?? 0) - Date.now()) / 60_000);
+    expect(minutes).toEqual([15, 60, 240, cap].map((m) => Math.min(m, cap)));
+    expect(await keys(email)).toEqual([]);
+    await restore();
+  });
+
+  it('shows in the list until a backup succeeds', async () => {
+    const { email, stub } = await seeded();
+    const night = await alarmAt(stub);
+    const restore = await breakR2(stub);
+    const before = Date.now();
+    await runDurableObjectAlarm(stub);
+    const failed = await stub.backups(MAIN_SPACE);
+    expect(failed.backups).toEqual([]);
+    expect(Date.parse(failed.failedAt ?? '')).toBeGreaterThanOrEqual(before);
+
+    // Over the route too: the time, never the error.
+    const response = await as(email)(
+      new Request('http://datapad.test/api/backups'),
+      bindings,
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.failedAt).toBe(failed.failedAt);
+    expect(JSON.stringify(body)).not.toContain('R2 is down');
+
+    await restore();
+    await runDurableObjectAlarm(stub);
+    const ok = await stub.backups(MAIN_SPACE);
+    expect(ok.backups).toHaveLength(1);
+    expect(ok.failedAt).toBeUndefined();
+    // Back on the nightly schedule.
+    expect(await alarmAt(stub)).toBe(night);
+  });
+});
+
 describe('backup routes', () => {
   it('lists, downloads and restores, by the signed-in email only', async () => {
     const { email, stub } = await seeded();

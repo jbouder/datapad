@@ -537,6 +537,11 @@ export interface BackupList {
   /** When they run: the local hour (0–23) in this IANA zone. */
   hour: number;
   timeZone: string;
+  /**
+   * When the last backup failed, ISO 8601, while none has succeeded since.
+   * It is retried on its own.
+   */
+  failedAt?: string;
 }
 
 export type Counts = Record<(typeof COLLECTIONS)[number], number>;

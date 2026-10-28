@@ -20,8 +20,9 @@ import {
 import { OpError, reduce } from '#shared/reducer';
 import { orderedSpaces } from '#shared/spaces';
 import { emptySnapshot, type Snapshot, type SpaceInfo } from '#shared/types';
-import { fetchSpaces, socketUrl } from '@/lib/api';
+import { fetchSpaces, probeSession, socketUrl } from '@/lib/api';
 import { newId } from '@/lib/ids';
+import { isSignedOut } from '@/lib/session';
 import { keyFor } from '@/lib/spaces';
 
 /**
@@ -307,7 +308,7 @@ export function useDatapadConnection(
     };
 
     const connect = () => {
-      if (canceled) return;
+      if (canceled || isSignedOut()) return;
       window.clearTimeout(reconnectTimer);
       const ws = new WebSocket(socketUrl(space));
       socket.current = ws;
@@ -426,6 +427,10 @@ export function useDatapadConnection(
         attempts += 1;
         const delay = Math.min(MAX_BACKOFF_MS, 500 * 2 ** (attempts - 1));
         reconnectTimer = window.setTimeout(connect, delay);
+        // The Access session may have ended, which a socket cannot tell
+        // (its upgrade just fails). If so the app says "Sign in again" and
+        // `connect` stands down; if not, the retry above goes ahead.
+        void probeSession();
       });
     };
 

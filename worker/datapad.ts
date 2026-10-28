@@ -159,8 +159,20 @@ const MIGRATED = ['projects', 'notes', 'events', 'meetings'] as const;
 /** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
-/** When the last backup ran, in ms. */
+/**
+ * When the last backup ran, in ms: set as it starts, so a failed one is
+ * retried by the alarm (below), not by every connection.
+ */
 const LAST_BACKUP = 'last_backup';
+/** When the last backup failed, in ms; cleared when one succeeds. */
+const BACKUP_FAILED = 'backup_failed';
+/** Retries since the night's backup failed. */
+const BACKUP_RETRIES = 'backup_retries';
+/**
+ * After a failed backup, try again this long after each failure, then
+ * wait for the next night.
+ */
+const BACKUP_RETRY_MS = [15 * 60_000, 60 * 60_000, 4 * 60 * 60_000];
 
 const BACKUP_PREFIX = 'datapad-';
 
@@ -290,29 +302,74 @@ export class DatapadObject extends DurableObject<Bindings> {
   private async catchUp(now = Date.now()) {
     const last = Number(this.meta(LAST_BACKUP) ?? 0);
     const due = lastDailyAt(now, this.backupZone(), this.backupHour());
-    if (last < due) await this.backup(now);
-    if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(this.nextBackupAt(now));
+    const next =
+      last < due ? await this.attemptBackup(now) : this.nextBackupAt(now);
+    const booked = await this.ctx.storage.getAlarm();
+    if (booked === null || next < booked) {
+      await this.ctx.storage.setAlarm(next);
     }
   }
 
   async alarm() {
     const now = Date.now();
+    let next = this.nextBackupAt(now);
     try {
-      await this.backup(now);
+      next = await this.attemptBackup(now);
     } finally {
-      // Always book the next night, even when this one failed.
-      await this.ctx.storage.setAlarm(this.nextBackupAt(now));
+      // Always book the next run, even when this one failed.
+      await this.ctx.storage.setAlarm(next);
+    }
+  }
+
+  /**
+   * Back up, and remember how it went. A failure is logged, shown in
+   * Settings → Backups (`failedAt`) and retried after 15 minutes, an hour
+   * and four hours, then on the next night. Returns when to run next.
+   */
+  private async attemptBackup(now: number): Promise<number> {
+    const night = this.nextBackupAt(now);
+    try {
+      const written = await this.backup(now);
+      this.deleteMeta(BACKUP_FAILED);
+      this.deleteMeta(BACKUP_RETRIES);
+      console.log(
+        JSON.stringify({
+          level: 'info',
+          what: 'backup',
+          spaces: written.length,
+          bytes: written.reduce((n, b) => n + b.bytes, 0),
+        }),
+      );
+      return night;
+    } catch (error) {
+      // Retries count from tonight's run: a new night starts again.
+      const since = lastDailyAt(now, this.backupZone(), this.backupHour());
+      const failed = Number(this.meta(BACKUP_FAILED) ?? 0);
+      const retries =
+        failed >= since ? Number(this.meta(BACKUP_RETRIES) ?? 0) : 0;
+      this.setMeta(BACKUP_FAILED, String(now));
+      this.setMeta(BACKUP_RETRIES, String(retries + 1));
+      const wait = BACKUP_RETRY_MS[retries];
+      const next = wait === undefined ? night : Math.min(now + wait, night);
+      logBackupError(error, next);
+      return next;
     }
   }
 
   /** A space's backups and when they run, for Settings → Data. */
   async backups(space: string): Promise<BackupList> {
+    const failed = this.meta(BACKUP_FAILED);
     return {
       backups: await this.listBackups(space),
       hour: this.backupHour(),
       timeZone: this.backupZone(),
+      ...(failed ? { failedAt: new Date(Number(failed)).toISOString() } : {}),
     };
+  }
+
+  /** For `GET /api/health`: the object is up and its storage opened. */
+  async ping(): Promise<true> {
+    return true;
   }
 
   /**
@@ -584,6 +641,10 @@ export class DatapadObject extends DurableObject<Bindings> {
     return this.ctx.storage.sql
       .exec<{ value: string }>('SELECT value FROM meta WHERE key = ?', key)
       .toArray()[0]?.value;
+  }
+
+  private deleteMeta(key: string) {
+    this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', key);
   }
 
   private setMeta(key: string, value: string) {
@@ -1374,12 +1435,13 @@ function countRows(state: Snapshot): number {
   return COLLECTIONS.reduce((n, col) => n + Object.keys(state[col]).length, 0);
 }
 
-function logBackupError(error: unknown) {
+function logBackupError(error: unknown, retryAt?: number) {
   console.error(
     JSON.stringify({
       level: 'error',
       what: 'backup',
       error: error instanceof Error ? error.message : String(error),
+      ...(retryAt ? { retryAt: new Date(retryAt).toISOString() } : {}),
     }),
   );
 }

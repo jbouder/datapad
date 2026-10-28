@@ -1,5 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { QuickAddAction } from '#shared/nav';
+import {
+  CrashForTests,
+  ErrorBoundary,
+  PageError,
+} from '@/components/ErrorBoundary';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
@@ -196,7 +201,15 @@ export function AppShell() {
               : 'px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6',
           )}
         >
-          <Page route={route} />
+          {/* A page that throws shows "Reload this view" in its place; the
+              key above resets it on the next page. */}
+          <ErrorBoundary
+            where="page"
+            fallback={(reset) => <PageError reset={reset} />}
+          >
+            <Page route={route} />
+            {__DEV_ROUTES__ && <CrashForTests where="page" />}
+          </ErrorBoundary>
         </main>
       </div>
       <TabBar route={route} />

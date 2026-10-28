@@ -32,6 +32,9 @@ test('lists the backup, then counts, confirms and restores it', async ({
   await expect(list.getByRole('listitem')).toHaveCount(1);
   await expect(page.getByText(/Every night at 3:00 AM E[SD]T/)).toBeVisible();
   await expect(
+    page.getByText(/^Last backup: (just now|\d+ min ago)\.$/),
+  ).toBeVisible();
+  await expect(
     list.getByRole('link', { name: /^Download the backup of / }),
   ).toHaveAttribute('href', /^\/api\/backups\/\d{4}-\d{2}-\d{2}\.json$/);
   await expectNoSidewaysScroll(page);
@@ -50,4 +53,39 @@ test('says so when there are none yet', async ({ page }) => {
   await expect(
     page.getByText('No backups yet. The first one runs tonight.'),
   ).toBeVisible();
+});
+
+test('a failed backup, and an overdue one, show in warn', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  const hoursAgo = (h: number) =>
+    new Date(Date.now() - h * 60 * 60_000).toISOString();
+  const day = (at: string) => at.slice(0, 10);
+  // What the object answers after nights that went wrong: an R2 outage
+  // cannot be staged against the local bucket, so the list is routed.
+  let list: object = {};
+  await page.route('**/api/backups', (route) => route.fulfill({ json: list }));
+  const old = hoursAgo(80);
+  list = {
+    backups: [{ day: day(old), bytes: 2048, at: old }],
+    hour: 3,
+    timeZone: 'America/New_York',
+    failedAt: hoursAgo(2),
+  };
+  await openLive(page, '/settings/data');
+  const failed = page.getByText(
+    /^Last backup: .+\. The latest attempt failed 2 h ago and is retried on its own\.$/,
+  );
+  await expect(failed).toBeVisible();
+  await expect(failed).toHaveClass(/text-warn/);
+  await expectAccessible(page);
+
+  // No failure on record, but nothing for three days: still worth a look.
+  list = { ...list, failedAt: undefined };
+  await page.reload();
+  const overdue = page.getByText(/^Last backup: [^.]+\.$/);
+  await expect(overdue).toBeVisible();
+  await expect(overdue).toHaveClass(/text-warn/);
 });

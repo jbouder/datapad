@@ -19,6 +19,8 @@ interface FakeModel {
   cached?: boolean;
   /** The last request it was sent, for a spec to read what it was shown. */
   lastRequest?: unknown;
+  /** Loading fails with this message, as a download or GPU error would. */
+  failLoad?: string;
 }
 
 function fakeModel(): FakeModel | undefined {
@@ -75,6 +77,7 @@ const webLlm: EngineFactory = async (modelId, onProgress) => {
 /** A scripted engine for the e2e build: streams its chunks, honors Stop. */
 function scripted(fake: FakeModel): EngineFactory {
   return async (_modelId, onProgress) => {
+    if (fake.failLoad) throw new Error(fake.failLoad);
     onProgress({ fraction: 1, text: 'Loaded the test model' });
     fake.cached = true;
     let interrupted = false;

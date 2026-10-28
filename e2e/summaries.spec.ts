@@ -159,6 +159,35 @@ test('streams a summary, copies it and saves it as a note', async ({
   await expect(second.getByText('Shields due soon')).toBeVisible();
 });
 
+test('a failed download says why and can be tried again', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as { __datapadFakeModel?: unknown }).__datapadFakeModel = {
+      chunks: ['Back on track.'],
+      failLoad: 'Failed to fetch',
+    };
+  });
+  const dialog = await summarizeProject(page);
+  await dialog
+    .getByRole('button', { name: 'Download Qwen3 1.7B and summarize' })
+    .click();
+  await expect(dialog).toContainText(
+    'The download failed. Check the connection, or try another model.',
+  );
+  await expect(
+    dialog.getByRole('button', { name: 'Pick another model' }),
+  ).toBeVisible();
+  await expectAccessible(page);
+
+  // The connection is back: Try again loads and summarizes.
+  await page.evaluate(() => {
+    const fake = (window as { __datapadFakeModel?: { failLoad?: string } })
+      .__datapadFakeModel;
+    if (fake) delete fake.failLoad;
+  });
+  await dialog.getByRole('button', { name: 'Try again' }).click();
+  await expect(dialog.getByText('Back on track.')).toBeVisible();
+});
+
 test('Stop keeps what was written and says Stopped.', async ({ page }) => {
   await fakeModel(
     page,

@@ -1,0 +1,165 @@
+import type { Page, WebSocketRoute } from '@playwright/test';
+import {
+  expect,
+  expectAccessible,
+  expectSaved,
+  openLive,
+  SEED,
+  syncStatus,
+  test,
+} from './fixtures';
+
+/**
+ * What the owner sees when something fails (#58; the table in
+ * docs/architecture.md → Failures lists every path and its test). The
+ * socket drop and offline queue are in sync.spec.ts, an invalid import in
+ * data.spec.ts, a failed summary in summaries.spec.ts and a failed backup
+ * in backups.spec.ts.
+ */
+
+test.beforeEach(async ({ request }) => {
+  await request.post('/api/import', { data: SEED });
+});
+
+/** Tell a dev-build boundary's `CrashForTests` to throw. */
+async function crash(page: Page, where: 'page' | 'app') {
+  await page.evaluate(
+    (detail) =>
+      window.dispatchEvent(new CustomEvent('datapad:crash', { detail })),
+    where,
+  );
+}
+
+test('a refused change says which one and why, and is dropped', async ({
+  page,
+}) => {
+  // Stand in for the object refusing one op, as it does one too large or
+  // one that no longer applies; everything else goes through.
+  await page.routeWebSocket('**/ws', (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => {
+      const text = String(message);
+      if (text.includes('Smuggle the spice')) {
+        const { opId } = JSON.parse(text) as { opId: string };
+        ws.send(
+          JSON.stringify({
+            type: 'rejected',
+            opId,
+            reason: 'That change is too large to save',
+          }),
+        );
+        return;
+      }
+      server.send(message);
+    });
+  });
+  await openLive(page);
+  const input = page.getByRole('textbox', { name: 'Add a task' });
+  await input.fill('Smuggle the spice');
+  await input.press('Enter');
+  await expect(page.locator('output.toast')).toContainText(
+    'Not saved: add task “Smuggle the spice”. That change is too large to save',
+  );
+  await expectSaved(page);
+  // Gone from the page (the toast still names it).
+  await expect(
+    page.locator('#main').getByText('Smuggle the spice'),
+  ).toHaveCount(0);
+});
+
+test('a call that gets no answer says so in words', async ({ page }) => {
+  await openLive(page, '/settings/data');
+  await page.route('**/api/export.json', (route) => route.abort('failed'));
+  await page.getByRole('button', { name: 'Export' }).click();
+  await expect(page.locator('output.toast')).toContainText(
+    'Could not reach Datapad. Check the connection and try again.',
+  );
+});
+
+test('an ended session shows Sign in again, and signing in comes back', async ({
+  page,
+}) => {
+  let signedOut = false;
+  let live: WebSocketRoute | null = null;
+  await page.routeWebSocket('**/ws', (ws) => {
+    if (signedOut) {
+      ws.close();
+      return;
+    }
+    live = ws;
+    ws.connectToServer();
+  });
+  // Access answers a lapsed session with a redirect to its login on its
+  // own origin; the Worker, in dev, with 401. Either reads as signed out.
+  await page.route('**/api/health', (route) =>
+    signedOut
+      ? route.fulfill({
+          status: 302,
+          headers: {
+            location: 'https://team.cloudflareaccess.com/cdn-cgi/access/login',
+          },
+        })
+      : route.fallback(),
+  );
+  await openLive(page);
+
+  signedOut = true;
+  await (live as WebSocketRoute | null)?.close();
+  const heading = page.getByRole('heading', {
+    level: 1,
+    name: 'Sign in again',
+  });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expect(page.getByRole('navigation', { name: 'Sections' })).toHaveCount(
+    0,
+  );
+  await expectAccessible(page);
+
+  // Access lets them back in: the reload lands in the app, live.
+  signedOut = false;
+  await page.getByRole('button', { name: 'Sign in again' }).click();
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+  await expect(heading).toHaveCount(0);
+});
+
+test('a page that throws can be reloaded, and keeps a note being written', async ({
+  page,
+}) => {
+  await openLive(page, '/dev/components');
+  const composer = page.getByRole('combobox', { name: 'Composer' });
+  await composer.click();
+  await page.keyboard.type('half a thought');
+
+  await crash(page, 'page');
+  const heading = page.getByRole('heading', {
+    level: 1,
+    name: 'This view stopped working',
+  });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expect(composer).toHaveCount(0);
+  // Only the page went: the sync status and navigation are still there.
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Reload this view' }).click();
+  await expect(heading).toHaveCount(0);
+  await expect(composer).toHaveValue('half a thought');
+});
+
+test('the app that throws offers a reload', async ({ page }) => {
+  await openLive(page);
+  await crash(page, 'app');
+  const heading = page.getByRole('heading', {
+    level: 1,
+    name: 'Datapad stopped working',
+  });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Reload Datapad' }).click();
+  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
+  await expect(heading).toHaveCount(0);
+});

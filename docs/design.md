@@ -158,6 +158,27 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
 - Empty states say what is missing and what to do next.
 - Errors say what happened and what to try, in one line.
 
+### Messages when something fails
+
+One vocabulary for toasts and inline errors, so a failure always reads
+the same way:
+- **Could not … .** An action the owner took did not happen: "Could not
+  export. Try again.", "Could not revoke Claude. Try again.", "Could not
+  copy. Select the text instead." The second sentence is the way forward.
+- **Not saved: … .** A change the server refused, named, with its reason
+  ("Not saved: add task “Draft the brief”. That change is too large to save").
+  It can arrive after a reconnect, so it always says which change.
+- **Could not reach Datapad. Check the connection and try again.** Any call
+  that got no answer. Never the browser's own "Failed to fetch".
+- **Offline** (the sync status, in `warn`), never a toast: changes queue and
+  replay on their own.
+- **Sign in again**: the Access session ended. A whole screen, not a
+  toast; waiting changes and drafts are kept.
+- **This view stopped working**: a page threw. "Reload this view" mounts
+  it again; the rail and top bar stay.
+- In `warn`, not a toast, for something to look at that fixes itself:
+  "Last backup: Sun 25 Oct." in Settings → Backups.
+
 ## Motion
 
 Holocron's rules, in `AGENTS.md`. View transition types: `page` (route
