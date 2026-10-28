@@ -213,8 +213,11 @@ the AUD, so a hostname that Access does not cover gets 401.
 `.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
 type check, build, Vitest in workerd, then Playwright + axe (desktop and
 phone) against `vite preview`, split across four runners on the Playwright
-container image. `.github/workflows/deploy.yml` deploys `main`
-after a green CI run.
+container image. The `check` job also runs `bun audit` and fails on a
+known advisory of moderate severity or above. `.github/workflows/codeql.yml`
+runs CodeQL (security-extended queries) over the TypeScript and over the
+workflows themselves, on every pull request, on `main` and weekly.
+`.github/workflows/deploy.yml` deploys `main` after a green CI run.
 1. Create an API token from the **Edit Cloudflare Workers** template (it
    includes Workers KV Storage, which the first deploy needs to create
    `OAUTH_KV`).
@@ -223,10 +226,13 @@ after a green CI run.
 3. Settings → Environments → create `production` (add yourself as a
    required reviewer if you want a manual gate).
 4. Settings → Branches (or Rules) → protect `main`: require a pull request
-   and the `check` and `e2e` status checks. The browser suite runs as four
+   and the `check`, `e2e`, `codeql (javascript-typescript)` and
+   `codeql (actions)` status checks. The browser suite runs as four
    `e2e shard n/4` jobs; `e2e` is the one job that passes only when all of
    them do, so require it, not the shards. GitHub only offers a check once
    it has run.
+5. Settings → Advanced Security: turn on secret scanning and push
+   protection (a push that contains a recognised credential is refused).
 
 Without the secret the deploy job is skipped and the run stays green, so
 forks and fresh clones are safe.
@@ -253,7 +259,25 @@ useless. To turn previews on later:
 
 Dependabot opens grouped monthly pull requests for npm packages (via bun)
 and GitHub Actions, labeled `dependencies`. They run CI like any other PR
-and never deploy until merged.
+and never deploy until merged. The policy:
+- **Minors and patches** arrive as one grouped PR. Merge it once CI is
+  green.
+- **Majors** arrive one PR each. Review them by hand: read the release
+  notes, run the app (`npm run dev`) and the full `npm run e2e`, and
+  update the code and docs that the change touches in the same PR.
+- **Actions** are pinned to a commit SHA with a `# vX.Y.Z` comment, and
+  Dependabot moves both together. `test/workflows.test.ts` fails on any
+  `uses:` that is not pinned that way, on one action pinned to two
+  versions, and on `pull_request_target`. To add an action, resolve its
+  tag with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+- **Advisories.** `bun audit --audit-level=moderate` in CI fails on any
+  known advisory in the installed packages, moderate and up, including
+  ones published after the lockfile last changed. Fix it with an update,
+  or, for a package only a dependency pulls in, an `overrides` entry in
+  `package.json` (as `undici` and `zod` have now). If no fixed release
+  exists yet, skip that one advisory with `--ignore=GHSA-…` in `ci.yml`
+  and a comment saying why, and remove it once a fix ships. Low-severity
+  advisories are reported but do not fail CI.
 
 ## Local development
 
