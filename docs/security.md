@@ -109,6 +109,26 @@ Static assets get `public/_headers`:
   data:`; `manifest-src 'self'`; `object-src 'none'`; `base-uri 'none'`;
   `form-action 'self'`; `frame-ancestors 'none'`.
 
+## Supply chain
+
+- **Dependencies.** `bun install --frozen-lockfile` everywhere, so CI and
+  deploys install exactly `bun.lock`. `bun audit --audit-level=moderate`
+  runs in CI's `check` job. Dependabot proposes updates monthly; majors are
+  reviewed by hand (docs/self-hosting.md → Dependency updates). The Worker
+  bundle carries only the runtime dependencies it imports (zod, the OAuth
+  provider); everything else is build and test tooling.
+- **Workflows.** Every action is pinned to a commit SHA
+  (`test/workflows.test.ts`). Workflows default to `contents: read`; CodeQL
+  alone adds `security-events: write`, and only `deploy.yml` sees the
+  Cloudflare secrets, from the `production` environment, after a green CI
+  run of a commit on this repository's `main`. Nothing uses
+  `pull_request_target`, so a fork's PR runs with a read-only token and no
+  secrets.
+- **Code scanning.** CodeQL (security-extended) over the TypeScript and the
+  workflows, on every PR, on `main` and weekly; required on `main`.
+- **Secrets.** GitHub secret scanning and push protection are on. `.dev.vars`
+  is ignored by git, and the repository holds no real data (AGENTS.md).
+
 ## Summaries run on-device
 
 Summarize never sends an item anywhere. The model (Qwen3, 4-bit, via

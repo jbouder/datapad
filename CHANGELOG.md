@@ -41,6 +41,15 @@ under **Export format**.
 - **Settings → Connected apps** (#154): the MCP apps you approved, with
   what each may do, when it connected and was last used, and Revoke.
 
+### Security
+
+- **Supply chain checks** (#57): CodeQL on every pull request and weekly;
+  CI fails on a known advisory (`bun audit`, moderate and up); a test fails
+  on any GitHub Action not pinned to a commit SHA; the Dependabot review
+  policy is in docs/self-hosting.md. zod is now 4.6.6 or later (a
+  memory-exhaustion advisory in validation, GHSA-mrhx-c7xc-m3w5), and
+  the tooling's undici 7.30.1 or later.
+
 ## [0.1.0] — 2026-10-27
 
 The first tagged release: the whole product in daily use on a laptop and a

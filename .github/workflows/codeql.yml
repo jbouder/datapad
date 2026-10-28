@@ -1,0 +1,45 @@
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Weekly, so a new query catches code that has not changed.
+  schedule:
+    - cron: "27 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Stable names: make "codeql (javascript-typescript)" and
+  # "codeql (actions)" required status checks on `main`
+  # (see docs/self-hosting.md).
+  analyze:
+    name: codeql (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Upload the results to the repository's code scanning alerts.
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # The app, Worker and shared code; and the workflows themselves.
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # No build step: both languages are analysed from source.
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}

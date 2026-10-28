@@ -33,6 +33,10 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      # Known advisories in the installed packages, moderate and up. One
+      # with no fixed release yet is skipped by id with `--ignore=GHSA-…`
+      # and a comment saying why (see docs/self-hosting.md).
+      - run: bun audit --audit-level=moderate
       # No .dev.vars here: the generated Env must not depend on one.
       - run: bunx wrangler types
       - run: bunx biome ci .
