@@ -19,9 +19,10 @@ import {
   DayOrNoneText,
   DayText,
   day,
+  docId,
   MarkdownArg,
-  newId,
   projectOut,
+  RequestIdArg,
   requiredDay,
   resolvePeople,
   resolveRealProject,
@@ -57,6 +58,7 @@ export const createProject = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     name: z.string().trim().min(1).max(LIMITS.nameMax),
     org: z.string().trim().max(LIMITS.nameMax).optional(),
     status: z.enum(PROJECT_STATUSES).optional(),
@@ -81,33 +83,40 @@ export const createProject = defineTool({
       args.today,
     );
     const org = args.org ? orgByName(state.orgs, args.org) : undefined;
-    const id = newId();
-    const written = await write(ctx, space, [
-      {
-        type: 'createProject',
-        id,
-        name: args.name,
-        ...(org
-          ? { org: org.name, orgId: org.id }
-          : args.org
-            ? { org: args.org }
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [
+        {
+          type: 'createProject',
+          id,
+          name: args.name,
+          ...(org
+            ? { org: org.name, orgId: org.id }
+            : args.org
+              ? { org: args.org }
+              : {}),
+          ...(args.status ? { status: args.status } : {}),
+          ...(args.health ? { health: args.health } : {}),
+          ...(args.priority ? { priority: args.priority } : {}),
+          ...(args.startDate !== undefined
+            ? { startDate: day(args.startDate, today, 'a start date') }
             : {}),
-        ...(args.status ? { status: args.status } : {}),
-        ...(args.health ? { health: args.health } : {}),
-        ...(args.priority ? { priority: args.priority } : {}),
-        ...(args.startDate !== undefined
-          ? { startDate: day(args.startDate, today, 'a start date') }
-          : {}),
-        ...(args.targetDate !== undefined
-          ? { targetDate: day(args.targetDate, today, 'a target date') }
-          : {}),
-        ...(args.desc !== undefined ? { desc: tokens(state, args.desc) } : {}),
-        ...(args.tags ? { tags: args.tags } : {}),
-        ...(args.members
-          ? { members: resolvePeople(state, args.members) }
-          : {}),
-      },
-    ]);
+          ...(args.targetDate !== undefined
+            ? { targetDate: day(args.targetDate, today, 'a target date') }
+            : {}),
+          ...(args.desc !== undefined
+            ? { desc: tokens(state, args.desc) }
+            : {}),
+          ...(args.tags ? { tags: args.tags } : {}),
+          ...(args.members
+            ? { members: resolvePeople(state, args.members) }
+            : {}),
+        },
+      ],
+      args.requestId,
+    );
     return projectResult(space, written, id);
   },
 });
@@ -120,6 +129,7 @@ export const setProjectStatus = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     project: RealProjectArg,
     status: z.enum(PROJECT_STATUSES),
   }),
@@ -127,9 +137,12 @@ export const setProjectStatus = defineTool({
   async run(args, ctx) {
     const { space, state } = await readSpace(ctx, args.space);
     const p = resolveRealProject(state, args.project);
-    const written = await write(ctx, space, [
-      { type: 'setStatus', id: p.id, status: args.status },
-    ]);
+    const written = await write(
+      ctx,
+      space,
+      [{ type: 'setStatus', id: p.id, status: args.status }],
+      args.requestId,
+    );
     return projectResult(space, written, p.id);
   },
 });
@@ -142,6 +155,7 @@ export const setProjectHealth = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     project: RealProjectArg,
     health: z.enum(PROJECT_HEALTHS),
   }),
@@ -149,9 +163,12 @@ export const setProjectHealth = defineTool({
   async run(args, ctx) {
     const { space, state } = await readSpace(ctx, args.space);
     const p = resolveRealProject(state, args.project);
-    const written = await write(ctx, space, [
-      { type: 'setHealth', id: p.id, health: args.health },
-    ]);
+    const written = await write(
+      ctx,
+      space,
+      [{ type: 'setHealth', id: p.id, health: args.health }],
+      args.requestId,
+    );
     return projectResult(space, written, p.id);
   },
 });
@@ -163,6 +180,7 @@ export const addMilestone = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     project: RealProjectArg,
     title: TitleArg,
     date: DayText,
@@ -176,16 +194,21 @@ export const addMilestone = defineTool({
       args.today,
     );
     const p = resolveRealProject(state, args.project);
-    const id = newId();
-    const written = await write(ctx, space, [
-      {
-        type: 'addMilestone',
-        projectId: p.id,
-        id,
-        title: args.title,
-        date: requiredDay(args.date, today, 'The milestone'),
-      },
-    ]);
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [
+        {
+          type: 'addMilestone',
+          projectId: p.id,
+          id,
+          title: args.title,
+          date: requiredDay(args.date, today, 'The milestone'),
+        },
+      ],
+      args.requestId,
+    );
     const result = projectResult(space, written, p.id);
     const milestone = milestonesOf(written.state.projects[p.id] ?? p).find(
       (m) => m.id === id,

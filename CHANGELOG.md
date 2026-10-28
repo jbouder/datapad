@@ -11,8 +11,9 @@ was planned under.
 Datapad has no API version. The only format other software reads is the
 export file (`datapad-YYYY-MM-DD.json`, [docs/data.md](docs/data.md#the-format)),
 and every release imports every earlier one: old shapes are migrated on
-the way in, never refused. A release that changes the format says so here
-under **Export format**.
+the way in, never refused. The file carries its `format` number; one from
+a newer release is refused with a message saying so. A release that
+changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
@@ -90,6 +91,13 @@ under **Export format**.
 
 ### Changed
 
+- **MCP writes are retry-safe** (#244): every write tool takes an
+  optional `requestId`; calling again with the same one returns what the
+  first call made instead of adding it twice, and one spent on a
+  different change is refused. `edit_task` is now marked destructive (it
+  replaces a task's details), and the instructions a client gets at
+  `initialize` say that text in Datapad is the owner's data, never
+  instructions (docs/mcp.md).
 - **Quieter control edges**: selects, the layout switch, segmented
   choices and outline buttons (in Dark too) now share the cards' light
   border. Text fields and checkboxes keep the darker 3:1 edge that shows
@@ -111,6 +119,11 @@ under **Export format**.
 
 ### Export format
 
+- **A format version** (#240): exports and backups now start with
+  `"format": 1`. A file without it (every earlier export, and the
+  artifact's) is legacy and imports as before. A file with a newer
+  format than this Datapad knows is refused whole, on Import and on
+  restoring a backup, with a message that says to update Datapad.
 - A note may carry `scratch: true` (#218): the space's Notepad. Files
   from before it import unchanged; an export writes it only on that note.
   An import that brings a second Notepad keeps the older one as the
@@ -118,6 +131,12 @@ under **Export format**.
 
 ### Fixed
 
+- **Undo keeps edits made since** (#235): Undo of a bulk close, move,
+  assign, due date or delete, or of a drag on the Tasks board, puts back
+  only what that change did, through the same checked changes the app
+  makes, so an edit from another tab or MCP in between stays. It is
+  refused, with the reason, when the task's project was deleted since,
+  and Activity says what it did (a deleted task logs "Restored task").
 - **Rolling back past a schema bump** (#227): a Worker older than your
   data's schema no longer runs over it. The object reads and writes
   nothing, the nightly backup included; every call, the socket and

@@ -529,5 +529,17 @@ export function emptySnapshot(): Snapshot {
   };
 }
 
+/**
+ * The export file's format version (#240), written as `format`. Bump it
+ * when the file changes in a way an older Datapad would misread, and say
+ * so in CHANGELOG.md under **Export format**. A file without `format` is
+ * legacy (before 1), migrated by shape (`shared/migrate.ts`); a file with
+ * a higher one than this is refused, never half-read.
+ */
+export const EXPORT_FORMAT = 1;
+
 /** The JSON file Export writes and Import reads (the artifact's format). */
-export type ExportFile = { exportedAt: Timestamp } & Snapshot;
+export type ExportFile = {
+  format: typeof EXPORT_FORMAT;
+  exportedAt: Timestamp;
+} & Snapshot;

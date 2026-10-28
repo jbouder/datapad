@@ -45,29 +45,107 @@ export interface ActivityOut {
 export interface Written {
   /** The space after the change. */
   state: Snapshot;
-  /** When it was applied (the object's clock). */
+  /** When it was applied (the object's clock); null for a retry. */
   at: string | null;
+  /** True when this `requestId` had already landed: nothing changed now. */
+  replay: boolean;
   activity: ActivityOut[];
 }
 
+/* ---- Retries (#244) ------------------------------------------------------- */
+
 /**
- * Apply `ops` to `space` as one change, through the object's `apply()`.
- * A refusal (the schema's or the reducer's) is a `ToolError` with the
- * reason, for the model to read and fix.
+ * The caller's name for one change. A tool given one makes the op id and
+ * any new document's id from it, so calling again with the same one (a
+ * retry after a timeout, say) changes nothing twice: the object has
+ * already seen the op id, and the tool answers with the document as it
+ * is. Its own namespace (`mcp-…`) keeps it off the app's op ids.
+ */
+export const RequestIdArg = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9_-]{8,60}$/,
+    'A requestId is 8 to 60 letters, digits, - or _ (a UUID will do)',
+  )
+  .optional()
+  .describe(
+    'Optional, for retries: a fresh id for this change (a UUID will do). Calling again with the same requestId does not repeat the change; it returns what the first call made. Use a new one for every new change.',
+  );
+
+const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
+const encoder = new TextEncoder();
+
+/** The op id for a change: from the `requestId`, or a new one. */
+export function opIdFor(requestId: string | undefined): string {
+  return requestId ? `mcp-${requestId}` : newId();
+}
+
+/**
+ * A new document's id: random, or with a `requestId` the same on every
+ * retry (16 base-36 characters from its SHA-256, like `newId()`'s).
+ */
+export async function docId(requestId: string | undefined): Promise<string> {
+  if (!requestId) return newId();
+  const digest = new Uint8Array(
+    await crypto.subtle.digest(
+      'SHA-256',
+      encoder.encode(`datapad-mcp-doc:${requestId}`),
+    ),
+  );
+  return Array.from(digest.slice(0, 16), (b) => ALPHABET[b % 36]).join('');
+}
+
+/** Whether what `op` creates is in `state`: a replay of it landed here. */
+function landed(state: Snapshot, op: BaseOp): boolean {
+  switch (op.type) {
+    case 'addTask':
+      return Boolean(state.tasks[op.id]);
+    case 'addNote':
+      return Boolean(state.notes[op.id]);
+    case 'addMeeting':
+      return Boolean(state.meetings[op.id]);
+    case 'createProject':
+      return Boolean(state.projects[op.id]);
+    case 'addMilestone': {
+      const p = state.projects[op.projectId];
+      return Boolean(p && milestonesOf(p).some((m) => m.id === op.id));
+    }
+    case 'addTopic': {
+      const m = state.meetings[op.meetingId];
+      return Boolean(m && topicsOf(m).some((t) => t.id === op.id));
+    }
+    default:
+      return true;
+  }
+}
+
+/**
+ * Apply `ops` to `space` as one change, through the object's `apply()`,
+ * under the op id `requestId` makes (or a new one). A refusal (the
+ * schema's or the reducer's) is a `ToolError` with the reason, for the
+ * model to read and fix; so is a `requestId` already spent on a
+ * different change.
  */
 export async function write(
   ctx: McpToolContext,
   space: string,
   ops: BaseOp[],
+  requestId?: string,
 ): Promise<Written> {
-  const outcome = await ctx.datapad.apply(space, newId(), ops);
+  const outcome = await ctx.datapad.apply(space, opIdFor(requestId), ops);
   if (!outcome.ok) {
     throw new ToolError(`Not saved: ${outcome.error}.`);
   }
   const { state } = outcome;
+  if (outcome.replay && !ops.every((op) => landed(state, op))) {
+    throw new ToolError(
+      `Not saved: requestId "${requestId}" was already used for a different change. Use a new requestId for each new change, and the same one only to retry.`,
+    );
+  }
   return {
     state,
     at: outcome.at,
+    replay: outcome.replay,
     activity: outcome.activity.map((line) => ({
       project: projectRef(state, line.project),
       text: line.text,

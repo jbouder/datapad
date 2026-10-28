@@ -11,7 +11,7 @@ import {
   type EraseToken,
   type ExportFile,
   ExportSchema,
-  issuePath,
+  exportProblem,
   MCP_OP_TYPES,
   type Op,
   OpSchema,
@@ -36,6 +36,7 @@ import {
 import {
   COLLECTIONS,
   type Collection,
+  EXPORT_FORMAT,
   emptySnapshot,
   GENERAL,
   MAIN_SPACE,
@@ -1095,6 +1096,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     } = this.space(space).state;
     // The artifact's order, then what Datapad adds.
     return {
+      format: EXPORT_FORMAT,
       exportedAt: new Date().toISOString(),
       projects,
       tasks,
@@ -1128,13 +1130,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.space(space);
     const parsed = ExportSchema.safeParse(file);
     if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      return {
-        ok: false,
-        error: issue
-          ? `${issuePath(issue)}: ${describeIssue(issue)}`
-          : 'That file is not a Datapad export',
-      };
+      return { ok: false, error: exportProblem(parsed.error) };
     }
     await this.keepCopy(space, before);
     // Read after the copy: an op may have landed while R2 was writing.

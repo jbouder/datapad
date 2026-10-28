@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
   type CreatedSpace,
+  newerFormatMessage,
   type Op,
   SESSION_EXPIRED_CLOSE,
   SESSION_EXPIRED_REASON,
@@ -11,7 +12,12 @@ import {
   SPACE_DELETED_REASON,
   type SpaceList,
 } from '#shared/protocol';
-import { MAIN_SPACE, type Snapshot, type SpaceInfo } from '#shared/types';
+import {
+  EXPORT_FORMAT,
+  MAIN_SPACE,
+  type Snapshot,
+  type SpaceInfo,
+} from '#shared/types';
 import { SOCKET_MAX_AGE_MS } from '../worker/access';
 import { DatapadObject, SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
@@ -852,8 +858,12 @@ describe('export and import', () => {
     expect(exported.headers.get('content-disposition')).toMatch(
       /^attachment; filename="datapad-\d{4}-\d{2}-\d{2}\.json"$/,
     );
-    const file = (await exported.json()) as Snapshot & { exportedAt: string };
+    const file = (await exported.json()) as Snapshot & {
+      format: number;
+      exportedAt: string;
+    };
     expect(Object.keys(file)).toEqual([
+      'format',
       'exportedAt',
       'projects',
       'tasks',
@@ -867,7 +877,8 @@ describe('export and import', () => {
       'templates',
       'boardItems',
     ]);
-    const { exportedAt, ...back } = file;
+    const { format, exportedAt, ...back } = file;
+    expect(format).toBe(EXPORT_FORMAT);
     expect(Date.parse(exportedAt)).not.toBeNaN();
     // The artifact's documents unchanged, plus Datapad's (empty) settings and decisions.
     expect(back).toEqual({
@@ -949,6 +960,16 @@ describe('export and import', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: 'tasks › t-2 › title: Title is required',
+    });
+    expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(0);
+
+    const newer = await post(email, '/api/import', {
+      ...fixture,
+      format: EXPORT_FORMAT + 1,
+    });
+    expect(newer.status).toBe(400);
+    expect(await newer.json()).toEqual({
+      error: newerFormatMessage(EXPORT_FORMAT + 1),
     });
     expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(0);
 

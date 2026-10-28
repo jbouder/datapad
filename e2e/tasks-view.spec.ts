@@ -79,6 +79,41 @@ test('group by assignee, Shift-select two, move them, undo', async ({
   expect(data.tasks['t-6'].projectId).toBeNull();
 });
 
+test('delete a selected task, then Undo restores it as it was', async ({
+  page,
+  request,
+}) => {
+  test.skip(isMobile(page), 'Multi-select is the desktop table.');
+  await openLive(page, '/tasks');
+  const before = (await (await request.get('/api/export.json')).json()).tasks[
+    't-4'
+  ];
+  expect(before.title).toBe('Book the tauntaun vet');
+  await table(page)
+    .getByRole('checkbox', { name: 'Select “Book the tauntaun vet”' })
+    .click();
+  const bar = page.getByRole('toolbar', { name: 'Selected tasks' });
+  await bar.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('Deleted 1 task')).toBeVisible();
+  await expect(table(page)).not.toContainText('Book the tauntaun vet');
+  await expectSaved(page);
+  let data = await (await request.get('/api/export.json')).json();
+  expect(data.tasks['t-4']).toBeUndefined();
+
+  // Undo is a checked restore (#235), not a blind write: it logs.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(table(page)).toContainText('Book the tauntaun vet');
+  await expectSaved(page);
+  data = await (await request.get('/api/export.json')).json();
+  const { updatedAt: _a, ...was } = before;
+  const { updatedAt: _b, ...now } = data.tasks['t-4'];
+  expect(now).toEqual(was);
+  const scope = before.projectId ?? 'general';
+  expect(data.activity[scope].events[0].text).toBe(
+    'Restored task "Book the tauntaun vet"',
+  );
+});
+
 test('sorting, filters and Back, all in the URL', async ({ page }) => {
   test.skip(isMobile(page), 'Column sorting is the desktop table.');
   await openLive(page, '/tasks?group=none');

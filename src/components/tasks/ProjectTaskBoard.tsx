@@ -2,7 +2,7 @@ import { KanbanIcon, ListBulletsIcon } from '@phosphor-icons/react';
 import { useCallback } from 'react';
 import { localDate } from '#shared/dates';
 import type { Op } from '#shared/protocol';
-import { DEFAULT_TASK_FILTERS } from '#shared/tasks';
+import { DEFAULT_TASK_FILTERS, undoTaskOps } from '#shared/tasks';
 import type { Task } from '#shared/types';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { TaskBoard } from '@/components/tasks/TaskLayouts';
@@ -42,7 +42,7 @@ export function ProjectTaskBoard({
       if (!actions.batch({ ops: inner })) return;
       show(message, () =>
         actions.batch({
-          ops: before.map((doc) => ({ type: 'put', col: 'tasks', doc })),
+          ops: undoTaskOps(before, ops),
         }),
       );
     },
