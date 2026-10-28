@@ -99,6 +99,11 @@ under **Export format**.
   pinned) that opens the note in place. Grid is a masonry grid: cards keep
   their height and pack into columns with no holes, in reading order, one
   column on phones. A saved or linked Feed reads as List.
+- **Datapad starts lighter** (#234): Whiteboard, Help, Digest, Settings
+  and a meeting's and a task's page load on demand (and in the background
+  once the app is idle), so the first load downloads about 11% less
+  script (377 KB gzipped, from 423 KB). CI fails a change that grows the
+  first load past its budget or pulls the summary model's library into it.
 
 ### Export format
 
@@ -162,6 +167,17 @@ under **Export format**.
   write tools send (`MCP_OP_TYPES`), alone or inside a batch, so no client
   can delete, archive or overwrite a document even by building the op
   itself. The whole change is refused and nothing is written.
+- **The summary model is pinned and checked** (#239): its WebGPU library
+  comes from a fixed commit, not a moving branch, and its weights from a
+  fixed Hugging Face revision; WebLLM checks the library, the model's
+  config and its tokenizer against hashes and refuses one that differs.
+  A model downloaded before downloads once more (it now comes from the
+  pinned address); the old copy is freed once the new one has loaded.
+- **Pinned tooling** (#238, #245): one Bun version everywhere
+  (`packageManager` in `package.json`), the Playwright image by digest,
+  and CI now checks every installed package's license against an
+  allowlist, runs knip for unused code and dependencies, and holds
+  coverage floors on `shared/` and `worker/`.
 
 ## [0.1.0] — 2026-10-27
 

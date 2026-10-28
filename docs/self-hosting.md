@@ -229,10 +229,26 @@ the AUD, so a hostname that Access does not cover gets 401.
 ## Deploy from GitHub Actions
 
 `.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
-type check, build, Vitest in workerd, then Playwright + axe (desktop and
-phone) against `vite preview`, split across four runners on the Playwright
-container image. The `check` job also runs `bun audit` and fails on a
-known advisory of moderate severity or above. `.github/workflows/codeql.yml`
+knip, type check, build, the bundle budget, Vitest in workerd with
+coverage, then Playwright + axe (desktop and phone) against `vite
+preview`, split across four runners on the Playwright container image.
+The `check` job also runs `bun audit` and fails on a known advisory of
+moderate severity or above, and checks every installed package's license
+against an allowlist. Each of these fails the job:
+- **Licenses** (`npm run licenses`, `scripts/licenses.ts`): every package
+  in `node_modules` carries an allowed license, or is named in its
+  exceptions with the reason.
+- **knip** (`npm run knip`, `knip.jsonc`): no unused file, export or
+  dependency. Delete what is unused; ignore something only with a reason
+  in `knip.jsonc`.
+- **Bundle budget** (`npm run build && npm run budget`,
+  `scripts/budget.ts`): what `index.html` loads up front (its script, the
+  chunks it preloads, its stylesheet) stays under the gzip budgets, and
+  WebLLM is never in it. Raise a budget only on purpose, in the change
+  that needs it.
+- **Coverage** (`npm run test:coverage`, `vitest.config.ts`): floors on
+  `shared/` and `worker/`, just under where the suite is. Raise them as
+  it grows. `.github/workflows/codeql.yml`
 runs CodeQL (security-extended queries) over the TypeScript and over the
 workflows themselves, on every pull request, on `main` and weekly.
 `.github/workflows/deploy.yml` deploys `main` after a green CI run.
@@ -288,6 +304,20 @@ and never deploy until merged. The policy:
   `uses:` that is not pinned that way, on one action pinned to two
   versions, and on `pull_request_target`. To add an action, resolve its
   tag with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+- **Bun** is one version: `packageManager` in `package.json`. setup-bun
+  reads it (`bun-version-file`) and the e2e container installs exactly
+  it; `test/workflows.test.ts` fails if a workflow does otherwise. Move
+  it by changing that one field.
+- **The Playwright image** is pinned by digest, with its tag in a
+  comment; the tag must match `@playwright/test` (pinned exactly). When
+  that moves, resolve the new digest with `docker buildx imagetools
+  inspect mcr.microsoft.com/playwright:v<version>-noble` and update both.
+  `test/workflows.test.ts` checks the pin and the match.
+- **The summary model** is pinned in `src/lib/summary-pins.ts`: its
+  WebGPU library to a commit, its weights to a Hugging Face revision,
+  with the integrity hashes WebLLM checks. A WebLLM update that changes
+  its libraries fails `test/summary-pins.test.ts` until the pins move;
+  the file says how.
 - **Advisories.** `bun audit --audit-level=moderate` in CI fails on any
   known advisory in the installed packages, moderate and up, including
   ones published after the lockfile last changed. Fix it with an update,
