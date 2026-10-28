@@ -1,4 +1,7 @@
 import { flushSync } from 'react-dom';
+import { DURATION, EASE } from '@/lib/motion-tokens';
+
+export { DURATION, EASE };
 
 /**
  * The platform-only motion helpers this app uses. No animation library:
@@ -100,8 +103,6 @@ export function withLayoutTransition(update: () => void, enabled: boolean) {
 
 /* ---------- Web Animations API ---------- */
 
-export const EASE_EMPHASIZED = 'cubic-bezier(0.2, 0, 0, 1)';
-
 /** Until when FLIP lets layout jump instead of sliding (`holdFlip`). */
 let flipHeldUntil = 0;
 
@@ -115,21 +116,6 @@ export function holdFlip() {
 
 export function flipHeld(): boolean {
   return performance.now() < flipHeldUntil;
-}
-
-/** Animate an element out, resolving when done (immediately when disabled). */
-export function animateOut(el: HTMLElement, enabled: boolean): Promise<void> {
-  if (!enabled) {
-    return Promise.resolve();
-  }
-  const animation = el.animate(
-    [
-      { opacity: 1, translate: '0 0', scale: '1' },
-      { opacity: 0, translate: '24px 0', scale: '0.98' },
-    ],
-    { duration: 200, easing: EASE_EMPHASIZED, fill: 'forwards' },
-  );
-  return animation.finished.then(() => undefined);
 }
 
 /* ---------- Springs baked into linear() ---------- */
