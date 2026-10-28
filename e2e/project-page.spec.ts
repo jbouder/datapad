@@ -144,7 +144,7 @@ test('the header actions wrap with no sideways scroll', async ({ page }) => {
 
 test.describe('section motion', () => {
   test.use({ reducedMotion: 'no-preference' });
-  test('opening a section only fades it in; nothing inside replays or slides', async ({
+  test('opening a section only turns its caret; nothing else moves', async ({
     page,
   }) => {
     await openLive(page, '/projects/p-echo');
@@ -157,8 +157,8 @@ test.describe('section motion', () => {
       document.getAnimations().flatMap((a) => {
         const target = (a.effect as KeyframeEffect | null)?.target;
         if (!(target instanceof Element)) return [];
-        // The caret turning and the body's one fade are all there is.
-        if (target.matches('.section-body, svg')) return [];
+        // The caret turning is all there is.
+        if (target.matches('svg')) return [];
         return [target.outerHTML.slice(0, 80)];
       }),
     );

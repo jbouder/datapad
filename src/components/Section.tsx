@@ -18,9 +18,9 @@ export interface RememberSection {
  * `defaultOpen` is kept. Pass `open` to override it (a section opened to
  * show what was just added).
  *
- * Motion is minimal on purpose: the caret turns, an opening body fades in
- * quickly (nothing inside it replays its entrance) and closing is
- * instant; what moves below it jumps rather than sliding.
+ * The only motion is the caret turning: the body appears and goes at
+ * once (nothing inside it replays its entrance), and the header has no
+ * press scale, which on a full-width row read as a jump sideways.
  */
 export function Section({
   title,
@@ -61,7 +61,7 @@ export function Section({
     const next = !open;
     holdFlip();
     setOpening(next);
-    // Past the fade: whatever is added later enters as usual.
+    // A moment later, whatever is added enters as usual.
     if (next) window.setTimeout(() => setOpening(false), 250);
     setOpen(next);
     if (remember) {
@@ -83,7 +83,7 @@ export function Section({
             aria-expanded={open}
             aria-controls={`${id}-body`}
             onClick={toggle}
-            className="press -ml-1 flex min-h-11 flex-1 items-center gap-1.5 px-1 text-left font-heading text-sm font-semibold outline-ring/50 focus-visible:outline-2 desk:min-h-8"
+            className="-ml-1 flex min-h-11 flex-1 items-center gap-1.5 px-1 text-left font-heading text-sm font-semibold outline-ring/50 focus-visible:outline-2 desk:min-h-8"
           >
             <CaretRightIcon
               weight="bold"

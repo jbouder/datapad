@@ -37,7 +37,7 @@ export function SelectField<T extends string>({
       >
         <SelectTrigger
           aria-labelledby={id}
-          className="w-full data-[size=default]:h-11 desk:data-[size=default]:h-8"
+          className="w-full border-border data-[size=default]:h-11 desk:data-[size=default]:h-8"
         >
           <SelectValue />
         </SelectTrigger>

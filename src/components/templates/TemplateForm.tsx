@@ -28,7 +28,7 @@ interface Values {
 }
 
 const SELECT =
-  'h-11 shrink-0 border border-input bg-background px-1.5 text-base outline-ring/50 focus-visible:outline-2 desk:h-8 desk:text-xs';
+  'h-11 shrink-0 border border-border bg-background px-1.5 text-base outline-ring/50 focus-visible:outline-2 desk:h-8 desk:text-xs';
 
 /**
  * A template: its name, the tags a project starts with, and its tasks in

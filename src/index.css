@@ -670,18 +670,23 @@ html[data-vt="space"]::view-transition-new(rail) {
   }
 }
 
-/* A section opening: one short fade, and nothing inside replays its
-   entrance (closing is instant; see Section.tsx). */
-.section-body[data-opening] {
-  transition: opacity var(--duration-fast) var(--ease-standard);
-}
-@starting-style {
-  .section-body[data-opening] {
-    opacity: 0;
-  }
-}
+/* A section opening: nothing inside replays its entrance, and the body
+   just appears (only the caret turns; see Section.tsx). */
 .section-body[data-opening] .enter {
   transition: none;
+}
+
+/* Controls that name themselves (buttons, selects, toggles) take the
+   cards' edge, `--border`; the 3:1 `--input` edge is for text fields and
+   checkboxes, where it is what shows them (WCAG 1.4.11). Stock base-lyra
+   gives outline buttons the field's edge in Dark; this keeps them quiet
+   there too, outside `src/components/ui`. */
+.dark
+  [data-slot="button"][class~="dark:border-input"]:not(
+    :focus-visible,
+    [aria-invalid="true"]
+  ) {
+  border-color: var(--border);
 }
 
 /* Press feedback on anything interactive. */
