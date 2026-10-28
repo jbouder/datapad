@@ -43,11 +43,9 @@ describe('summary model pins', () => {
 
   it('load the weights from a revision, never a branch', () => {
     for (const m of APP_CONFIG.model_list) {
-      expect(m.model).toMatch(
-        new RegExp(
-          `^https://huggingface\\.co/mlc-ai/${m.model_id.replace(/\./g, '\\.')}/resolve/[0-9a-f]{40}$`,
-        ),
-      );
+      const base = `https://huggingface.co/mlc-ai/${m.model_id}/resolve/`;
+      expect(m.model.startsWith(base)).toBe(true);
+      expect(m.model.slice(base.length)).toMatch(/^[0-9a-f]{40}$/);
     }
   });
 

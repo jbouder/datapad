@@ -32,8 +32,8 @@ const CLIENT = resolve(import.meta.dirname, '..', 'dist', 'client');
 function entryFiles(html: string): { js: string[]; css: string[] } {
   const js: string[] = [];
   const css: string[] = [];
-  for (const [tag] of html.matchAll(/<(?:script|link)\b[^>]*>/g)) {
-    const src = /\b(?:src|href)="(\/assets\/[^"]+)"/.exec(tag)?.[1];
+  for (const [tag] of html.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
+    const src = /\b(?:src|href)="(\/assets\/[^"]+)"/i.exec(tag)?.[1];
     if (!src) continue;
     if (src.endsWith('.js')) js.push(src);
     else if (src.endsWith('.css')) css.push(src);
