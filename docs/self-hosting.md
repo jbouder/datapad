@@ -320,3 +320,46 @@ one transaction, and a failed upgrade leaves the old layout whole.
 Releases are tags on `main` (`v0.1.0`, …) with a GitHub release each;
 [CHANGELOG.md](../CHANGELOG.md) says what changed and whether the export
 format did. Every release imports every earlier export and backup.
+
+## Rolling back
+
+Every deploy is a Worker version. List them, then put an earlier one back
+in seconds:
+
+```bash
+npx wrangler deployments list     # what was deployed, newest first
+npx wrangler versions list        # every uploaded version, with its id
+npx wrangler rollback             # the previous version
+npx wrangler rollback <version-id>
+```
+
+The dashboard does the same (Workers & Pages → your Worker → Deployments).
+A rollback changes the code only: your data in the Durable Object and the
+backups in R2 stay as they are.
+
+**Within one schema** that is all there is to it.
+
+**Across a schema bump** it is not. The first wake after a deploy that
+raised `SCHEMA_VERSION` (in `worker/datapad.ts`) upgraded your object's
+storage, and older code cannot read the newer layout. So it does not try:
+the object refuses to start, reads and writes nothing (the nightly backup
+does not run either), and every call and the socket answer 503 "This
+Datapad's data is from a newer version; deploy that version again".
+`GET /api/health` answers `{ "ok": false, "error": "…" }` with the same
+words, the log has `"what":"startup"` lines, and the app shows Offline.
+Nothing is lost. Either:
+
+- **Redeploy forward:** `npx wrangler rollback <newer-version-id>`, or
+  deploy that commit again. The app reconnects on its own. Then fix
+  forward from there.
+- **Restore a backup taken before the bump,** if the newer version is the
+  problem with your data rather than with its code: redeploy forward
+  first, then Settings → Data → Backups → Restore the day before the
+  upgrade (or import that file). Every release imports every earlier
+  export, so the newer code reads the older backup; the reverse is not
+  promised, so keep the backups from before a bump until you are sure.
+
+Running older code over data already upgraded is not supported: the only
+way back to an older schema is a fresh object (see
+[data.md § Deleting everything](data.md#deleting-everything)) with an
+older backup imported into it.

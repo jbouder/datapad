@@ -97,6 +97,21 @@ export function isNoSuchSpace(error: unknown): boolean {
   return error instanceof Error && error.message === NO_SUCH_SPACE;
 }
 
+/**
+ * The stored layout is newer than this code knows (the Worker was rolled
+ * back past a schema bump). The object then never starts: its
+ * constructor throws this before it loads, migrates or books anything, so
+ * every RPC, socket and alarm fails with this message and nothing is read
+ * or written. The Worker matches on the message (`isNewerSchema`).
+ */
+export const NEWER_SCHEMA =
+  "This Datapad's data is from a newer version; deploy that version again";
+
+/** Whether an error, thrown here or rethrown across RPC, is NEWER_SCHEMA. */
+export function isNewerSchema(error: unknown): boolean {
+  return error instanceof Error && error.message === NEWER_SCHEMA;
+}
+
 /** One activity line an applied op wrote: its project's log, or General's. */
 export interface AppliedLine {
   project: string | null;
@@ -223,7 +238,11 @@ export class DatapadObject extends DurableObject<Bindings> {
 
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
-    ctx.blockConcurrencyWhile(async () => {
+    // A throw in here resets the object: every call waiting on it fails
+    // with the error, and the next request constructs it again. That is
+    // how `ensureTables()`'s NEWER_SCHEMA refuses everything (RPCs,
+    // sockets, the alarm) after a rollback. Logged here, not unhandled.
+    const started = ctx.blockConcurrencyWhile(async () => {
       this.ensureTables();
       this.load();
       // Keep-alives answered by the runtime without waking the object.
@@ -234,6 +253,7 @@ export class DatapadObject extends DurableObject<Bindings> {
         await this.ctx.storage.setAlarm(this.nextBackupAt(Date.now()));
       }
     });
+    started.catch(logStartupError);
   }
 
   /* ---------- backups ---------- */
@@ -454,7 +474,9 @@ export class DatapadObject extends DurableObject<Bindings> {
 
   /**
    * Created on first touch, migrated to the current layout on the first
-   * wake after an upgrade; safe to run on every wake.
+   * wake after an upgrade; safe to run on every wake. A layout newer than
+   * `SCHEMA_VERSION` throws `NEWER_SCHEMA` before anything else is
+   * created, so the constructor stops there (see `NEWER_SCHEMA`).
    */
   private ensureTables() {
     const sql = this.ctx.storage.sql;
@@ -463,6 +485,10 @@ export class DatapadObject extends DurableObject<Bindings> {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+    `);
+    const version = Number(this.meta(SCHEMA) ?? 1);
+    if (version > SCHEMA_VERSION) throw new Error(NEWER_SCHEMA);
+    sql.exec(`
       CREATE TABLE IF NOT EXISTS op_ids (
         op_id TEXT PRIMARY KEY,
         seq INTEGER NOT NULL
@@ -472,8 +498,7 @@ export class DatapadObject extends DurableObject<Bindings> {
         last_used TEXT NOT NULL
       );
     `);
-    const version = Number(this.meta(SCHEMA) ?? 1);
-    if (version >= SCHEMA_VERSION) return;
+    if (version === SCHEMA_VERSION) return;
     // One transaction, so a failure leaves the old layout whole and the
     // next wake tries again.
     this.ctx.storage.transactionSync(() => {
@@ -1501,6 +1526,16 @@ interface StoredEraseToken extends EraseToken {
 
 function countRows(state: Snapshot): number {
   return COLLECTIONS.reduce((n, col) => n + Object.keys(state[col]).length, 0);
+}
+
+function logStartupError(error: unknown) {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      what: 'startup',
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
 }
 
 function logBackupError(error: unknown, retryAt?: number) {
