@@ -100,7 +100,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `seed.ts` is fictional data, shifted to today before every test.
 - `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting, mcp,
   accessibility (the conformance statement, what checks it, every drag's
-  keyboard and touch way).
+  keyboard and touch way), `audits/` (dated web-app audit reports; the next
+  one compares with the last).
 
 ## Stack
 
