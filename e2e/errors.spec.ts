@@ -123,6 +123,80 @@ test('an ended session shows Sign in again, and signing in comes back', async ({
   await expect(heading).toHaveCount(0);
 });
 
+/**
+ * The socket outlives its Access session (#228). The dev sign-in has no
+ * token, so `x-dev-session-seconds` (honoured only by the dev bypass) gives
+ * the socket a session that ends this many seconds after it opens; the
+ * test waits that out on the real clock.
+ */
+const SESSION_SECONDS = 3;
+
+/** Open the app on a socket whose session ends after SESSION_SECONDS. */
+async function openEnding(page: Page) {
+  const sockets: string[] = [];
+  page.on('websocket', (ws) => sockets.push(ws.url()));
+  await page.setExtraHTTPHeaders({
+    'x-dev-session-seconds': String(SESSION_SECONDS),
+  });
+  const opened = Date.now();
+  await openLive(page);
+  // Later sockets get an ordinary session.
+  await page.setExtraHTTPHeaders({});
+  await page.waitForTimeout(
+    Math.max(0, opened + SESSION_SECONDS * 1000 + 250 - Date.now()),
+  );
+  return sockets;
+}
+
+async function quickAdd(page: Page, title: string) {
+  const input = page.getByRole('textbox', { name: 'Add a task' });
+  await input.fill(title);
+  await input.press('Enter');
+}
+
+test('a socket whose session ended reconnects through Access, and the change is saved', async ({
+  page,
+}) => {
+  const sockets = await openEnding(page);
+  expect(sockets).toHaveLength(1);
+  // The object closes the socket instead of applying this; the app asks
+  // /api/health, which still answers, so it reconnects and sends it again.
+  await quickAdd(page, 'Recalibrate the deflector');
+  await expectSaved(page);
+  expect(sockets).toHaveLength(2);
+  // Stored once, on the object.
+  const stored = await (await page.request.get('/api/export.json')).json();
+  const titles = Object.values(
+    stored.tasks as Record<string, { title: string }>,
+  ).map((t) => t.title);
+  expect(titles.filter((t) => t === 'Recalibrate the deflector')).toHaveLength(
+    1,
+  );
+});
+
+test('a socket whose session ended shows Sign in again when Access says so', async ({
+  page,
+}) => {
+  // Access answers a lapsed session with a redirect to its login.
+  await page.route('**/api/health', (route) =>
+    route.fulfill({
+      status: 302,
+      headers: {
+        location: 'https://team.cloudflareaccess.com/cdn-cgi/access/login',
+      },
+    }),
+  );
+  await openEnding(page);
+  await quickAdd(page, 'Recalibrate the deflector');
+  const heading = page.getByRole('heading', {
+    level: 1,
+    name: 'Sign in again',
+  });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expectAccessible(page);
+});
+
 test('a page that throws can be reloaded, and keeps a note being written', async ({
   page,
 }) => {

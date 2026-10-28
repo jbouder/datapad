@@ -125,6 +125,12 @@ waking the object).
   (`SPACE_DELETED_CLOSE`, reason "space deleted") before anything else is
   sent. The client does not reconnect to it; it asks for the list and
   opens another space.
+- When the Access session a socket opened under has ended, the socket is
+  closed with code `4401` (`SESSION_EXPIRED_CLOSE`, reason "session
+  expired") at its next message, or instead of the next thing sent to it.
+  The client asks `GET /api/health`: signed out shows "Sign in again",
+  otherwise it reconnects at once and resends what is waiting
+  ([security](security.md#sockets-and-the-session)).
 - `seq` is per space and goes up by one per stored op (a no-op too, so its
   sender gets an echo). A client at `seq` n that receives n + 2 has missed one and asks
   for `sync`.

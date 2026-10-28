@@ -626,6 +626,15 @@ export interface CreatedSpace {
 export const SPACE_DELETED_CLOSE = 4004;
 export const SPACE_DELETED_REASON = 'space deleted';
 
+/**
+ * The close code (and reason) a socket gets when the Access session it
+ * opened under has ended (#228): the client asks `/api/health` whether it
+ * is still signed in, then says "Sign in again" or reconnects through
+ * Access. See `docs/security.md` → Sockets and sessions.
+ */
+export const SESSION_EXPIRED_CLOSE = 4401;
+export const SESSION_EXPIRED_REASON = 'session expired';
+
 /** Create a space. The server chooses its id and position. */
 export const CreateSpaceSchema = z.object({ name: spaceName });
 export type CreateSpace = z.infer<typeof CreateSpaceSchema>;

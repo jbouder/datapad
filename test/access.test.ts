@@ -4,6 +4,7 @@ import {
   ACCESS_HEADER,
   createAccessVerifier,
   DEV_EMAIL_HEADER,
+  DEV_SESSION_HEADER,
   teamOrigin,
 } from '../worker/access';
 import type { Bindings } from '../worker/env';
@@ -126,6 +127,8 @@ describe('verifyAccess with Access configured', () => {
     const { verify, calls } = harness(() => [current]);
     expect(await verify(request(await token(current)), configured)).toEqual({
       email: 'leia@example.com',
+      // The token's exp, plus the leeway the check allows (#228).
+      expiresAt: NOW + 3600_000 + 60_000,
     });
     expect(calls).toEqual([`${ISS}/cdn-cgi/access/certs`]);
   });
@@ -213,9 +216,9 @@ describe('verifyAccess with Access configured', () => {
 
     published = [current, rotated];
     h.advance(31_000);
-    expect(await h.verify(request(await token(rotated)), configured)).toEqual({
-      email: 'leia@example.com',
-    });
+    expect(
+      (await h.verify(request(await token(rotated)), configured))?.email,
+    ).toBe('leia@example.com');
     expect(h.calls).toHaveLength(2);
   });
 
@@ -281,6 +284,25 @@ describe('the dev bypass (ACCESS_AUD empty)', () => {
     const { verify } = harness(() => []);
     const r = request(undefined, { [DEV_EMAIL_HEADER]: 'Test-7@E2E.test' });
     expect(await verify(r, dev)).toEqual({ email: 'test-7@e2e.test' });
+  });
+
+  it('has no session end unless the e2e header asks for one', async () => {
+    const { verify } = harness(() => []);
+    const r = request(undefined, { [DEV_SESSION_HEADER]: '2' });
+    expect(await verify(r, dev)).toEqual({
+      email: 'dev@example.com',
+      expiresAt: NOW + 2000,
+    });
+    const bad = request(undefined, { [DEV_SESSION_HEADER]: 'soon' });
+    expect(await verify(bad, dev)).toEqual({ email: 'dev@example.com' });
+  });
+
+  it('ignores the session header once Access is configured', async () => {
+    const { verify } = harness(() => [current]);
+    const r = request(await token(current), { [DEV_SESSION_HEADER]: '2' });
+    expect((await verify(r, configured))?.expiresAt).toBe(
+      NOW + 3600_000 + 60_000,
+    );
   });
 
   it('refuses a header that is not an email', async () => {

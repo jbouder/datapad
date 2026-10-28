@@ -4,13 +4,16 @@ import { LIMITS } from '#shared/limits';
 import {
   type CreatedSpace,
   type Op,
+  SESSION_EXPIRED_CLOSE,
+  SESSION_EXPIRED_REASON,
   type ServerMessage,
   SPACE_DELETED_CLOSE,
   SPACE_DELETED_REASON,
   type SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE, type Snapshot, type SpaceInfo } from '#shared/types';
-import { DatapadObject } from '../worker/datapad';
+import { SOCKET_MAX_AGE_MS } from '../worker/access';
+import { DatapadObject, SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
 import fixture from './fixtures/export.json';
@@ -726,6 +729,102 @@ describe('live sync', () => {
   });
 });
 
+describe('sockets and the Access session (#228)', () => {
+  /** Access says `email`, with a session that ends `ms` from now. */
+  const until = (email: string, ms: number) =>
+    createHandler(async () => ({ email, expiresAt: Date.now() + ms }));
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('closes a socket at its first message after the session ends', async () => {
+    const email = 'expiry@example.com';
+    const inbox = await openSocket(until(email, 300));
+    await inbox.snapshot();
+    // Before the end: business as usual.
+    const early = inbox.send(addTask('t1'));
+    expect(await inbox.next()).toMatchObject({ type: 'op', opId: early });
+
+    await wait(350);
+    const closing = closed(inbox.ws);
+    inbox.send(addTask('t2', 'Doors'));
+    expect(await closing).toEqual({
+      code: SESSION_EXPIRED_CLOSE,
+      reason: SESSION_EXPIRED_REASON,
+    });
+    // Closed instead of answered: the op was never applied.
+    const stub = bindings.DATAPAD.getByName(email);
+    expect((await stub.stats()).seq).toBe(1);
+    expect(Object.keys((await stub.export(MAIN_SPACE)).tasks)).toEqual(['t1']);
+  });
+
+  it('closes an ended socket instead of sending it another tab’s change', async () => {
+    const email = 'expiry-fanout@example.com';
+    const ending = await openSocket(until(email, 300));
+    const fresh = await openSocket(as(email));
+    await ending.snapshot();
+    await fresh.snapshot();
+    await wait(350);
+    const closing = closed(ending.ws);
+    const opId = fresh.send(addTask('t1'));
+    expect(await fresh.next()).toMatchObject({ type: 'op', opId });
+    expect(await closing).toEqual({
+      code: SESSION_EXPIRED_CLOSE,
+      reason: SESSION_EXPIRED_REASON,
+    });
+    expect(await ending.quiet()).toBe(true);
+    fresh.ws.close(1000);
+  });
+
+  it('takes the end from the identity, never from the client', async () => {
+    const email = 'expiry-forged@example.com';
+    const response = await until(email, 300)(
+      new Request('http://datapad.test/ws', {
+        headers: {
+          Upgrade: 'websocket',
+          [SESSION_EXPIRES_HEADER]: String(Date.now() + 86_400_000),
+        },
+      }),
+      bindings,
+    );
+    const ws = response.webSocket;
+    if (!ws) throw new Error('No socket');
+    const inbox = new Inbox(ws);
+    ws.accept();
+    await inbox.snapshot();
+    await wait(350);
+    const closing = closed(ws);
+    inbox.send(addTask('t1'));
+    expect((await closing).code).toBe(SESSION_EXPIRED_CLOSE);
+  });
+
+  it('gives a socket without an expiry the maximum age, and the object refuses one with none', async () => {
+    const email = 'expiry-default@example.com';
+    const inbox = await openSocket(as(email));
+    await inbox.snapshot();
+    await runInDurableObject(
+      bindings.DATAPAD.getByName(email),
+      async (_o: DatapadObject, state) => {
+        const [socket] = state.getWebSockets();
+        if (!socket) throw new Error('No socket');
+        const { expiresAt } = socket.deserializeAttachment() as {
+          expiresAt: number;
+        };
+        expect(expiresAt - Date.now()).toBeGreaterThan(
+          SOCKET_MAX_AGE_MS - 60_000,
+        );
+        expect(expiresAt - Date.now()).toBeLessThanOrEqual(SOCKET_MAX_AGE_MS);
+      },
+    );
+    inbox.ws.close(1000);
+
+    const direct = await bindings.DATAPAD.getByName(email).fetch(
+      new Request('http://datapad.test/ws', {
+        headers: { Upgrade: 'websocket' },
+      }),
+    );
+    expect(direct.status).toBe(400);
+  });
+});
+
 describe('export and import', () => {
   const { exportedAt: _, ...documents } = fixture;
 
@@ -1003,7 +1102,7 @@ describe('spaces', () => {
     await runInDurableObject(stub, async (o: DatapadObject, state) => {
       (o as unknown as { load: () => void }).load();
       const [socket] = state.getWebSockets();
-      expect(socket?.deserializeAttachment()).toEqual({ space: 'hoth' });
+      expect(socket?.deserializeAttachment()).toMatchObject({ space: 'hoth' });
     });
     b.send(addTask('t1'));
     expect(await b.next()).toMatchObject({ type: 'op', seq: 1 });
