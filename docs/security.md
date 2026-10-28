@@ -146,7 +146,10 @@ until the owner deletes them. Restore one by hand like any backup
 ([data.md](data.md#backups)).
 
 Over MCP none of these exist: no tool deletes, archives, erases, imports,
-restores, moves between spaces or touches spaces or settings.
+restores, moves between spaces or touches spaces or settings. The Durable
+Object holds MCP to that too: its `apply()` takes only the op types on
+`MCP_OP_TYPES` (`shared/protocol.ts`), alone or inside a batch, and
+refuses the whole change otherwise.
 
 ## What the logs contain
 

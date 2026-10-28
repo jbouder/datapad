@@ -12,6 +12,7 @@ import {
   type ExportFile,
   ExportSchema,
   issuePath,
+  MCP_OP_TYPES,
   type Op,
   OpSchema,
   type ServerMessage,
@@ -840,7 +841,8 @@ export class DatapadObject extends DurableObject<Bindings> {
    * MCP's write path (#154): a batch of ops from a write tool, through
    * exactly what a socket's op goes through. Each op is checked with
    * `OpSchema` (several go as one `batch` op: all or nothing, one sequence
-   * number, one echo), held to the socket's size limit, deduped by
+   * number, one echo), limited to `MCP_OP_TYPES` (no deletes, archives,
+   * `put` or `remove`), held to the socket's size limit, deduped by
    * `opId`, run through `reduce()`, committed, and sent to every socket
    * open on the space, so the app updates live. Nothing else here changes
    * a space for MCP. `opId` and the ids inside the ops come from the
@@ -869,6 +871,18 @@ export class DatapadObject extends DurableObject<Bindings> {
       return {
         ok: false,
         error: issue ? describeIssue(issue) : 'That change is not valid',
+      };
+    }
+    // MCP may only add and edit (#229): one op off `MCP_OP_TYPES`
+    // refuses the whole change, before anything is written.
+    const op = parsed.data;
+    const barred = (op.type === 'batch' ? op.ops : [op]).find(
+      (o) => !MCP_OP_TYPES.has(o.type),
+    );
+    if (barred) {
+      return {
+        ok: false,
+        error: `A connected app cannot send "${barred.type}"; that change stays in the app`,
       };
     }
     const envelope = JSON.stringify({ type: 'op', opId, op: parsed.data });

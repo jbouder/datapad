@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import type { ServerMessage } from '#shared/protocol';
+import { MCP_OP_TYPES, type ServerMessage } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
 import type { Bindings } from '../worker/env';
 import { handleMcpPost } from '../worker/mcp/protocol';
@@ -964,6 +964,100 @@ describe('the write tools', () => {
     expect(replay).toMatchObject({ ok: true, replay: true, activity: [] });
     if (!first.ok || !replay.ok) throw new Error('refused');
     expect(replay.seq).toBe(first.seq);
+  });
+
+  it('apply() refuses every op off MCP_OP_TYPES, alone or in a batch, and writes nothing', async () => {
+    const ctx = await writer();
+    const before = await ctx.datapad.snapshot(MAIN_SPACE);
+    const task = before.state.tasks['t-1'];
+    if (!task) throw new Error('no t-1');
+    const barred = [
+      { type: 'deleteProject', id: 'p-echo' },
+      { type: 'deleteTask', id: 't-1' },
+      { type: 'remove', col: 'tasks', id: 't-1' },
+      { type: 'put', col: 'tasks', doc: { ...task, title: 'Overwritten' } },
+      { type: 'archiveProject', id: 'p-echo' },
+    ];
+    for (const op of barred) {
+      const alone = await ctx.datapad.apply(MAIN_SPACE, `alone-${op.type}`, [
+        op,
+      ]);
+      expect(alone, op.type).toEqual({
+        ok: false,
+        error: `A connected app cannot send "${op.type}"; that change stays in the app`,
+      });
+      // In a batch behind an allowed op: the whole batch is refused.
+      const batched = await ctx.datapad.apply(MAIN_SPACE, `batch-${op.type}`, [
+        { type: 'toggleTask', id: 't-2', done: true },
+        op,
+      ]);
+      expect(batched, op.type).toMatchObject({ ok: false });
+      if (batched.ok) throw new Error('applied');
+      expect(batched.error).toContain(`"${op.type}"`);
+    }
+    const after = await ctx.datapad.snapshot(MAIN_SPACE);
+    expect(after.seq).toBe(before.seq);
+    expect(after.state).toEqual(before.state);
+  });
+
+  it('every op type the write tools send is on MCP_OP_TYPES', async () => {
+    const ctx = await writer();
+    const sent = new Set<string>();
+    const used = new Set<string>();
+    const datapad = new Proxy(ctx.datapad, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop);
+        if (prop !== 'apply') return value;
+        return (space: string, opId: string, ops: { type: string }[]) => {
+          for (const op of ops) sent.add(op.type);
+          return target.apply(space, opId, ops);
+        };
+      },
+    });
+    const rec = { ...ctx, datapad };
+    const run = async (name: string, args: Record<string, unknown>) => {
+      used.add(name);
+      return call(rec, name, args);
+    };
+    await run('add_task', { title: 'Feed the tauntauns', project: 'p-echo' });
+    await run('complete_task', { task: 't-1' });
+    await run('reopen_task', { task: 't-1' });
+    await run('edit_task', { task: 't-4', title: 'Book the vet', due: 'none' });
+    await run('set_blocked', { task: 't-1', on: 'Han' });
+    await run('add_note', { body: 'Power budget agreed.', meeting: 'e-1' });
+    const meeting = await run('add_meeting', {
+      title: 'Hangar walkthrough',
+      date: 'tomorrow',
+      today: TODAY,
+    });
+    await run('add_topic', { meeting: meeting.meeting.id, title: 'Seals' });
+    await run('cover_topic', {
+      meeting: meeting.meeting.id,
+      topic: 'seals',
+      outcome: 'Replace two',
+    });
+    const project = await run('create_project', { name: 'Hoth drill' });
+    await run('set_project_status', {
+      project: project.project.id,
+      status: 'paused',
+    });
+    await run('set_project_health', {
+      project: project.project.id,
+      health: 'red',
+    });
+    await run('add_milestone', {
+      project: project.project.id,
+      title: 'Dry run',
+      date: '+1w',
+      today: TODAY,
+    });
+    // Every write tool ran, and each op it sent is on the list.
+    expect([...used].sort()).toEqual(
+      TOOLS.filter((t) => t.scope === 'write')
+        .map((t) => t.name)
+        .sort(),
+    );
+    expect([...sent].sort()).toEqual([...MCP_OP_TYPES].sort());
   });
 
   it('a read-only token neither sees nor runs a write tool', async () => {

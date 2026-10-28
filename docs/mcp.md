@@ -176,7 +176,9 @@ ids from `list_tasks` are safest.
 (`shared/ids.ts`, as the app does) and calls the Durable Object's
 `apply(space, opId, ops)`. That runs exactly the path a socket's op takes:
 `OpSchema` validation (several ops go as one `batch`: all or nothing),
-the socket's size limit, op-id dedupe, `reduce()` with the object's clock
+`MCP_OP_TYPES` (`shared/protocol.ts`: the add and edit ops the write
+tools build, and nothing else; one op off it, alone or in a batch,
+refuses the whole change), the socket's size limit, op-id dedupe, `reduce()` with the object's clock
 as `now`, the touched rows and the space's next sequence number in one
 transaction, and the op broadcast to every socket open on that space. So an
 open tab shows the change at once, with no reload, and the change logs in
@@ -217,7 +219,8 @@ Durable Object, written at most once a minute.
   milestone, project, person or org), archive a project, erase a space,
   import, restore or list backups, create, rename, reorder or delete
   spaces, move a project between spaces, or change settings, navigation
-  or page preferences. Those stay in the app.
+  or page preferences. Those stay in the app. The object enforces it, not
+  only the tool list: `apply()` refuses any op not on `MCP_OP_TYPES`.
 
 ## Tests
 
@@ -234,7 +237,9 @@ candidates, the 200-item cap, a space by name and an unknown one, and that
 `tools/list` shows the schemas the same zod validates with. It runs each
 write tool too, with the activity line it writes; that a write reaches an
 open socket as the op; that `apply()` refuses what `OpSchema` or the
-reducer refuses and dedupes an op id; and that a read-only token neither
+reducer refuses and dedupes an op id; that it refuses a delete, `remove`,
+`put` or archive, alone or in a batch, writing nothing; that the ops the
+write tools send are exactly `MCP_OP_TYPES`; and that a read-only token neither
 sees nor runs a write tool. `test/mcp.test.ts` lists and revokes grants
 through `/api/connections` (another email gets 404, a revoked token 401),
 and `e2e/connections.spec.ts` does the same in the browser, desktop and
