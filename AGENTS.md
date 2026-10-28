@@ -61,7 +61,10 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `tools/` (one file per area; `tools/index.ts` is the registry;
   `tools/read.ts` is what the read tools (#153) share: `readSpace()` over
   the DO's `snapshot(space)` RPC, the id-or-name rule `resolveByName()`,
-  the 200-item `cap()`, documents read out with mentions as `@Name`).
+  the 200-item `cap()`, documents read out with mentions as `@Name`;
+  `tools/write.ts` is what the write tools (#154) share: `write()` over
+  the DO's `apply()` RPC, words to dates, `@Name` to tokens), and
+  `connections.ts` (Settings → Connected apps: the email's grants, revoke).
   Tools select with `shared/`, never their own copy of a filter.
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
@@ -158,6 +161,13 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   project's board each day logs "Drew on the whiteboard"); keep it that
   way. The canvas sends its changes through `sendOps`, almost all by
   way of `useHistory`'s `run`, so ⌘Z can undo them.
+- **MCP writes go through `apply()` and `reduce()` only.** A write tool
+  (`worker/mcp/tools/write*.ts`, scope `write`) builds ops with ids from
+  `shared/ids` and hands them to the DO's `apply(space, opId, ops)`, which
+  takes the socket path (`OpSchema`, size limit, op-id dedupe, `reduce()`,
+  commit, fan-out to the space's sockets). No tool or RPC changes a space
+  for MCP any other way, and no MCP tool deletes, archives, erases,
+  imports, restores, moves between spaces or touches spaces or settings.
 - **The repository is public.** No real data in fixtures, tests or docs;
   never commit `.dev.vars`.
 - **Help and the docs stay true.** Help's shortcut, `/` command,

@@ -29,6 +29,7 @@ const ROUTES = [
   { path: '/settings/people', heading: 'Settings' },
   { path: '/settings/orgs', heading: 'Settings' },
   { path: '/settings/data', heading: 'Settings' },
+  { path: '/settings/connections', heading: 'Settings' },
   { path: '/settings/account', heading: 'Settings' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },

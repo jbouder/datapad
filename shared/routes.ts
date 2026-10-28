@@ -51,6 +51,8 @@ export const SETTINGS_SECTIONS = [
   'people',
   'orgs',
   'data',
+  /** The MCP clients the owner approved, with Revoke (#154). */
+  'connections',
   'account',
 ] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];

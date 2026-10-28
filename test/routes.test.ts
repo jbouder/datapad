@@ -243,6 +243,7 @@ describe('Settings sections', () => {
       'people',
       'orgs',
       'data',
+      'connections',
       'account',
     ]);
   });

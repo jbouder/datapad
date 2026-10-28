@@ -380,6 +380,12 @@ The first time a space with no saved preferences opens in a browser that remembe
 
 **Caps to respect** when designing the remote store: documents under 256 KiB (activity logs are capped at 150 entries for this reason), collections scanned without indexes (keep to low thousands of documents), last-writer-wins with no transactions.
 
+## Connected apps (MCP)
+
+Added in the rebuild (M14, #152–#154): Datapad is an MCP server at `/mcp` (docs/mcp.md). Claude Code, Claude Desktop or a claude.ai connector signs in through Access and a consent page (read always, write if ticked), then reads through typed tools and, with write, adds and edits through tools that each send one op through `reduce()`, exactly as the app does, so open tabs update live. Nothing can be deleted, archived, erased, imported, restored, moved between spaces, or changed in settings from MCP.
+
+**Settings → Connected apps** (`/settings/connections`, between Data and Account) lists the apps you approved, newest first: the name each gave itself, Read only or Read and write, Connected (relative), Last used (or Not used yet), and when its grant expires. **Revoke** asks first in a plain dialog (no typed name; Undo is not possible) and stops the app at once: its next call is refused and it must connect again. Grants are per email, not per space. Above the list: the `/mcp` address to add. On phones each app is a row that wraps; Revoke keeps a 44px target.
+
 ## Spaces
 
 Added in the rebuild (M9). A space is a complete, separate Datapad under the one signed-in user: its own projects, tasks, notes, meetings, people, orgs, templates, settings and activity (and any retired decisions). Nothing is shared or searched across spaces; every view, count, summary and ⌘K result is the open space's.

@@ -3,6 +3,7 @@ import { LIMITS } from '#shared/limits';
 import {
   type AppConfig,
   type BackupList,
+  type ConnectionList,
   type CreatedSpace,
   CreateSpaceSchema,
   DeleteSpaceSchema,
@@ -18,6 +19,7 @@ import { type AccessVerifier, verifyAccess } from './access';
 import { type DatapadObject, isNoSuchSpace } from './datapad';
 import type { Bindings } from './env';
 import { authorize } from './mcp/authorize';
+import { listConnections, revokeConnection } from './mcp/connections';
 import { AUTHORIZE_PATH, isProviderPath, providerFor } from './mcp/oauth';
 
 export { DatapadObject } from './datapad';
@@ -84,6 +86,40 @@ export function createHandler(verify: AccessVerifier) {
         }
         const config: AppConfig = { email };
         return json(config);
+      }
+
+      // Settings → Connected apps (#154): this email's MCP grants. The
+      // grant id only picks among them; it is not a credential.
+      if (pathname === '/api/connections') {
+        if (request.method !== 'GET') {
+          return json({ error: 'Method not allowed' }, 405);
+        }
+        const list: ConnectionList = {
+          connections: await listConnections(
+            request,
+            env,
+            email,
+            env.DATAPAD.getByName(email),
+          ),
+        };
+        return json(list);
+      }
+      const connection = /^\/api\/connections\/([^/]+)$/.exec(pathname);
+      if (connection?.[1]) {
+        if (request.method !== 'DELETE') {
+          return json({ error: 'Method not allowed' }, 405);
+        }
+        const refused = refuseCrossSite(request);
+        if (refused) return refused;
+        const revoked = await revokeConnection(
+          request,
+          env,
+          email,
+          env.DATAPAD.getByName(email),
+          connection[1],
+        );
+        if (!revoked) return json({ error: 'No such connection' }, 404);
+        return json({ revoked: true });
       }
 
       // One backup file: /api/backups/YYYY-MM-DD.json

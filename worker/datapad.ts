@@ -13,6 +13,7 @@ import {
   ExportSchema,
   issuePath,
   type Op,
+  OpSchema,
   type ServerMessage,
   SPACE_DELETED_CLOSE,
   SPACE_DELETED_REASON,
@@ -33,6 +34,7 @@ import {
   COLLECTIONS,
   type Collection,
   emptySnapshot,
+  GENERAL,
   MAIN_SPACE,
   type Snapshot,
   type SpaceInfo,
@@ -93,6 +95,33 @@ export class SpaceError extends Error {
 export function isNoSuchSpace(error: unknown): boolean {
   return error instanceof Error && error.message === NO_SUCH_SPACE;
 }
+
+/** One activity line an applied op wrote: its project's log, or General's. */
+export interface AppliedLine {
+  project: string | null;
+  text: string;
+}
+
+/**
+ * `apply()`: the space after the op, its sequence number, when it was
+ * applied and what it logged; or, for an op id already applied (a
+ * replay), the space as it is; or why it was refused.
+ */
+export type ApplyOutcome =
+  | {
+      ok: true;
+      replay: boolean;
+      seq: number;
+      at: string | null;
+      activity: AppliedLine[];
+      state: Snapshot;
+    }
+  | { ok: false; error: string };
+
+type RunOutcome =
+  | { kind: 'applied'; at: string; seq: number; changed: Changed[] }
+  | { kind: 'replay' }
+  | { kind: 'refused'; error: string };
 
 export type ImportOutcome =
   | { ok: true; imported: Counts }
@@ -171,6 +200,8 @@ export class DatapadObject extends DurableObject<Bindings> {
    * evicted object forgets, which only ever lets a client through sooner.
    */
   private readonly mcpCalls = new Map<string, number[]>();
+  /** When each MCP client's last use was written, so it is written rarely. */
+  private readonly mcpUsed = new Map<string, number>();
 
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
@@ -346,6 +377,10 @@ export class DatapadObject extends DurableObject<Bindings> {
       CREATE TABLE IF NOT EXISTS op_ids (
         op_id TEXT PRIMARY KEY,
         seq INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS mcp_clients (
+        client_id TEXT PRIMARY KEY,
+        last_used TEXT NOT NULL
       );
     `);
     const version = Number(this.meta(SCHEMA) ?? 1);
@@ -710,12 +745,80 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   /**
+   * MCP's write path (#154): a batch of ops from a write tool, through
+   * exactly what a socket's op goes through. Each op is checked with
+   * `OpSchema` (several go as one `batch` op: all or nothing, one sequence
+   * number, one echo), held to the socket's size limit, deduped by
+   * `opId`, run through `reduce()`, committed, and sent to every socket
+   * open on the space, so the app updates live. Nothing else here changes
+   * a space for MCP. `opId` and the ids inside the ops come from the
+   * Worker; the time is this object's clock, as for a socket's op.
+   *
+   * Answers the space's state after the op and the activity lines it
+   * wrote, or why it was refused. Throws the `SpaceError` for a space
+   * this user does not have.
+   */
+  async apply(
+    space: string,
+    opId: string,
+    ops: unknown[],
+  ): Promise<ApplyOutcome> {
+    this.space(space);
+    if (typeof opId !== 'string' || !opId || opId.length > LIMITS.idMax) {
+      return { ok: false, error: 'That change has no valid id' };
+    }
+    if (!Array.isArray(ops) || ops.length === 0) {
+      return { ok: false, error: 'There is nothing to change' };
+    }
+    const candidate = ops.length === 1 ? ops[0] : { type: 'batch', ops };
+    const parsed = OpSchema.safeParse(candidate);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return {
+        ok: false,
+        error: issue ? describeIssue(issue) : 'That change is not valid',
+      };
+    }
+    const envelope = JSON.stringify({ type: 'op', opId, op: parsed.data });
+    if (new TextEncoder().encode(envelope).length > LIMITS.messageBytes) {
+      return { ok: false, error: 'That change is too large to save' };
+    }
+    const outcome = this.run(space, opId, parsed.data);
+    const { state, seq } = this.space(space);
+    if (outcome.kind === 'refused') return { ok: false, error: outcome.error };
+    if (outcome.kind === 'replay') {
+      return { ok: true, replay: true, seq, at: null, activity: [], state };
+    }
+    // Each log is newest first; the lines this op wrote lead it, all at
+    // `at`, and read back in the order they were written.
+    const activity: AppliedLine[] = [];
+    for (const c of outcome.changed) {
+      if (c.col !== 'activity' || 'deleted' in c) continue;
+      const events = state.activity[c.id]?.events ?? [];
+      const mine: AppliedLine[] = [];
+      for (const event of events) {
+        if (event.t !== outcome.at) break;
+        mine.unshift({
+          project: c.id === GENERAL ? null : c.id,
+          text: event.text,
+        });
+      }
+      activity.push(...mine);
+    }
+    return { ok: true, replay: false, seq, at: outcome.at, activity, state };
+  }
+
+  /**
    * Whether one more MCP tool call fits the minute for this token: true
    * and counted when it does, false (and not counted) when it does not.
    * `key` is a hash of the token, chosen by the Worker; it only ever picks
    * a counter inside the object the verified email already named.
    */
-  async admitMcpCall(key: string, now = Date.now()): Promise<boolean> {
+  async admitMcpCall(
+    key: string,
+    now = Date.now(),
+    client?: string,
+  ): Promise<boolean> {
     for (const [k, stamps] of this.mcpCalls) {
       const live = stamps.filter((t) => now - t < 60_000);
       if (live.length === 0) this.mcpCalls.delete(k);
@@ -725,7 +828,46 @@ export class DatapadObject extends DurableObject<Bindings> {
     if (stamps.length >= LIMITS.mcpCallsPerMinute) return false;
     stamps.push(now);
     this.mcpCalls.set(key, stamps);
+    if (client) this.touchMcpClient(client, now);
     return true;
+  }
+
+  /**
+   * When each MCP client last made a tool call, by client id, for
+   * Settings → Connected apps (#154). Written at most once a minute per
+   * client; a client id only ever picks a row in this user's own object.
+   */
+  private touchMcpClient(client: string, now: number) {
+    if (client.length > 256) return;
+    const last = this.mcpUsed.get(client) ?? 0;
+    if (now - last < 60_000) return;
+    this.mcpUsed.set(client, now);
+    this.ctx.storage.sql.exec(
+      'INSERT OR REPLACE INTO mcp_clients (client_id, last_used) VALUES (?, ?)',
+      client,
+      new Date(now).toISOString(),
+    );
+  }
+
+  /** Each MCP client's last tool call (ISO 8601), by client id. */
+  async mcpLastUsed(): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    for (const row of this.ctx.storage.sql.exec<{
+      client_id: string;
+      last_used: string;
+    }>('SELECT client_id, last_used FROM mcp_clients')) {
+      out[row.client_id] = row.last_used;
+    }
+    return out;
+  }
+
+  /** Forget a client's last use, once its grant is revoked. */
+  async forgetMcpClient(client: string): Promise<void> {
+    this.mcpUsed.delete(client);
+    this.ctx.storage.sql.exec(
+      'DELETE FROM mcp_clients WHERE client_id = ?',
+      client,
+    );
   }
 
   /** Every document in a space, in the artifact's export format. */
@@ -1110,23 +1252,33 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   private applyOp(ws: WebSocket, opId: string, op: Op) {
-    const space = this.socketSpace(ws);
-    const data = this.space(space);
-    if (this.seenOps.has(opId)) {
+    const outcome = this.run(this.socketSpace(ws), opId, op);
+    if (outcome.kind === 'replay') {
       // A replay (an offline queue resent after its echo was lost): it
       // is already in the state, so say so and change nothing.
       const message: ServerMessage = { type: 'ack', opId };
       trySend(ws, JSON.stringify(message));
-      return;
+    } else if (outcome.kind === 'refused') {
+      this.reject(ws, opId, outcome.error);
     }
+  }
+
+  /**
+   * The one way a space changes by an op, from a socket or from MCP
+   * (`apply()`): op-id dedupe, `reduce()`, the touched rows and the next
+   * sequence number in one transaction, then the op to every socket open
+   * on the space, the sender's too. `op` has passed `OpSchema` already.
+   */
+  private run(space: string, opId: string, op: Op): RunOutcome {
+    const data = this.space(space);
+    if (this.seenOps.has(opId)) return { kind: 'replay' };
     const at = new Date().toISOString();
     let result: ReturnType<typeof reduce>;
     try {
       result = reduce(data.state, op, at);
     } catch (error) {
       if (error instanceof OpError) {
-        this.reject(ws, opId, error.message);
-        return;
+        return { kind: 'refused', error: error.message };
       }
       throw error;
     }
@@ -1135,6 +1287,7 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.commit(space, result.state, result.changed, at, opId);
     const message: ServerMessage = { type: 'op', seq: data.seq, opId, op, at };
     this.sendTo(space, JSON.stringify(message));
+    return { kind: 'applied', at, seq: data.seq, changed: result.changed };
   }
 
   async webSocketClose(ws: WebSocket, code: number) {

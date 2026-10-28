@@ -398,7 +398,8 @@ export function HelpPage({ section }: { section?: string }) {
           new project can start with, and the text a new note can; Save as
           template on a project or a note makes one), Summaries, Spaces, People
           (each person with their projects, tasks and mentions), Orgs (each org
-          with its projects, contacts, meetings and notes), Data and Account.
+          with its projects, contacts, meetings and notes), Data, Connected apps
+          (the MCP apps, such as Claude, you let in, with Revoke) and Account.
           Signing out ends your Cloudflare Access session on this browser; sign
           in again to come back. When your device asks for reduced motion,
           Datapad never animates.

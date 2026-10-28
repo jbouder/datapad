@@ -9,6 +9,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { LIMITS } from '#shared/limits';
+import type { Connection } from '#shared/protocol';
 import { ACCESS_HEADER, createAccessVerifier } from '../worker/access';
 import type { Bindings } from '../worker/env';
 import { createWorker } from '../worker/index';
@@ -587,6 +588,59 @@ describe('the /mcp endpoint', () => {
     }
   });
 
+  it('with write, lists the write tools too, and writes through the SDK client', async () => {
+    const { tokens } = await connect('writer@example.com', { write: true });
+    const client = await sdkClient(tokens.access_token);
+    try {
+      const { tools } = await client.listTools();
+      expect(tools.map((t) => t.name)).toEqual([
+        'whoami',
+        'list_spaces',
+        'get_overview',
+        'get_focus',
+        'list_projects',
+        'get_project',
+        'list_tasks',
+        'list_notes',
+        'list_meetings',
+        'list_people',
+        'list_orgs',
+        'get_digest',
+        'search',
+        'add_task',
+        'complete_task',
+        'reopen_task',
+        'edit_task',
+        'set_blocked',
+        'add_note',
+        'add_meeting',
+        'add_topic',
+        'cover_topic',
+        'create_project',
+        'set_project_status',
+        'set_project_health',
+        'add_milestone',
+      ]);
+      const added = await client.callTool({
+        name: 'add_task',
+        arguments: { title: 'Check the shield' },
+      });
+      expect(added.isError).toBeUndefined();
+      expect(added.structuredContent).toMatchObject({
+        space: 'main',
+        task: { title: 'Check the shield', project: null, status: 'open' },
+        activity: [{ project: null, text: 'Added task "Check the shield"' }],
+      });
+      const { state } =
+        await base.DATAPAD.getByName('writer@example.com').snapshot('main');
+      expect(Object.values(state.tasks).map((t) => t.title)).toContain(
+        'Check the shield',
+      );
+    } finally {
+      await client.close();
+    }
+  });
+
   it('answers 401 without a bearer, naming the resource metadata', async () => {
     const response = await rpc({ jsonrpc: '2.0', id: 1, method: 'ping' });
     expect(response.status).toBe(401);
@@ -777,6 +831,133 @@ describe('the /mcp endpoint', () => {
       ((await json(init)).result as { protocolVersion: string })
         .protocolVersion,
     ).toBe('2025-11-25');
+  });
+});
+
+describe('Settings → Connected apps', () => {
+  /** `/api/connections…` as `email`, through Access. */
+  async function connections(
+    email: string,
+    path = '/api/connections',
+    init: RequestInit = {},
+  ): Promise<Response> {
+    return viaAccess(
+      new Request(`${ORIGIN}${path}`, {
+        ...init,
+        headers: {
+          [ACCESS_HEADER]: await accessJwt(email),
+          ...(init.headers ?? {}),
+        },
+      }),
+    );
+  }
+
+  const revoke = (email: string, id: string, headers = {}) =>
+    connections(email, `/api/connections/${id}`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json', ...headers },
+    });
+
+  it('lists the owner’s grants with name, scopes, dates and last use', async () => {
+    const email = `apps-${crypto.randomUUID()}@example.com`;
+    const { tokens } = await connect(email, {
+      write: true,
+      name: 'Claude Code',
+    });
+    await connect(email, { name: 'Claude Desktop' });
+
+    const before = (await (await connections(email)).json()) as {
+      connections: Connection[];
+    };
+    expect(before.connections.map((c) => c.name).sort()).toEqual([
+      'Claude Code',
+      'Claude Desktop',
+    ]);
+    const code = before.connections.find((c) => c.name === 'Claude Code');
+    expect(code?.scopes.sort()).toEqual(['read', 'write']);
+    expect(code?.lastUsedAt).toBeNull();
+    expect(Date.parse(code?.createdAt ?? '')).toBeGreaterThan(0);
+
+    const call = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'whoami' },
+      },
+      { authorization: `Bearer ${tokens.access_token}` },
+    );
+    expect(call.status).toBe(200);
+    const after = (await (await connections(email)).json()) as {
+      connections: Connection[];
+    };
+    const used = after.connections.find((c) => c.name === 'Claude Code');
+    expect(used?.lastUsedAt).toBeTruthy();
+    expect(
+      after.connections.find((c) => c.name === 'Claude Desktop')?.lastUsedAt,
+    ).toBeNull();
+  });
+
+  it('revokes one, and only the owner can', async () => {
+    const email = `revoke-${crypto.randomUUID()}@example.com`;
+    const { tokens } = await connect(email, { name: 'Claude Code' });
+    const list = (await (await connections(email)).json()) as {
+      connections: Connection[];
+    };
+    const id = list.connections[0]?.id ?? '';
+    expect(id).toBeTruthy();
+
+    // Another email cannot see or revoke it.
+    const other = (await (
+      await connections('someone-else@example.com')
+    ).json()) as { connections: Connection[] };
+    expect(other.connections.map((c) => c.id)).not.toContain(id);
+    expect((await revoke('someone-else@example.com', id)).status).toBe(404);
+
+    // Not cross-site, not without JSON, not by GET.
+    expect(
+      (await revoke(email, id, { origin: 'https://evil.example' })).status,
+    ).toBe(403);
+    expect(
+      (
+        await connections(email, `/api/connections/${id}`, {
+          method: 'DELETE',
+        })
+      ).status,
+    ).toBe(415);
+    expect((await connections(email, `/api/connections/${id}`)).status).toBe(
+      405,
+    );
+    expect(
+      (await connections(email, '/api/connections', { method: 'POST' })).status,
+    ).toBe(405);
+
+    const whoami = () =>
+      rpc(
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'whoami' },
+        },
+        { authorization: `Bearer ${tokens.access_token}` },
+      );
+    expect((await whoami()).status).toBe(200);
+
+    const revoked = await revoke(email, id);
+    expect(revoked.status).toBe(200);
+    expect(await revoked.json()).toEqual({ revoked: true });
+    expect((await whoami()).status).toBe(401);
+    const gone = (await (await connections(email)).json()) as {
+      connections: Connection[];
+    };
+    expect(gone.connections).toEqual([]);
+    expect((await revoke(email, id)).status).toBe(404);
+  });
+
+  it('is behind Access like every page', async () => {
+    const response = await viaAccess(new Request(`${ORIGIN}/api/connections`));
+    expect(response.status).toBe(401);
   });
 });
 

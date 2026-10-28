@@ -31,6 +31,15 @@ under **Export format**.
   selectors the app's pages use. Each takes a space by id or name; projects,
   people, orgs and meetings can be named, and an ambiguous name returns the
   candidates.
+- **MCP write tools** (#154), with the `write` scope: `add_task`,
+  `complete_task`, `reopen_task`, `edit_task`, `set_blocked`, `add_note`,
+  `add_meeting`, `add_topic`, `cover_topic`, `create_project`,
+  `set_project_status`, `set_project_health` and `add_milestone`. Each
+  sends one change through the same path as the app's own, so an open tab
+  shows it at once and Activity logs it. Dates can be words ("fri",
+  "+3d"), mentions `@Name`. Nothing can be deleted over MCP.
+- **Settings → Connected apps** (#154): the MCP apps you approved, with
+  what each may do, when it connected and was last used, and Revoke.
 
 ## [0.1.0] — 2026-10-27
 

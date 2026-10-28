@@ -6,9 +6,10 @@ Desktop and a claude.ai connector can talk to the signed-in owner's own
 data, as typed tools over the same Durable Object the app uses. It is
 modelled on holotable's MCP server.
 
-So far: sign-in, the endpoint, `whoami` and `list_spaces`, and the read
-tools ([#153](https://github.com/jbouder/datapad/issues/153)). Write tools
-arrive with [#154](https://github.com/jbouder/datapad/issues/154).
+It has sign-in, the endpoint, `whoami` and `list_spaces`, the read tools
+([#153](https://github.com/jbouder/datapad/issues/153)), and the write
+tools with Settings → Connected apps
+([#154](https://github.com/jbouder/datapad/issues/154)).
 
 ## Connecting
 
@@ -70,7 +71,7 @@ is also its own OAuth 2.1 authorization server, for MCP clients only, with
 
 Access tokens live an hour and the client refreshes them; a grant lasts
 30 days from sign-in, then you connect again. Grants are listed under your
-email, so they can be revoked (#154 adds that to Settings). Tokens, codes
+email: Settings → Connected apps shows each one and revokes it (below). Tokens, codes
 and client secrets are stored in `OAUTH_KV` only as hashes, and a grant's
 email is encrypted with a key only its token can unwrap.
 
@@ -92,9 +93,9 @@ limit) comes back as a tool result with `isError`, never as a protocol
 error. Each token may make 60 tool calls a minute
 (`LIMITS.mcpCallsPerMinute`).
 
-## The tools
+## The read tools
 
-Every tool is read-only and needs the `read` scope. Each is a thin façade
+Every read tool is read-only and needs the `read` scope. Each is a thin façade
 over the `shared/` selectors the app's pages use (`select.ts`, `tasks.ts`,
 `projects.ts`, `notes.ts`, `meetings.ts`, `orgs.ts`, `digest.ts`,
 `search.ts`), run in the Worker over one space's snapshot (the Durable
@@ -140,6 +141,68 @@ Retired data stays retired: decisions and a project's old one-line state
 `tools/list` shows only the tools the token's scopes allow, each with its
 arguments as JSON Schema generated from the zod schema that validates them.
 
+## The write tools
+
+Each write tool needs the `write` scope (ticked on the consent page); a
+token without it does not see them and cannot call them. Each turns names
+into ids (the same rule as the reads), words into dates (`shared/dates.ts`'
+`parseDate`: `tomorrow`, `fri`, `next week`, `+3d`, `10/31`, `2026-11-02`,
+relative to the owner's today or a passed `today`) and `@Name` into the
+`@{id}` mention tokens the app stores, then makes **one change**: one op,
+or two in one `batch` for `cover_topic`. It answers with the document as it
+now is and the activity lines the change wrote (`{ project, text }`,
+`project` null for General).
+
+| Tool                 | Arguments                                                                                                              | Op                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `add_task`           | `space`, `title`, `project`, `meeting` (an action item), `assignee`, `due`, `priority`, `desc`, `tags`, `today`        | `addTask`                                         |
+| `complete_task`      | `space`, `task`                                                                                                        | `toggleTask` (`done: true`)                       |
+| `reopen_task`        | `space`, `task`                                                                                                        | `toggleTask` (`done: false`)                      |
+| `edit_task`          | `space`, `task`, `title`, `due` (`none` clears), `priority`, `assignee` (`unassigned` clears), `desc`, `tags`, `today` | `editTask`                                        |
+| `set_blocked`        | `space`, `task`, `blocked` (false unblocks), `on`, `note`                                                              | `setBlocked`                                      |
+| `add_note`           | `space`, `body`, `project`, `meeting` or `task`                                                                        | `addNote`                                         |
+| `add_meeting`        | `space`, `title`, `date`, `time`, `end`, `project`, `attendees`, `link`, `note`, `today`                               | `addMeeting`                                      |
+| `add_topic`          | `space`, `meeting`, `title`                                                                                            | `addTopic`                                        |
+| `cover_topic`        | `space`, `meeting`, `topic`, `done` (default true), `outcome`                                                          | `toggleTopic`, plus `editTopic` for the outcome   |
+| `create_project`     | `space`, `name`, `org`, `status`, `health`, `priority`, `startDate`, `targetDate`, `desc`, `tags`, `members`, `today`  | `createProject` (an `org` naming an Org links it) |
+| `set_project_status` | `space`, `project`, `status`                                                                                           | `setStatus`                                       |
+| `set_project_health` | `space`, `project`, `health`                                                                                           | `setHealth`                                       |
+| `add_milestone`      | `space`, `project`, `title`, `date`, `today`                                                                           | `addMilestone`                                    |
+
+A `task` is an id or a title (ignoring case, or a unique part of it);
+ids from `list_tasks` are safest.
+
+**How a write lands.** The tool builds the op with ids it makes
+(`shared/ids.ts`, as the app does) and calls the Durable Object's
+`apply(space, opId, ops)`. That runs exactly the path a socket's op takes:
+`OpSchema` validation (several ops go as one `batch`: all or nothing),
+the socket's size limit, op-id dedupe, `reduce()` with the object's clock
+as `now`, the touched rows and the space's next sequence number in one
+transaction, and the op broadcast to every socket open on that space. So an
+open tab shows the change at once, with no reload, and the change logs in
+Activity as the same action in the app would. A refusal, the schema's or
+the reducer's, comes back as `Not saved: <reason>.` Nothing in the Worker
+or the object changes a space for MCP any other way.
+
+Retired ops stay off MCP as they are off the app: no decisions and no
+project state line (#183).
+
+## Connected apps
+
+Settings → Connected apps (`/settings/connections`) lists the MCP clients
+you approved: the name each gave itself, Read only or Read and write,
+when it was connected, its last tool call, and when its grant expires.
+**Revoke** asks first, then revokes the grant and every token it issued;
+the app's next call gets `401`, and it has to connect and be approved
+again. Grants are per email, not per space.
+
+Behind it are `GET /api/connections` and `DELETE /api/connections/<grantId>`,
+behind Access like every page (and the delete refuses a cross-site
+request). Both look grants up under the signed-in email's grant user id
+only, so a grant can only be listed or revoked by the email it belongs to;
+the grant id is not a credential. The last use is kept per client in the
+Durable Object, written at most once a minute.
+
 ## What a client can and cannot do
 
 - It acts as you, in every one of your spaces, and nobody else. No tool
@@ -148,9 +211,13 @@ arguments as JSON Schema generated from the zod schema that validates them.
 - It cannot reach anything but `/mcp` with its token: the app's `/api/*`
   and `/ws` still want Access, and ignore a bearer.
 - It cannot reach `/mcp` with an Access cookie or JWT: no bearer, no entry.
-- It cannot change anything yet: every tool reads. Write tools (#154)
-  will need the `write` scope.
-- It cannot erase or delete a space, or touch backups.
+- Without the `write` scope it cannot change anything.
+- With it, it can only add and edit through the write tools above. By
+  design it **cannot**: delete anything (a task, note, meeting, topic,
+  milestone, project, person or org), archive a project, erase a space,
+  import, restore or list backups, create, rename, reorder or delete
+  spaces, move a project between spaces, or change settings, navigation
+  or page preferences. Those stay in the app.
 
 ## Tests
 
@@ -164,4 +231,11 @@ page to the same header and CSP rules as the rest of the Worker.
 `test/mcp-tools.test.ts` runs each read tool over an object seeded with
 `test/fixtures/export.json`: the filters, the name rule and its
 candidates, the 200-item cap, a space by name and an unknown one, and that
-`tools/list` shows the schemas the same zod validates with.
+`tools/list` shows the schemas the same zod validates with. It runs each
+write tool too, with the activity line it writes; that a write reaches an
+open socket as the op; that `apply()` refuses what `OpSchema` or the
+reducer refuses and dedupes an op id; and that a read-only token neither
+sees nor runs a write tool. `test/mcp.test.ts` lists and revokes grants
+through `/api/connections` (another email gets 404, a revoked token 401),
+and `e2e/connections.spec.ts` does the same in the browser, desktop and
+phone, and watches an MCP write appear in an open tab.

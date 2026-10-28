@@ -50,6 +50,20 @@ export const READ_ONLY: McpToolAnnotations = {
   openWorldHint: false,
 };
 
+/** A write tool (#154): changes data, never deletes it. */
+export const WRITE: McpToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+
+/** A write that says its outcome (close, set health): calling it twice is once. */
+export const WRITE_IDEMPOTENT: McpToolAnnotations = {
+  ...WRITE,
+  idempotentHint: true,
+};
+
 export interface McpTool<
   I extends z.ZodObject = z.ZodObject,
   O extends z.ZodType = z.ZodType,

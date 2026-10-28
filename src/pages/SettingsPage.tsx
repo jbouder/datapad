@@ -7,6 +7,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { formatTime } from '#shared/dates';
 import { countDocuments } from '#shared/protocol';
 import { Backups } from '@/components/Backups';
+import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
 import { NavSettings } from '@/components/NavSettings';
@@ -44,6 +45,7 @@ const LABELS: Record<SettingsSection, string> = {
   people: 'People',
   orgs: 'Orgs',
   data: 'Data',
+  connections: 'Connected apps',
   account: 'Account',
 };
 
@@ -51,7 +53,8 @@ const LABELS: Record<SettingsSection, string> = {
  * Everything that is not day-to-day work: how Datapad looks and moves,
  * what each page remembers, which sections the navigation shows,
  * templates, summaries, your spaces, the people and orgs the rest of the
- * app refers to, your data in and out, and who is signed in. Each section
+ * app refers to, your data in and out, the MCP apps you let in, and who is
+ * signed in. Each section
  * has its own address (`/settings/data`, `/settings/people/:id`); the
  * account menu leads here.
  */
@@ -150,6 +153,7 @@ export function SettingsPage({
           {section === 'people' && <PeopleView selected={person} />}
           {section === 'orgs' && <OrgsView selected={org} />}
           {section === 'data' && <Data />}
+          {section === 'connections' && <ConnectionsSettings />}
           {section === 'account' && <Account />}
         </section>
       </div>

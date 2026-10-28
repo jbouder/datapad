@@ -49,6 +49,32 @@ export interface AppConfig {
   email: string;
 }
 
+/**
+ * One MCP client the owner approved (#154): its grant, as Settings →
+ * Connected apps lists it. The grant id picks among the signed-in
+ * email's own grants; it is not a credential.
+ */
+export interface Connection {
+  /** The grant's id: what `DELETE /api/connections/<id>` revokes. */
+  id: string;
+  clientId: string;
+  /** What the app calls itself (self-asserted), or null. */
+  name: string | null;
+  /** `read`, and `write` when it was ticked. */
+  scopes: string[];
+  /** When it was approved (ISO 8601). */
+  createdAt: string;
+  /** When the grant runs out and the app must connect again, or null. */
+  expiresAt: string | null;
+  /** Its last tool call, or null when it has made none. */
+  lastUsedAt: string | null;
+}
+
+/** `GET /api/connections`: newest first. */
+export interface ConnectionList {
+  connections: Connection[];
+}
+
 /* ---------- fields ---------- */
 
 const id = z.string().min(1).max(LIMITS.idMax);
