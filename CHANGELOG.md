@@ -78,6 +78,12 @@ under **Export format**.
   write quota that sign-ins need. A registered client nobody approves
   expires after 60 days. The deployment binds a rate limiter,
   `REGISTER_LIMIT` (docs/self-hosting.md).
+- **A live connection ends with its sign-in** (#228): a tab left open used
+  to keep reading and saving after its Access session expired or was
+  revoked. The connection now carries when the session ends and is closed
+  at the next change after that; the tab then checks the session and shows
+  **Sign in again**, or reconnects if it is still signed in. Nothing typed
+  is lost either way.
 - **Supply chain checks** (#57): CodeQL on every pull request and weekly;
   CI fails on a known advisory (`bun audit`, moderate and up); a test fails
   on any GitHub Action not pinned to a commit SHA; the Dependabot review

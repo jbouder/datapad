@@ -14,6 +14,7 @@ import {
   type OpOf,
   OpSchema,
   type OpType,
+  SESSION_EXPIRED_CLOSE,
   type ServerMessage,
   SPACE_DELETED_CLOSE,
 } from '#shared/protocol';
@@ -422,6 +423,16 @@ export function useDatapadConnection(
           // This space is gone: never reconnect to it. The socket that
           // closed missed the new list, so ask for it.
           leave();
+          return;
+        }
+        if (event.code === SESSION_EXPIRED_CLOSE) {
+          // The session this socket opened under has ended. Ask first: if
+          // Access says signed out, the app says "Sign in again"; if not
+          // (the browser's session was renewed), reconnect through it.
+          // Waiting changes stay queued and go out on the new socket.
+          void probeSession().then(() => {
+            if (!canceled && !socket.current) connect();
+          });
           return;
         }
         attempts += 1;

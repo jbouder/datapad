@@ -15,12 +15,13 @@ import {
   type SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
-import { type AccessVerifier, verifyAccess } from './access';
+import { type AccessVerifier, SOCKET_MAX_AGE_MS, verifyAccess } from './access';
 import {
   type DatapadObject,
   isNewerSchema,
   isNoSuchSpace,
   NEWER_SCHEMA,
+  SESSION_EXPIRES_HEADER,
 } from './datapad';
 import type { Bindings } from './env';
 import { authorize } from './mcp/authorize';
@@ -202,9 +203,17 @@ export function createHandler(verify: AccessVerifier) {
         // Upgrades travel as a fetch; RPC cannot carry a socket. The name
         // comes from the verified email and nowhere else. The request goes
         // on with its query, whose `space` the object reads (falling back
-        // to the first space, never to another object). Awaited, so a
-        // refusal (NEWER_SCHEMA) reaches the catch below.
-        return await env.DATAPAD.getByName(email).fetch(request);
+        // to the first space, never to another object). With it goes when
+        // this Access session ends, from the verified identity only (the
+        // client's own header of that name is overwritten): the object
+        // closes the socket after that (#228). Awaited, so a refusal
+        // (NEWER_SCHEMA) reaches the catch below.
+        const upgrade = new Request(request);
+        upgrade.headers.set(
+          SESSION_EXPIRES_HEADER,
+          String(identity.expiresAt ?? Date.now() + SOCKET_MAX_AGE_MS),
+        );
+        return await env.DATAPAD.getByName(email).fetch(upgrade);
       }
 
       return env.ASSETS.fetch(request);

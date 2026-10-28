@@ -2,6 +2,7 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { MCP_OP_TYPES, type ServerMessage } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
+import { SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { handleMcpPost } from '../worker/mcp/protocol';
 import {
@@ -547,7 +548,10 @@ async function writer(): Promise<McpToolContext> {
 async function tab(ctx: McpToolContext) {
   const response = await ctx.datapad.fetch(
     new Request('https://datapad.test/ws', {
-      headers: { Upgrade: 'websocket' },
+      headers: {
+        Upgrade: 'websocket',
+        [SESSION_EXPIRES_HEADER]: String(Date.now() + 60_000),
+      },
     }),
   );
   const ws = response.webSocket;

@@ -33,6 +33,38 @@ app's safety does not depend on the Access application being attached to
 every hostname correctly. It also turns the token into the one thing that
 selects data: the lowercased `email` claim names the Durable Object.
 
+### Sockets and the session
+
+A WebSocket is checked once, at its upgrade, and can stay open for days.
+So that it does not outlive the session it was opened under (a tab left
+open on a lost device, a revoked session), the Worker passes the object
+when that session ends: the verified token's `exp` plus the 60 seconds'
+leeway the check allows, in a header it sets itself
+(`x-datapad-session-expires`, overwriting any the client sent; the object
+refuses an upgrade without one). With no token (the dev bypass) it is a
+day from the upgrade (`SOCKET_MAX_AGE_MS`). The object keeps it in the
+socket's attachment, beside its space, so it survives hibernation.
+
+After that time the object reads nothing from the socket and sends it
+nothing: its next message, or the next op, snapshot or list of spaces
+bound for it, closes it with code `4401` ("session expired") instead.
+The client then asks `/api/health`; Access's redirect or a 401 shows
+**Sign in again**, and a session that is still good (Access renewed the
+cookie) reconnects through Access at once, its waiting changes resent.
+
+How long a socket can outlive its session: **at most 60 seconds** for
+anything it sends or receives. A socket that is idle (keep-alive pings
+are answered by the runtime without waking the object) stays open until
+its next message or the next change on its space, but nothing passes on
+it in between, so there is nothing to read or write. No alarm sweeps idle
+sockets: the object's one alarm is the nightly backup, and closing a
+socket that carries nothing would protect nothing.
+`test/datapad.test.ts` waits past the end and expects the close (on a
+message and on fan-out) and that the client's header is ignored;
+`e2e/errors.spec.ts` covers the tab's reaction both ways, using a
+dev-bypass-only header (`x-dev-session-seconds`, ignored once
+`ACCESS_AUD` is set) to end a session after a few seconds.
+
 ## Every path and its check
 
 Every path is behind Access except the OAuth provider's own, and the
@@ -62,7 +94,7 @@ unknown one is 404.
 | `/api/connections`                        | GET       | Access             | This email's MCP grants only                                                                                                                                                                                                       |
 | `/api/connections/:id`                    | DELETE    | Access             | Same origin, JSON; the grant must be this email's, else 404                                                                                                                                                                        |
 | any other `/api/*`                        | any       | Access             | 404                                                                                                                                                                                                                                |
-| `/ws`                                     | GET       | Access             | A WebSocket upgrade (else 426); `Origin` must be the app's (else 403); `?space=` picks a space, an unknown one opens the first; every op parsed by `OpSchema`, 256 KB a message at most, deduplicated by op id, through `reduce()` |
+| `/ws`                                     | GET       | Access             | A WebSocket upgrade (else 426); `Origin` must be the app's (else 403); `?space=` picks a space, an unknown one opens the first; every op parsed by `OpSchema`, 256 KB a message at most, deduplicated by op id, through `reduce()`; closed once its session ends ([below](#sockets-and-the-session)) |
 | `/oauth/authorize`                        | GET, POST | Access             | The consent page; its POST must be same-origin (`Sec-Fetch-Site`, else `Origin`) and carry the single-use handle from its `__Host-` cookie; the grant's email is Access's                                                          |
 | `/mcp`                                    | POST      | Bearer, not Access | An unexpired, unrevoked token the provider issued for this origin's `/mcp`; no cookie fallback; the object named by the grant's email; scope `write` for write tools; 60 calls a minute                                            |
 | `/oauth/token`, `/oauth/register`         | POST      | Nobody (provider)  | A code with its PKCE verifier, or a refresh token; registration stores a client that can do nothing until approved, five a minute per IP, kept 60 days unless used                                                                 |

@@ -15,6 +15,8 @@ import {
   MCP_OP_TYPES,
   type Op,
   OpSchema,
+  SESSION_EXPIRED_CLOSE,
+  SESSION_EXPIRED_REASON,
   type ServerMessage,
   SPACE_DELETED_CLOSE,
   SPACE_DELETED_REASON,
@@ -62,7 +64,9 @@ import { type Bindings, ownerTimeZone } from './env';
  * with that space's next sequence number, then the op goes to every socket
  * open on that space, the sender's too, so all its tabs apply the same ops
  * in the same order. A socket's space is in its attachment, which survives
- * hibernation.
+ * hibernation, with when its Access session ends: a socket past that is
+ * closed with `SESSION_EXPIRED_CLOSE` at its next message or the next
+ * thing sent to it, instead of being answered (#228).
  *
  * Every night (BACKUP_HOUR in BACKUP_TIME_ZONE) an alarm writes each
  * space's export to R2 and keeps the latest 30 per space: `main` at
@@ -210,9 +214,20 @@ interface SpaceWrite {
   changed: Changed[];
 }
 
-/** What a socket carries through hibernation: the space it opened. */
+/**
+ * The upgrade header the Worker sets, from the verified identity, to when
+ * the socket's Access session ends (ms since the epoch). The Worker
+ * overwrites whatever the client sent; the object refuses an upgrade
+ * without one.
+ */
+export const SESSION_EXPIRES_HEADER = 'x-datapad-session-expires';
+
+/** What a socket carries through hibernation. */
 interface SocketAttachment {
+  /** The space it opened. */
   space: string;
+  /** When its Access session ends, ms since the epoch. */
+  expiresAt: number;
 }
 
 export class DatapadObject extends DurableObject<Bindings> {
@@ -727,6 +742,24 @@ export class DatapadObject extends DurableObject<Bindings> {
     const attached = ws.deserializeAttachment() as SocketAttachment | null;
     if (attached && this.data.has(attached.space)) return attached.space;
     return this.firstSpace();
+  }
+
+  /**
+   * Whether a socket's session has ended; if so it is closed, and nothing
+   * more is read from it or sent to it. One without a time (none should
+   * exist) counts as ended.
+   */
+  private expired(ws: WebSocket): boolean {
+    const attached = ws.deserializeAttachment() as SocketAttachment | null;
+    const expiresAt = attached?.expiresAt;
+    if (typeof expiresAt === 'number' && Date.now() < expiresAt) return false;
+    this.recent.delete(ws);
+    try {
+      ws.close(SESSION_EXPIRED_CLOSE, SESSION_EXPIRED_REASON);
+    } catch {
+      // Already closed.
+    }
+    return true;
   }
 
   private firstSpace(): string {
@@ -1336,6 +1369,10 @@ export class DatapadObject extends DurableObject<Bindings> {
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('Expected a WebSocket upgrade', { status: 426 });
     }
+    const expiresAt = Number(request.headers.get(SESSION_EXPIRES_HEADER));
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+      return new Response('No session expiry', { status: 400 });
+    }
     // A connection is "the next request" after a missed night.
     this.ctx.waitUntil(this.catchUp().catch(logBackupError));
     const [client, server] = Object.values(new WebSocketPair());
@@ -1343,14 +1380,14 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.ctx.acceptWebSocket(server);
     const asked = new URL(request.url).searchParams.get('space');
     const space = asked && this.data.has(asked) ? asked : this.firstSpace();
-    const attachment: SocketAttachment = { space };
+    const attachment: SocketAttachment = { space, expiresAt };
     server.serializeAttachment(attachment);
     this.sendSnapshot(server);
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer) {
-    if (typeof raw !== 'string') {
+    if (this.expired(ws) || typeof raw !== 'string') {
       return;
     }
     // `ping` is answered by the auto-response above without waking us; a
@@ -1490,14 +1527,16 @@ export class DatapadObject extends DurableObject<Bindings> {
     const message: ServerMessage = { type: 'spaces', spaces: this.spaces };
     const text = JSON.stringify(message);
     for (const socket of this.ctx.getWebSockets()) {
-      if (!skip.has(socket)) trySend(socket, text);
+      if (!skip.has(socket) && !this.expired(socket)) trySend(socket, text);
     }
   }
 
   /** Send to the sockets open on one space, and only those. */
   private sendTo(space: string, text: string) {
     for (const socket of this.ctx.getWebSockets()) {
-      if (this.socketSpace(socket) === space) trySend(socket, text);
+      if (this.socketSpace(socket) === space && !this.expired(socket)) {
+        trySend(socket, text);
+      }
     }
   }
 

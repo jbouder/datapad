@@ -15,16 +15,38 @@ import type { Bindings } from './env';
  * Local development: with ACCESS_AUD empty *and* DEV_ACCESS_EMAIL set (only
  * ever in .dev.vars) the check is bypassed and that email is used, or the
  * `x-dev-access-email` header when present (the e2e suite gives each test
- * its own Durable Object that way). With ACCESS_AUD set there is no bypass;
- * with neither set, everything is refused.
+ * its own Durable Object that way, and `x-dev-session-seconds` a session
+ * that ends soon, to test a socket outliving it). With ACCESS_AUD set there
+ * is no bypass; with neither set, everything is refused.
+ *
+ * A verified identity carries when it stops being accepted (`expiresAt`);
+ * a socket opened with it is closed after that (#228, docs/security.md).
  */
 
 export interface AccessIdentity {
   email: string;
+  /**
+   * When this identity stops being accepted, ms since the epoch: the
+   * token's `exp` plus the leeway below. A socket opened with it is closed
+   * after that (#228). Absent in the dev bypass, where the socket gets the
+   * Worker's maximum age instead.
+   */
+  expiresAt?: number;
 }
+
+/**
+ * How long a socket may live when the identity carries no expiry (the dev
+ * bypass, or a test's verifier): a day, Access's default session.
+ */
+export const SOCKET_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const ACCESS_HEADER = 'cf-access-jwt-assertion';
 export const DEV_EMAIL_HEADER = 'x-dev-access-email';
+/**
+ * Dev bypass only: end this "session" after so many seconds, so the e2e
+ * suite can watch a socket outlive its session without a fake clock.
+ */
+export const DEV_SESSION_HEADER = 'x-dev-session-seconds';
 
 /** Keys are refetched after this long even when every kid is known. */
 const JWKS_TTL_MS = 10 * 60 * 1000;
@@ -150,7 +172,11 @@ export function createAccessVerifier(
     const asked =
       request.headers.get(DEV_EMAIL_HEADER)?.trim().toLowerCase() ?? '';
     const email = asked || fallback;
-    return EMAIL.test(email) ? { email } : null;
+    if (!EMAIL.test(email)) return null;
+    const seconds = Number(request.headers.get(DEV_SESSION_HEADER) ?? '');
+    return seconds > 0
+      ? { email, expiresAt: now() + seconds * 1000 }
+      : { email };
   }
 
   return async (request, env) => {
@@ -176,7 +202,8 @@ export function createAccessVerifier(
         return null;
       }
       const email = claims.email?.trim().toLowerCase() ?? '';
-      return EMAIL.test(email) ? { email } : null;
+      if (!EMAIL.test(email)) return null;
+      return { email, expiresAt: (claims.exp + LEEWAY_S) * 1000 };
     } catch {
       return null;
     }
