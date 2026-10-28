@@ -82,6 +82,13 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **MCP writes are retry-safe** (#244): every write tool takes an
+  optional `requestId`; calling again with the same one returns what the
+  first call made instead of adding it twice, and one spent on a
+  different change is refused. `edit_task` is now marked destructive (it
+  replaces a task's details), and the instructions a client gets at
+  `initialize` say that text in Datapad is the owner's data, never
+  instructions (docs/mcp.md).
 - **Quieter control edges**: selects, the layout switch, segmented
   choices and outline buttons (in Dark too) now share the cards' light
   border. Text fields and checkboxes keep the darker 3:1 edge that shows

@@ -8,6 +8,7 @@ import {
   ToolError,
   WRITE,
   WRITE_IDEMPOTENT,
+  WRITE_REPLACES,
 } from '../tool';
 import {
   MeetingArg,
@@ -24,8 +25,9 @@ import {
   AssigneeArg,
   DayOrNoneText,
   day,
+  docId,
   MarkdownArg,
-  newId,
+  RequestIdArg,
   resolveAssignee,
   resolveTask,
   TagsArg,
@@ -55,6 +57,7 @@ export const addTask = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     title: TitleArg,
     project: ProjectArg.optional().describe(
       'A project id or name, or "general" (the default) for no project.',
@@ -82,25 +85,32 @@ export const addTask = defineTool({
       : args.project === undefined
         ? null
         : resolveProject(state, args.project);
-    const id = newId();
-    const written = await write(ctx, space, [
-      {
-        type: 'addTask',
-        id,
-        projectId,
-        title: args.title,
-        ...(args.priority ? { priority: args.priority } : {}),
-        ...(args.due !== undefined
-          ? { due: day(args.due, today, 'a due date') }
-          : {}),
-        ...(args.desc !== undefined ? { desc: tokens(state, args.desc) } : {}),
-        ...(args.tags ? { tags: args.tags } : {}),
-        ...(args.assignee !== undefined
-          ? { assignee: resolveAssignee(state, args.assignee) }
-          : {}),
-        ...(meetingId ? { meetingId } : {}),
-      },
-    ]);
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [
+        {
+          type: 'addTask',
+          id,
+          projectId,
+          title: args.title,
+          ...(args.priority ? { priority: args.priority } : {}),
+          ...(args.due !== undefined
+            ? { due: day(args.due, today, 'a due date') }
+            : {}),
+          ...(args.desc !== undefined
+            ? { desc: tokens(state, args.desc) }
+            : {}),
+          ...(args.tags ? { tags: args.tags } : {}),
+          ...(args.assignee !== undefined
+            ? { assignee: resolveAssignee(state, args.assignee) }
+            : {}),
+          ...(meetingId ? { meetingId } : {}),
+        },
+      ],
+      args.requestId,
+    );
     return taskResult(space, written, id);
   },
 });
@@ -113,14 +123,21 @@ function toggleTool(done: boolean) {
       ? 'Close a task (mark it done). Closing one already done changes nothing. Logs "Closed …".'
       : 'Reopen a done task. Reopening one already open changes nothing. Logs "Reopened …".',
     scope: 'write',
-    input: z.object({ space: SpaceArg, task: TaskArg }),
+    input: z.object({
+      space: SpaceArg,
+      task: TaskArg,
+      requestId: RequestIdArg,
+    }),
     annotations: WRITE_IDEMPOTENT,
     async run(args, ctx) {
       const { space, state } = await readSpace(ctx, args.space);
       const task = resolveTask(state, args.task);
-      const written = await write(ctx, space, [
-        { type: 'toggleTask', id: task.id, done },
-      ]);
+      const written = await write(
+        ctx,
+        space,
+        [{ type: 'toggleTask', id: task.id, done }],
+        args.requestId,
+      );
       return taskResult(space, written, task.id);
     },
   });
@@ -133,10 +150,11 @@ export const editTask = defineTool({
   name: 'edit_task',
   title: 'Edit a task',
   description:
-    'Change a task’s title, due date, priority, assignee, details or tags; only the fields given change (`tags` replaces the list). Logs "Edited task …". To close or reopen it use complete_task or reopen_task; to mark it waiting use set_blocked.',
+    'Change a task’s title, due date, priority, assignee, details or tags; only the fields given change. Destructive: `desc` replaces the details and `tags` the list, and the old text is not kept, so read the task first and send the whole new text. Logs "Edited task …". To close or reopen it use complete_task or reopen_task; to mark it waiting use set_blocked.',
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     task: TaskArg,
     title: TitleArg.optional(),
     due: DayOrNoneText.optional(),
@@ -148,7 +166,7 @@ export const editTask = defineTool({
     tags: TagsArg.optional(),
     today: TodayArg,
   }),
-  annotations: WRITE_IDEMPOTENT,
+  annotations: WRITE_REPLACES,
   async run(args, ctx) {
     const { space, state, today } = await readSpace(
       ctx,
@@ -176,7 +194,7 @@ export const editTask = defineTool({
       );
     }
     const op: BaseOp = { type: 'editTask', id: task.id, patch };
-    const written = await write(ctx, space, [op]);
+    const written = await write(ctx, space, [op], args.requestId);
     return taskResult(space, written, task.id);
   },
 });
@@ -189,6 +207,7 @@ export const setBlocked = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     task: TaskArg,
     blocked: z
       .boolean()
@@ -215,9 +234,12 @@ export const setBlocked = defineTool({
             on: args.on ? resolvePerson(state, args.on) : null,
             note: args.note ?? '',
           };
-    const written = await write(ctx, space, [
-      { type: 'setBlocked', id: task.id, blocked },
-    ]);
+    const written = await write(
+      ctx,
+      space,
+      [{ type: 'setBlocked', id: task.id, blocked }],
+      args.requestId,
+    );
     return taskResult(space, written, task.id);
   },
 });
