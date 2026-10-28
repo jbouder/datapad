@@ -26,7 +26,7 @@ function usesLines(): { file: string; line: number; ref: string }[] {
     text.split('\n').flatMap((line, i) => {
       const match = /^\s*(?:-\s+)?uses:\s*(.+?)\s*$/.exec(line);
       return match?.[1]
-        ? [{ file: file.replace('../', ''), line: i + 1, ref: match[1] }]
+        ? [{ file: file.replace(/^\.\.\//, ''), line: i + 1, ref: match[1] }]
         : [];
     }),
   );
