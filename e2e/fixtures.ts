@@ -122,6 +122,41 @@ export async function addFromTopBar(
   await page.getByRole('menuitem', { name: item }).click();
 }
 
+/**
+ * Add a task with `n` and the new-task panel (no page has a quick-add
+ * since #218): the title, Enter, and the panel closes.
+ */
+export async function addTask(page: Page, title: string) {
+  await page.locator('body').press('n');
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  const input = panel.getByRole('textbox', { name: 'Title' });
+  await expect(input).toBeFocused();
+  await input.fill(title);
+  await input.press('Enter');
+  await expect(panel).toBeHidden();
+}
+
+/**
+ * Notes in its List, with these notes opened (each row opens its note in
+ * place, #218): `ids` or, with none, every row.
+ */
+export async function openNotes(page: Page, query = '', ids?: string[]) {
+  const params = new URLSearchParams(query);
+  if (!params.has('view')) params.set('view', 'list');
+  await openLive(page, `/notes?${params}`);
+  const list = page.getByRole('list', { name: 'Notes' });
+  const rows = ids
+    ? ids.map((id) => list.locator(`[data-note-row="${id}"]`))
+    : await list.locator('[data-note-row]').all();
+  for (const row of rows) {
+    const button = row.locator(':scope > button');
+    if ((await button.getAttribute('aria-expanded')) === 'false') {
+      await button.click();
+    }
+    await expect(button).toHaveAttribute('aria-expanded', 'true');
+  }
+}
+
 /** No sideways scrolling (WCAG 1.4.10 Reflow). */
 export async function expectNoSidewaysScroll(page: Page) {
   const overflow = await page.evaluate(

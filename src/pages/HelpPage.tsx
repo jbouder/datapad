@@ -94,8 +94,8 @@ export function HelpPage({ section }: { section?: string }) {
             who they wait on, and for how long; projects off health, near or
             past their target, or quiet for two weeks; open action items from
             the last week’s meetings; and what is overdue and due today (this
-            week too, in Week). <Key>v</Key> switches Day and Week; <Key>m</Key>{' '}
-            shows only yours.
+            week too, in Week), by priority. <Key>v</Key> switches Day and Week;{' '}
+            <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects" to={{ name: 'projects' }}>
             Every active project as cards, a table or a timeline. A project page
@@ -114,9 +114,10 @@ export function HelpPage({ section }: { section?: string }) {
             notes.
           </Term>
           <Term name="Notes" to={{ name: 'notes' }}>
-            Every note, newest first, as a feed or a grid. Pinned notes stay on
-            top. <strong>Add note</strong> opens a new note in the project you
-            have filtered to, or General.
+            Every note, as a Notepad (one running note for the space, saved as
+            you type), a list (one row per note, opening in place) or a grid.
+            Pinned notes stay on top of the grid. <strong>Add note</strong>{' '}
+            opens a new note in the project you have filtered to, or General.
           </Term>
           <Term name="Digest" to={{ name: 'digest' }}>
             Your own status report: what happened in each project over a week,

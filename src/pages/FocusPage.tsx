@@ -1,13 +1,13 @@
 import { CalendarDotIcon, CalendarDotsIcon } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { formatDay } from '#shared/dates';
 import {
   agenda,
-  assigneeFor,
   assigneeFromQuery,
   assigneeToQuery,
   attention,
   attentionLine,
+  byPriority,
   daysSince,
   type FocusBuckets,
   focusBuckets,
@@ -20,7 +20,6 @@ import {
   weekMovement,
 } from '#shared/select';
 import { healthOf, type Task } from '#shared/types';
-import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { SelectField } from '@/components/inputs/SelectField';
 import {
   useView,
@@ -28,6 +27,7 @@ import {
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
 import { AgendaStrip } from '@/components/meetings/AgendaStrip';
+import { PRIORITY_LABELS } from '@/components/PriorityDot';
 import { HEALTH_LABELS, HealthDot } from '@/components/projects/Health';
 import { Section } from '@/components/Section';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -52,12 +52,11 @@ export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
   { id: 'week', label: 'Week', icon: CalendarDotsIcon },
 ];
 
-/** Due's buckets; `views` lists the views that show the bucket. */
-const DUE: { key: DueKey; title: string; views: FocusView[] }[] = [
-  { key: 'overdue', title: 'Overdue', views: ['day', 'week'] },
-  { key: 'today', title: 'Today', views: ['day', 'week'] },
-  { key: 'thisWeek', title: 'This week', views: ['week'] },
-];
+/** The buckets Due draws from in each view, grouped by priority. */
+const DUE: Record<FocusView, DueKey[]> = {
+  day: ['overdue', 'today'],
+  week: ['overdue', 'today', 'thisWeek'],
+};
 
 /** A group's header in Waiting on and Follow-ups: 44px on touch. */
 const GROUP_HEAD =
@@ -73,12 +72,13 @@ const GROUP_LINK =
  * meeting with its prep), Waiting on (blocked tasks by who they wait on),
  * Attention (active projects off health, near or past their target, or
  * quiet), Follow-ups (open action items from the last week's meetings)
- * and Due (Overdue and Today, plus This week in Week). Waiting on,
- * Attention and Follow-ups are sections remembered with the page. The
- * assignee filter (`m` toggles Mine) lives in the URL, narrows Waiting
- * on, Follow-ups and Due, and pre-assigns quick-added tasks. Everything
- * follows the local date and rolls over at midnight; rows FLIP between
- * buckets when a due date changes and out when a task closes.
+ * and Due (overdue and today's tasks, plus the rest of the week's in
+ * Week, grouped by priority, High first; #218). Waiting on, Attention and
+ * Follow-ups are sections remembered with the page. The assignee filter
+ * (`m` toggles Mine) lives in the URL and narrows Waiting on, Follow-ups
+ * and Due. Tasks are added from the + menu or `n` (the new-task panel).
+ * Everything follows the local date and rolls over at midnight; rows FLIP
+ * between groups when a priority changes and out when a task closes.
  */
 export function FocusPage() {
   usePageTitle('Focus');
@@ -87,7 +87,6 @@ export function FocusPage() {
   const { toggle, isDone } = useTaskToggle();
   const { active } = useMotion();
   const { show } = useToast();
-  const [projectId, setProjectId] = useState<string | null>(null);
   const flipRoot = useRef<HTMLElement>(null);
   useFlip(flipRoot, active);
 
@@ -156,11 +155,16 @@ export function FocusPage() {
   const buckets = focusBuckets(state.tasks, state.projects, today, me, who);
   // A task shows once: an action item under its meeting, not in Due too.
   const followed = new Set(follow.flatMap((g) => g.tasks.map((t) => t.id)));
-  const due = DUE.flatMap((b) => {
-    if (!b.views.includes(view)) return [];
-    const tasks = buckets[b.key].filter((t) => !followed.has(t.id));
-    return tasks.length > 0 ? [{ ...b, tasks }] : [];
-  });
+  const due = byPriority(
+    DUE[view].flatMap((key) => buckets[key].filter((t) => !followed.has(t.id))),
+  ).map(({ priority, tasks }) => ({
+    key: priority,
+    title:
+      priority === 'none'
+        ? PRIORITY_LABELS.none
+        : `${PRIORITY_LABELS[priority]} priority`,
+    tasks,
+  }));
   const waitingCount = waiting.reduce((n, g) => n + g.tasks.length, 0);
   const followCount = follow.reduce((n, g) => n + g.tasks.length, 0);
   const empty =
@@ -212,7 +216,21 @@ export function FocusPage() {
             {movementLine(movement)}
           </p>
         </div>
-        <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
+        <div className="flex min-w-0 flex-1 items-end justify-end gap-2 max-sm:basis-full">
+          <SelectField
+            label="Assignee"
+            value={assigneeToQuery(who)}
+            options={[
+              { value: 'anyone', label: 'Anyone' },
+              ...(me ? [{ value: 'mine', label: 'Mine' }] : []),
+              { value: 'unassigned', label: 'Unassigned' },
+              ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
+            ]}
+            onChange={setWho}
+            className="min-w-0 flex-1 sm:max-w-56"
+          />
+          <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
+        </div>
       </div>
 
       {upcoming.length > 0 && (
@@ -224,38 +242,6 @@ export function FocusPage() {
         />
       )}
 
-      <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_14rem] desk:items-end">
-        <QuickAdd
-          projectId={projectId}
-          onProjectChange={setProjectId}
-          onAdd={(title) => {
-            const id = actions.addTask({
-              projectId,
-              title,
-              assignee: assigneeFor(who, me) || undefined,
-            });
-            if (id === null) return false;
-            // No date yet, so not in Due: say where it went.
-            show(`Added “${title.trim()}”`, undefined, {
-              label: 'Open',
-              run: () => openTask(id),
-            });
-            return true;
-          }}
-        />
-        <SelectField
-          label="Assignee"
-          value={assigneeToQuery(who)}
-          options={[
-            { value: 'anyone', label: 'Anyone' },
-            ...(me ? [{ value: 'mine', label: 'Mine' }] : []),
-            { value: 'unassigned', label: 'Unassigned' },
-            ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
-          ]}
-          onChange={setWho}
-        />
-      </div>
-
       <section
         ref={flipRoot}
         aria-label="Briefing"
@@ -263,7 +249,7 @@ export function FocusPage() {
       >
         {empty && (
           <p className="text-state">
-            Nothing needs you. Add a task above or open a project.
+            Nothing needs you. Add a task with + or n, or open a project.
           </p>
         )}
 
@@ -398,16 +384,15 @@ export function FocusPage() {
             {due.map(({ key, title, tasks }) => (
               <section
                 key={key}
-                aria-labelledby={`bucket-${key}`}
+                aria-labelledby={`priority-${key}`}
+                data-priority={key}
                 className="flex flex-col"
               >
                 <h2
-                  id={`bucket-${key}`}
+                  id={`priority-${key}`}
                   className="flex min-h-11 items-center gap-1.5 font-heading text-sm font-semibold desk:min-h-8"
                 >
-                  <span className={key === 'overdue' ? 'text-destructive' : ''}>
-                    {title}
-                  </span>
+                  <span>{title}</span>
                   <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
                     {tasks.length}
                   </span>

@@ -23,7 +23,7 @@ export interface Shortcut {
 export const SHORTCUTS: Shortcut[] = [
   {
     keys: ['n'],
-    action: 'Add a task (the nearest quick-add, or the new-task panel)',
+    action: 'Add a task (the new-task panel)',
     scope: 'Anywhere',
   },
   { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },

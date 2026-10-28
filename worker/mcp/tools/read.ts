@@ -227,6 +227,8 @@ export function noteOut(state: Snapshot, n: Note) {
       : null,
     task: task ? { id: task.id, title: task.title } : null,
     pinned: n.pinned,
+    // The space's Notepad (#218), its running General note.
+    ...(n.scratch ? { notepad: true } : {}),
     body: text(state, n.body),
     createdAt: n.createdAt,
     editedAt: n.editedAt ?? null,

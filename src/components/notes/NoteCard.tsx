@@ -231,7 +231,11 @@ export function NoteCard({
       }}
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        {note.scratch && (
+          <span className="border px-1.5 py-0.5 text-foreground">Notepad</span>
+        )}
         {showProject &&
+          !note.scratch &&
           (project ? (
             <a
               {...linkProps({ name: 'project', id: project.id })}

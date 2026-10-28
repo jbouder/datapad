@@ -45,6 +45,11 @@ export interface PrefField {
   token?: string;
   /** The values the page has; absent for a `kind` list. */
   options?: readonly PrefOption[];
+  /**
+   * Values an older release had, and the value each now reads as (Notes'
+   * `feed` is `list` since #218), saved or in the address.
+   */
+  renamed?: Readonly<Record<string, string>>;
   kind?: PrefKind;
   /** The control the page uses for it, which Settings → Pages reuses. */
   control: 'segmented' | 'select';
@@ -80,8 +85,23 @@ function layout(
   options: readonly PrefOption[],
   def: string,
   label = 'Layout',
+  renamed?: Readonly<Record<string, string>>,
 ): PrefField {
-  return { key: 'view', label, def, options, control: 'segmented' };
+  return {
+    key: 'view',
+    label,
+    def,
+    options,
+    control: 'segmented',
+    ...(renamed ? { renamed } : {}),
+  };
+}
+
+/** A value as the page reads it now: an old name becomes the new one. */
+export function currentName(field: PrefField, value: string): string {
+  return field.renamed && Object.hasOwn(field.renamed, value)
+    ? (field.renamed[value] ?? value)
+    : value;
 }
 
 const who: PrefField = {
@@ -284,12 +304,16 @@ export const PAGES: Record<PageKey, PageSpec> = {
   notes: {
     label: 'Notes',
     fields: [
+      // Feed became List (#218).
       layout(
         [
-          { value: 'feed', label: 'Feed' },
+          { value: 'notepad', label: 'Notepad' },
+          { value: 'list', label: 'List' },
           { value: 'grid', label: 'Grid' },
         ],
-        'feed',
+        'notepad',
+        'Layout',
+        { feed: 'list' },
       ),
       project,
       {
@@ -460,7 +484,8 @@ export function currentValues(
   const saved = prefValues(prefs);
   const out: Record<string, string> = {};
   for (const field of PAGES[page].fields) {
-    const value = saved[field.key];
+    const raw = saved[field.key];
+    const value = raw === undefined ? undefined : currentName(field, raw);
     if (value !== undefined && isCurrent(field, value, state)) {
       out[field.key] = value;
     }
@@ -486,6 +511,11 @@ export function effectiveQuery(
   for (const field of PAGES[page].fields) {
     const value = saved[field.key];
     if (value !== undefined && !out.has(field.key)) out.set(field.key, value);
+    // An old name in the address (`view=feed`) reads as the new one.
+    const asked = out.get(field.key);
+    if (asked !== null && currentName(field, asked) !== asked) {
+      out.set(field.key, currentName(field, asked));
+    }
     // A default spelled out (`project=all`) reads as no filter.
     if (field.token && out.get(field.key) === field.token) {
       out.delete(field.key);

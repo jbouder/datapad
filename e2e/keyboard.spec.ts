@@ -135,14 +135,12 @@ test.describe('the shortcut sheet', () => {
 test('letters type, not trigger, while you are in a field', async ({
   page,
 }) => {
-  // Focus's quick-add.
-  await openLive(page, '/');
-  const input = page.getByRole('textbox', { name: 'Add a task' });
+  // Notes' Find (no page has a quick-add since #218).
+  await openLive(page, '/notes?view=list');
+  const input = page.getByRole('searchbox', { name: 'Find' });
   await input.click();
-  await page.keyboard.type('jxen?');
-  await expect(input).toHaveValue('jxen?');
+  await page.keyboard.type('jxenv?');
+  await expect(input).toHaveValue('jxenv?');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    page.locator('[data-task-id]').filter({ hasText: 'Confirm shield' }),
-  ).not.toContainText('Closed');
+  await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
 });

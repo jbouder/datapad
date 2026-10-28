@@ -59,6 +59,32 @@ under **Export format**.
   current items stay visible in forced colours (Windows High Contrast).
   docs/accessibility.md is the conformance statement, with every drag's
   keyboard and touch way.
+- **Notepad** (#218): Notes opens on a Notepad, one running note for the
+  space, written in place with the note composer (`/` styles, `@`
+  mentions, `/task`) and saved as you type, a second after you stop and
+  whenever you leave it. Saving it is silent in Activity. It is also a
+  General note, first in List and Grid and labelled Notepad; emptying it
+  removes it.
+
+### Changed
+
+- **Focus is tidier** (#218): no quick-add at the top (`n` and the +
+  menu open the new-task panel), agenda cards are all one height with no
+  Add note (a meeting's notes are written on its page or panel), and Due
+  is grouped by priority, High first, instead of Overdue, Today and This
+  week; an overdue task still shows its date in red.
+- **Notes' layouts are Notepad, List and Grid** (#218). List, which was
+  Feed, is one compact row per note (its first line, project, day,
+  pinned) that opens the note in place. Grid is a masonry grid: cards keep
+  their height and pack into columns with no holes, in reading order, one
+  column on phones. A saved or linked Feed reads as List.
+
+### Export format
+
+- A note may carry `scratch: true` (#218): the space's Notepad. Files
+  from before it import unchanged; an export writes it only on that note.
+  An import that brings a second Notepad keeps the older one as the
+  Notepad and the other as an ordinary note.
 
 ### Fixed
 

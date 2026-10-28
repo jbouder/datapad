@@ -1,4 +1,9 @@
-import { PlusIcon, RowsIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import {
+  NotePencilIcon,
+  PlusIcon,
+  RowsIcon,
+  SquaresFourIcon,
+} from '@phosphor-icons/react';
 import {
   useCallback,
   useEffect,
@@ -7,13 +12,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import { describeDay, localDate } from '#shared/dates';
-import {
-  groupByDay,
-  type NoteFilters,
-  queryWords,
-  selectNotes,
-} from '#shared/notes';
+import { localDate } from '#shared/dates';
+import { type NoteFilters, queryWords, selectNotes } from '#shared/notes';
+import type { Note } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
 import {
@@ -22,23 +23,39 @@ import {
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
 import { NoteCard } from '@/components/notes/NoteCard';
+import { NoteList } from '@/components/notes/NoteList';
+import { Notepad } from '@/components/notes/Notepad';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
+import { useMasonry } from '@/hooks/useMasonry';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withLayoutTransition, withViewTransition } from '@/lib/motion';
-import { setQuery } from '@/lib/router';
+import { setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
 
-type NoteView = 'feed' | 'grid';
+type NoteView = 'notepad' | 'list' | 'grid';
 
 export const NOTE_VIEWS: readonly ViewOption<NoteView>[] = [
-  { id: 'feed', label: 'Feed', icon: RowsIcon },
+  { id: 'notepad', label: 'Notepad', icon: NotePencilIcon },
+  { id: 'list', label: 'List', icon: RowsIcon },
   { id: 'grid', label: 'Grid', icon: SquaresFourIcon },
 ];
+
+/** The gap between Grid's cards, px (`gap-3`). */
+const GRID_GAP = 12;
+
+/** The Notepad first, then pinned (Grid), then newest. */
+function ordered(notes: Note[], pinnedFirst: boolean): Note[] {
+  return [...notes].sort(
+    (a, b) =>
+      Number(Boolean(b.scratch)) - Number(Boolean(a.scratch)) ||
+      (pinnedFirst ? Number(b.pinned) - Number(a.pinned) : 0),
+  );
+}
 
 /**
  * The project a new note starts in from Notes: the filtered one, or
@@ -68,11 +85,15 @@ function useNoteFilters(query: URLSearchParams): NoteFilters {
 }
 
 /**
- * Every note as a Feed (newest first under its day, the default) or a
- * Grid (compact cards, pinned first, opening in place). Add note opens
- * the new-note panel, preset to the filtered project (General otherwise),
- * as `N` does here; then a project filter, Pinned and Find. Filters and
+ * Notes as a Notepad (the default: the space's one running note, written
+ * in place and saved as you type), a List (one compact row per note,
+ * newest first, each opening in place) or a Grid (compact cards in
+ * masonry columns, pinned first, opening in place) (#218). In List and
+ * Grid the Notepad's note comes first. Add note opens the new-note panel,
+ * preset to the filtered project (General otherwise), as `N` does here;
+ * List and Grid then have a project filter, Pinned and Find. Filters and
  * layout live in the URL, and all but Find are saved for the page (#186).
+ * `?note=<id>` (a link to one note) shows it opened in the List.
  */
 export function NotesPage() {
   usePageTitle('Notes');
@@ -81,8 +102,26 @@ export function NotesPage() {
   const { active } = useMotion();
   const [query, changePage] = usePageQuery('notes');
   const filters = useNoteFilters(query);
-  const [view, setView] = useView('notes', NOTE_VIEWS, 'feed');
+  const [chosen, setView] = useView('notes', NOTE_VIEWS, 'notepad');
+  const target = useQuery().get('note');
+  // A link to one note opens it in the List, never the Notepad.
+  const view: NoteView = target && chosen === 'notepad' ? 'list' : chosen;
   const [open, setOpen] = useState<string | null>(null);
+  const [rows, setRows] = useState<ReadonlySet<string>>(
+    () => new Set(target ? [target] : []),
+  );
+  useEffect(() => {
+    if (target) setRows((r) => (r.has(target) ? r : new Set(r).add(target)));
+  }, [target]);
+  const toggleRow = useCallback(
+    (id: string) =>
+      setRows((r) => {
+        const next = new Set(r);
+        if (!next.delete(id)) next.add(id);
+        return next;
+      }),
+    [],
+  );
   const [find, setFind] = useState(filters.q);
   const feed = useRef<HTMLDivElement>(null);
   useFlip(feed, active);
@@ -110,11 +149,8 @@ export function NotesPage() {
     () => (state ? selectNotes(state, filters, hidden) : []),
     [state, filters, hidden],
   );
-  const days = useMemo(() => groupByDay(notes), [notes]);
-  const grid = useMemo(
-    () => [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned)),
-    [notes],
-  );
+  const list = useMemo(() => ordered(notes, false), [notes]);
+  const grid = useMemo(() => ordered(notes, true), [notes]);
 
   const toggleOpen = useCallback(
     (id: string) =>
@@ -128,6 +164,7 @@ export function NotesPage() {
   // An open card lies over the cells below it; when it reaches past the
   // grid, the grid makes room under itself so the page scrolls to it.
   const gridRef = useRef<HTMLUListElement>(null);
+  useMasonry(gridRef, GRID_GAP, view === 'grid' ? grid : null);
   const [overhang, setOverhang] = useState(0);
   const overhangRef = useRef(0);
   overhangRef.current = overhang;
@@ -211,47 +248,53 @@ export function NotesPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-        <SelectField
-          label="Project"
-          value={filters.project || 'all'}
-          options={[
-            { value: 'all', label: 'All projects' },
-            { value: 'general', label: 'General' },
-            ...projects.map((p) => ({
-              value: p.id,
-              label: p.archived ? `${p.name} (archived)` : p.name,
-            })),
-          ]}
-          onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
-        />
-        <Segmented
-          legend="Show"
-          value={filters.pinned ? 'pinned' : 'all'}
-          onChange={(v) => changeQuery({ pinned: v === 'pinned' ? '1' : null })}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'pinned', label: 'Pinned' },
-          ]}
-        />
-        <div className="flex flex-col gap-1.5 sm:col-span-2 desk:col-span-1">
-          <label htmlFor="note-find" className="text-xs font-medium">
-            Find
-          </label>
-          <Input
-            id="note-find"
-            type="search"
-            value={find}
-            placeholder="Words in a note, or a name"
-            autoComplete="off"
-            onChange={(e) => setFind(e.target.value)}
-            className="h-11 text-base desk:h-8 desk:text-xs"
+      {view !== 'notepad' && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <SelectField
+            label="Project"
+            value={filters.project || 'all'}
+            options={[
+              { value: 'all', label: 'All projects' },
+              { value: 'general', label: 'General' },
+              ...projects.map((p) => ({
+                value: p.id,
+                label: p.archived ? `${p.name} (archived)` : p.name,
+              })),
+            ]}
+            onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
           />
+          <Segmented
+            legend="Show"
+            value={filters.pinned ? 'pinned' : 'all'}
+            onChange={(v) =>
+              changeQuery({ pinned: v === 'pinned' ? '1' : null })
+            }
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'pinned', label: 'Pinned' },
+            ]}
+          />
+          <div className="flex flex-col gap-1.5 sm:col-span-2 desk:col-span-1">
+            <label htmlFor="note-find" className="text-xs font-medium">
+              Find
+            </label>
+            <Input
+              id="note-find"
+              type="search"
+              value={find}
+              placeholder="Words in a note, or a name"
+              autoComplete="off"
+              onChange={(e) => setFind(e.target.value)}
+              className="h-11 text-base desk:h-8 desk:text-xs"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div ref={feed} className="vt-list flex flex-col gap-6">
-        {days.length === 0 ? (
+        {view === 'notepad' ? (
+          <Notepad state={state} />
+        ) : notes.length === 0 ? (
           any && filtered ? (
             <div className="flex flex-col items-start gap-2">
               <p className="text-state">No notes match.</p>
@@ -268,7 +311,7 @@ export function NotesPage() {
             </div>
           ) : (
             <p className="text-state">
-              No notes yet. Add note writes one; it lands here under today.
+              No notes yet. Add note writes one, or write in the Notepad.
             </p>
           )
         ) : view === 'grid' ? (
@@ -276,7 +319,7 @@ export function NotesPage() {
             ref={gridRef}
             aria-label="Notes"
             style={{ paddingBottom: overhang }}
-            className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            className="relative flex flex-col gap-3"
           >
             {grid.map((n) => {
               const isOpen = open === n.id;
@@ -292,7 +335,10 @@ export function NotesPage() {
                 />
               );
               return (
-                <li key={n.id} className="relative">
+                <li
+                  key={n.id}
+                  className={isOpen ? 'relative z-20' : 'relative'}
+                >
                   {isOpen ? (
                     <>
                       {/* Holds the cell's size so nothing else moves. */}
@@ -311,29 +357,14 @@ export function NotesPage() {
             })}
           </ul>
         ) : (
-          days.map((d) => (
-            <section
-              key={d.day}
-              aria-labelledby={`day-${d.day}`}
-              className="flex flex-col gap-2"
-            >
-              <h2
-                id={`day-${d.day}`}
-                className="text-xs font-medium text-muted-foreground"
-              >
-                {describeDay(d.day, today)}
-              </h2>
-              {d.notes.map((n, i) => (
-                <NoteCard
-                  key={n.id}
-                  note={n}
-                  state={state}
-                  highlight={words}
-                  style={{ '--i': Math.min(i, 8) } as React.CSSProperties}
-                />
-              ))}
-            </section>
-          ))
+          <NoteList
+            notes={list}
+            state={state}
+            today={today}
+            highlight={words}
+            open={rows}
+            onToggle={toggleRow}
+          />
         )}
       </div>
     </section>

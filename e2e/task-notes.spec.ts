@@ -5,6 +5,7 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   openLive,
+  openNotes,
   SEED,
   test,
 } from './fixtures';
@@ -147,7 +148,7 @@ test('a task’s note shows on Notes with a link to its task', async ({
   await expect(panel).toBeHidden();
   await expectSaved(page);
 
-  await page.goto('/notes');
+  await openNotes(page);
   const card = page
     .locator('[data-note-id]')
     .filter({ hasText: 'Seals ordered from Bespin' });
@@ -171,7 +172,7 @@ test('a task’s note shows on Notes with a link to its task', async ({
   await again.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(again).toBeHidden();
   await expectSaved(page);
-  await page.goto('/notes');
+  await openNotes(page);
   const kept = page
     .locator('[data-note-id]')
     .filter({ hasText: 'Seals ordered from Bespin' });

@@ -5,6 +5,7 @@ import {
   expectAccessible,
   expectSaved,
   openLive,
+  openNotes,
   SEED,
   test,
 } from './fixtures';
@@ -25,6 +26,19 @@ function card(page: Page, text: string | RegExp) {
   return page.locator('article[data-note-id]').filter({ hasText: text });
 }
 
+/** A note's row in Notes' List (#218). */
+function row(page: Page, text: string | RegExp) {
+  return page.locator('[data-note-row]').filter({ hasText: text });
+}
+
+/** Open a row in the List: its note, whole, in place. */
+async function openRow(page: Page, text: string | RegExp) {
+  const button = row(page, text).locator(':scope > button');
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  return card(page, text);
+}
+
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
@@ -33,7 +47,7 @@ test('adds notes in two projects, filters by project and text', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/notes');
+  await openLive(page, '/notes?view=list');
   // No composer on the page: Add note opens the panel.
   await expect(page.getByRole('combobox', { name: 'New note' })).toHaveCount(0);
   const add = page.getByRole('main').getByRole('button', { name: 'Add note' });
@@ -48,13 +62,12 @@ test('adds notes in two projects, filters by project and text', async ({
     .fill('Order more **heaters**');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(panel).toBeHidden();
-  await expect(card(page, 'Order more heaters').locator('strong')).toHaveText(
-    'heaters',
-  );
+  const heaters = await openRow(page, 'Order more heaters');
+  await expect(heaters.locator('strong')).toHaveText('heaters');
 
   // Into the filtered project.
   await expectSaved(page);
-  await page.goto('/notes?project=p-falcon');
+  await page.goto('/notes?view=list&project=p-falcon');
   await add.click();
   await expect(project).toHaveValue('Falcon hyperdrive refit');
   await panel
@@ -62,11 +75,14 @@ test('adds notes in two projects, filters by project and text', async ({
     .fill('Motivator on back order');
   await panel.getByRole('button', { name: 'Add note' }).click();
   await expect(panel).toBeHidden();
-  const falcon = card(page, 'Motivator on back order');
+  await expect(row(page, 'Motivator on back order')).toContainText(
+    'Falcon hyperdrive refit',
+  );
+  const falcon = await openRow(page, 'Motivator on back order');
   await expect(
     falcon.getByRole('link', { name: 'Falcon hyperdrive refit' }),
   ).toBeVisible();
-  await page.goto('/notes');
+  await page.goto('/notes?view=list');
 
   await expectSaved(page);
   const data = await stored(request);
@@ -76,15 +92,16 @@ test('adds notes in two projects, filters by project and text', async ({
   await page.getByRole('combobox', { name: 'Project', exact: true }).click();
   await page.getByRole('option', { name: 'Falcon hyperdrive refit' }).click();
   await expect(page).toHaveURL(/project=p-falcon/);
-  await expect(page.locator('article[data-note-id]')).toHaveCount(1);
+  await expect(page.locator('[data-note-row]')).toHaveCount(1);
   await page.getByRole('combobox', { name: 'Project', exact: true }).click();
   await page.getByRole('option', { name: 'All projects' }).click();
 
   await page.getByRole('searchbox', { name: 'Find' }).fill('chewba');
   await expect(page).toHaveURL(/q=chewba/);
   // The other note naming him is in an archived project.
-  await expect(page.locator('article[data-note-id]')).toHaveCount(1);
-  await expect(page.locator('article mark').first()).toHaveText(/chewba/i);
+  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+  const standup = await openRow(page, 'Standup');
+  await expect(standup.locator('mark').first()).toHaveText(/chewba/i);
   await page.reload();
   await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveValue(
     'chewba',
@@ -93,7 +110,7 @@ test('adds notes in two projects, filters by project and text', async ({
   await page.getByRole('searchbox', { name: 'Find' }).fill('nothing like it');
   await expect(page.getByText('No notes match.')).toBeVisible();
   await page.getByRole('button', { name: 'Clear the filters' }).click();
-  await expect(page.locator('article[data-note-id]')).toHaveCount(5);
+  await expect(page.locator('[data-note-row]')).toHaveCount(5);
 });
 
 test('pins, edits in place and toggles a checkbox without logging', async ({
@@ -110,8 +127,8 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   await card(page, 'Standup').getByRole('button', { name: 'Unpin' }).click();
   await expect(notes.first()).toContainText('Bring the power budget');
 
-  await page.goto('/notes?pinned=1');
-  await expect(page.locator('article[data-note-id]')).toHaveCount(1);
+  await page.goto('/notes?view=list&pinned=1');
+  await expect(page.locator('[data-note-row]')).toHaveCount(1);
   await page.goto('/projects/p-echo');
 
   // Edit: mentions come back as names, and are tokens again on save.
@@ -141,7 +158,7 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
 });
 
 test('delete waits for Undo before it is logged', async ({ page, request }) => {
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-3']);
   const ideas = card(page, 'Ideas for the next quarter');
   await ideas.getByRole('button', { name: 'Delete' }).click();
   await expect(ideas).toHaveCount(0);
@@ -173,11 +190,16 @@ test('long notes clamp with Show more', async ({ page, request }) => {
     (_, i) => `Line ${i + 1}`,
   ).join('\n');
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-3']);
   const long = card(page, 'Line 1');
   const more = long.getByRole('button', { name: 'Show more' });
   await expect(more).toHaveAttribute('aria-expanded', 'false');
-  await expect(long.getByText('Line 30')).not.toBeInViewport();
+  // Clamped: the body stops short of the text, which fades out.
+  const body = long.locator('[data-overflows]');
+  await expect(body).toHaveCount(1);
+  expect(
+    await body.evaluate((el) => el.scrollHeight > el.clientHeight + 100),
+  ).toBe(true);
   await more.click();
   await expect(long.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
@@ -213,7 +235,7 @@ test('Add note on a project page opens the panel, preset to it', async ({
 });
 
 test('Add note on Notes opens the panel, at any width', async ({ page }) => {
-  await openLive(page, '/notes?project=p-falcon');
+  await openLive(page, '/notes?view=list&project=p-falcon');
   const add = page.getByRole('main').getByRole('button', { name: 'Add note' });
   await expectAccessible(page);
   // A 44px target on touch, and the header wraps without sideways scroll.
@@ -238,7 +260,7 @@ test('Add note on Notes opens the panel, at any width', async ({ page }) => {
   await page.keyboard.type('Recalibrate the deflector');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(panel).toBeHidden();
-  await expect(card(page, 'Recalibrate the deflector')).toBeVisible();
+  await expect(row(page, 'Recalibrate the deflector')).toBeVisible();
   await expect(add).toBeFocused();
 });
 

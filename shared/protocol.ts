@@ -211,6 +211,8 @@ export const NoteSchema = z.object({
    * read it as null.
    */
   taskId: nullableId.optional(),
+  /** The space's Notepad (#218); absent on every other note. */
+  scratch: z.boolean().optional(),
   createdAt: timestamp,
   editedAt: timestamp.optional(),
 }) satisfies z.ZodType<Note, unknown>;
@@ -930,6 +932,16 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editNote'), id, body: required(LIMITS.bodyMax) }),
   z.object({ type: z.literal('pinNote'), id, pinned: z.boolean() }),
   z.object({ type: z.literal('deleteNote'), id }),
+  /**
+   * The Notepad's text as typed (#218): edits the space's Notepad, or
+   * starts it as `id` when there is none; empty text removes it. Silent
+   * in Activity.
+   */
+  z.object({
+    type: z.literal('writeNotepad'),
+    id,
+    body: text(LIMITS.bodyMax),
+  }),
 
   /* meetings */
   z.object({

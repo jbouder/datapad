@@ -500,6 +500,78 @@ describe('notes', () => {
     expect(lastLog(state, 'p1')).toBe('Deleted a note');
   });
 
+  it('writeNotepad starts, edits and clears the one Notepad, silently', () => {
+    const T2 = '2026-10-23T11:00:00.000Z';
+    const before = base();
+    let { state, changed } = at(before, {
+      type: 'writeNotepad',
+      id: 'pad1',
+      body: 'Call the vet\n',
+    });
+    expect(state.notes.pad1).toEqual({
+      id: 'pad1',
+      projectId: null,
+      body: 'Call the vet\n',
+      pinned: false,
+      meetingId: null,
+      phase: null,
+      scratch: true,
+      createdAt: T1,
+    });
+    expect(changed).toEqual([{ col: 'notes', id: 'pad1' }]);
+    // Nothing in Activity, anywhere.
+    expect(state.activity).toEqual(before.activity);
+
+    // Another device's id is ignored: there is one Notepad, edited.
+    ({ state, changed } = reduce(
+      state,
+      { type: 'writeNotepad', id: 'pad2', body: 'Call the vet\nand Han' },
+      T2,
+    ));
+    expect(state.notes.pad2).toBeUndefined();
+    expect(state.notes.pad1).toMatchObject({
+      body: 'Call the vet\nand Han',
+      editedAt: T2,
+      createdAt: T1,
+    });
+    expect(changed).toEqual([{ col: 'notes', id: 'pad1' }]);
+    expect(state.activity).toEqual(before.activity);
+
+    // The same text changes nothing.
+    expect(
+      at(state, {
+        type: 'writeNotepad',
+        id: 'pad3',
+        body: 'Call the vet\nand Han',
+      }).changed,
+    ).toEqual([]);
+
+    // Clearing it removes it; clearing nothing does nothing.
+    ({ state } = at(state, { type: 'writeNotepad', id: 'pad4', body: '  \n' }));
+    expect(state.notes.pad1).toBeUndefined();
+    expect(Object.keys(state.notes)).toEqual([]);
+    expect(
+      at(state, { type: 'writeNotepad', id: 'pad5', body: '' }).changed,
+    ).toEqual([]);
+    expect(state.activity).toEqual(before.activity);
+  });
+
+  it('writeNotepad leaves other notes alone, and the Notepad edits like a note', () => {
+    let state = run(
+      base(),
+      { type: 'addNote', id: 'n1', projectId: null, body: 'Loose' },
+      { type: 'writeNotepad', id: 'pad1', body: 'Scratch' },
+    );
+    expect(state.notes.n1).not.toHaveProperty('scratch');
+    state = at(state, { type: 'pinNote', id: 'pad1', pinned: true }).state;
+    state = at(state, { type: 'editNote', id: 'pad1', body: 'Edited' }).state;
+    expect(state.notes.pad1).toMatchObject({
+      body: 'Edited',
+      pinned: true,
+      scratch: true,
+    });
+  });
+
   it('a saved summary logs its own text', () => {
     const { state } = at(base(), {
       type: 'addNote',
@@ -2275,6 +2347,34 @@ describe('merge (import)', () => {
     const merged = merge(emptySnapshot(), before).state.tasks.t1;
     expect(merged).toEqual(old);
     expect(merged?.meetingId ?? null).toBeNull();
+  });
+
+  it('round-trips the Notepad, and keeps one when an import brings another', () => {
+    const state = run(base(), {
+      type: 'writeNotepad',
+      id: 'pad1',
+      body: 'Mine',
+    });
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(next.notes.pad1).toEqual(state.notes.pad1);
+    expect(next.notes.pad1?.scratch).toBe(true);
+
+    // A later Notepad from another file becomes an ordinary note.
+    const theirs = {
+      ...(state.notes.pad1 as NonNullable<typeof state.notes.pad1>),
+      id: 'pad9',
+      body: 'Theirs',
+      createdAt: '2026-10-24T09:00:00.000Z',
+    };
+    const incoming = ExportSchema.parse({
+      exportedAt: T1,
+      notes: { pad9: theirs },
+    });
+    const merged = merge(state, incoming).state;
+    expect(merged.notes.pad1?.scratch).toBe(true);
+    expect(merged.notes.pad9).toMatchObject({ body: 'Theirs' });
+    expect(merged.notes.pad9).not.toHaveProperty('scratch');
   });
 
   it('adds new documents and replaces same ids', () => {
