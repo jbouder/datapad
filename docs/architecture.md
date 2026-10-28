@@ -198,6 +198,17 @@ from before meetings, which keeps its query and renames the id
 parameter to `meeting`) is `shared/routes.ts`, so Vitest tests it
 without a DOM; `src/lib/router.ts` re-exports it.
 
+The pages most visits never open (Whiteboard, Help, Digest, Settings and
+a meeting's and a task's page) are chunks of their own
+(`src/pages/lazy.tsx`), rendered inside the page's error boundary with an
+empty, `aria-busy` Suspense fallback. They are fetched anyway once the
+browser is idle, and a first visit straight to one loads its chunk before
+the first render (`src/main.tsx`), so a loaded page never suspends. A
+chunk that fails to load is a page that threw: "This view stopped
+working", whose Reload this view fetches it again.
+`scripts/budget.ts` holds the entry (what `index.html` loads up front) to
+a gzip budget in CI.
+
 The active space is remembered per device in `localStorage`
 (`datapad:space`), not in the URL, so a link opens in whatever space is
 active. `DatapadProvider` opens one socket on it and shares `useSpaces()`
@@ -232,8 +243,13 @@ In the browser: `@mlc-ai/web-llm` in a Web Worker
 settings, streamed. `shared/summaries.ts` holds the models, the prompt and
 the context builders; `src/lib/summary-engine.ts` wraps one loaded model
 (unit-tested with a fake); `src/lib/summary-runtime.ts` loads WebLLM lazily,
-so the library is not in the main bundle and nothing downloads until the
-owner agrees. `SummaryProvider` keeps the model loaded between summaries and
+so the library is not in the main bundle (`scripts/budget.ts` fails CI if
+it ever is) and nothing downloads until the owner agrees. Every WebLLM call
+gets `src/lib/summary-pins.ts`'s `appConfig`: the WebGPU library from a
+commit of `binary-mlc-llm-libs` and the weights from a Hugging Face
+revision, never a branch, with SRI hashes WebLLM checks for the library,
+the model's config and its tokenizer (it has no option for the weight
+shards; the pinned revision is what fixes those). `SummaryProvider` keeps the model loaded between summaries and
 owns the `Summary · <item>` panel. No Worker route and no API key are
 involved.
 

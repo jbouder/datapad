@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Task } from '#shared/types';
 import { useDatapad } from '@/hooks/useDatapad';
+import { DURATION } from '@/lib/motion-tokens';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /** How long the checkbox animates before the row moves (`--duration-base`). */
-const CHECK_MS = 200;
+const CHECK_MS = DURATION.base;
 
 /**
  * Close or reopen a task the way a row does it: the checkbox fills at once,

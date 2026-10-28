@@ -71,7 +71,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
   `/settings/…`),
-  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
+  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers; `lib/motion-tokens.ts`
+  is the durations and easings script uses, equal to the CSS tokens), `hooks/useNow.ts` (a shared minute clock;
   date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),
   `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`, PagePrefs),
@@ -91,6 +92,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
   `/projects/:id`; a task opens its page only from Tasks, its panel
   everywhere else).
+- `scripts/` — `budget.ts` and `licenses.ts` (CI's checks, above), `icons.ts`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
   and the SDK client over `SELF`; `mcp-tools.test.ts`: each tool over a
@@ -110,7 +112,9 @@ React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
 · stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do
 not hand-edit) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
-resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`)
+resolver fails on Vitest 4.1 peers; one version, `packageManager` in
+`package.json`, which every workflow uses) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`; its downloads
+pinned with integrity hashes in `summary-pins.ts`)
 · `@cloudflare/workers-oauth-provider` (MCP sign-in, KV `OAUTH_KV`) ·
 `@modelcontextprotocol/sdk` (dev only: the client the MCP tests drive).
 
@@ -202,7 +206,8 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   `@starting-style`, CSS `linear()` springs. Helpers in `src/lib/motion.ts`,
   `src/hooks/useFlip.ts`. (`tw-animate-css` is imported only because the
   stock shadcn overlays in `src/components/ui/*` use it; do not reach for it.)
-  Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`).
+  Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`;
+  in script `DURATION.base`, `EASE.emphasized` from `@/lib/motion`).
   Animate `opacity`/`transform` only; position changes go through FLIP or View
   Transitions. Scope `view-transition-name`s with `html[data-vt="…"]`
   (types in use: `page`, `theme`, `filter`, `layout`, `space`). Panels use `@starting-style`,
@@ -229,6 +234,10 @@ npm run preview -- --port 4318   # in another terminal: the e2e runs reuse it, n
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
+npm run budget       # after a build: the entry's gzip budget, WebLLM kept out
+npm run knip         # unused files, exports, dependencies (knip.jsonc)
+npm run licenses     # every installed package's license against the allowlist
+npm run test:coverage  # vitest with the coverage floors on shared/ and worker/
 ```
 
 **Biome checks the code, not the docs.** CI runs `bunx biome ci .`, which

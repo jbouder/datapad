@@ -1,10 +1,13 @@
 import type { ChatEngine, EngineFactory } from '@/lib/summary-engine';
+import { APP_CONFIG } from '@/lib/summary-pins';
 
 /**
  * Where the summary model comes from: WebLLM in a Web Worker.
  * `@mlc-ai/web-llm` is imported lazily here (and statically in the
  * worker), so neither reaches the main bundle: nothing loads until the
  * owner asks for a summary, and nothing downloads until they agree.
+ * Every call passes `APP_CONFIG` (src/lib/summary-pins.ts): the library
+ * and weights at pinned commits, with integrity hashes.
  */
 
 /**
@@ -39,7 +42,7 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (fake) return fake.cached ?? false;
   const { hasModelInCache } = await import('@mlc-ai/web-llm');
   try {
-    return await hasModelInCache(modelId);
+    return await hasModelInCache(modelId, APP_CONFIG);
   } catch {
     return false;
   }
@@ -53,7 +56,27 @@ export async function removeModel(modelId: string): Promise<void> {
     return;
   }
   const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm');
-  await deleteModelAllInfoInCache(modelId);
+  await deleteModelAllInfoInCache(modelId, APP_CONFIG);
+  await removeUnpinned(modelId);
+}
+
+/**
+ * A copy downloaded before the pins, from WebLLM's moving defaults: it
+ * sits under other URLs, so it is never used again. Freed once the pinned
+ * copy has loaded, and whenever the model is removed.
+ */
+async function removeUnpinned(modelId: string): Promise<void> {
+  try {
+    const { deleteModelAllInfoInCache, hasModelInCache } = await import(
+      '@mlc-ai/web-llm'
+    );
+    if (await hasModelInCache(modelId)) {
+      await deleteModelAllInfoInCache(modelId);
+    }
+  } catch {
+    // Nothing there, or the cache refused: it stays until the browser
+    // clears it.
+  }
 }
 
 const webLlm: EngineFactory = async (modelId, onProgress) => {
@@ -63,10 +86,12 @@ const webLlm: EngineFactory = async (modelId, onProgress) => {
   });
   try {
     const engine = await CreateWebWorkerMLCEngine(worker, modelId, {
+      appConfig: APP_CONFIG,
       initProgressCallback: (report) =>
         onProgress({ fraction: report.progress, text: report.text }),
       logLevel: 'WARN',
     });
+    void removeUnpinned(modelId);
     return { engine, dispose: () => worker.terminate() };
   } catch (error) {
     worker.terminate();

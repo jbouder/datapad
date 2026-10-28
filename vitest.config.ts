@@ -24,5 +24,18 @@ export default defineConfig({
     // test/themes.test.ts reads src/index.css?raw; without this Vitest
     // replaces CSS imports with an empty string.
     css: { include: /index\.css/ },
+    // `vitest run --coverage` (CI's `check` job): istanbul, which works
+    // inside workerd where V8's coverage does not. The floors sit just
+    // under where the suite is; raise them as it grows, never lower them
+    // to get a change through.
+    coverage: {
+      provider: 'istanbul',
+      include: ['shared/**', 'worker/**'],
+      reporter: ['text-summary', 'json-summary'],
+      thresholds: {
+        'shared/**': { statements: 97, branches: 89, functions: 96, lines: 97 },
+        'worker/**': { statements: 93, branches: 83, functions: 94, lines: 94 },
+      },
+    },
   },
 });

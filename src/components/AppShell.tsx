@@ -36,19 +36,22 @@ import {
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { ArchivePage } from '@/pages/ArchivePage';
-import { DigestPage } from '@/pages/DigestPage';
 import { FocusPage } from '@/pages/FocusPage';
-import { HelpPage } from '@/pages/HelpPage';
-import { MeetingPage } from '@/pages/MeetingPage';
+import {
+  DigestPage,
+  HelpPage,
+  MeetingPage,
+  preloadPages,
+  SettingsPage,
+  TaskPage,
+  WhiteboardPage,
+} from '@/pages/lazy';
 import { MeetingsPage } from '@/pages/MeetingsPage';
 import { NotesPage, notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectPage } from '@/pages/ProjectPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { TaskPage } from '@/pages/TaskPage';
 import { TasksPage } from '@/pages/TasksPage';
-import { WhiteboardPage } from '@/pages/WhiteboardPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -69,6 +72,7 @@ export function AppShell() {
   const { newMeeting } = useMeetingForm();
   const { openProjectForm } = useProjectForm();
   const { quickAdd } = useNav();
+  usePreloadPages();
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -228,7 +232,9 @@ export function AppShell() {
             where="page"
             fallback={(reset) => <PageError reset={reset} />}
           >
-            <Page route={route} />
+            <Suspense fallback={<PageLoading />}>
+              <Page route={route} />
+            </Suspense>
             {__DEV_ROUTES__ && <CrashForTests where="page" />}
           </ErrorBoundary>
         </main>
@@ -242,6 +248,23 @@ export function AppShell() {
       />
     </div>
   );
+}
+
+/** Fetch the lazy pages' chunks once the browser has nothing else to do. */
+function usePreloadPages() {
+  useEffect(() => {
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preloadPages, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(preloadPages, 1000);
+    return () => clearTimeout(id);
+  }, []);
+}
+
+/** While a page's chunk loads: nothing to read, nothing that moves. */
+function PageLoading() {
+  return <div aria-busy="true" className="flex-1" />;
 }
 
 // Not in production bundles: DEV_ROUTES is false there, so this is dead code.
@@ -291,11 +314,7 @@ function Page({ route }: { route: Route }) {
     case 'settings':
       return <SettingsPage section={route.section} />;
     case 'devComponents':
-      return (
-        <Suspense fallback={null}>
-          <DevComponentsPage />
-        </Suspense>
-      );
+      return <DevComponentsPage />;
     case 'notFound':
       return <NotFoundPage />;
   }

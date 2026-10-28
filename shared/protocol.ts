@@ -692,10 +692,8 @@ export const SESSION_EXPIRED_REASON = 'session expired';
 
 /** Create a space. The server chooses its id and position. */
 export const CreateSpaceSchema = z.object({ name: spaceName });
-export type CreateSpace = z.infer<typeof CreateSpaceSchema>;
 
 export const RenameSpaceSchema = z.object({ id, name: spaceName });
-export type RenameSpace = z.infer<typeof RenameSpaceSchema>;
 
 /** Every space's id, once each, in the new order. */
 export const ReorderSpacesSchema = z.object({
@@ -705,7 +703,6 @@ export const ReorderSpacesSchema = z.object({
     .max(LIMITS.spacesMax)
     .refine((ids) => new Set(ids).size === ids.length, 'Each space once'),
 });
-export type ReorderSpaces = z.infer<typeof ReorderSpacesSchema>;
 
 /**
  * Delete a space and everything in it. Like erase, it takes a token the
@@ -715,7 +712,6 @@ export const DeleteSpaceSchema = z.object({
   id,
   token: z.string().min(1).max(LIMITS.idMax),
 });
-export type DeleteSpace = z.infer<typeof DeleteSpaceSchema>;
 
 /**
  * `GET /api/health`: whether the object answers, and which build is
@@ -751,7 +747,6 @@ export const MoveProjectSchema = z
     message: 'Pick another space',
     path: ['to'],
   });
-export type MoveProject = z.infer<typeof MoveProjectSchema>;
 
 /* ---------- ops ---------- */
 
@@ -1336,8 +1331,6 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   /** Ask for a fresh snapshot (after a sequence gap or a disagreement). */
   z.object({ type: z.literal('sync') }),
 ]);
-
-export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 /** Server → client. Not validated on the client; the server is trusted. */
 export type ServerMessage =

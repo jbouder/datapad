@@ -47,6 +47,8 @@ Save as note, and then like any other note.
 The only thing downloaded is the model itself: its weights from Hugging
 Face (about 1 GB for the default Qwen3 1.7B) and its WebGPU library from
 `raw.githubusercontent.com`, once, after you agree in the summary panel.
+Both come from fixed commits, and the library, config and tokenizer are
+checked against hashes before they are used.
 Those requests carry no referrer and nothing of yours. Settings →
 Summaries picks the model and removes the downloaded weights again.
 

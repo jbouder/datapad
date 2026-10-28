@@ -20,8 +20,6 @@ export interface MeetingFilters {
   project: string;
 }
 
-export const DEFAULT_MEETING_FILTERS: MeetingFilters = { project: '' };
-
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
