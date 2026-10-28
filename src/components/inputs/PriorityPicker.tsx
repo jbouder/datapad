@@ -29,12 +29,12 @@ export function PriorityPicker({
   return (
     <fieldset className={cn('flex flex-col gap-1.5', className)}>
       <legend className="mb-1.5 text-xs font-medium">{label}</legend>
-      <div className="grid grid-cols-4 border border-input">
+      <div className="grid grid-cols-4 border border-border">
         {PRIORITIES.map((p) => (
           <label
             key={p}
             className={cn(
-              'press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 text-xs not-last:border-r not-last:border-input has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-7.5',
+              'press relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 text-xs not-last:border-r not-last:border-border has-checked:bg-accent has-checked:font-semibold has-checked:text-accent-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-ring desk:min-h-7.5',
             )}
           >
             <input

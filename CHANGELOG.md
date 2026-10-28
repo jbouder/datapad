@@ -81,6 +81,14 @@ under **Export format**.
 
 ### Changed
 
+- **Quieter control edges**: selects, the layout switch, segmented
+  choices and outline buttons (in Dark too) now share the cards' light
+  border. Text fields and checkboxes keep the darker 3:1 edge that shows
+  where to type.
+- **Sections open and close without moving**: only the caret turns; the
+  header no longer shrinks on press (it read as a jump to the right) and
+  the body no longer fades in.
+
 - **Focus is tidier** (#218): no quick-add at the top (`n` and the +
   menu open the new-task panel), agenda cards are all one height with no
   Add note (a meeting's notes are written on its page or panel), and Due
