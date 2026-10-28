@@ -120,6 +120,13 @@ same AUD (one application covering both) because the Worker checks one.
 - `curl -i https://datapad.<subdomain>.workers.dev/` without a cookie gets
   Access's redirect; with a made-up `Cf-Access-Jwt-Assertion` header the
   Worker itself answers `401`.
+- On a phone, add Datapad to the home screen (Safari: Share → Add to Home
+  Screen; Chrome: ⋮ → Add to home screen or Install app). The icon should
+  be the notepad mark. The icons are embedded in the page and manifest, so
+  Access needs no change for them; a phone that installed it before may
+  have kept a letter "D", so remove the icon and add it again. See
+  [security.md § The home-screen icon](security.md#the-home-screen-icon)
+  if it still shows a letter.
 
 Sign out is in the account menu (and Settings → Account), which goes to
 `/cdn-cgi/access/logout`.

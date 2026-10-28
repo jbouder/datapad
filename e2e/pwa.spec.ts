@@ -1,9 +1,11 @@
 import { expect, openLive, test } from './fixtures';
 
 /**
- * Installable: the manifest and every icon it names load (through the
- * Access check, with the session cookie, like everything else), and the
- * page links them. No service worker by decision (docs/design.md § PWA).
+ * Installable: the manifest loads (through the Access check, with the
+ * session cookie, like everything else) and the page links it. The icons a
+ * phone installs from are embedded as data: URLs, so a home screen never
+ * has to fetch one without the cookie (#219). No service worker by
+ * decision (docs/design.md § PWA).
  */
 
 test('links a manifest that opens Focus standalone, with working icons', async ({
@@ -27,10 +29,34 @@ test('links a manifest that opens Focus standalone, with working icons', async (
   });
   const purposes = manifest.icons.map((i: { purpose: string }) => i.purpose);
   expect(purposes).toContain('maskable');
-  for (const icon of manifest.icons as { src: string; sizes: string }[]) {
-    const file = await request.get(icon.src);
-    expect(file.ok(), icon.src).toBe(true);
+  // Each icon is embedded and decodes to an image of its declared size.
+  const touch = await page
+    .locator('link[rel="apple-touch-icon"]')
+    .getAttribute('href');
+  const icons = [
+    ...(manifest.icons as { src: string; sizes: string }[]),
+    { src: touch ?? '', sizes: '180x180' },
+  ];
+  for (const icon of icons) {
+    expect(icon.src.startsWith('data:image/'), icon.sizes).toBe(true);
+    const size = await page.evaluate(
+      (src) =>
+        new Promise<string>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () =>
+            resolve(
+              img.src.startsWith('data:image/svg')
+                ? 'any'
+                : `${img.naturalWidth}x${img.naturalHeight}`,
+            );
+          img.onerror = () => reject(new Error('icon did not decode'));
+          img.src = src;
+        }),
+      icon.src,
+    );
+    expect(size).toBe(icon.sizes);
   }
+  // The files stay in public/ for the favicon and link previews.
   for (const href of ['/apple-touch-icon.png', '/favicon.ico', '/og.png']) {
     expect((await request.get(href)).ok(), href).toBe(true);
   }
