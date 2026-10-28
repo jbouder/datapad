@@ -138,13 +138,13 @@ async function openEnding(page: Page) {
   await page.setExtraHTTPHeaders({
     'x-dev-session-seconds': String(SESSION_SECONDS),
   });
-  const opened = Date.now();
   await openLive(page);
   // Later sockets get an ordinary session.
   await page.setExtraHTTPHeaders({});
-  await page.waitForTimeout(
-    Math.max(0, opened + SESSION_SECONDS * 1000 + 250 - Date.now()),
-  );
+  // The session's clock starts when the socket opens, which is before the
+  // app goes live, not when the page started loading: wait it out from
+  // here, or a slow load leaves the session still running.
+  await page.waitForTimeout(SESSION_SECONDS * 1000 + 250);
   return sockets;
 }
 
