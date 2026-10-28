@@ -41,6 +41,27 @@ export const ACCESS_TOKEN_TTL_S = 60 * 60;
 /** Thirty days from sign-in, however often it is refreshed. */
 export const REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
 
+/**
+ * How long a client registered at `/oauth/register` lives in `OAUTH_KV`
+ * (#225): the record is written with this KV `expirationTtl`, so a client
+ * nobody approved is gone after it, with no sweep. A client in use is
+ * kept: the provider rewrites the record with a fresh TTL on any
+ * successful token request once less than half of it is left. Twice the
+ * grant's lifetime is the shortest that keeps that promise: after the
+ * code exchange (a token request) at least half, 30 days, is left, and a
+ * grant lives at most 30 days from that exchange, so no grant outlives
+ * its client. Pinned here rather than left to the library's default.
+ */
+export const CLIENT_REGISTRATION_TTL_S = 2 * REFRESH_TOKEN_TTL_S;
+
+/**
+ * Registrations a client IP may make a minute; the `REGISTER_LIMIT`
+ * binding in wrangler.jsonc holds the same number (and the period, which
+ * a rate limiter only allows as 10 or 60 seconds). An MCP client
+ * registers once when it is first connected, so five is generous.
+ */
+export const REGISTRATIONS_PER_MINUTE = 5;
+
 /** What a grant carries to `/mcp`: the verified email, nothing else. */
 export interface McpProps {
   email: string;
@@ -99,11 +120,39 @@ export function providerOptions(
     scopesSupported: [...SCOPES],
     accessTokenTTL: ACCESS_TOKEN_TTL_S,
     refreshTokenTTL: REFRESH_TOKEN_TTL_S,
+    clientRegistrationTTL: CLIENT_REGISTRATION_TTL_S,
     resourceMetadata: {
       resource: `${origin}${MCP_PATH}`,
       resource_name: 'Datapad',
     },
   };
+}
+
+/**
+ * `POST /oauth/register` over `REGISTER_LIMIT` for this client IP: a 429
+ * with `Retry-After` and an OAuth error body, which MCP clients read like
+ * any other registration error. `null` lets the request on to the
+ * provider. Only registration is limited: it is the one open path that
+ * writes to KV for anyone who asks. Cloudflare always sets
+ * `CF-Connecting-IP` (a client cannot), so a request without it (local
+ * tools only) shares one key and is still limited.
+ */
+export async function limitRegistration(
+  request: Request,
+  env: Bindings,
+): Promise<Response | null> {
+  if (request.method !== 'POST') return null;
+  if (new URL(request.url).pathname !== REGISTER_PATH) return null;
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const { success } = await env.REGISTER_LIMIT.limit({ key: ip });
+  if (success) return null;
+  return Response.json(
+    {
+      error: 'temporarily_unavailable',
+      error_description: `Too many registrations: at most ${REGISTRATIONS_PER_MINUTE} a minute from one address. Wait a minute and try again.`,
+    },
+    { status: 429, headers: { 'retry-after': '60' } },
+  );
 }
 
 const providers = new Map<string, OAuthProvider<Bindings>>();

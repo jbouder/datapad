@@ -34,6 +34,18 @@
   // (docs/self-hosting.md).
   "kv_namespaces": [{ "binding": "OAUTH_KV" }],
 
+  // `/oauth/register` is open to anyone (an MCP client cannot sign in with
+  // Access), and every registration is a KV write. This caps it per client
+  // IP (#225, worker/mcp/oauth.ts). `namespace_id` is any positive integer
+  // of your choosing, unique among the rate limiters in your account.
+  "ratelimits": [
+    {
+      "name": "REGISTER_LIMIT",
+      "namespace_id": "225",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
+
   // Cloudflare Access (Zero Trust). Both values are public. With ACCESS_AUD
   // empty the Worker answers 401 to everything, unless .dev.vars sets
   // DEV_ACCESS_EMAIL for local development. See docs/self-hosting.md.

@@ -20,7 +20,12 @@ import { type DatapadObject, isNoSuchSpace } from './datapad';
 import type { Bindings } from './env';
 import { authorize } from './mcp/authorize';
 import { listConnections, revokeConnection } from './mcp/connections';
-import { AUTHORIZE_PATH, isProviderPath, providerFor } from './mcp/oauth';
+import {
+  AUTHORIZE_PATH,
+  isProviderPath,
+  limitRegistration,
+  providerFor,
+} from './mcp/oauth';
 
 export { DatapadObject } from './datapad';
 
@@ -530,6 +535,8 @@ export function createWorker(verify: AccessVerifier) {
       const { pathname } = new URL(request.url);
       if (isProviderPath(pathname)) {
         try {
+          const limited = await limitRegistration(request, env);
+          if (limited) return withApiHeaders(limited);
           return withApiHeaders(
             await providerFor(request).fetch(request, env, ctx),
           );
