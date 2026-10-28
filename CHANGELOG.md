@@ -11,8 +11,9 @@ was planned under.
 Datapad has no API version. The only format other software reads is the
 export file (`datapad-YYYY-MM-DD.json`, [docs/data.md](docs/data.md#the-format)),
 and every release imports every earlier one: old shapes are migrated on
-the way in, never refused. A release that changes the format says so here
-under **Export format**.
+the way in, never refused. The file carries its `format` number; one from
+a newer release is refused with a message saying so. A release that
+changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
@@ -102,6 +103,11 @@ under **Export format**.
 
 ### Export format
 
+- **A format version** (#240): exports and backups now start with
+  `"format": 1`. A file without it (every earlier export, and the
+  artifact's) is legacy and imports as before. A file with a newer
+  format than this Datapad knows is refused whole, on Import and on
+  restoring a backup, with a message that says to update Datapad.
 - A note may carry `scratch: true` (#218): the space's Notepad. Files
   from before it import unchanged; an export writes it only on that note.
   An import that brings a second Notepad keeps the older one as the

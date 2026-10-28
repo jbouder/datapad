@@ -7,15 +7,19 @@ import {
   DocumentSchemas,
   describeIssue,
   ExportSchema,
+  exportProblem,
   MoveProjectSchema,
+  newerFormat,
+  newerFormatMessage,
   OpSchema,
   RenameSpaceSchema,
   ReorderSpacesSchema,
   SpaceSchema,
   TopicSchema,
 } from '#shared/protocol';
-import { COLLECTIONS, MAIN_SPACE } from '#shared/types';
+import { COLLECTIONS, EXPORT_FORMAT, MAIN_SPACE } from '#shared/types';
 import fixture from './fixtures/export.json';
+import legacy from './fixtures/legacy-export.json';
 
 const at = '2026-10-23T12:00:00.000Z';
 
@@ -367,6 +371,61 @@ describe('the export file', () => {
     expect(issue?.path).toEqual(['tasks', 't-1', 'status']);
     expect(issue && describeIssue(issue)).toBe(
       'Status must be one of open, done',
+    );
+  });
+});
+
+describe('the export format (#240)', () => {
+  it('reads a file in this format, and leaves `format` out of what it returns', () => {
+    const parsed = ExportSchema.parse({ ...fixture, format: EXPORT_FORMAT });
+    expect(parsed).not.toHaveProperty('format');
+    expect(parsed).toEqual(ExportSchema.parse(fixture));
+  });
+
+  it('reads a file without one as legacy, migrated by its shape', () => {
+    expect(legacy).not.toHaveProperty('format');
+    const parsed = ExportSchema.parse(legacy);
+    expect(parsed).not.toHaveProperty('events');
+    expect(Object.keys(parsed.meetings).sort()).toEqual(['e-1', 'e-3', 'e-4']);
+  });
+
+  it('refuses a newer format whole, with a message that says so', () => {
+    const result = ExportSchema.safeParse({
+      ...fixture,
+      format: EXPORT_FORMAT + 1,
+      // What a newer Datapad might write: not looked at.
+      tasks: { 't-1': { shape: 'from the future' } },
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const message = newerFormatMessage(EXPORT_FORMAT + 1);
+    expect(message).toBe(
+      `This file is from a newer version of Datapad (export format ${EXPORT_FORMAT + 1}; this one reads up to ${EXPORT_FORMAT}). Update Datapad, then try again.`,
+    );
+    expect(result.error.issues).toHaveLength(1);
+    expect(newerFormat(result.error)).toBe(message);
+    expect(exportProblem(result.error)).toBe(message);
+  });
+
+  it('refuses a format that is not a whole number from 1', () => {
+    for (const format of [0, -1, 1.5, '1', null]) {
+      const result = ExportSchema.safeParse({ ...fixture, format });
+      expect(result.success, String(format)).toBe(false);
+      if (result.success) continue;
+      expect(newerFormat(result.error)).toBeNull();
+      expect(exportProblem(result.error)).toMatch(/^format: Format /);
+    }
+  });
+
+  it('names the field for any other problem', () => {
+    const result = ExportSchema.safeParse({
+      format: EXPORT_FORMAT,
+      tasks: { 't-1': cases.tasks.invalid },
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(exportProblem(result.error)).toBe(
+      'tasks › t-1 › status: Status must be one of open, done',
     );
   });
 });

@@ -12,9 +12,9 @@ import { localDate } from '#shared/dates';
 import {
   type Counts,
   countDocuments,
-  describeIssue,
   ExportSchema,
-  issuePath,
+  exportProblem,
+  newerFormat,
 } from '#shared/protocol';
 import { Button } from '@/components/ui/button';
 import {
@@ -138,12 +138,7 @@ function useImportExportState() {
       }
       const parsed = ExportSchema.safeParse(file);
       if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        show(
-          issue
-            ? `Not imported. ${issuePath(issue)}: ${describeIssue(issue)}`
-            : 'Not imported: that is not a Datapad export',
-        );
+        show(`Not imported. ${exportProblem(parsed.error)}`);
         return;
       }
       const { exportedAt: _, ...documents } = parsed.data;
@@ -170,7 +165,12 @@ function useImportExportState() {
       }
       const parsed = ExportSchema.safeParse(file);
       if (!parsed.success) {
-        show('That backup is not a Datapad export. Download it to look.');
+        const newer = newerFormat(parsed.error);
+        show(
+          newer
+            ? `Not restored. ${newer}`
+            : 'That backup is not a Datapad export. Download it to look.',
+        );
         return;
       }
       const { exportedAt: _, ...documents } = parsed.data;

@@ -12,6 +12,7 @@ import {
   DEFAULT_SETTINGS,
   type Decision,
   DOC_COLLECTIONS,
+  EXPORT_FORMAT,
   type ExportFile,
   type Link,
   type Meeting,
@@ -514,33 +515,85 @@ function keyedCollection<S extends z.ZodType>(schema: S) {
     });
 }
 
+/** The message a file from a newer Datapad is refused with (#240). */
+export function newerFormatMessage(format: number): string {
+  return `This file is from a newer version of Datapad (export format ${format}; this one reads up to ${EXPORT_FORMAT}). Update Datapad, then try again.`;
+}
+
+/**
+ * Its `format` (#240): none is legacy, which is migrated by shape; one
+ * this version knows is read as it is; a newer one is refused whole, with
+ * a message that says so, before any of it is read.
+ */
+function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
+  const format =
+    typeof input === 'object' && input !== null && !Array.isArray(input)
+      ? (input as { format?: unknown }).format
+      : undefined;
+  if (format === undefined) return migrate(input);
+  if (typeof format === 'number' && Number.isInteger(format)) {
+    if (format > EXPORT_FORMAT) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [],
+        message: newerFormatMessage(format),
+        params: { newerFormat: format },
+      });
+      return z.NEVER;
+    }
+  }
+  return input;
+}
+
 /**
  * Datapad's export and the artifact's `ledger-*.json`, unchanged. Missing
- * collections are empty; unknown top-level keys are ignored. A file from
- * before meetings (with `events`) is migrated first (`shared/migrate.ts`),
- * so what comes out is always the current shape.
+ * collections are empty; unknown top-level keys are ignored. A file
+ * without `format` is legacy: one from before meetings (with `events`) is
+ * migrated first (`shared/migrate.ts`). A newer `format` is refused. What
+ * comes out is always the current shape, without `format`.
  */
 export const ExportSchema = z.preprocess(
-  migrate,
-  z.object({
-    exportedAt: timestamp.optional(),
-    projects: collectionOf(ProjectSchema),
-    tasks: collectionOf(TaskSchema),
-    notes: collectionOf(NoteSchema),
-    meetings: collectionOf(MeetingSchema),
-    people: collectionOf(PersonSchema),
-    /** Datapad only; older exports and the artifact have none. */
-    decisions: collectionOf(DecisionSchema),
-    /** Datapad only (M7); older files carry orgs as project text. */
-    orgs: collectionOf(OrgSchema),
-    /** Datapad only (M7). */
-    templates: collectionOf(TemplateSchema),
-    /** Datapad only (M12); older files have no whiteboards. */
-    boardItems: collectionOf(BoardItemSchema),
-    activity: keyedCollection(ActivitySchema),
-    settings: keyedCollection(SettingsSchema),
-  }),
+  checkFormat,
+  z
+    .object({
+      format: z.number().int().min(1).max(EXPORT_FORMAT).optional(),
+      exportedAt: timestamp.optional(),
+      projects: collectionOf(ProjectSchema),
+      tasks: collectionOf(TaskSchema),
+      notes: collectionOf(NoteSchema),
+      meetings: collectionOf(MeetingSchema),
+      people: collectionOf(PersonSchema),
+      /** Datapad only; older exports and the artifact have none. */
+      decisions: collectionOf(DecisionSchema),
+      /** Datapad only (M7); older files carry orgs as project text. */
+      orgs: collectionOf(OrgSchema),
+      /** Datapad only (M7). */
+      templates: collectionOf(TemplateSchema),
+      /** Datapad only (M12); older files have no whiteboards. */
+      boardItems: collectionOf(BoardItemSchema),
+      activity: keyedCollection(ActivitySchema),
+      settings: keyedCollection(SettingsSchema),
+    })
+    .transform(({ format: _, ...file }) => file),
 );
+
+/**
+ * A refused export as one sentence: a newer format says only that, and
+ * anything else names the field.
+ */
+export function exportProblem(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return 'That file is not a Datapad export';
+  return newerFormat(error) ?? `${issuePath(issue)}: ${describeIssue(issue)}`;
+}
+
+/** The message, when an export was refused for being from a newer Datapad. */
+export function newerFormat(error: z.ZodError): string | null {
+  const issue = error.issues[0];
+  return issue?.code === 'custom' && issue.params?.newerFormat
+    ? issue.message
+    : null;
+}
 
 export type ParsedExport = z.output<typeof ExportSchema>;
 

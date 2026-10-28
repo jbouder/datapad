@@ -5,8 +5,8 @@ import {
 } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import type { BackupInfo } from '#shared/protocol';
-import { MAIN_SPACE } from '#shared/types';
+import { type BackupInfo, newerFormatMessage } from '#shared/protocol';
+import { EXPORT_FORMAT, MAIN_SPACE } from '#shared/types';
 import type { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
@@ -327,6 +327,20 @@ describe('backup routes', () => {
       'e-2',
     ]);
     expect(file).not.toHaveProperty('events');
+  });
+
+  it('refuses a backup from a newer Datapad, and changes nothing', async () => {
+    const email = `${crypto.randomUUID()}@example.com`;
+    const stub = bindings.DATAPAD.getByName(email);
+    await bindings.BACKUPS.put(
+      `${email}/datapad-2026-01-02.json`,
+      JSON.stringify({ ...fixture, format: EXPORT_FORMAT + 1 }),
+    );
+    expect(await stub.restoreBackup(MAIN_SPACE, '2026-01-02')).toEqual({
+      ok: false,
+      error: newerFormatMessage(EXPORT_FORMAT + 1),
+    });
+    expect((await stub.stats()).docs).toBe(0);
   });
 });
 

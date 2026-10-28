@@ -75,6 +75,7 @@ as it is (migrated on the way in, below):
 
 ```json
 {
+  "format": 1,
   "exportedAt": "2026-10-23T12:00:00.000Z",
   "projects": { "<id>": { "id": "<id>", "name": "…", … } },
   "tasks": { … },
@@ -90,6 +91,18 @@ as it is (migrated on the way in, below):
 }
 ```
 
+- `format` (#240) is the file's format version, `1` today
+  (`EXPORT_FORMAT` in [`shared/types.ts`](../shared/types.ts)); every
+  export and nightly backup writes it. A file without it (the
+  artifact's, or Datapad's from before #240) is legacy, read as before
+  and migrated by its shape (below). A file with a higher `format` than this Datapad knows is
+  from a newer version: Import and restoring a backup refuse it whole,
+  before reading anything else, with "This file is from a newer version
+  of Datapad (export format 2; this one reads up to 1). Update Datapad,
+  then try again." A `format` that is not a whole number from 1 is
+  refused as invalid. The number goes up only when a change would be
+  misread by an older Datapad, and CHANGELOG.md says so under **Export
+  format**.
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
