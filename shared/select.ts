@@ -10,6 +10,7 @@ import {
   milestonesOf,
   type Note,
   type Person,
+  type Priority,
   type Project,
   type Snapshot,
   type Task,
@@ -245,6 +246,23 @@ export const focusBuckets = lastCall(
     return buckets;
   },
 );
+
+export interface PriorityGroup {
+  priority: Priority;
+  tasks: Task[];
+}
+
+/**
+ * Focus's Due (#218): tasks by priority, High first and No priority
+ * last, each group keeping the order it was given; empty groups left out.
+ */
+export function byPriority(tasks: readonly Task[]): PriorityGroup[] {
+  const order: Priority[] = ['high', 'med', 'low', 'none'];
+  return order.flatMap((priority) => {
+    const group = tasks.filter((t) => t.priority === priority);
+    return group.length > 0 ? [{ priority, tasks: group }] : [];
+  });
+}
 
 /** Each project's next milestone on or after `today`, by project id. */
 export const nextMilestones = lastCall(

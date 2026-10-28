@@ -1,5 +1,6 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
 import {
+  addTask,
   expect,
   expectAccessible,
   expectSaved,
@@ -54,9 +55,7 @@ test('a refused change says which one and why, and is dropped', async ({
     });
   });
   await openLive(page);
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill('Smuggle the spice');
-  await input.press('Enter');
+  await addTask(page, 'Smuggle the spice');
   await expect(page.locator('output.toast')).toContainText(
     'Not saved: add task “Smuggle the spice”. That change is too large to save',
   );
@@ -138,20 +137,14 @@ async function openEnding(page: Page) {
   await page.setExtraHTTPHeaders({
     'x-dev-session-seconds': String(SESSION_SECONDS),
   });
-  const opened = Date.now();
   await openLive(page);
   // Later sockets get an ordinary session.
   await page.setExtraHTTPHeaders({});
-  await page.waitForTimeout(
-    Math.max(0, opened + SESSION_SECONDS * 1000 + 250 - Date.now()),
-  );
+  // The session's clock starts when the socket opens, which is before the
+  // app goes live, not when the page started loading: wait it out from
+  // here, or a slow load leaves the session still running.
+  await page.waitForTimeout(SESSION_SECONDS * 1000 + 250);
   return sockets;
-}
-
-async function quickAdd(page: Page, title: string) {
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill(title);
-  await input.press('Enter');
 }
 
 test('a socket whose session ended reconnects through Access, and the change is saved', async ({
@@ -161,7 +154,7 @@ test('a socket whose session ended reconnects through Access, and the change is 
   expect(sockets).toHaveLength(1);
   // The object closes the socket instead of applying this; the app asks
   // /api/health, which still answers, so it reconnects and sends it again.
-  await quickAdd(page, 'Recalibrate the deflector');
+  await addTask(page, 'Recalibrate the deflector');
   await expectSaved(page);
   expect(sockets).toHaveLength(2);
   // Stored once, on the object.
@@ -187,7 +180,15 @@ test('a socket whose session ended shows Sign in again when Access says so', asy
     }),
   );
   await openEnding(page);
-  await quickAdd(page, 'Recalibrate the deflector');
+  // Any change will do: closing a task on Focus (its checkbox is visually
+  // hidden; its label is what gets clicked).
+  await page
+    .locator('label', {
+      has: page.getByRole('checkbox', {
+        name: 'Close “Confirm shield generator delivery”',
+      }),
+    })
+    .click();
   const heading = page.getByRole('heading', {
     level: 1,
     name: 'Sign in again',

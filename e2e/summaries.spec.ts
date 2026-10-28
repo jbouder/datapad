@@ -4,6 +4,7 @@ import {
   expectAccessible,
   expectSaved,
   openLive,
+  openNotes,
   SEED,
   test,
 } from './fixtures';
@@ -291,7 +292,8 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
     .count();
   await page.keyboard.press('Escape');
 
-  await openLive(page, '/notes');
+  // List, with one note open as its full card.
+  await openNotes(page, '', ['n-3']);
   await expect(
     page.getByRole('button', { name: 'Edit note' }).first(),
   ).toBeVisible();

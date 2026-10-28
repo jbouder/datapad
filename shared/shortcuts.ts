@@ -15,15 +15,23 @@ export interface Shortcut {
     | 'Focus'
     | 'Task lists and tables'
     | 'Collection pages'
-    | 'Panels';
+    | 'Panels'
+    | 'Whiteboard';
   /** Not bound yet: arrives with a later feature. */
   later?: string;
 }
 
+/**
+ * How far the whiteboard's arrow keys move, resize or re-aim, in board
+ * units: a step, or a big one with Shift held.
+ */
+export const BOARD_STEP = 1;
+export const BOARD_BIG_STEP = 10;
+
 export const SHORTCUTS: Shortcut[] = [
   {
     keys: ['n'],
-    action: 'Add a task (the nearest quick-add, or the new-task panel)',
+    action: 'Add a task (the new-task panel)',
     scope: 'Anywhere',
   },
   { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },
@@ -99,6 +107,79 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Collection pages',
   },
   { keys: ['⌘Enter', 'Ctrl+Enter'], action: 'Save', scope: 'Panels' },
+  {
+    keys: ['V', 'S', 'T', 'R', 'A', 'P', 'E'],
+    action:
+      'Pick a tool: select, sticky note, text, rectangle, arrow, pen, eraser',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['1–5'],
+    action: 'Pick a color (and recolor the selection)',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Tab', 'Shift+Tab'],
+    action: 'Next / previous item (focus selects it)',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Enter'],
+    action:
+      'With S, T or R picked: place one in the middle of the view, ready to type in. Otherwise write in the selected item, or re-aim the selected arrow’s head',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Shift+Enter'],
+    action: 'Re-aim the selected arrow’s tail',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['A then Enter'],
+    action:
+      'Draw an arrow from the selected item: Tab to the item it points to, Enter to draw it, Esc to cancel',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['←', '↑', '→', '↓'],
+    action: `Move the selection ${BOARD_STEP} unit (Shift: ${BOARD_BIG_STEP}); while re-aiming, move the arrow’s end`,
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'],
+    action: `Resize the selection narrower, wider, shorter or taller by ${BOARD_STEP} unit (Shift: ${BOARD_BIG_STEP})`,
+    scope: 'Whiteboard',
+  },
+  {
+    keys: [']', '['],
+    action: 'Bring the selection to the front / send it to the back',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Delete', 'Backspace'],
+    action: 'Delete the selection',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['⌘A', 'Ctrl+A'],
+    action: 'Select every item',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['⌘Z', 'Ctrl+Z'],
+    action: 'Undo a change made on the board',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['⇧⌘Z', 'Ctrl+Y'],
+    action: 'Redo it',
+    scope: 'Whiteboard',
+  },
+  {
+    keys: ['Space'],
+    action: 'Hold and drag to pan',
+    scope: 'Whiteboard',
+  },
 ];
 
 /** What the rule needs to know about a key press and the page. */

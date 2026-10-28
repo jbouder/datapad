@@ -6,6 +6,7 @@ const SCOPES: Shortcut['scope'][] = [
   'Task lists and tables',
   'Collection pages',
   'Panels',
+  'Whiteboard',
 ];
 
 /** Every binding from `SHORTCUTS`, by where it works. */

@@ -1,5 +1,6 @@
 import {
   addFromTopBar,
+  addTask,
   expect,
   isMobile,
   openLive,
@@ -45,10 +46,8 @@ test('the rail shows live counts, active projects and Archived', async ({
   await expect(page).toHaveTitle('Echo Base relocation · Datapad');
 
   // Counts follow the data.
-  await page.goto('/');
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill('Count me');
-  await input.press('Enter');
+  await openLive(page, '/');
+  await addTask(page, 'Count me');
   await expect(
     rail.getByRole('link', { name: /^Focus 6 open$/ }),
   ).toBeVisible();
@@ -165,7 +164,7 @@ test('an unknown project or path says Not found, with a way back', async ({
 
 test('tab order is rail, then top bar, then main', async ({ page }) => {
   test.skip(isMobile(page), 'Keyboard order is checked on desktop.');
-  // Main has a quick-add once the data is in.
+  // Main has controls once the data is in.
   await openLive(page, '/');
   const order: string[] = [];
   for (let i = 0; i < 24; i += 1) {

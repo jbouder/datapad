@@ -162,6 +162,12 @@ export interface Note {
    * task's. Absent on notes written before it existed: read it as null.
    */
   taskId?: string | null;
+  /**
+   * The space's Notepad (#218): its one running note, written in place on
+   * Notes and saved as you type (`writeNotepad`). General, never on a
+   * meeting or task. Absent on every other note: read it as false.
+   */
+  scratch?: boolean;
   createdAt: Timestamp;
   editedAt?: Timestamp;
 }

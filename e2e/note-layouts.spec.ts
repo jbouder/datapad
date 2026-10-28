@@ -2,8 +2,11 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectAccessible,
+  expectNoSidewaysScroll,
+  isMobile,
   openLive,
   SEED,
+  seedTime,
   settle,
   test,
 } from './fixtures';
@@ -114,8 +117,135 @@ test('filters apply to the Grid as well', async ({ page }) => {
   await expect(
     page.getByRole('list', { name: 'Notes' }).locator('article'),
   ).toHaveCount(1);
-  await pick(page, 'Feed');
-  await expect(page.locator('article[data-note-id]')).toHaveCount(1);
+  await pick(page, 'List');
+  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+});
+
+test('Notepad, List and Grid, Notepad first and the default', async ({
+  page,
+}) => {
+  await openLive(page, '/notes');
+  const group = page.getByRole('group', { name: 'Layout (press v to cycle)' });
+  await expect(group.getByRole('radio')).toHaveCount(3);
+  await expect(group.getByRole('radio').first()).toHaveAccessibleName(
+    'Notepad',
+  );
+  await expect(group.getByRole('radio', { name: 'Notepad' })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Notepad' })).toBeVisible();
+  // The filters are for List and Grid.
+  await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
+  await page.locator('body').press('v');
+  await expect(group.getByRole('radio', { name: 'List' })).toBeChecked();
+  await page.locator('body').press('v');
+  await expect(group.getByRole('radio', { name: 'Grid' })).toBeChecked();
+});
+
+test('an old Feed address reads as List', async ({ page }) => {
+  await openLive(page, '/notes?view=feed');
+  await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
+  await expect(page.locator('[data-note-row]')).toHaveCount(3);
+});
+
+test('List: one compact row per note, each opening in place', async ({
+  page,
+}) => {
+  await openLive(page, '/notes?view=list');
+  const rows = page.locator('[data-note-row]');
+  // Newest first; Yavin's note is in an archived project.
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Prep: Shield review');
+  await expect(rows.nth(0)).toContainText('Echo Base relocation');
+  await expect(rows.nth(1)).toContainText('Standup');
+  await expect(rows.nth(1)).toContainText('Pinned');
+  await expect(rows.nth(2)).toContainText('Next quarter');
+  await expect(rows.nth(2)).toContainText('General');
+  // Compact: one line on desktop, and no card until a row is opened.
+  await expect(page.locator('article[data-note-id]')).toHaveCount(0);
+  if (!isMobile(page)) {
+    const box = await rows.nth(1).boundingBox();
+    expect(box?.height ?? 0).toBeLessThan(48);
+  }
+
+  const button = rows.nth(1).getByRole('button', { name: /^Standup/ });
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  const standup = card(page, 'n-1');
+  await expect(
+    standup.getByRole('button', { name: 'Edit note' }),
+  ).toBeVisible();
+  await expect(standup).toContainText('Check the heaters');
+  await button.click();
+  await expect(standup).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+});
+
+test('a link to one note opens it in the List', async ({ page }) => {
+  await openLive(page, '/notes?note=n-3');
+  await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
+  await expect(card(page, 'n-3')).toBeVisible();
+  await expect(card(page, 'n-3')).toBeFocused();
+});
+
+test('Grid: masonry columns in reading order, one column on a phone', async ({
+  page,
+  request,
+}) => {
+  // Notes of different heights, so the columns come out uneven.
+  const notes: Record<string, unknown> = {};
+  for (const [i, lines] of [3, 1, 6, 2, 1].entries()) {
+    const id = `n-extra-${i}`;
+    notes[id] = {
+      id,
+      projectId: null,
+      body: Array.from(
+        { length: lines },
+        (_, l) => `Extra ${i} line ${l}`,
+      ).join('\n'),
+      pinned: false,
+      meetingId: null,
+      phase: null,
+      createdAt: seedTime(`2026-10-1${i}T08:00:00.000Z`),
+    };
+  }
+  await request.post('/api/import', {
+    data: { exportedAt: seedTime('2026-10-27T08:00:00.000Z'), notes },
+  });
+  await openLive(page, '/notes?view=grid');
+  const items = page
+    .getByRole('list', { name: 'Notes' })
+    .locator(':scope > li');
+  await expect(items).toHaveCount(8);
+  await settle(page);
+  const boxes = await items.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), h: r.height };
+    }),
+  );
+  // Each card starts no higher than the one before it in the DOM, and on
+  // the same line, further right: left to right, top to bottom.
+  for (let i = 1; i < boxes.length; i++) {
+    const [a, b] = [boxes[i - 1], boxes[i]];
+    expect(b?.y ?? 0).toBeGreaterThanOrEqual(a?.y ?? 0);
+    if (b?.y === a?.y) expect(b?.x ?? 0).toBeGreaterThan(a?.x ?? 0);
+  }
+  const columns = new Set(boxes.map((b) => b.x));
+  if (isMobile(page)) {
+    expect(columns.size).toBe(1);
+  } else {
+    expect(columns.size).toBeGreaterThan(1);
+  }
+  // No holes: within a column, each card sits one gap under the last.
+  for (const x of columns) {
+    const column = boxes.filter((b) => b.x === x).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < column.length; i++) {
+      const [above, below] = [column[i - 1], column[i]];
+      expect(
+        Math.abs((below?.y ?? 0) - ((above?.y ?? 0) + (above?.h ?? 0)) - 12),
+      ).toBeLessThanOrEqual(1);
+    }
+  }
+  await expectNoSidewaysScroll(page);
 });
 
 for (const theme of ['light', 'dark'] as const) {

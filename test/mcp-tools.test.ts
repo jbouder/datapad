@@ -302,6 +302,38 @@ describe('the read tools', () => {
     expect(one.notes.items).toHaveLength(1);
   });
 
+  it('list_notes: the Notepad is a General note, marked as the Notepad', async () => {
+    const ctx = await seeded();
+    expect(
+      (
+        await ctx.datapad.import(MAIN_SPACE, {
+          exportedAt: '2026-10-27T10:00:00.000Z',
+          notes: {
+            'n-pad': {
+              id: 'n-pad',
+              projectId: null,
+              body: 'Ask @{u-han} about the heaters',
+              pinned: false,
+              meetingId: null,
+              phase: null,
+              scratch: true,
+              createdAt: '2026-10-26T09:00:00.000Z',
+              editedAt: '2026-10-27T09:00:00.000Z',
+            },
+          },
+        })
+      ).ok,
+    ).toBe(true);
+    const general = await call(ctx, 'list_notes', { project: 'general' });
+    expect(ids(general.notes.items)).toEqual(['n-pad', 'n-3']);
+    expect(general.notes.items[0]).toMatchObject({
+      notepad: true,
+      project: null,
+      body: 'Ask @Han Solo about the heaters',
+    });
+    expect(general.notes.items[1]).not.toHaveProperty('notepad');
+  });
+
   it('list_meetings: a date range and a project, with topics and outcomes', async () => {
     const ctx = await seeded();
     const all = await call(ctx, 'list_meetings', {});

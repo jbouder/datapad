@@ -7,6 +7,7 @@ import {
   expectSaved,
   isMobile,
   openLive,
+  openNotes,
   SEED,
   seedTime,
   test,
@@ -262,52 +263,6 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   );
 });
 
-test('from the Focus agenda: a project meeting and a General one', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/?view=week');
-  const agenda = page.getByRole('region', { name: 'Next 7 days' });
-  await expect(agenda.getByRole('listitem')).toHaveCount(2);
-
-  await agenda
-    .getByRole('button', { name: 'Add note to “Shield review”' })
-    .click();
-  const box = composer(page, 'Shield review');
-  await expect(box).toBeFocused();
-  await expect(box).toHaveValue('');
-  await expectAccessible(page);
-  await expectNoSidewaysScroll(page);
-  await page.keyboard.type('Ridge is clear');
-  await agenda.getByRole('button', { name: 'Save note' }).click();
-  await expect(box).toBeHidden();
-  await expect(page.getByText('Added a note to “Shield review”')).toBeVisible();
-
-  await agenda
-    .getByRole('button', { name: 'Add note to “Quarterly planning”' })
-    .click();
-  const general = composer(page, 'Quarterly planning');
-  await expect(general).toBeFocused();
-  await expect(general).toHaveValue('');
-  await page.keyboard.type('Budget first');
-  await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(general).toBeHidden();
-  await expect(page).toHaveURL(/\/\?view=week$/);
-
-  await expectSaved(page);
-  const notes = Object.values((await stored(request)).notes);
-  expect(notes.find((n) => n.body === 'Ridge is clear')).toMatchObject({
-    meetingId: 'e-1',
-    phase: null,
-    projectId: 'p-echo',
-  });
-  expect(notes.find((n) => n.body === 'Budget first')).toMatchObject({
-    meetingId: 'e-4',
-    phase: null,
-    projectId: null,
-  });
-});
-
 test('the page lists every note on the meeting, newest first', async ({
   page,
   request,
@@ -336,7 +291,7 @@ test('the page lists every note on the meeting, newest first', async ({
 test('a meeting’s note on Notes shows a chip that opens the meeting', async ({
   page,
 }) => {
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-2']);
   const card = page
     .locator('article[data-note-id]')
     .filter({ hasText: 'Bring the power budget' });

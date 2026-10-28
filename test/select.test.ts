@@ -8,6 +8,7 @@ import {
   assigneeFor,
   assigneeFromQuery,
   assigneeToQuery,
+  byPriority,
   focusBuckets,
   GENERAL_KEY,
   meId,
@@ -52,6 +53,25 @@ function withTasks(...tasks: Array<Partial<Task> & { id: string }>): Snapshot {
 
 const anyone = { kind: 'anyone' } as const;
 const ids = (tasks: Task[]) => tasks.map((t) => t.id);
+
+describe('byPriority', () => {
+  it('groups High to No priority, keeping order, leaving out empty groups', () => {
+    const t = (id: string, priority: Task['priority']) =>
+      ({ id, priority }) as Task;
+    const groups = byPriority([
+      t('a', 'low'),
+      t('b', 'high'),
+      t('c', 'none'),
+      t('d', 'high'),
+    ]);
+    expect(groups.map((g) => [g.priority, ids(g.tasks)])).toEqual([
+      ['high', ['b', 'd']],
+      ['low', ['a']],
+      ['none', ['c']],
+    ]);
+    expect(byPriority([])).toEqual([]);
+  });
+});
 
 describe('focusBuckets', () => {
   // Friday 23 October 2026: this week ends on Sunday the 25th.

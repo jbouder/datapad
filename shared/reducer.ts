@@ -2,6 +2,7 @@ import { checkShape } from './board';
 import { formatDay } from './dates';
 import { LIMITS } from './limits';
 import { byDate } from './milestones';
+import { notepadOf } from './notes';
 import { applyPagePatch } from './pages';
 import type { Op, OpOf, ParsedExport } from './protocol';
 import { isNoteTemplate } from './templates';
@@ -238,6 +239,17 @@ function onlyMe(d: Draft, meId: string) {
   for (const p of d.all('people')) {
     if (p.me && p.id !== meId) {
       d.set('people', p.id, { ...p, me: false });
+    }
+  }
+}
+
+/** One Notepad per space: any other note marked `scratch` loses the mark. */
+function onlyNotepad(d: Draft) {
+  const keep = notepadOf(d.state.notes);
+  for (const n of d.all('notes')) {
+    if (n.scratch && n.id !== keep?.id) {
+      const { scratch: _, ...rest } = n;
+      d.set('notes', n.id, rest);
     }
   }
 }
@@ -618,6 +630,31 @@ function apply(d: Draft, op: Op, now: string) {
       d.delete('notes', n.id);
       log(d, n.projectId, 'Deleted a note', now);
       touch(d, n.projectId, now);
+      return;
+    }
+    case 'writeNotepad': {
+      // Silent in Activity: it saves as you type.
+      const n = notepadOf(d.state.notes);
+      const empty = op.body.trim() === '';
+      if (n) {
+        if (empty) d.delete('notes', n.id);
+        else if (n.body !== op.body) {
+          d.set('notes', n.id, { ...n, body: op.body, editedAt: now });
+        }
+        return;
+      }
+      if (empty) return;
+      fresh(d, 'notes', op.id, 'note');
+      d.set('notes', op.id, {
+        id: op.id,
+        projectId: null,
+        body: op.body,
+        pinned: false,
+        meetingId: null,
+        phase: null,
+        scratch: true,
+        createdAt: now,
+      });
       return;
     }
 
@@ -1286,5 +1323,6 @@ export function merge(state: Snapshot, incoming: ParsedExport): ReduceResult {
   }
   const me = Object.values(incoming.people).find((p) => p.me);
   if (me) onlyMe(d, me.id);
+  onlyNotepad(d);
   return { state: d.state, changed: d.changed };
 }
