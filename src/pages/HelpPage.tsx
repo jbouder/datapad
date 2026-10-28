@@ -327,6 +327,17 @@ export function HelpPage({ section }: { section?: string }) {
           tool draws with one finger and two fingers pan.
         </p>
         <p className="text-sm">
+          Everything but freehand ink works from the keyboard too (Keyboard,
+          above, lists the board’s keys): with <Key>S</Key>, <Key>T</Key> or{' '}
+          <Key>R</Key> picked, <Key>Enter</Key> places one in the middle of the
+          view; <Key>Tab</Key> selects an item, the arrow keys move it and{' '}
+          <Key>Alt</Key> with them resizes it. For an arrow, select where it
+          starts, press <Key>A</Key> then <Key>Enter</Key>, <Key>Tab</Key> to
+          where it points and press <Key>Enter</Key>. <Key>Enter</Key> on an
+          arrow re-aims its head and <Key>Shift</Key>+<Key>Enter</Key> its tail;{' '}
+          <Key>Esc</Key> cancels either.
+        </p>
+        <p className="text-sm">
           <Key>⌘Z</Key> undoes and <Key>⇧⌘Z</Key> redoes every change you made
           on the board while it is open; the Undo and Redo buttons at its corner
           do the same on a phone. <Key>⌘K</Key> finds the words on stickies,

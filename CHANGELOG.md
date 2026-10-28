@@ -18,6 +18,14 @@ under **Export format**.
 
 ### Added
 
+- **The whiteboard without a pointer** (#222): with S, T or R picked,
+  Enter places a sticky, text or rectangle in the middle of the view, open
+  to type in; Alt+arrow keys resize the selection (Shift: 10); with A
+  picked, Enter draws an arrow from the selected item to the one you Tab
+  to; Enter on an arrow re-aims its head and Shift+Enter its tail (Tab to
+  an item, or the arrow keys). Each is read out, undone with ⌘Z, and Esc
+  cancels. The whiteboard's keys are listed in Help and the `?` sheet.
+
 - **Datapad is an MCP server** at `/mcp` (M14, #152): Claude Code, Claude
   Desktop and claude.ai connect with `claude mcp add --transport http
   datapad https://<host>/mcp` or a custom connector, sign in through Access,
