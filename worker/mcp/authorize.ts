@@ -18,6 +18,21 @@ import { grantUserId, type McpProps, oauthHelpers, type Scope } from './oauth';
  * with `props: { email }` from the verified identity. That is the only
  * place an email enters a token.
  */
+/**
+ * Whether the consent form's POST came from this site's own page. The page
+ * sends `Referrer-Policy: no-referrer`, under which browsers send
+ * `Origin: null` on a form POST even to the same origin, so `Origin` alone
+ * would refuse every real Allow. `Sec-Fetch-Site` is unaffected by the
+ * referrer policy and is what browsers send, so it decides when present;
+ * without it (non-browser clients) `Origin` must be absent or ours.
+ */
+function fromThisSite(request: Request): boolean {
+  const site = request.headers.get('Sec-Fetch-Site');
+  if (site !== null) return site === 'same-origin';
+  const origin = request.headers.get('Origin');
+  return origin === null || origin === new URL(request.url).origin;
+}
+
 export async function authorize(
   request: Request,
   env: Bindings,
@@ -39,8 +54,7 @@ export async function authorize(
     }
 
     if (request.method === 'POST') {
-      const origin = request.headers.get('Origin');
-      if (origin !== null && origin !== new URL(request.url).origin) {
+      if (!fromThisSite(request)) {
         return await problemPage('Cross-site request refused.', 403);
       }
       const form = await request.formData();

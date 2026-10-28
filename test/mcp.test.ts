@@ -408,9 +408,13 @@ describe('sign-in', () => {
         new Request(`${ORIGIN}${AUTHORIZE_PATH}`, {
           method: 'POST',
           redirect: 'manual',
+          // What a browser sends from the consent page: its no-referrer
+          // policy turns Origin into "null" on a form POST.
           headers: {
             [ACCESS_HEADER]: jwt,
             cookie,
+            origin: 'null',
+            'sec-fetch-site': 'same-origin',
             'content-type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({ handle, decision }),
@@ -435,6 +439,29 @@ describe('sign-in', () => {
           [ACCESS_HEADER]: await accessJwt('leia@example.com'),
           origin: 'https://evil.example',
           'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: 'handle=x&decision=approve',
+      }),
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it.each([
+    ['a cross-site Sec-Fetch-Site', { 'sec-fetch-site': 'cross-site' }],
+    ['a same-site Sec-Fetch-Site', { 'sec-fetch-site': 'same-site' }],
+    [
+      'a cross-site Sec-Fetch-Site with our Origin',
+      { 'sec-fetch-site': 'cross-site', origin: ORIGIN },
+    ],
+    ['Origin null without Sec-Fetch-Site', { origin: 'null' }],
+  ])('refuses a form post with %s', async (_, extra) => {
+    const response = await viaAccess(
+      new Request(`${ORIGIN}${AUTHORIZE_PATH}`, {
+        method: 'POST',
+        headers: {
+          [ACCESS_HEADER]: await accessJwt('leia@example.com'),
+          'content-type': 'application/x-www-form-urlencoded',
+          ...extra,
         },
         body: 'handle=x&decision=approve',
       }),
