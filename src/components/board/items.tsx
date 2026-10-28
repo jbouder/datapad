@@ -2,14 +2,16 @@ import { memo } from 'react';
 import type { Box } from '#shared/board';
 import { tokensToNames } from '#shared/mentions';
 import type { BoardColor, BoardItem, BoardKind, Person } from '#shared/types';
-import { STICKY_FONT, STICKY_PAD, TEXT_FONT, TEXT_PAD } from './metrics';
+import {
+  MIN_SIZE,
+  STICKY_FONT,
+  STICKY_PAD,
+  STICKY_SIZE,
+  TEXT_FONT,
+  TEXT_PAD,
+} from './metrics';
 
-export { STICKY_FONT, STICKY_PAD, TEXT_FONT, TEXT_PAD };
-
-/** A new sticky's side, in board units. */
-export const STICKY_SIZE = 200;
-/** The smallest a resize leaves a box. */
-export const MIN_SIZE = 40;
+export { MIN_SIZE, STICKY_FONT, STICKY_PAD, STICKY_SIZE, TEXT_FONT, TEXT_PAD };
 /** Where free text wraps until it is resized wider. */
 export const TEXT_WRAP = 480;
 const LINE = 1.35;
