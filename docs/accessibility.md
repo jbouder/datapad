@@ -16,6 +16,7 @@ Automated, on every pull request (CI's `check` and `e2e` jobs):
 | A toast stays while focus is in it (WCAG 2.2.1), and errors move focus to their heading                                                                                                                                          | `e2e/focus-kept.spec.ts`, `e2e/errors.spec.ts`                   |
 | Reflow at 320px (a 1280px window at 400% zoom) with no sideways scrolling; 44px targets on touch                                                                                                                                 | `e2e/reflow.spec.ts`                                             |
 | Everything from the keyboard: add, move, complete, edit and reorder tasks; the shortcut sheet; single-letter keys stay out of fields                                                                                             | `e2e/keyboard.spec.ts`, `shared/shortcuts.ts`                    |
+| The whiteboard from the keyboard: place, resize, draw an arrow and re-aim its ends, each announced and undone                                                                                                                    | `e2e/whiteboard-keyboard.spec.ts`                                |
 | Reduced motion (the system setting and Settings → Appearance → Motion): nothing animates                                                                                                                                         | `e2e/motion.spec.ts`                                             |
 | Forced colours (Windows High Contrast): the selected layout, the current section, a pressed tool and a selected option are outlined in `Highlight`, since backgrounds are dropped                                                | `e2e/a11y.spec.ts`, `src/index.css`                              |
 | The skip link reaches the main content                                                                                                                                                                                           | `e2e/a11y.spec.ts`                                               |
@@ -43,14 +44,14 @@ drawing.
 | Reorder a meeting's topics                                              | Alt+↑ / Alt+↓; the topic's menu → Move up / Move down                                         | The topic's menu                                              |
 | Whiteboard: move an item                                                | Tab to it (focus selects it), then the arrow keys (Shift: 10px)                               | A one-finger drag, or select and drag                         |
 | Whiteboard: pan and zoom                                                | Scroll; the zoom buttons; ⌘K opens the board centred on a found item                          | Two fingers; the zoom buttons                                 |
-| Whiteboard: place an item, resize it, draw or re-aim an arrow           | **Not yet** ([#222](https://github.com/jbouder/datapad/issues/222))                           | Tap to place; drag a corner or an arrow's end                 |
+| Whiteboard: place an item                                               | Pick S, T or R, then Enter: placed in the middle of the view, open to type in                 | Tap to place                                                  |
+| Whiteboard: resize an item                                              | Alt+arrow keys on the selection (Shift: 10)                                                   | Drag a corner                                                 |
+| Whiteboard: draw an arrow                                               | Select the item it starts from, A, Enter, Tab to the item it points to, Enter (Esc cancels)   | One finger, with the arrow tool                               |
+| Whiteboard: re-aim an arrow                                             | Enter (its head) or Shift+Enter (its tail) on it, then Tab to an item or the arrow keys       | Drag an arrow's end                                           |
 | Whiteboard: freehand ink                                                | Exempt: the path is the content                                                               | One finger                                                    |
 
 ## Known exceptions
 
-- **Whiteboard creation and resizing need a pointer** (above, #222). Every
-  item can still be reached, moved, restacked, recoloured, edited and
-  deleted from the keyboard, and has a name for screen readers.
 - **Summaries are written by a language model**, on the device. Their text
   is not reviewed for reading level or structure, and the panel says to
   check it.

@@ -42,8 +42,19 @@ describe('the shortcut suppression rule', () => {
     expect(allowsShortcut({ ...base, defaultPrevented: true })).toBe(false);
   });
 
-  it('lists every binding once', () => {
-    const keys = SHORTCUTS.flatMap((s) => s.keys);
-    expect(new Set(keys).size).toBe(keys.length);
+  it('lists every binding once where it works', () => {
+    for (const scope of new Set(SHORTCUTS.map((s) => s.scope))) {
+      const keys = SHORTCUTS.filter((s) => s.scope === scope).flatMap(
+        (s) => s.keys,
+      );
+      expect(new Set(keys).size, scope).toBe(keys.length);
+    }
+  });
+
+  it('lists the whiteboard’s resize keys and their steps', () => {
+    const resize = SHORTCUTS.find(
+      (s) => s.scope === 'Whiteboard' && s.keys.includes('Alt+→'),
+    );
+    expect(resize?.action).toContain('1 unit (Shift: 10)');
   });
 });

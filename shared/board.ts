@@ -439,3 +439,77 @@ export function reaim(
   }
   return out;
 }
+
+/* ---------- from the keyboard: resizing, and arrows without a drag ---------- */
+
+/**
+ * A box `dw` wider and `dh` taller, its top-left kept (the keyboard's
+ * resize, Alt+arrows). It never shrinks below `min`, nor grows on a
+ * shrink: a box already smaller than `min` stays as it is.
+ */
+export function growBox(box: Box, dw: number, dh: number, min: number): Box {
+  const side = (n: number, d: number) =>
+    d < 0 ? Math.max(Math.min(min, n), n + d) : n + d;
+  return { x: box.x, y: box.y, w: side(box.w, dw), h: side(box.h, dh) };
+}
+
+/** Kinds an arrow can be drawn to or from with the keyboard. */
+export function connectable(item: Pick<BoardItem, 'kind'>): boolean {
+  return !isLine(item);
+}
+
+/** The middle of a box. */
+export function middle(box: Box): Point {
+  return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+}
+
+/**
+ * Where a line from the middle of `box` toward `toward` crosses its
+ * border (the right edge's middle when `toward` is the middle itself).
+ */
+export function edgeToward(box: Box, toward: Point): Point {
+  const c = middle(box);
+  const dx = toward.x - c.x;
+  const dy = toward.y - c.y;
+  if (dx === 0 && dy === 0) return { x: box.x + box.w, y: c.y };
+  const sx = dx === 0 ? Number.POSITIVE_INFINITY : box.w / 2 / Math.abs(dx);
+  const sy = dy === 0 ? Number.POSITIVE_INFINITY : box.h / 2 / Math.abs(dy);
+  // Exactly on the edge it leaves by, not a rounding error inside it.
+  if (sx <= sy) {
+    return { x: dx > 0 ? box.x + box.w : box.x, y: c.y + dy * sx };
+  }
+  return { x: c.x + dx * sy, y: dy > 0 ? box.y + box.h : box.y };
+}
+
+/**
+ * An arrow from one box to another, as the keyboard draws it: along the
+ * line between their middles, each end on its box's border (where an end
+ * on a sticky or a rect stays attached).
+ */
+export function connect(from: Box, to: Box): [Point, Point] {
+  return [edgeToward(from, middle(to)), edgeToward(to, middle(from))];
+}
+
+/**
+ * The next item an arrow's end can point to, Tab by Tab: the connectable
+ * items in drawing order, after `current` (or before it, `step` -1),
+ * wrapping around and passing over `except`. From no `current`, the first
+ * (or the last). Undefined when there is nothing else to point to.
+ */
+export function nextTarget(
+  items: readonly BoardItem[],
+  current: string | undefined,
+  step: 1 | -1,
+  except?: string,
+): BoardItem | undefined {
+  const list = items.filter(connectable);
+  const n = list.length;
+  if (n === 0) return undefined;
+  const at = list.findIndex((b) => b.id === current);
+  const start = at !== -1 ? at : step === 1 ? -1 : n;
+  for (let i = 1; i <= n; i += 1) {
+    const b = list[(((start + step * i) % n) + n) % n];
+    if (b && b.id !== except) return b;
+  }
+  return undefined;
+}

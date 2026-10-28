@@ -952,6 +952,13 @@ html[data-vt="space"]::view-transition-new(rail) {
   stroke: var(--foreground);
   stroke-dasharray: 4 3;
 }
+/* What a keyboard-drawn arrow points to, or a re-aimed end will: ringed
+   even when focus is elsewhere. */
+.board-item[data-target] .board-ring {
+  opacity: 1;
+  stroke: var(--foreground);
+  stroke-dasharray: 4 3;
+}
 .board-handle {
   fill: var(--background);
   stroke: var(--foreground);

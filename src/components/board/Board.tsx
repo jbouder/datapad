@@ -12,14 +12,20 @@ import {
 import {
   arrowEnds,
   arrowPoints,
+  attachedTo,
   type BoardMove,
   type Box,
   bounds,
+  connect,
+  connectable,
   constrainAngle,
   dragBox,
+  edgeToward,
+  growBox,
   HIT_TOLERANCE,
   hitTest,
   itemsOf,
+  nextTarget,
   nextZ,
   reaim,
   snapEnd,
@@ -27,6 +33,7 @@ import {
 } from '#shared/board';
 import { LIMITS } from '#shared/limits';
 import type { BaseOp } from '#shared/protocol';
+import { BOARD_BIG_STEP, BOARD_STEP } from '#shared/shortcuts';
 import {
   BOARD_COLORS,
   type BoardColor,
@@ -151,6 +158,26 @@ type Draft =
   | { kind: 'arrow'; from: Point; to: Point }
   | { kind: 'ink'; points: number[] };
 
+/**
+ * Drawing an arrow (`connect`: from an item to the one Tab picks) or
+ * re-aiming one end of an arrow (`aim`: Tab picks an item, the arrow keys
+ * move the end), from the keyboard. Nothing is sent until Enter; Escape
+ * leaves the board as it was.
+ */
+type KeyMode =
+  | { kind: 'connect'; from: string; to?: string }
+  | { kind: 'aim'; id: string; which: 0 | 1; at: Point; to?: string };
+
+/** What a tool key says, for the tools Enter also works with. */
+const TOOL_HINTS: Partial<Record<Tool, string>> = {
+  sticky:
+    'Sticky note: click to place one, or press Enter for the middle of the view',
+  text: 'Text: click to place it, or press Enter for the middle of the view',
+  rect: 'Rectangle: drag to draw one, or press Enter for the middle of the view',
+  arrow:
+    'Arrow: drag to draw one, or press Enter to draw one from the selected item',
+};
+
 interface Editing {
   id: string;
   /** Made just now: an empty one is removed rather than kept. */
@@ -209,6 +236,12 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   } | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const [mode, setModeState] = useState<KeyMode | null>(null);
+  const modeRef = useRef(mode);
+  const setMode = useCallback((next: KeyMode | null) => {
+    modeRef.current = next;
+    setModeState(next);
+  }, []);
 
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture | null>(null);
@@ -309,8 +342,20 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       for (const m of reaim(items, boxes, moving)) out.set(m.id, m.points);
     }
     if (endEdit) out.set(endEdit.id, endEdit.points);
+    if (mode?.kind === 'aim') {
+      const arrow = byId.get(mode.id);
+      if (arrow) {
+        const [a, b] = arrowEnds(arrow);
+        out.set(
+          arrow.id,
+          mode.which === 0
+            ? arrowPoints(arrow, mode.at, b)
+            : arrowPoints(arrow, a, mode.at),
+        );
+      }
+    }
     return out;
-  }, [drag, resize, endEdit, items, byId]);
+  }, [drag, resize, endEdit, mode, items, byId]);
 
   const select = useCallback((ids: string[]) => {
     setSelected(ids);
@@ -323,9 +368,22 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     const [only] = ids;
     const item = only ? byId.get(only) : undefined;
     if (ids.length === 0) return 'Nothing selected';
+    if (ids.length === 1 && item?.kind === 'arrow') {
+      return 'Selected Arrow. Enter re-aims its head, Shift Enter its tail';
+    }
     if (ids.length === 1 && item) return `Selected ${itemName(item, people)}`;
     return `${ids.length} items selected`;
   };
+  /**
+   * Said in place of the next selection's description, when what changed
+   * the selection says more (an undo, a new item). A key or a press
+   * forgets it.
+   */
+  const queued = useRef<string | null>(null);
+  const announce = useCallback((text: string) => {
+    queued.current = text;
+    setAnnouncement(text);
+  }, []);
   const selection = selected.join(' ');
   const firstAnnounce = useRef(true);
   useEffect(() => {
@@ -333,7 +391,10 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       firstAnnounce.current = false;
       return;
     }
-    setAnnouncement(describe.current(selection ? selection.split(' ') : []));
+    setAnnouncement(
+      queued.current ?? describe.current(selection ? selection.split(' ') : []),
+    );
+    queued.current = null;
   }, [selection]);
 
   /* ---------- ops ---------- */
@@ -488,13 +549,13 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     });
   }, []);
   const undo = useCallback(() => {
-    if (undoStep()) setAnnouncement('Undone');
+    if (undoStep()) announce('Undone');
     keepFocus();
-  }, [undoStep, keepFocus]);
+  }, [undoStep, keepFocus, announce]);
   const redo = useCallback(() => {
-    if (redoStep()) setAnnouncement('Redone');
+    if (redoStep()) announce('Redone');
     keepFocus();
-  }, [redoStep, keepFocus]);
+  }, [redoStep, keepFocus, announce]);
 
   const recolor = useCallback(
     (next: BoardColor) => {
@@ -566,8 +627,17 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     [run, boardId, color],
   );
 
+  /**
+   * A sticky, a text or a rect, centred on `at`, selected and (for a
+   * sticky or text, or anything placed from the keyboard: `write`) open
+   * to type in.
+   */
   const create = useCallback(
-    (kind: Extract<BoardKind, 'sticky' | 'text' | 'rect'>, at: Point) => {
+    (
+      kind: Extract<BoardKind, 'sticky' | 'text' | 'rect'>,
+      at: Point,
+      write = false,
+    ) => {
       const box =
         kind === 'sticky'
           ? {
@@ -593,16 +663,65 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       const id = addItem(kind, box);
       if (!id) return;
       setTool('select');
+      announce(`Added ${KIND_LABELS[kind].toLowerCase()}`);
       setSelected([id]);
       if (focusFrame.current !== undefined) {
         cancelAnimationFrame(focusFrame.current);
         focusFrame.current = undefined;
       }
-      // A rect's label is optional: it is edited when asked for.
-      if (kind === 'rect') focusItem(id);
+      // A rect's label is optional: a click leaves it to be asked for.
+      if (kind === 'rect' && !write) focusItem(id);
       else setEditing({ id, fresh: true });
     },
-    [addItem, focusItem],
+    [addItem, focusItem, announce],
+  );
+
+  /**
+   * Alt+arrows: the selected stickies, texts and rects `dw` wider and
+   * `dh` taller (their top-left stays), with the arrows on them
+   * following, as one step.
+   */
+  const resizeBy = useCallback(
+    (dw: number, dh: number) => {
+      const resized = new Map<string, Box>();
+      const ops: BaseOp[] = [];
+      let any = false;
+      for (const id of selectedRef.current) {
+        const item = byId.get(id);
+        if (!item || !resizable(item.kind)) continue;
+        any = true;
+        const box = growBox(item, dw, dh, MIN_SIZE);
+        if (box.w === item.w && box.h === item.h) continue;
+        resized.set(id, box);
+        ops.push({
+          type: 'editBoardItem',
+          id,
+          patch: { w: box.w, h: box.h },
+        });
+      }
+      if (!any) {
+        setAnnouncement('Only sticky notes, text and rectangles resize');
+        return;
+      }
+      if (ops.length === 0) {
+        setAnnouncement('As small as it goes');
+        return;
+      }
+      ops.push(
+        ...moveOps(
+          [...resized].map(([id, b]) => ({ id, x: b.x, y: b.y })),
+          resized,
+        ),
+      );
+      if (!run(ops)) return;
+      const [only] = [...resized.values()];
+      setAnnouncement(
+        resized.size === 1 && only
+          ? `${only.w} wide, ${only.h} high`
+          : `Resized ${resized.size} items`,
+      );
+    },
+    [byId, moveOps, run],
   );
 
   const finishEdit = useCallback(
@@ -810,6 +929,8 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
     const v = viewRef.current;
     if (!v) return;
+    queued.current = null;
+    if (modeRef.current) cancelMode(false);
     const p = screenPoint(e);
     pointers.current.set(e.pointerId, p);
     svg.current?.setPointerCapture?.(e.pointerId);
@@ -1211,12 +1332,190 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     cancelGesture();
   };
 
+  /* ---------- arrows from the keyboard ---------- */
+
+  /** Focus an item now (a key moved to it), not on the next frame. */
+  const focusNow = useCallback((id: string) => {
+    svg.current
+      ?.querySelector<SVGGElement>(`[data-item-id="${CSS.escape(id)}"]`)
+      ?.focus({ preventScroll: true });
+  }, []);
+
+  /** Leaves the mode with nothing changed; `back` returns focus to it. */
+  function cancelMode(back = true) {
+    const m = modeRef.current;
+    if (!m) return;
+    setMode(null);
+    setAnnouncement(
+      m.kind === 'connect' ? 'Arrow cancelled' : 'Re-aiming cancelled',
+    );
+    if (back) focusNow(m.kind === 'connect' ? m.from : m.id);
+  }
+
+  /** The arrow tool's Enter: an arrow from the selected item, once aimed. */
+  const startConnect = () => {
+    const ids = selectedRef.current;
+    const from = ids.length === 1 && ids[0] ? byId.get(ids[0]) : undefined;
+    if (!from || !connectable(from)) {
+      setAnnouncement(
+        'Select the sticky note, text or rectangle the arrow starts from (Tab to it), then press Enter',
+      );
+      return;
+    }
+    setMode({ kind: 'connect', from: from.id });
+    setAnnouncement(
+      `Drawing an arrow from ${itemName(from, people)}. Tab to the item it points to, then press Enter to draw it, or Escape to cancel`,
+    );
+  };
+
+  /** Enter (the head) or Shift+Enter (the tail) on a selected arrow. */
+  const startAim = (arrow: BoardItem, which: 0 | 1) => {
+    setMode({ kind: 'aim', id: arrow.id, which, at: arrowEnds(arrow)[which] });
+    setAnnouncement(
+      `Re-aiming the arrow’s ${which === 1 ? 'head' : 'tail'}. Tab to the item it should point to, or move it with the arrow keys; Enter to confirm, Escape to cancel`,
+    );
+  };
+
+  /** Tab (or Shift+Tab) while aiming: the next item to point to. */
+  const pickTarget = (step: 1 | -1) => {
+    const m = modeRef.current;
+    if (!m) return;
+    const all = itemsRef.current;
+    const current =
+      m.to ?? (m.kind === 'connect' ? m.from : attachedTo(all, m.at)?.id);
+    const next = nextTarget(
+      all,
+      current,
+      step,
+      m.kind === 'connect' ? m.from : undefined,
+    );
+    if (!next) {
+      setAnnouncement('There is nothing else on the board to point to');
+      return;
+    }
+    if (m.kind === 'connect') {
+      setMode({ ...m, to: next.id });
+      setAnnouncement(
+        `To ${itemName(next, people)}. Enter draws the arrow, Escape cancels`,
+      );
+    } else {
+      const arrow = byId.get(m.id);
+      if (!arrow) {
+        cancelMode(false);
+        return;
+      }
+      const other = arrowEnds(arrow)[m.which === 0 ? 1 : 0];
+      setMode({ ...m, to: next.id, at: edgeToward(next, other) });
+      setAnnouncement(
+        `To ${itemName(next, people)}. Enter confirms, Escape cancels`,
+      );
+    }
+    focusNow(next.id);
+  };
+
+  /** The arrow keys while re-aiming: the end moves on its own. */
+  const moveEnd = (dx: number, dy: number) => {
+    const m = modeRef.current;
+    if (m?.kind !== 'aim') return;
+    setMode({
+      ...m,
+      to: undefined,
+      at: { x: clampCoord(m.at.x + dx), y: clampCoord(m.at.y + dy) },
+    });
+    if (m.to) focusNow(m.id);
+  };
+
+  /** Enter while aiming: the arrow drawn, or its end moved, as one step. */
+  const commitMode = () => {
+    const m = modeRef.current;
+    if (!m) return;
+    if (m.kind === 'connect') {
+      const from = byId.get(m.from);
+      const to = m.to ? byId.get(m.to) : undefined;
+      if (!from) {
+        cancelMode(false);
+        return;
+      }
+      if (!to) {
+        setAnnouncement('Tab to the item the arrow points to first');
+        return;
+      }
+      setMode(null);
+      const [a, b] = connect(from, to);
+      const origin = { x: clampCoord(a.x), y: clampCoord(a.y) };
+      const id = addItem(
+        'arrow',
+        { ...origin, w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) },
+        arrowPoints(origin, a, b),
+        origin,
+      );
+      if (!id) {
+        focusNow(from.id);
+        return;
+      }
+      setTool('select');
+      announce(
+        `Drew an arrow from ${itemName(from, people)} to ${itemName(to, people)}`,
+      );
+      setSelected([id]);
+      focusItem(id);
+      return;
+    }
+    setMode(null);
+    const arrow = byId.get(m.id);
+    if (!arrow) return;
+    const [a, b] = arrowEnds(arrow);
+    const to = m.to ? byId.get(m.to) : undefined;
+    const at = to
+      ? edgeToward(to, m.which === 0 ? b : a)
+      : snapEnd(itemsRef.current, m.at, arrow.id);
+    const points =
+      m.which === 0 ? arrowPoints(arrow, at, b) : arrowPoints(arrow, a, at);
+    if (points.join() !== arrow.points.join()) {
+      run([{ type: 'editBoardItem', id: arrow.id, patch: { points } }]);
+    }
+    const host = to ?? attachedTo(itemsRef.current, at);
+    const end = m.which === 1 ? 'head' : 'tail';
+    setAnnouncement(
+      host
+        ? `The arrow’s ${end} points to ${itemName(host, people)}`
+        : `Moved the arrow’s ${end}`,
+    );
+    focusItem(arrow.id);
+  };
+
+  /** Keys while aiming: Tab picks, arrows move an end, Enter, Escape. */
+  const onModeKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const m = modeRef.current;
+    if (!m || e.metaKey || e.ctrlKey || e.altKey) return;
+    const vector = ARROW_KEYS[e.key];
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelMode();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      pickTarget(e.shiftKey ? -1 : 1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      commitMode();
+    } else if (vector) {
+      e.preventDefault();
+      const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
+      if (m.kind === 'aim') moveEnd(vector[0] * step, vector[1] * step);
+    }
+  };
+
   /* ---------- keys ---------- */
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    queued.current = null;
     if (e.defaultPrevented || editing) return;
     const target = e.target as Element;
     if (target.closest('textarea, input')) return;
+    if (modeRef.current) {
+      onModeKey(e);
+      return;
+    }
     const onBoard = surface.current?.contains(target) ?? false;
     const mod = e.metaKey || e.ctrlKey;
     if (mod && !e.altKey && e.key.toLowerCase() === 'a' && onBoard) {
@@ -1236,6 +1535,17 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       redo();
       return;
     }
+    // Alt+arrows resize (Shift: a bigger step). Prevented, so that
+    // Alt+← and Alt+→ do not go back and forward on Windows and Linux.
+    const vector = ARROW_KEYS[e.key];
+    if (e.altKey && !mod && vector && onBoard) {
+      e.preventDefault();
+      if (selectedRef.current.length > 0) {
+        const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
+        resizeBy(vector[0] * step, vector[1] * step);
+      }
+      return;
+    }
     if (mod || e.altKey) return;
     const key = e.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
@@ -1243,6 +1553,8 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     if (toolKey && !e.shiftKey) {
       e.preventDefault();
       setTool(toolKey);
+      const hint = TOOL_HINTS[toolKey];
+      if (hint) setAnnouncement(hint);
       return;
     }
     const digit = Number(key);
@@ -1285,37 +1597,40 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       surface.current?.focus({ preventScroll: true });
       return;
     }
-    const arrows: Record<string, [number, number]> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-    };
-    const arrow = arrows[key];
-    if (arrow && selectedRef.current.length > 0) {
+    if (vector && selectedRef.current.length > 0) {
       e.preventDefault();
-      const step = e.shiftKey ? 10 : 1;
-      nudge(arrow[0] * step, arrow[1] * step);
+      const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
+      nudge(vector[0] * step, vector[1] * step);
       return;
     }
     if (key === 'Enter') {
       if (tool === 'sticky' || tool === 'text' || tool === 'rect') {
         e.preventDefault();
         const v = viewRef.current;
-        if (v) create(tool, toBoard(v, center()));
+        if (v) create(tool, toBoard(v, center()), true);
+        return;
+      }
+      if (tool === 'arrow') {
+        e.preventDefault();
+        startConnect();
         return;
       }
       const [only] = selectedRef.current;
-      if (selectedRef.current.length === 1 && only) {
+      const item = only ? byId.get(only) : undefined;
+      if (selectedRef.current.length === 1 && item) {
         e.preventDefault();
-        startEdit(only);
+        if (item.kind === 'arrow') startAim(item, e.shiftKey ? 0 : 1);
+        else startEdit(item.id);
       }
     }
   };
 
   const onItemFocus = (item: BoardItem) => {
     if (pressing.current) return;
-    if (!selectedRef.current.includes(item.id)) select([item.id]);
+    // Picking where a keyboard arrow goes leaves the selection alone.
+    if (!modeRef.current && !selectedRef.current.includes(item.id)) {
+      select([item.id]);
+    }
     // Tabbed to something off screen: bring it into view.
     const v = viewRef.current;
     if (!v || !size) return;
@@ -1341,12 +1656,33 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   const handleBox =
     single && resizable(single.kind) && !editing ? placed(single) : null;
   const editingItem = editing ? byId.get(editing.id) : undefined;
+  const connectFrom =
+    mode?.kind === 'connect' ? byId.get(mode.from) : undefined;
+  const connectTo =
+    mode?.kind === 'connect' && mode.to ? byId.get(mode.to) : undefined;
+  const connectLine =
+    connectFrom && connectTo ? connect(connectFrom, connectTo) : null;
+  const hint =
+    mode?.kind === 'connect'
+      ? connectTo
+        ? 'Enter draws the arrow · Tab picks another · Esc cancels'
+        : 'Tab to the item the arrow points to · Esc cancels'
+      : mode?.kind === 'aim'
+        ? `Re-aiming the ${mode.which === 1 ? 'head' : 'tail'}: Tab picks an item, arrow keys move it · Enter confirms · Esc cancels`
+        : null;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the board's keys, from the toolbar and the application region alike
     <div
       className="relative flex min-h-0 flex-1 flex-col"
       onKeyDown={onKeyDown}
+      onBlur={(e) => {
+        // Focus gone from the board: aiming an arrow ends, nothing drawn.
+        const next = e.relatedTarget as Node | null;
+        if (modeRef.current && !e.currentTarget.contains(next)) {
+          cancelMode(false);
+        }
+      }}
     >
       <div
         ref={surface}
@@ -1362,10 +1698,14 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       >
         <p id={`${gridId}-help`} className="sr-only">
           V selects, S adds a sticky note, T adds text, R draws a rectangle, A
-          an arrow, P draws freehand and E erases; 1 to 5 pick a color. Tab
-          moves between items; arrow keys move the selection, Enter edits it,
-          Delete removes it, ] brings it to the front and [ sends it to the
-          back. Command Z undoes and Shift Command Z redoes.
+          an arrow, P draws freehand and E erases; with S, T or R picked, Enter
+          places one in the middle of the view. 1 to 5 pick a color. Tab moves
+          between items; arrow keys move the selection, Alt with the arrow keys
+          resizes it, Enter edits it, Delete removes it, ] brings it to the
+          front and [ sends it to the back. With A picked, Enter draws an arrow
+          from the selected item to the one you Tab to; on a selected arrow,
+          Enter re-aims its head and Shift Enter its tail. Command Z undoes and
+          Shift Command Z redoes.
         </p>
         {/* biome-ignore lint/a11y/noSvgWithoutTitle: the region is named; its items carry their own names */}
         <svg
@@ -1429,6 +1769,9 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
                   data-selected={isSelected || undefined}
                   data-dragging={moving || undefined}
                   data-erasing={erasing.has(item.id) || undefined}
+                  data-target={
+                    (mode?.to !== undefined && mode.to === item.id) || undefined
+                  }
                   className="board-item"
                   style={{ transform: `translate(${box.x}px, ${box.y}px)` }}
                   onFocus={() => onItemFocus(item)}
@@ -1463,6 +1806,16 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
             />
           )}
           {draft && <DraftShape draft={draft} color={color} />}
+          {connectLine && (
+            <DraftShape
+              draft={{
+                kind: 'arrow',
+                from: connectLine[0],
+                to: connectLine[1],
+              }}
+              color={color}
+            />
+          )}
           {marquee && (
             <rect
               className="board-marquee"
@@ -1482,9 +1835,20 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           )}
         </svg>
       </div>
+      {hint && (
+        // Shown for the eye; the live region below reads it out.
+        <p
+          aria-hidden
+          data-board-hint
+          className="pointer-events-none absolute inset-x-4 top-15 z-10 mx-auto w-fit max-w-md border bg-background/95 px-3 py-1.5 text-center text-sm shadow-sm desk:top-3"
+        >
+          {hint}
+        </p>
+      )}
       <Toolbar
         tool={tool}
         onTool={(t) => {
+          if (modeRef.current) cancelMode(false);
           setTool(t);
         }}
         color={color}
@@ -1509,7 +1873,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           onFit={fit}
         />
       )}
-      <p role="status" className="sr-only">
+      <p role="status" data-board-status className="sr-only">
         {announcement}
       </p>
     </div>
@@ -1517,6 +1881,13 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
 }
 
 const NONE: readonly BoardItem[] = [];
+/** The arrow keys, as a step on the board. */
+const ARROW_KEYS: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
 const NO_IDS: ReadonlySet<string> = new Set();
 
 /** An arrow's two ends, to drag: 10px circles, 44px to a finger. */
