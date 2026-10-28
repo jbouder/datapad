@@ -6,6 +6,7 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   openLive,
+  openNotes,
   SEED,
   test,
 } from './fixtures';
@@ -56,7 +57,7 @@ test('make a note template in Settings, start a note from it, then /template', a
   await expect(page.getByText('No project templates yet.')).toBeVisible();
 
   // The New note panel's picker fills the composer.
-  await openLive(page, '/notes');
+  await openLive(page, '/notes?view=list');
   await addFromTopBar(page, 'Write a note');
   const note = page.getByRole('dialog', { name: 'New note' });
   const box = note.getByRole('combobox', { name: 'Note' });
@@ -67,6 +68,12 @@ test('make a note template in Settings, start a note from it, then /template', a
   await page.keyboard.type('Hangar heaters');
   await note.getByRole('button', { name: 'Add note' }).click();
   await expect(note).toBeHidden();
+  // The newest row: its note opens in place.
+  await page
+    .locator('[data-note-row]')
+    .first()
+    .locator(':scope > button')
+    .click();
   await expect(card(page, 'Hangar heaters')).toBeVisible();
 
   // `/template` in a note's editor puts it in at the caret.
@@ -110,7 +117,7 @@ test('save a note as a template, mentions and all', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-1']);
   await card(page, 'Tauntauns fed')
     .getByRole('button', { name: 'Save as template from note' })
     .click();

@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { addDays, endOfWeek, formatDay } from '../shared/dates';
 import {
   briefingSeed,
@@ -14,15 +14,12 @@ import {
 /** Tomorrow is still this week unless today is Sunday. */
 const tomorrowInWeek = () => addDays(today(), 1) <= endOfWeek(today());
 
-async function stored(request: APIRequestContext) {
-  return (await request.get('/api/export.json')).json() as Promise<{
-    tasks: Record<string, { title: string; assignee: string }>;
-  }>;
-}
-
 const briefing = (page: Page) => page.getByRole('region', { name: 'Briefing' });
-const bucket = (page: Page, name: string) =>
+/** One of Due's priority groups (#218): High priority … No priority. */
+const group = (page: Page, name: string) =>
   page.getByRole('region', { name: 'Due' }).getByRole('list', { name });
+const groupTitles = (page: Page) =>
+  page.getByRole('region', { name: 'Due' }).getByRole('heading', { level: 2 });
 const section = (page: Page, name: string) =>
   page.getByRole('button', { name: new RegExp(`^${name}`) });
 const agendaCard = (page: Page, id: string) =>
@@ -85,12 +82,32 @@ test('the briefing: the week, the agenda’s prep, waiting on, attention, follow
       .getByRole('listitem'),
   ).toHaveText([/Draft the power budget/, /Send the ridge survey/]);
 
-  // Due: Overdue and Today in Day; nothing blocked, no action item twice.
-  await expect(bucket(page, 'Overdue')).toContainText(
-    'Confirm shield generator delivery',
+  // Due: overdue and today's in Day, by priority; nothing blocked, no
+  // action item twice. The overdue one says so on its row.
+  await expect(groupTitles(page)).toHaveText([
+    /^High priority/,
+    /^No priority/,
+  ]);
+  const overdue = group(page, 'High priority').locator('[data-task-id]', {
+    hasText: 'Confirm shield generator delivery',
+  });
+  await expect(overdue).toBeVisible();
+  await expect(
+    overdue.locator('.text-destructive').filter({ visible: true }),
+  ).toContainText('Overdue');
+  await expect(group(page, 'No priority')).toContainText(
+    'Book the tauntaun vet',
   );
-  await expect(bucket(page, 'Today')).toContainText('Book the tauntaun vet');
-  await expect(bucket(page, 'This week')).toBeHidden();
+  await expect(group(page, 'Low priority')).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Overdue' })).toHaveCount(0);
+
+  // The agenda: no Add note; no quick-add on the page.
+  await expect(
+    page.getByRole('region', { name: 'Today’s agenda' }).getByRole('button'),
+  ).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Add a task' })).toHaveCount(
+    0,
+  );
   await expect(briefing(page).getByText('Send the ridge survey')).toHaveCount(
     1,
   );
@@ -143,25 +160,24 @@ test('sections close and stay closed', async ({ page }) => {
   await expect(list).toBeHidden();
 });
 
-test('closing a task takes it out of its bucket', async ({ page }) => {
+test('closing a task takes it out of its group', async ({ page }) => {
   await openLive(page);
   // The checkbox is visually hidden; its label is what gets clicked.
-  await bucket(page, 'Today')
+  await group(page, 'No priority')
     .locator('label', {
       has: page.getByRole('checkbox', {
         name: 'Close “Book the tauntaun vet”',
       }),
     })
     .click();
-  await expect(bucket(page, 'Today')).toBeHidden();
+  await expect(group(page, 'No priority')).toBeHidden();
   await expect(page.locator('[data-movement]')).toHaveText(
     '2 closed this week · 1 added · 1 overdue',
   );
 });
 
-test('Mine narrows waiting on, follow-ups and due, and assigns quick-adds', async ({
+test('Mine narrows waiting on, follow-ups and due; n opens the new-task panel', async ({
   page,
-  request,
 }) => {
   await openLive(page);
   await page.locator('body').press('m');
@@ -177,10 +193,10 @@ test('Mine narrows waiting on, follow-ups and due, and assigns quick-adds', asyn
       .getByRole('list', { name: 'Action items from Shield review' })
       .getByRole('listitem'),
   ).toHaveText([/Send the ridge survey/]);
-  await expect(bucket(page, 'Overdue')).toContainText(
+  await expect(group(page, 'High priority')).toContainText(
     'Confirm shield generator delivery',
   );
-  await expect(bucket(page, 'Today')).toBeHidden();
+  await expect(group(page, 'No priority')).toBeHidden();
   // Attention, the agenda and the week are everyone's.
   await expect(section(page, 'Attention')).toBeVisible();
   await expect(agendaCard(page, 'e-1')).toBeVisible();
@@ -188,27 +204,23 @@ test('Mine narrows waiting on, follow-ups and due, and assigns quick-adds', asyn
     '1 closed this week · 1 added · 1 overdue',
   );
 
-  // n focuses the quick-add; a new task is Leia's.
+  // No quick-add: n opens the new-task panel.
   await page.locator('body').press('n');
-  const add = page.getByRole('textbox', { name: 'Add a task' });
-  await expect(add).toBeFocused();
-  await add.fill('Calibrate the ion cannon');
-  await add.press('Enter');
-  await expect(
-    page.getByText('Added “Calibrate the ion cannon”'),
-  ).toBeVisible();
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
+  await panel
+    .getByRole('textbox', { name: 'Title' })
+    .fill('Calibrate the ion cannon');
+  await panel.getByRole('textbox', { name: 'Title' }).press('Enter');
+  await expect(panel).toBeHidden();
   await expect(page.locator('[data-movement]')).toHaveText(
     '1 closed this week · 2 added · 1 overdue',
   );
   await expectSaved(page);
-  const added = Object.values((await stored(request)).tasks).find(
-    (t) => t.title === 'Calibrate the ion cannon',
-  );
-  expect(added?.assignee).toBe('u-leia');
 
   // Reloading keeps the filter; m again goes back to Anyone.
   await page.reload();
-  await expect(bucket(page, 'Overdue')).toBeVisible();
+  await expect(group(page, 'High priority')).toBeVisible();
   await expect(section(page, 'Waiting on')).toBeHidden();
   await page.locator('body').press('m');
   await expect(page).toHaveURL(/\/$/);
@@ -234,10 +246,15 @@ test('Week widens the agenda and Due, and nothing else', async ({ page }) => {
     'no note yet',
   );
   if (tomorrowInWeek()) {
-    await expect(bucket(page, 'This week')).toContainText(
+    await expect(group(page, 'Low priority')).toContainText(
       'Renew the docking permit',
     );
   }
+  // Every agenda card is one height, whatever it holds (#218).
+  const heights = await week
+    .getByRole('listitem')
+    .evaluateAll((cards) => cards.map((c) => c.getBoundingClientRect().height));
+  expect(new Set(heights).size).toBe(1);
   // The same waiting, attention and follow-ups as Day.
   await expect(page.locator('[data-waiting]')).toHaveCount(2);
   await expect(
@@ -253,7 +270,7 @@ test('Week widens the agenda and Due, and nothing else', async ({ page }) => {
   await expect(page.getByRole('radio', { name: 'Week' })).toBeChecked();
   await page.locator('body').press('v');
   await expect(page.getByRole('radio', { name: 'Day' })).toBeChecked();
-  await expect(bucket(page, 'This week')).toBeHidden();
+  await expect(group(page, 'Low priority')).toBeHidden();
 });
 
 test('each agenda card links to its meeting', async ({ page }) => {
@@ -269,7 +286,9 @@ test('each agenda card links to its meeting', async ({ page }) => {
 test('nothing needs you says what to do next', async ({ page }) => {
   await openLive(page);
   await expect(
-    page.getByText('Nothing needs you. Add a task above or open a project.'),
+    page.getByText(
+      'Nothing needs you. Add a task with + or n, or open a project.',
+    ),
   ).toBeVisible();
   await expect(page.locator('[data-movement]')).toHaveText(
     '0 closed this week · 0 added · 0 overdue',

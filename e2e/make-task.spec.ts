@@ -1,5 +1,12 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectSaved,
+  openLive,
+  openNotes,
+  SEED,
+  test,
+} from './fixtures';
 
 interface Stored {
   tasks: Record<
@@ -80,7 +87,7 @@ test('select text, make a task, open it, follow the source link back', async ({
 });
 
 test('Esc dismisses the selection button', async ({ page }) => {
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-3']);
   const ideas = card(page, 'Ideas for the next quarter');
   await ideas.getByText('Fewer moons').selectText();
   const make = ideas.getByRole('button', { name: 'Make task “Fewer moons”' });
@@ -93,7 +100,7 @@ test('the footer asks for the title, starting from the first line', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/notes');
+  await openNotes(page, '', ['n-3']);
   const ideas = card(page, 'Ideas for the next quarter');
   await ideas.getByRole('button', { name: 'Make task from note' }).click();
   const title = ideas.getByRole('textbox', { name: 'Task title' });

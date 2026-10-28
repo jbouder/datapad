@@ -83,6 +83,22 @@ describe('precedence: the address, then what is saved, then the default', () => 
     expect(query.has('pinned')).toBe(false);
   });
 
+  it('reads Notes’ old Feed as List, saved or in the address (#218)', () => {
+    expect(effectiveQuery('notes', q(''), { view: 'feed' }).get('view')).toBe(
+      'list',
+    );
+    expect(effectiveQuery('notes', q('view=feed'), {}).get('view')).toBe(
+      'list',
+    );
+    expect(effectiveQuery('notes', q('view=grid'), {}).get('view')).toBe(
+      'grid',
+    );
+    expect(currentValues('notes', { view: 'feed' }, state())).toEqual({
+      view: 'list',
+    });
+    expect(PAGES.notes.fields[0]?.def).toBe('notepad');
+  });
+
   it('leaves keys a page does not remember alone', () => {
     const query = effectiveQuery('archive', q(''), { status: 'done' });
     expect(query.toString()).toBe('');

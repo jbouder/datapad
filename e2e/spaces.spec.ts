@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
+  addTask,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -64,7 +65,7 @@ async function switchTo(page: Page, name: string) {
 /** Main's seed on Focus: its overdue task. */
 const seeded = (page: Page) =>
   page
-    .getByRole('list', { name: 'Overdue' })
+    .getByRole('list', { name: 'High priority' })
     .getByText('Confirm shield generator delivery');
 
 test('make a space, work in it, and switch back and forth', async ({
@@ -119,15 +120,15 @@ test('make a space, work in it, and switch back and forth', async ({
   if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await expect(
-    page.getByText('Nothing needs you. Add a task above or open a project.'),
+    page.getByText(
+      'Nothing needs you. Add a task with + or n, or open a project.',
+    ),
   ).toBeVisible();
   await expect(seeded(page)).toBeHidden();
   await expect(page).toHaveTitle('Focus · Personal · Datapad');
   if (isMobile(page)) await expectNoSidewaysScroll(page);
 
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill('Water the moisture vaporators');
-  await input.press('Enter');
+  await addTask(page, 'Water the moisture vaporators');
   await expect(
     page.getByText('Added “Water the moisture vaporators”'),
   ).toBeVisible();

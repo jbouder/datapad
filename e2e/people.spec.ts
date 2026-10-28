@@ -36,18 +36,16 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
   await addPerson(page, 'Han Solo');
 
   // A task assigned to Han, and a note that mentions him.
-  await page.goto('/');
-  const add = page.getByRole('textbox', { name: 'Add a task' });
-  await add.fill('Fix the compressor');
-  await add.press('Enter');
-  // No date, so not on Focus: the toast opens it.
-  await page.getByRole('button', { name: 'Open', exact: true }).click();
-  const panel = page.getByRole('dialog', { name: 'Task' });
+  await openLive(page, '/');
+  await page.locator('body').press('n');
+  const panel = page.getByRole('dialog', { name: 'New task' });
+  const title = panel.getByRole('textbox', { name: 'Title' });
+  await title.fill('Fix the compressor');
   const who = panel.getByRole('combobox', { name: 'Assignee' });
   await who.click();
   await who.fill('han');
   await page.getByRole('option', { name: /^Han Solo/ }).click();
-  await panel.getByRole('button', { name: 'Save' }).click();
+  await title.press('Enter');
   await expect(panel).toBeHidden();
 
   await page.goto('/notes');
@@ -113,7 +111,7 @@ test('add, assign, mention, the detail pane, This is me, remove', async ({
     .click();
   await expect(page).toHaveURL(/\/settings\/people$/);
   await expect(people(page).getByRole('listitem')).toHaveText([/Leia Organa/]);
-  await page.goto('/notes');
+  await page.goto('/notes?view=list');
   await expect(page.getByText('Ask @unknown about the')).toBeVisible();
   await expectSaved(page);
   const data = await stored(request);

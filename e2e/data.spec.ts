@@ -37,7 +37,7 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
     .filter({ visible: true })
     .first()
     .click();
-  await expect(page.getByRole('list', { name: 'Overdue' })).toContainText(
+  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
     'Confirm shield generator delivery',
   );
   await expect(page.locator('[data-attention="p-echo"]')).toHaveCount(0);
@@ -77,7 +77,7 @@ test('export downloads every document as datapad-<date>.json', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await page.goto('/');
-  await expect(page.getByRole('list', { name: 'Overdue' })).toContainText(
+  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
     'Confirm shield generator delivery',
   );
   await page.goto('/settings/data');

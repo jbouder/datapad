@@ -1,14 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { expect, test } from './fixtures';
-
-/** The Focus quick-add. */
-async function addTask(page: Page, title: string) {
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill(title);
-  await input.press('Enter');
-  await expect(input).toHaveValue('');
-  await expect(input).toBeFocused();
-}
+import { addTask, expect, test } from './fixtures';
 
 const status = (page: Page) => page.locator('[data-status]').first();
 
@@ -30,12 +21,12 @@ async function goTo(page: Page, name: 'Focus' | 'Tasks') {
   ).toBeVisible();
 }
 
-/** The Tasks page, where a quick-added task (no date) is listed. */
+/** The Tasks page, where a task added without a date is listed. */
 const tasks = (page: Page) => page.getByRole('main');
 
 /**
  * Focus's header: the week's movement. How many were added says each
- * quick-added task arrived, and once.
+ * added task arrived, and once.
  */
 const added = (page: Page, n: number) =>
   page.getByText(`0 closed this week · ${n} added · 0 overdue`);
@@ -150,7 +141,7 @@ test('offline changes survive a reload and replay once, in order', async ({
   await addTask(page, 'Brief the pilots');
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
 
-  await page.goto('/notes');
+  await page.goto('/notes?view=list');
   await expect(status(page)).toHaveAttribute('data-status', 'offline');
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
   await page
@@ -164,7 +155,9 @@ test('offline changes survive a reload and replay once, in order', async ({
   await box.press('ControlOrMeta+Enter');
   await expect(write).toBeHidden();
   await expect(
-    page.getByRole('article').filter({ hasText: 'Shield numbers look low' }),
+    page
+      .locator('[data-note-row]')
+      .filter({ hasText: 'Shield numbers look low' }),
   ).toBeVisible();
   await expect(status(page)).toContainText('Offline, 3 changes waiting');
 

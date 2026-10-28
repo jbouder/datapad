@@ -57,6 +57,31 @@ export function selectNotes(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/**
+ * The space's Notepad (#218): its note marked `scratch`, or undefined
+ * before anything is written. Should two ever be marked (an import), the
+ * oldest is the Notepad.
+ */
+export function notepadOf(notes: Snapshot['notes']): Note | undefined {
+  let found: Note | undefined;
+  for (const n of Object.values(notes)) {
+    if (!n.scratch) continue;
+    if (
+      !found ||
+      n.createdAt < found.createdAt ||
+      (n.createdAt === found.createdAt && n.id < found.id)
+    ) {
+      found = n;
+    }
+  }
+  return found;
+}
+
+/** A note's title for a row: its first line, plain, mentions as names. */
+export function noteTitle(note: Note, people: Snapshot['people']): string {
+  return taskTitleFrom(note.body, people);
+}
+
 export interface NoteDay {
   day: DateString;
   notes: Note[];

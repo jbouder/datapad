@@ -145,6 +145,11 @@ as it is (migrated on the way in, below):
   task's project. It is optional: a file from before it imports
   unchanged, its notes without one (read as null), and an export writes
   it only on notes that have it.
+- A note may carry `scratch: true` (#218): the space's Notepad, its one
+  running General note. Optional: a file from before it imports
+  unchanged, and an export writes it only on that note. An import that
+  brings a second one keeps the older as the Notepad; the other loses the
+  mark and stays an ordinary note.
 - A task may carry `meetingId` (#185): an action item of that meeting,
   in the meeting's project. It is optional too: a file from before it
   imports unchanged (read as null), and an export writes it only on

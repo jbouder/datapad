@@ -1,6 +1,7 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
 import {
   addFromTopBar,
+  addTask,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -303,9 +304,7 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
   await expect(page.locator('[data-status]:visible')).toHaveCount(1);
   const dot = status.locator('[data-dot]');
 
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.fill('Count the probe droids');
-  await input.press('Enter');
+  await addTask(page, 'Count the probe droids');
   await expect(status).toContainText('Saved');
   await expect(dot).toHaveClass(/bg-ok/);
   // Phones show only the dot (the word is for screen readers), centred in

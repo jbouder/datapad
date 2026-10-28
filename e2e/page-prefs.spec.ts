@@ -152,11 +152,16 @@ test('Back returns to what the page showed before a change', async ({
   request,
 }) => {
   await openLive(page, '/notes');
+  // The filters are List's and Grid's, not the Notepad's.
+  await layout(page).locator('label', { hasText: 'List' }).click();
   await page
     .getByRole('group', { name: 'Show' })
     .locator('label', { hasText: 'Pinned' })
     .click();
-  await expectStored(request, 'notes', { filters: { pinned: '1' } });
+  await expectStored(request, 'notes', {
+    view: 'list',
+    filters: { pinned: '1' },
+  });
   // Opened with Pinned saved; All is chosen, then Back.
   await page.goto('/notes');
   const show = page.getByRole('group', { name: 'Show' });
@@ -257,6 +262,22 @@ test('this browser’s earlier choices carry over once', async ({
   await expect(layout(page).getByRole('radio', { name: 'Grid' })).toBeChecked();
   await expectStored(request, 'notes', { view: 'grid' });
   await expectStored(request, 'project', { sections: { activity: true } });
+});
+
+test('a saved Feed on Notes reads as List (#218)', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', {
+    data: {
+      settings: {
+        user: { defaultOrg: '', pages: { notes: { view: 'feed' } } },
+      },
+    },
+  });
+  await openLive(page, '/notes');
+  await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
+  await expect(page.locator('[data-note-row]').first()).toBeVisible();
 });
 
 test('a saved value the page no longer has falls back to the default', async ({
