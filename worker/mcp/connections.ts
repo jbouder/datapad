@@ -71,7 +71,8 @@ export async function listConnections(
 
 /**
  * Revoke one of `email`'s grants, and with it every token it issued:
- * the app's next call is refused. False when `email` has no such grant.
+ * the app's next call is refused. The grant it revoked, or null when
+ * `email` has no such grant.
  */
 export async function revokeConnection(
   request: Request,
@@ -79,13 +80,13 @@ export async function revokeConnection(
   email: string,
   datapad: DurableObjectStub<DatapadObject>,
   grantId: string,
-): Promise<boolean> {
+): Promise<Connection | null> {
   const mine = await listConnections(request, env, email, datapad);
   const grant = mine.find((c) => c.id === grantId);
-  if (!grant) return false;
+  if (!grant) return null;
   await oauthHelpers(request, env).revokeGrant(grant.id, grantUserId(email));
   if (!mine.some((c) => c.id !== grant.id && c.clientId === grant.clientId)) {
     await datapad.forgetMcpClient(grant.clientId);
   }
-  return true;
+  return grant;
 }

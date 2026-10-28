@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
 import { defineConfig } from 'vitest/config';
+import { buildInfo } from './build-info';
 
 // Every test runs inside the Workers runtime (workerd), so the Durable Object
 // tests exercise real SQLite storage and real alarms. The pure shared modules
@@ -11,6 +12,8 @@ export default defineConfig({
       wrangler: { configPath: './wrangler.jsonc' },
     }),
   ],
+  // The version and commit, as the build defines them (#237).
+  define: buildInfo(),
   resolve: {
     alias: {
       '#shared': path.resolve(__dirname, './shared'),

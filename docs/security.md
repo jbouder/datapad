@@ -13,9 +13,9 @@ and a configuration mistake fails closed.
 | A forged or replayed token                                                                                | RS256 signature checked against the team's published keys; `aud` must be the app's AUD tag, `iss` the team domain, `exp` and `nbf` within 60 seconds of now. Unknown key ids refetch the keys at most every 30 seconds.                                                                                                                                                                                                                                                            |
 | A signed-in user reaching someone else's data                                                             | The Durable Object is named only by the verified email. No URL, header, body or socket message can choose another object; a space id only picks among the user's own spaces. Tests try.                                                                                                                                                                                                                                                                                            |
 | An MCP client reaching data without Access                                                                | Only `/mcp`, `/oauth/token`, `/oauth/register` and `/.well-known/oauth-*` skip the Access check (a Bypass application at the edge, and the Worker sends just those paths to the OAuth provider). `/mcp` admits only an unexpired, unrevoked bearer the provider issued for this origin; a token is issued only after the owner approved the client at `/oauth/authorize`, which is behind Access. See [MCP clients](#mcp-clients).                                                 |
-| A stolen or replayed MCP token                                                                            | Access tokens live an hour, grants 30 days; refresh tokens rotate on use. PKCE (S256) is required, codes work once. Tokens, codes and client secrets are stored in KV only as hashes; the grant's email is encrypted with a key only the token unwraps. Revoking a grant refuses its next call. Each token is held to 60 tool calls a minute.                                                                                                                                      |
+| A stolen or replayed MCP token                                                                            | Access tokens live an hour, grants 30 days; refresh tokens rotate on use. PKCE (S256) is required of every client, confidential ones too (the provider alone would let those skip it), and codes work once. Tokens, codes and client secrets are stored in KV only as hashes; the grant's email is encrypted with a key only the token unwraps. Revoking a grant refuses its next call. Each grant is held to 60 tool calls a minute, across its tokens, so a refresh does not reset it.                                                                                                                                      |
 | A malicious app registering itself as a known client                                                      | The consent page says a registered name is unverified, shows the host the tokens go to and warns when it is a local app; nothing is granted without the owner's Allow, behind Access. The form's handle works once, for ten minutes, in the browser holding its `__Host-` cookie, and a cross-site post is refused.                                                                                                                                                                |
-| The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored). With `ACCESS_AUD` set the bypass code path does not run. The Worker logs a loud warning whenever the bypass is active.                                                                                                                                                                                                                                  |
+| The dev bypass left on in production                                                                      | It needs both an empty `ACCESS_AUD` and `DEV_ACCESS_EMAIL`, which lives only in `.dev.vars` (never deployed, git-ignored), and answers only on a localhost hostname. With `ACCESS_AUD` set the bypass code path does not run, and the deploy workflow refuses a `wrangler.jsonc` with an empty `ACCESS_AUD` or `ACCESS_TEAM_DOMAIN`, or with `DEV_ACCESS_EMAIL` (`scripts/check-deploy.ts`). The Worker logs a loud warning whenever the bypass is active.                                                                                                                                                                                                                                  |
 | Cross-site scripting                                                                                      | React escaping, a strict CSP with no inline script except the hashed theme script, and a Markdown renderer that emits no raw HTML. A document's links (a project's, task's, org's, a meeting's) become links only for `https:`, `http:` and `mailto:`, as in Markdown; a `javascript:` one from an import or an MCP client is shown as text.                                                                                                                                       |
 | Clickjacking, MIME sniffing, referrer leaks                                                               | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`.                                                                                                                                                                                                                                                                                                                                                                                      |
 | Cross-site requests                                                                                       | In the Access application's cookie settings, HttpOnly is on and SameSite is Lax. Every write (import, erase, backup restore, every `/api/spaces/*` write, revoking a connection) accepts `application/json` bodies only, which a cross-site form cannot send, and refuses any `Origin` but the app's own. The socket refuses any `Origin` but the app's own too: a WebSocket handshake is not subject to CORS, and a sibling subdomain is same-site, so a Lax cookie goes with it. |
@@ -234,7 +234,7 @@ refuses the whole change otherwise.
 - **Worker logs** (Workers observability): request metadata as Cloudflare
   records it, and the Worker's own lines, listed in
   [architecture.md](architecture.md#logs). Those carry a path, a tool name,
-  counts and an error message, never the email, tokens, document content
+  request, space, client and grant ids, counts and an error message, never the email, tokens, document content
   or request bodies. Cloudflare's own record of a request can include its
   URL and headers, and Access adds the signed-in email as a header, so the
   owner's email can appear there; the logs are in the owner's account and
@@ -263,10 +263,25 @@ Static assets get `public/_headers`:
   `Referrer-Policy: same-origin`, and a `Permissions-Policy` that turns off
   camera, microphone, geolocation, payment, USB, serial, Bluetooth, HID and
   MIDI.
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`, which
+  matters on a custom domain: a browser that has been there once never
+  tries plain HTTP again.
+- Under `/assets/*` only (files Vite names by their content hash),
+  `Cache-Control: private, max-age=31536000, immutable`: a launch does not
+  revalidate them, and `private` keeps them out of shared caches.
+  `index.html` is revalidated as usual.
 
-The Worker's own responses (`/api/*`, `/ws`, `/mcp`, the OAuth endpoints, the 401 page) carry
-`default-src 'none'` CSP, `nosniff`, `DENY`, `no-referrer` and
-`Cache-Control: no-store`.
+The Worker's own responses (`/api/*`, `/ws`, `/mcp`, the OAuth endpoints,
+the consent page, the 401 page) carry `default-src 'none'` CSP (the
+consent page's own, as tight), `nosniff`, `DENY`, `no-referrer`,
+`Cache-Control: no-store` and the same `Strict-Transport-Security`. Every
+response the Worker makes, assets included, carries `x-request-id`, the
+request's `cf-ray`; a 500 puts it in its body too, so its log line can be
+found ([architecture.md](architecture.md#logs)).
+
+The Worker also logs one line per security event (an MCP client allowed or
+revoked, an erase, a deleted space, an import, a restore) with ids and
+counts only, never the email, a token or a confirmation.
 
 `test/headers.test.ts` parses `index.html` and fails if the inline script
 changes without its hash being updated in `_headers`, and if any directive

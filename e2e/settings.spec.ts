@@ -268,4 +268,12 @@ test('Data and Account', async ({ page, request, email }) => {
     'href',
     '/cdn-cgi/access/logout',
   );
+  // Which build is running (#237), as /api/health says.
+  const health = (await (await request.get('/api/health')).json()) as {
+    version: string;
+    commit: string;
+  };
+  await expect(page.getByTestId('build')).toHaveText(
+    `About: Datapad ${health.version}, commit ${health.commit}.`,
+  );
 });

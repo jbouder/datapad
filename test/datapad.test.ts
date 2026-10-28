@@ -12,6 +12,8 @@ import {
   type SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE, type Snapshot, type SpaceInfo } from '#shared/types';
+import { COMMIT, VERSION } from '#shared/version';
+import pkg from '../package.json';
 import { SOCKET_MAX_AGE_MS } from '../worker/access';
 import { DatapadObject, SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
@@ -341,14 +343,21 @@ describe('Worker routes', () => {
     expect(await response.json()).toEqual({ email: 'leia@example.com' });
   });
 
-  it('answers /api/health with reachability and nothing else', async () => {
+  it('answers /api/health with reachability and the build, nothing else', async () => {
     const response = await as('leia@example.com')(
       new Request('http://datapad.test/api/health'),
       bindings,
     );
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({ ok: true });
+    // The version and commit the build defined (#237).
+    expect(await response.json()).toEqual({
+      ok: true,
+      version: pkg.version,
+      commit: COMMIT,
+    });
+    expect(VERSION).toBe(pkg.version);
+    expect(COMMIT).toMatch(/^([0-9a-f]{7}|unknown)$/);
 
     const post = await as('leia@example.com')(
       new Request('http://datapad.test/api/health', { method: 'POST' }),
@@ -382,6 +391,8 @@ describe('Worker routes', () => {
     expect(await response.json()).toEqual({
       ok: false,
       error: 'Datapad is not reachable',
+      version: VERSION,
+      commit: COMMIT,
     });
   });
 

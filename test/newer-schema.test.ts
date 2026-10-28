@@ -6,6 +6,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import type { Op } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
+import { COMMIT, VERSION } from '#shared/version';
 import { DatapadObject, NEWER_SCHEMA } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
@@ -145,7 +146,12 @@ describe('a newer stored schema', () => {
 
     const health = await request('/api/health');
     expect(health.status).toBe(503);
-    expect(await health.json()).toEqual({ ok: false, error: NEWER_SCHEMA });
+    expect(await health.json()).toEqual({
+      ok: false,
+      error: NEWER_SCHEMA,
+      version: VERSION,
+      commit: COMMIT,
+    });
 
     for (const path of ['/api/spaces', '/api/export.json', '/api/backups']) {
       const response = await request(path);

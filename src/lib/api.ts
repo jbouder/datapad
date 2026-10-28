@@ -1,6 +1,7 @@
 import type {
   AppConfig,
   BackupList,
+  ClientError,
   ConnectionList,
   CreatedSpace,
   EraseToken,
@@ -8,6 +9,7 @@ import type {
   SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE, type SpaceInfo } from '#shared/types';
+import { BUILD_LABEL } from '#shared/version';
 import { markSignedOut } from '@/lib/session';
 
 /**
@@ -291,4 +293,34 @@ export async function revokeConnection(id: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     throw new Error(`Revoke answered ${response.status}`);
   }
+}
+
+/**
+ * Tell the Worker a view crashed (#236), so it shows in the logs and not
+ * only in this browser's console: the error's message and React's
+ * component stack (component names), cut short, and this build's version.
+ * Never state, props or anything from a document. Best effort: a report
+ * that fails is dropped.
+ */
+export function reportCrash(
+  where: 'page' | 'app',
+  error: unknown,
+  componentStack: string | null | undefined,
+): void {
+  const message =
+    error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  const report: ClientError = {
+    where,
+    message: message.slice(0, 500),
+    componentStack: (componentStack ?? '').slice(0, 4000),
+    version: BUILD_LABEL.slice(0, 64),
+  };
+  void fetch('/api/client-error', {
+    method: 'POST',
+    credentials: 'same-origin',
+    redirect: 'manual',
+    keepalive: true,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(report),
+  }).catch(() => {});
 }
