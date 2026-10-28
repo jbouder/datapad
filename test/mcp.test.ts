@@ -15,9 +15,12 @@ import type { Bindings } from '../worker/env';
 import { createWorker } from '../worker/index';
 import {
   AUTHORIZE_PATH,
+  CLIENT_REGISTRATION_TTL_S,
   grantUserId,
   isProviderPath,
   oauthHelpers,
+  REFRESH_TOKEN_TTL_S,
+  REGISTRATIONS_PER_MINUTE,
 } from '../worker/mcp/oauth';
 import { handleMcpPost, type McpServer } from '../worker/mcp/protocol';
 import { defineTool, READ_ONLY } from '../worker/mcp/tool';
@@ -125,10 +128,19 @@ async function pkce() {
   return { verifier, challenge: b64url(new Uint8Array(digest)) };
 }
 
-async function register(name = 'Test client'): Promise<string> {
-  const response = await SELF.fetch(`${ORIGIN}/oauth/register`, {
+/**
+ * A client IP no other test uses, so each test's registrations stay
+ * under `REGISTER_LIMIT` (Cloudflare sets this header at the edge).
+ */
+function freshIp(): string {
+  const [a, b, c] = crypto.getRandomValues(new Uint8Array(3));
+  return `10.${a}.${b}.${c}`;
+}
+
+function registerRequest(name = 'Test client', ip = freshIp()): Request {
+  return new Request(`${ORIGIN}/oauth/register`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip },
     body: JSON.stringify({
       client_name: name,
       redirect_uris: [REDIRECT],
@@ -137,6 +149,10 @@ async function register(name = 'Test client'): Promise<string> {
       response_types: ['code'],
     }),
   });
+}
+
+async function register(name = 'Test client'): Promise<string> {
+  const response = await SELF.fetch(registerRequest(name));
   expect(response.status).toBe(201);
   const body = (await response.json()) as { client_id: string };
   return body.client_id;
@@ -297,6 +313,48 @@ describe('discovery', () => {
     ]) {
       expect(isProviderPath(path), path).toBe(false);
     }
+  });
+});
+
+describe('registration', () => {
+  it('limits registrations per client IP, with a 429 an OAuth client reads', async () => {
+    const ip = freshIp();
+    for (let i = 0; i < REGISTRATIONS_PER_MINUTE; i++) {
+      const ok = await SELF.fetch(registerRequest(`Client ${i}`, ip));
+      expect(ok.status).toBe(201);
+      await ok.body?.cancel();
+    }
+    const refused = await SELF.fetch(registerRequest('One too many', ip));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get('retry-after')).toBe('60');
+    expect(refused.headers.get('content-type')).toContain('application/json');
+    expect(refused.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await refused.json()).toMatchObject({
+      error: 'temporarily_unavailable',
+      error_description: expect.stringContaining('Too many registrations'),
+    });
+
+    // Another address is not held to this one's count.
+    const other = await SELF.fetch(registerRequest('Elsewhere'));
+    expect(other.status).toBe(201);
+    await other.body?.cancel();
+  });
+
+  it('stores a registered client with an expiry, so an unapproved one goes', async () => {
+    expect(CLIENT_REGISTRATION_TTL_S).toBeGreaterThanOrEqual(
+      2 * REFRESH_TOKEN_TTL_S,
+    );
+    const before = Math.floor(Date.now() / 1000);
+    const clientId = await register('Never approved');
+    const { keys } = await env.OAUTH_KV.list({ prefix: `client:${clientId}` });
+    expect(keys).toHaveLength(1);
+    const expiration = keys[0]?.expiration ?? 0;
+    expect(expiration).toBeGreaterThanOrEqual(
+      before + CLIENT_REGISTRATION_TTL_S,
+    );
+    expect(expiration).toBeLessThanOrEqual(
+      Math.floor(Date.now() / 1000) + CLIENT_REGISTRATION_TTL_S + 1,
+    );
   });
 });
 

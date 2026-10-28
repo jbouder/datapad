@@ -62,6 +62,12 @@ under **Export format**.
 
 ### Security
 
+- **MCP client registration is capped** (#225): `/oauth/register`, open
+  so an MCP client can sign in, takes five registrations a minute per
+  client IP and answers `429` after that, so nobody can use up the KV
+  write quota that sign-ins need. A registered client nobody approves
+  expires after 60 days. The deployment binds a rate limiter,
+  `REGISTER_LIMIT` (docs/self-hosting.md).
 - **Supply chain checks** (#57): CodeQL on every pull request and weekly;
   CI fails on a known advisory (`bun audit`, moderate and up); a test fails
   on any GitHub Action not pinned to a commit SHA; the Dependabot review

@@ -150,6 +150,17 @@ and put the `id` it prints on the binding:
 a secret. The namespace holds registered clients and grants, and tokens and
 codes only as hashes.
 
+**The `REGISTER_LIMIT` rate limiter.** `/oauth/register` is open to
+anyone and each registration is a KV write, so `wrangler.jsonc` binds a
+[rate limiter](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+that allows five a minute per client IP; the next gets `429`. Nothing to
+create: `wrangler deploy` sets it up. Its `namespace_id` (`"225"`) is any
+positive integer you choose, and must not be one another Worker in your
+account uses for a different limiter; change it if it is. A registered
+client nobody approves expires from `OAUTH_KV` after 60 days by itself.
+For a harder cap, add a WAF rate-limiting rule on `/oauth/register` at the
+zone (Security → WAF → Rate limiting rules).
+
 **A Bypass application for the OAuth paths.** Access must let these paths
 through to the Worker without a sign-in, because the client calls them
 with no Access cookie:
