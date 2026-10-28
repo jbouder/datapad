@@ -14,7 +14,9 @@ import {
  * passes in test/themes.test.ts can still fail once composited (opacity,
  * translucent backgrounds). System is Light or Dark, both covered.
  *
- * Routes are added here as their views land (M2–M7).
+ * Every route empty (ROUTES), then every page and layout with the seed in
+ * it (WITH_DATA), then the states that only show after a click: themes ×
+ * the desktop and phone projects.
  */
 const CHECKED = THEMES.filter((t) => t.id !== 'system');
 const ROUTES = [
@@ -25,16 +27,35 @@ const ROUTES = [
   { path: '/notes', heading: 'Notes' },
   { path: '/meetings', heading: 'Meetings' },
   { path: '/settings', heading: 'Settings' },
+  { path: '/settings/pages', heading: 'Settings' },
   { path: '/settings/navigation', heading: 'Settings' },
+  { path: '/settings/templates', heading: 'Settings' },
+  { path: '/settings/summaries', heading: 'Settings' },
+  { path: '/settings/spaces', heading: 'Settings' },
   { path: '/settings/people', heading: 'Settings' },
   { path: '/settings/orgs', heading: 'Settings' },
   { path: '/settings/data', heading: 'Settings' },
   { path: '/settings/connections', heading: 'Settings' },
   { path: '/settings/account', heading: 'Settings' },
+  { path: '/digest', heading: 'Weekly digest' },
+  { path: '/whiteboard', heading: 'Whiteboard' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
   // The shared inputs (#19), only in the e2e build.
   { path: '/dev/components', heading: 'Components' },
+];
+
+/** Every page and layout with data in it (`e2e/seed.ts`). */
+const WITH_DATA = [
+  ...['cards', 'table', 'timeline'].map((v) => `/projects?view=${v}`),
+  '/archive',
+  ...['list', 'table', 'board', 'timeline'].map((v) => `/tasks?view=${v}`),
+  '/tasks/t-2',
+  ...['feed', 'grid'].map((v) => `/notes?view=${v}`),
+  '/meetings/e-1',
+  '/digest',
+  '/projects/p-echo/whiteboard',
+  '/settings/orgs',
 ];
 
 /** The theme really applied, so a silent fallback to Light cannot pass. */
@@ -61,6 +82,16 @@ for (const theme of CHECKED) {
         await expect(
           page.getByRole('heading', { level: 1, name: route.heading }),
         ).toBeVisible();
+        await expectAccessible(page);
+      });
+    }
+
+    for (const path of WITH_DATA) {
+      test(`${path} with data`, async ({ page, request }) => {
+        await request.post('/api/import', { data: SEED });
+        await page.goto(path);
+        await expectTheme(page, theme);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
         await expectAccessible(page);
       });
     }
@@ -199,6 +230,25 @@ for (const theme of CHECKED) {
     });
   });
 }
+
+test('forced colours keep the selected layout and current section visible', async ({
+  page,
+}) => {
+  await page.emulateMedia({ forcedColors: 'active' });
+  await page.goto('/tasks');
+  const outline = (el: Element) => getComputedStyle(el).outlineStyle;
+  const checked = page
+    .getByRole('group', { name: /^Layout/ })
+    .locator('label:has(input:checked)');
+  expect(await checked.evaluate(outline)).toBe('solid');
+  const current = page
+    .locator('[aria-current="page"]')
+    .filter({ visible: true })
+    .first();
+  expect(await current.evaluate(outline)).toBe('solid');
+  // No axe here: in forced colours the system theme picks every color,
+  // so its contrast rule measures the authored ones and means nothing.
+});
 
 test('the skip link reaches the main content', async ({ page }) => {
   test.skip(

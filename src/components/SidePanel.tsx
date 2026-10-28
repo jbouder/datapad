@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { Button } from '@/components/ui/button';
+import { focusPage, hasFocus } from '@/lib/focus';
 
 /**
  * The slide-over every editor uses (task, project, meeting, person,
@@ -86,6 +87,17 @@ export function SidePanel({
     if (asking) keep.current?.focus();
   }, [asking]);
 
+  // Unmounted with focus inside (its document was deleted from the panel,
+  // so whoever renders it stops): the page has focus, not `<body>`.
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => {
+        if (!hasFocus()) focusPage();
+      });
+    },
+    [],
+  );
+
   const requestClose = useCallback(() => {
     if (dirty) setAsking(true);
     else onClose();
@@ -103,7 +115,11 @@ export function SidePanel({
         if (!next) requestClose();
       }}
       onOpenChangeComplete={(isOpen) => {
-        if (!isOpen) onExited?.();
+        if (isOpen) return;
+        // Focus went back to what opened it, which may have gone since
+        // (a row deleted from the panel): then the page has it.
+        if (!hasFocus()) focusPage();
+        onExited?.();
       }}
     >
       <Dialog.Portal>

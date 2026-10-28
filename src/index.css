@@ -87,8 +87,10 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.6 0 0);
+  /* A field's edge and the focus ring are 3:1 on every surface as drawn
+   * (the ring mostly at half alpha, `outline-ring/50`): test/themes.test.ts. */
+  --input: oklch(0.65 0 0);
+  --ring: oklch(0.27 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -103,9 +105,9 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  /* Pointer-tracking glow (spotlight borders). Brighter than --ring so the
-   * edge reads clearly; the light theme darkens instead of washing out. */
+  --sidebar-ring: oklch(0.27 0 0);
+  /* Pointer-tracking glow (spotlight borders), strong enough that the edge
+   * reads clearly; the light theme darkens instead of washing out. */
   --fx-glow: oklch(0.42 0 0);
   /* Due today, paused, medium priority. Text-safe on background and card. */
   --warn: oklch(0.54 0.14 75);
@@ -134,8 +136,8 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0 0);
+  --input: oklch(1 0 0 / 36%);
+  --ring: oklch(0.8 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -148,7 +150,7 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.6 0 0);
+  --sidebar-ring: oklch(0.8 0 0);
   --fx-glow: oklch(0.75 0 0);
   /* Due today, paused, medium priority. Text-safe on background and card. */
   --warn: oklch(0.8 0.14 80);
@@ -997,4 +999,20 @@ html[data-vt="space"]::view-transition-new(rail) {
 /* Strokes the eraser has touched, until it lifts. Opacity only. */
 .board-item[data-erasing] {
   opacity: 0.3;
+}
+
+/*
+ * Forced colours (Windows High Contrast and the like) drop backgrounds,
+ * so a state shown only by a fill would vanish: the checked layout, the
+ * current section, a pressed tool, a selected option. Outline them in the
+ * system's Highlight instead (e2e/a11y.spec.ts checks it).
+ */
+@media (forced-colors: active) {
+  label:has(> input[type="radio"]:checked),
+  [aria-current]:not([aria-current="false"]),
+  [aria-pressed="true"],
+  [aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }

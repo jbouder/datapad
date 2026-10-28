@@ -1,4 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { QuickAddAction } from '#shared/nav';
 import {
   CrashForTests,
@@ -15,6 +22,7 @@ import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
+import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
 import { titleOf, useNav } from '@/lib/nav';
 import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
@@ -166,6 +174,18 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [newTask, newNote, currentProject, noteProject]);
 
+  // A link inside the page took focus away with the old page: give it to
+  // the new one, so the next Tab goes on from there, not from the top. A
+  // rail or tab bar link keeps it (it is still there).
+  // Not on the first page: a fresh load starts from the top, skip link
+  // first.
+  const key = pageKey(route);
+  const firstPage = useRef(key);
+  useEffect(() => {
+    if (key !== firstPage.current && !hasFocus()) focusPage();
+    firstPage.current = '';
+  }, [key]);
+
   // A whiteboard takes the whole viewport below the top bar (and above
   // the tab bar): the page itself never scrolls.
   const fullBleed = route.name === 'whiteboard';
@@ -193,9 +213,10 @@ export function AppShell() {
         {/* Keyed by page so each mounts fresh and its entrances replay. */}
         <main
           id="main"
-          key={pageKey(route)}
+          key={key}
+          tabIndex={-1}
           className={cn(
-            'page flex w-full min-w-0 flex-1 flex-col',
+            'page flex w-full min-w-0 flex-1 flex-col outline-none',
             fullBleed
               ? 'min-h-0 pb-[calc(var(--tabbar-height)+env(safe-area-inset-bottom))]'
               : 'px-4 pt-6 pb-[calc(1.5rem+var(--tabbar-height)+env(safe-area-inset-bottom))] sm:px-6',

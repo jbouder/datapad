@@ -98,7 +98,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   phone project**. `fixtures.ts` signs each test in as its own address
   (fresh DO), blocks every request off localhost, has `expectAccessible`.
   `seed.ts` is fictional data, shifted to today before every test.
-- `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting, mcp.
+- `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting, mcp,
+  accessibility (the conformance statement, what checks it, every drag's
+  keyboard and touch way).
 
 ## Stack
 

@@ -28,25 +28,60 @@ const THEMES: Record<string, Tokens> = {
   dark,
 };
 
-/** oklch(L C H) → relative luminance, via OKLab and linear sRGB. */
-function luminance(value: string): number {
-  const m = value.match(/^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/);
-  if (!m) throw new Error(`Not an opaque oklch() color: ${value}`);
+type Rgb = [r: number, g: number, b: number];
+
+/** oklch(L C H [/ A]) → gamma-encoded sRGB (0–1) and its alpha. */
+function parse(value: string): { rgb: Rgb; alpha: number } {
+  const m = value.match(
+    /^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)(%?)\s*)?\)$/,
+  );
+  if (!m) throw new Error(`Not an oklch() color: ${value}`);
   const [L, C, H] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const alpha = m[4] === undefined ? 1 : Number(m[4]) / (m[5] ? 100 : 1);
   const a = C * Math.cos((H * Math.PI) / 180);
   const b = C * Math.sin((H * Math.PI) / 180);
   const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
   const mm = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
   const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
   const clamp = (x: number) => Math.min(1, Math.max(0, x));
-  const r = clamp(4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * s);
-  const g = clamp(-1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * s);
-  const bl = clamp(-0.0041960863 * l - 0.7034186147 * mm + 1.707614701 * s);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  const linear: Rgb = [
+    clamp(4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * s),
+    clamp(-1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * s),
+    clamp(-0.0041960863 * l - 0.7034186147 * mm + 1.707614701 * s),
+  ];
+  const encode = (c: number) =>
+    c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+  return { rgb: linear.map(encode) as Rgb, alpha };
 }
 
-function contrast(fg: string, bg: string): number {
-  const [x, y] = [luminance(fg), luminance(bg)].sort((p, q) => q - p);
+function luminance([r, g, b]: Rgb): number {
+  const decode = (c: number) =>
+    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * decode(r) + 0.7152 * decode(g) + 0.0722 * decode(b);
+}
+
+/**
+ * A token as it is drawn on `under`: `ring/50` is the ring at half its
+ * alpha, and anything translucent is blended over the surface below, the
+ * way the browser composites it (in gamma-encoded sRGB).
+ */
+function paint(tokens: Tokens, name: string, under?: Rgb): Rgb {
+  const [token = '', percent] = name.split('/');
+  const { rgb, alpha } = parse(tokens[token] ?? '');
+  const a = alpha * (percent ? Number(percent) / 100 : 1);
+  if (a >= 1) return rgb;
+  if (!under) throw new Error(`${name} is translucent: give it a surface`);
+  return rgb.map((c, i) => c * a + (under[i] ?? 0) * (1 - a)) as Rgb;
+}
+
+/** Contrast of `fg` drawn on `bg`, which is drawn on the page. */
+function contrast(tokens: Tokens, fg: string, bg: string): number {
+  const page = paint(tokens, 'background');
+  const surface = paint(tokens, bg, page);
+  const [x, y] = [
+    luminance(paint(tokens, fg, surface)),
+    luminance(surface),
+  ].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 }
 
@@ -70,20 +105,41 @@ const TEXT: [fg: string, bg: string][] = [
   ['ok', 'background'],
   ['ok', 'card'],
   ['ok-foreground', 'ok'],
+  // The rail: its items, counts and the current item.
+  ['sidebar-foreground', 'sidebar'],
+  ['muted-foreground', 'sidebar'],
+  ['sidebar-accent-foreground', 'sidebar-accent'],
+  ['muted-foreground', 'sidebar-accent'],
+  ['sidebar-primary-foreground', 'sidebar-primary'],
+  // Hovered rows and menu items keep their muted text readable.
+  ['muted-foreground', 'accent'],
+  ['muted-foreground', 'popover'],
 ];
 
 const NON_TEXT: [fg: string, bg: string][] = [
+  // The focus ring, as drawn: the app's `outline-ring/50` and the stock
+  // components' `ring-ring/50`, and full strength on inputs (`border-ring`).
   ['ring', 'background'],
   ['ring', 'card'],
+  ['ring/50', 'background'],
+  ['ring/50', 'card'],
+  ['ring/50', 'popover'],
+  ['ring/50', 'sidebar'],
+  ['ring/50', 'accent'],
+  ['sidebar-ring', 'sidebar'],
+  // A text field's edge is what shows it is one (WCAG 1.4.11).
+  ['input', 'background'],
+  ['input', 'card'],
+  ['input', 'popover'],
 ];
 
 describe.each(Object.entries(THEMES))('theme %s', (_, tokens) => {
   it.each(TEXT)('%s on %s is at least 4.5:1', (fg, bg) => {
-    expect(contrast(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tokens, fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(NON_TEXT)('%s on %s is at least 3:1', (fg, bg) => {
-    expect(contrast(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(3);
+    expect(contrast(tokens, fg, bg)).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -52,6 +52,13 @@ under **Export format**.
   without one.
 - `GET /api/health` answers whether your Datapad is reachable (no data);
   docs/architecture.md lists every failure path and every log line.
+- **Accessibility** (#53): text fields have a visible edge and the focus
+  ring is stronger, both at least 3:1 on every surface in Light and Dark.
+  Focus is never lost when a panel closes, a toast goes or a link inside a
+  page is followed. A toast stays while focus is in it. Selected and
+  current items stay visible in forced colours (Windows High Contrast).
+  docs/accessibility.md is the conformance statement, with every drag's
+  keyboard and touch way.
 
 ### Security
 
