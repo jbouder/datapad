@@ -206,7 +206,22 @@ test('a page that throws can be reloaded, and keeps a note being written', async
   await composer.click();
   await page.keyboard.type('half a thought');
 
+  // The crash is reported to the Worker's log (#236): its message and
+  // component stack, never what was being written.
+  const reported = page.waitForRequest(
+    (r) => r.url().endsWith('/api/client-error') && r.method() === 'POST',
+  );
   await crash(page, 'page');
+  const report = (await reported).postDataJSON() as Record<string, string>;
+  expect(Object.keys(report).sort()).toEqual([
+    'componentStack',
+    'message',
+    'version',
+    'where',
+  ]);
+  expect(report.where).toBe('page');
+  expect(report.message).toContain('A page crash a test asked for');
+  expect(JSON.stringify(report)).not.toContain('half a thought');
   const heading = page.getByRole('heading', {
     level: 1,
     name: 'This view stopped working',

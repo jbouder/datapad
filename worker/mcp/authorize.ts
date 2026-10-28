@@ -1,9 +1,11 @@
 import {
   AuthorizationError,
+  authorizationErrorRedirect,
   CimdFetchError,
 } from '@cloudflare/workers-oauth-provider';
 import type { AccessIdentity } from '../access';
 import type { Bindings } from '../env';
+import { logSecurity, requestIdOf } from '../log';
 import { consentPage, problemPage } from './consent';
 import { grantUserId, type McpProps, oauthHelpers, type Scope } from './oauth';
 
@@ -13,7 +15,9 @@ import { grantUserId, type McpProps, oauthHelpers, type Scope } from './oauth';
  * returned an identity, so the person here is the signed-in owner.
  *
  * GET shows the consent page for a request the provider validated (client,
- * exact redirect URI, PKCE, resource). POST takes the decision: Deny
+ * exact redirect URI, PKCE, resource). PKCE is required of every client
+ * here, confidential ones too (#232): the provider insists only for public
+ * clients. POST takes the decision: Deny
  * redirects back with `access_denied`; Allow completes the authorization
  * with `props: { email }` from the verified identity. That is the only
  * place an email enters a token.
@@ -37,11 +41,28 @@ export async function authorize(
   request: Request,
   env: Bindings,
   identity: AccessIdentity,
+  /** The request's id, for the grant's log line (#236). */
+  id: string = requestIdOf(request),
 ): Promise<Response> {
   const oauth = oauthHelpers(request, env);
   try {
     if (request.method === 'GET') {
       const authRequest = await oauth.parseAuthRequest(request);
+      // The client and its redirect URI are validated by now, so the
+      // refusal can go back to it.
+      if (
+        !authRequest.codeChallenge ||
+        authRequest.codeChallengeMethod !== 'S256'
+      ) {
+        return Response.redirect(
+          authorizationErrorRedirect(
+            authRequest,
+            'invalid_request',
+            'PKCE (S256) is required',
+          ),
+          302,
+        );
+      }
       // First: a failed lookup leaves nothing behind in KV.
       const details = await oauth.describeConsent(authRequest);
       const consent = await oauth.beginConsent(authRequest);
@@ -74,6 +95,11 @@ export async function authorize(
         metadata: { clientName: client?.clientName ?? null },
         scope: approved.request.scope,
         props,
+      });
+      logSecurity('grant', id, {
+        outcome: 'ok',
+        clientId: approved.request.clientId,
+        scope: [...approved.request.scope],
       });
       approved.headers.set('Location', redirectTo);
       return new Response(null, { status: 302, headers: approved.headers });

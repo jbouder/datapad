@@ -31,11 +31,25 @@ export const INSTRUCTIONS = [
 
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 
-/** The counter key for a token: a hash of it, never the token itself. */
-async function tokenKey(token: string): Promise<string> {
+/**
+ * The rate limit's counter key (#232): the grant the token belongs to, so
+ * refreshing (a new access token on the same grant) does not reset it.
+ * The provider's tokens read `userId:grantId:secret`; the key is a hash of
+ * the first two, never the secret. A token of another shape falls back to
+ * its client.
+ */
+export async function rateKey(
+  token: string,
+  clientId: string | undefined,
+): Promise<string> {
+  const parts = token.split(':');
+  const subject =
+    parts.length === 3 && parts[0] && parts[1]
+      ? `grant:${parts[0]}:${parts[1]}`
+      : `client:${clientId ?? ''}`;
   const digest = await crypto.subtle.digest(
     'SHA-256',
-    new TextEncoder().encode(token),
+    new TextEncoder().encode(subject),
   );
   return Array.from(new Uint8Array(digest).slice(0, 16), (b) =>
     b.toString(16).padStart(2, '0'),
@@ -63,7 +77,7 @@ export const mcpApiHandler = {
     const scopes = SCOPES.filter((s) => auth.scope.includes(s)) as Scope[];
     // The name comes from the verified email in the grant and nowhere else.
     const datapad = env.DATAPAD.getByName(email);
-    const key = await tokenKey(auth.token);
+    const key = await rateKey(auth.token, auth.clientId);
     try {
       return await handleMcpPost(request, {
         tools: TOOLS,

@@ -27,6 +27,10 @@ changes the format says so here under **Export format**.
   across the object, R2 and KV.
 - **`SECURITY.md`** (#230): what is in scope and how to report a
   vulnerability privately.
+- **Which build is running** (#237): Settings → Account and Help → About
+  show the version and commit, and `GET /api/health` returns them.
+  docs/self-hosting.md sets up an error-rate notification and an alert for
+  a failed nightly backup.
 
 - **The whiteboard without a pointer** (#222): with S, T or R picked,
   Enter places a sticky, text or rectangle in the middle of the view, open
@@ -157,6 +161,24 @@ changes the format says so here under **Export format**.
   the dividers are the frame's colour.
 
 ### Security
+
+- **MCP and Access hardening** (#232): `/oauth/authorize` requires PKCE
+  (S256) of every client, confidential ones too; the consent page ticks
+  **write** only when the app asked for it; the 60-calls-a-minute limit
+  counts per grant, so refreshing a token no longer resets it; the Access
+  key fetch times out after five seconds and is shared by concurrent
+  requests; the dev bypass answers only on `localhost`, and the deploy
+  workflow fails when `wrangler.jsonc` has an empty `ACCESS_AUD` or a
+  `DEV_ACCESS_EMAIL`.
+- **HSTS and asset caching** (#233): `Strict-Transport-Security` on every
+  response, and the hashed files under `/assets/` are kept a year
+  (`private, immutable`), so a launch no longer revalidates them.
+- **Request ids and security logs** (#236): every Worker response carries
+  `x-request-id` (the `cf-ray`), and a 500 shows it; a view that crashes
+  reports its message and component stack to the Worker's log
+  (`POST /api/client-error`, no document content); allowing or revoking an
+  MCP app, erase, deleting a space, import and restore each log one line,
+  with no email or token.
 
 - **MCP client registration is capped** (#225): `/oauth/register`, open
   so an MCP client can sign in, takes five registrations a minute per

@@ -6,6 +6,7 @@ import {
 import { useLayoutEffect, useRef } from 'react';
 import { formatTime } from '#shared/dates';
 import { countDocuments } from '#shared/protocol';
+import { COMMIT, VERSION } from '#shared/version';
 import { Backups } from '@/components/Backups';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
@@ -283,6 +284,10 @@ function Account() {
         <SignOutIcon />
         Sign out
       </a>
+      <p className="text-sm text-muted-foreground" data-testid="build">
+        About: Datapad {VERSION}, commit{' '}
+        <span className="font-mono">{COMMIT}</span>.
+      </p>
     </>
   );
 }

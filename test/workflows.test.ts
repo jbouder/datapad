@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { deployProblems, stripJsonc } from '../scripts/deploy-config';
+import wrangler from '../wrangler.jsonc?raw';
 
 /*
  * Every action the workflows use is pinned to a full commit SHA. A tag such
@@ -73,5 +75,53 @@ describe('workflows', () => {
       .filter(([, text]) => /^\s*pull_request_target\s*:/m.test(text))
       .map(([file]) => file);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the deploy (#232)', () => {
+  const deploy = WORKFLOWS['../.github/workflows/deploy.yml'] ?? '';
+
+  it('checks Access is configured before it builds or deploys', () => {
+    const check = deploy.indexOf('run: bun scripts/check-deploy.ts');
+    expect(check).toBeGreaterThan(0);
+    expect(check).toBeLessThan(deploy.indexOf('run: bun run build'));
+    expect(check).toBeLessThan(deploy.indexOf('cloudflare/wrangler-action'));
+  });
+
+  it('passes the wrangler.jsonc in this repository', () => {
+    expect(deployProblems(wrangler)).toEqual([]);
+  });
+
+  it('fails an empty ACCESS_AUD or team domain, and a DEV_ACCESS_EMAIL', () => {
+    const config = (vars: Record<string, string>) => `{
+      // A comment, and "// not one" inside a string.
+      "name": "datapad // here",
+      /* a block */
+      "vars": ${JSON.stringify(vars)},
+    }`;
+    const good = {
+      ACCESS_TEAM_DOMAIN: 'rebels.cloudflareaccess.com',
+      ACCESS_AUD: 'aud',
+    };
+    expect(deployProblems(config(good))).toEqual([]);
+    expect(deployProblems(config({ ...good, ACCESS_AUD: ' ' }))).toEqual([
+      expect.stringContaining('vars.ACCESS_AUD is empty'),
+    ]);
+    expect(deployProblems(config({ ...good, ACCESS_TEAM_DOMAIN: '' }))).toEqual(
+      [expect.stringContaining('vars.ACCESS_TEAM_DOMAIN is empty')],
+    );
+    expect(
+      deployProblems(config({ ...good, DEV_ACCESS_EMAIL: 'dev@example.com' })),
+    ).toEqual([expect.stringContaining('DEV_ACCESS_EMAIL is set')]);
+    expect(deployProblems('{ "vars": {} }')).toHaveLength(2);
+    expect(deployProblems('{ not json')).toEqual([
+      'wrangler.jsonc is not valid JSONC',
+    ]);
+  });
+
+  it('strips JSONC without touching strings', () => {
+    expect(
+      JSON.parse(stripJsonc('{"a": "x//y", /* c */ "b": [1, 2,], // d\n}')),
+    ).toEqual({ a: 'x//y', b: [1, 2] });
   });
 });

@@ -717,6 +717,33 @@ export const DeleteSpaceSchema = z.object({
 });
 export type DeleteSpace = z.infer<typeof DeleteSpaceSchema>;
 
+/**
+ * `GET /api/health`: whether the object answers, and which build is
+ * running (#237): `version` from package.json, `commit` the short SHA.
+ */
+export interface Health {
+  ok: boolean;
+  error?: string;
+  version: string;
+  commit: string;
+}
+
+/** The most `POST /api/client-error` takes; anything larger is 413. */
+export const CLIENT_ERROR_BYTES = 8 * 1024;
+
+/**
+ * `POST /api/client-error` (#236): a render crash, for the Worker's log.
+ * Only the error's message and React's component stack (component names),
+ * each cut short: never state, props or anything from a document.
+ */
+export const ClientErrorSchema = z.object({
+  where: z.enum(['page', 'app']),
+  message: z.string().max(500),
+  componentStack: z.string().max(4000),
+  version: z.string().max(64),
+});
+export type ClientError = z.infer<typeof ClientErrorSchema>;
+
 /** Move a project, with everything that hangs off it, to another space. */
 export const MoveProjectSchema = z
   .object({ from: id, to: id, id })

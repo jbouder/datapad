@@ -10,6 +10,22 @@ import { expect, openHelp, openLive, test } from './fixtures';
  * a11y.spec.ts and reflow.spec.ts.)
  */
 
+test('says which build is running (#237)', async ({ page, request }) => {
+  const health = (await (await request.get('/api/health')).json()) as {
+    ok: boolean;
+    version: string;
+    commit: string;
+  };
+  expect(health.ok).toBe(true);
+  expect(health.version).toMatch(/^\d+\.\d+\.\d+/);
+  await openLive(page, '/help');
+  await expect(
+    page.getByRole('region', { name: 'What Datapad is' }).getByTestId('build'),
+  ).toContainText(
+    `Datapad ${health.version}, built from commit ${health.commit}`,
+  );
+});
+
 test('lists every page’s layouts', async ({ page }) => {
   await openLive(page, '/help');
   const layouts = page.getByRole('table', { name: 'Layouts' });

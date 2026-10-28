@@ -245,8 +245,8 @@ export class DatapadObject extends DurableObject<Bindings> {
   /** Recent op times per socket, for the flood limit. */
   private readonly recent = new Map<WebSocket, number[]>();
   /**
-   * Recent MCP tool-call times per access token (keyed by the token's
-   * hash, never the token), for `LIMITS.mcpCallsPerMinute`. In memory: an
+   * Recent MCP tool-call times per grant (keyed by a hash of the grant,
+   * never the token), for `LIMITS.mcpCallsPerMinute`. In memory: an
    * evicted object forgets, which only ever lets a client through sooner.
    */
   private readonly mcpCalls = new Map<string, number[]>();
@@ -1018,10 +1018,11 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   /**
-   * Whether one more MCP tool call fits the minute for this token: true
+   * Whether one more MCP tool call fits the minute for this grant: true
    * and counted when it does, false (and not counted) when it does not.
-   * `key` is a hash of the token, chosen by the Worker; it only ever picks
-   * a counter inside the object the verified email already named.
+   * `key` is a hash of the grant (`rateKey()` in worker/mcp/server.ts),
+   * chosen by the Worker; it only ever picks a counter inside the object
+   * the verified email already named.
    */
   async admitMcpCall(
     key: string,

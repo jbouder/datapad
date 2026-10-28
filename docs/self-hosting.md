@@ -75,8 +75,14 @@ With `ACCESS_AUD` empty in `wrangler.jsonc`, the Worker answers **401 to
 everything**: it fails closed until Access is set up. That is expected.
 
 `DEV_ACCESS_EMAIL` only ever lives in `.dev.vars`, which is never deployed,
-and it is ignored whenever `ACCESS_AUD` is set. Do not add it as a var or
-secret in the dashboard.
+and it is ignored whenever `ACCESS_AUD` is set, and on any hostname but
+`localhost`. Do not add it as a var or secret in the dashboard.
+
+This first deploy from your machine is the only one that may go out
+without Access. The GitHub Actions deploy (below) runs
+`bun scripts/check-deploy.ts` first and fails when `wrangler.jsonc` has an
+empty `ACCESS_AUD` or `ACCESS_TEAM_DOMAIN`, or any `DEV_ACCESS_EMAIL`. Run
+it yourself before a manual deploy if you like.
 
 ## 4. Put Cloudflare Access in front
 
@@ -318,11 +324,37 @@ in `.wrangler/state`; delete that folder to start over.
 ## Observability
 
 Workers observability is on in `wrangler.jsonc`. The Worker logs one JSON
-line per error (the path and the error's message, never an email or
-content) and one per backup. `npm run tail` streams live logs;
-[architecture.md](architecture.md#logs) says what each line means.
-`GET /api/health` (behind Access, like everything) answers `{ "ok": true }`
-when your object is reachable.
+line per error (the path, the request id and the error's message, never an
+email or content), one per crash a browser reports, one per security event
+and one per backup. `npm run tail` streams live logs;
+[architecture.md](architecture.md#logs) says what each line means. A 500
+names its request (`requestId`, also the `x-request-id` header and the
+request's `cf-ray`): search the logs for it.
+
+`GET /api/health` (behind Access, like everything) answers
+`{ "ok": true, "version": "0.1.0", "commit": "a1b2c3d" }` when your object
+is reachable: which build is running. Settings → Account and Help → About
+show the same.
+
+### Alerts
+
+Nothing pages you by default. Two alerts are worth setting up once:
+1. **Error rate.** Dashboard → **Notifications** → **Add**, choose the
+   Workers notification for errors (Cloudflare lists it under **Workers**;
+   pick the `datapad` Worker if asked) and send it to your email. Where
+   your plan offers it, Workers & Pages → `datapad` → **Observability**
+   can also alert on a query; there, alert when `$metadata.level = "error"`
+   lines exceed a handful in 15 minutes.
+2. **A failed nightly backup.** In Workers & Pages → `datapad` →
+   **Observability**, save a query for lines where `what = "backup"` and
+   `level = "error"` (the Durable Object's backup failures, which carry
+   `retryAt`), and add an alert on it that fires on any match. Settings →
+   Backups also says so in `warn` when the latest attempt failed or a space
+   has gone two days without a backup, so check it now and then even with
+   the alert in place.
+
+Cloudflare's dashboard moves; if a menu above is named differently, look
+for Notifications (account level) and the Worker's Observability tab.
 
 ## Updating
 

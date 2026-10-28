@@ -6,7 +6,26 @@ import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
 import { consentPage, problemPage } from '../worker/mcp/consent';
 
-/** The value of one header in public/_headers (all rules are under /*). */
+/** The header lines under one path rule of public/_headers, by name. */
+function rule(path: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let inside = false;
+  for (const line of headers.split('\n')) {
+    if (line === '' || line.startsWith('#')) continue;
+    if (!/^\s/.test(line)) {
+      inside = line.trim() === path;
+      continue;
+    }
+    if (!inside) continue;
+    const at = line.indexOf(':');
+    out.set(line.slice(0, at).trim().toLowerCase(), line.slice(at + 1).trim());
+  }
+  return out;
+}
+
+const HSTS = 'max-age=31536000; includeSubDomains';
+
+/** The value of one header in public/_headers (named once in the file). */
 function header(name: string): string {
   const lines = headers
     .split('\n')
@@ -85,6 +104,18 @@ describe('static asset headers', () => {
     expect(header('Permissions-Policy')).toContain('camera=()');
   });
 
+  it('sends HSTS on every asset (#233)', () => {
+    expect(rule('/*').get('strict-transport-security')).toBe(HSTS);
+  });
+
+  it('keeps hashed /assets/* for a year, privately (#233)', () => {
+    expect(rule('/assets/*').get('cache-control')).toBe(
+      'private, max-age=31536000, immutable',
+    );
+    // Only there: index.html and the icons are revalidated.
+    expect(rule('/*').has('cache-control')).toBe(false);
+  });
+
   it('loads nothing from another origin', () => {
     for (const name of ['script-src', 'font-src', 'img-src', 'worker-src']) {
       for (const source of directive(csp, name)) {
@@ -126,6 +157,8 @@ describe('Worker response headers', () => {
     for (const response of responses) {
       expect(response.headers.get('x-content-type-options')).toBe('nosniff');
       expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.get('strict-transport-security')).toBe(HSTS);
+      expect(response.headers.get('x-request-id')).toBeTruthy();
       expect(response.headers.get('content-security-policy')).toContain(
         "frame-ancestors 'none'",
       );
@@ -183,6 +216,7 @@ describe('the MCP consent page (#152)', () => {
       expect(page.headers.get('x-frame-options')).toBe('DENY');
       expect(page.headers.get('cache-control')).toBe('no-store');
       expect(page.headers.get('referrer-policy')).toBe('no-referrer');
+      expect(page.headers.get('strict-transport-security')).toBe(HSTS);
     }
   });
 

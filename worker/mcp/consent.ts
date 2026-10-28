@@ -104,6 +104,10 @@ async function pageHeaders(
   headers.set('x-frame-options', 'DENY');
   headers.set('referrer-policy', 'no-referrer');
   headers.set('cache-control', 'no-store');
+  headers.set(
+    'strict-transport-security',
+    'max-age=31536000; includeSubDomains',
+  );
   return headers;
 }
 
@@ -120,8 +124,9 @@ export function consentHtml(
   const loopback = details.redirectIsLoopback
     ? '<p class="warn"><strong>This sends access to an app on this computer.</strong> Continue only if you just started connecting from it.</p>'
     : '';
-  const writeAsked =
-    details.scope.length === 0 || details.scope.includes('write');
+  // Ticked only when the client asked for it (#232); the owner can still
+  // tick it, or leave it.
+  const writeAsked = details.scope.includes('write');
   return `${HTML_HEAD}
 <title>Connect ${name} · Datapad</title>
 <style>${STYLE}</style>

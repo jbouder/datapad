@@ -55,12 +55,14 @@ is also its own OAuth 2.1 authorization server, for MCP clients only, with
    lists the endpoints.
 2. It registers itself at `/oauth/register` (dynamic client registration)
    and opens `/oauth/authorize` in a browser with a PKCE challenge (S256
-   only).
+   only, required of every client: a request without one goes back to the
+   client as `invalid_request`).
 3. `/oauth/authorize` is behind Access like every page: Access signs you
    in, and the Worker verifies the Access JWT. The consent page shows the
    client's name (self-asserted, and said so), the host the tokens will be
    sent to, a warning when that is an app on this computer, your email, and
-   what it may do: **read** always, **write** if you tick it. Allow or Deny.
+   what it may do: **read** always, **write** if you tick it (ticked to
+   start with only when the client asked for `write`). Allow or Deny.
 4. On Allow the Worker completes the authorization with your verified email.
    That is the only place an email enters a token. The client exchanges the
    code (with its PKCE verifier) at `/oauth/token`.
@@ -95,8 +97,9 @@ the model's to keep, and the write scope is the limit on what it can do.
 
 A failure a model can fix (a bad argument, an unknown space, the rate
 limit) comes back as a tool result with `isError`, never as a protocol
-error. Each token may make 60 tool calls a minute
-(`LIMITS.mcpCallsPerMinute`).
+error. Each grant may make 60 tool calls a minute
+(`LIMITS.mcpCallsPerMinute`), counted across its tokens, so refreshing does
+not reset the count.
 
 ## The read tools
 
