@@ -6,11 +6,9 @@ import { allowsShortcut, ROW_ACTIONS, TYPING } from '#shared/shortcuts';
  */
 
 export {
-  allowsShortcut,
   ROW_ACTIONS,
   SHORTCUTS,
   type Shortcut,
-  type ShortcutContext,
 } from '#shared/shortcuts';
 
 /** Whether `target` takes typed text. */

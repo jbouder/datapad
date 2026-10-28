@@ -87,6 +87,7 @@ import {
   viewBoxOf,
   visibleBox,
   wheelZoomFactor,
+  ZOOM_STEP,
   zoomAt,
 } from '@/components/board/viewport';
 import { ZoomControls } from '@/components/board/ZoomControls';
@@ -1867,8 +1868,8 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       {view && (
         <ZoomControls
           zoom={view.zoom}
-          onZoomIn={() => zoomBy(1.25)}
-          onZoomOut={() => zoomBy(1 / 1.25)}
+          onZoomIn={() => zoomBy(ZOOM_STEP)}
+          onZoomOut={() => zoomBy(1 / ZOOM_STEP)}
           onReset={zoomReset}
           onFit={fit}
         />
