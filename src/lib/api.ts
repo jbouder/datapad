@@ -1,6 +1,7 @@
 import type {
   AppConfig,
   BackupList,
+  ConnectionList,
   CreatedSpace,
   EraseToken,
   ImportResult,
@@ -253,4 +254,36 @@ async function postMerge(
     );
   }
   return body;
+}
+
+/** The MCP apps the owner approved (#154), newest first. */
+export async function fetchConnections(): Promise<ConnectionList> {
+  const response = await fetch('/api/connections', {
+    credentials: 'same-origin',
+  });
+  if (response.status === 401) {
+    throw new SignedOutError();
+  }
+  if (!response.ok) {
+    throw new Error(`Connections answered ${response.status}`);
+  }
+  return (await response.json()) as ConnectionList;
+}
+
+/**
+ * Revoke one: its tokens stop working from its next call. A 404 means it
+ * was already gone.
+ */
+export async function revokeConnection(id: string): Promise<void> {
+  const response = await fetch(`/api/connections/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+  });
+  if (response.status === 401) {
+    throw new SignedOutError();
+  }
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Revoke answered ${response.status}`);
+  }
 }

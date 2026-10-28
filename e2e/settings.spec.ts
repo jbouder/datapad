@@ -59,6 +59,7 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'People',
     'Orgs',
     'Data',
+    'Connected apps',
     'Account',
   ]);
   const sections = page.getByRole('navigation', { name: 'Sections' });

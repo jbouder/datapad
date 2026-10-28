@@ -5,6 +5,20 @@ import { listOrgs, listPeople } from './people';
 import { getOverview, getProject, listProjects } from './projects';
 import { listSpaces, whoami } from './spaces';
 import { getFocus, listTasks } from './tasks';
+import { addMeeting, addNote, addTopic, coverTopic } from './write-meetings';
+import {
+  addMilestone,
+  createProject,
+  setProjectHealth,
+  setProjectStatus,
+} from './write-projects';
+import {
+  addTask,
+  completeTask,
+  editTask,
+  reopenTask,
+  setBlocked,
+} from './write-tasks';
 
 /**
  * Every tool `/mcp` offers, in the order `tools/list` shows them. A new
@@ -26,4 +40,17 @@ export const TOOLS: readonly McpTool[] = [
   listOrgs,
   getDigest,
   searchTool,
+  addTask,
+  completeTask,
+  reopenTask,
+  editTask,
+  setBlocked,
+  addNote,
+  addMeeting,
+  addTopic,
+  coverTopic,
+  createProject,
+  setProjectStatus,
+  setProjectHealth,
+  addMilestone,
 ];

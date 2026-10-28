@@ -23,6 +23,8 @@ export const INSTRUCTIONS = [
   'Projects, people, orgs and meetings can be named instead of given by id where a tool says so: a name matches ignoring case, or by a unique part of it. A name that matches several returns the candidates; pick an id from them rather than guessing.',
   'Lists carry at most 200 items, with `count` (how many there were) and `truncated`; narrow the filters when a list is cut.',
   'Read before you write: look up what is there, then change it.',
+  'With the write scope: add_task, complete_task, reopen_task, edit_task, set_blocked, add_note, add_meeting, add_topic, cover_topic, create_project, set_project_status, set_project_health, add_milestone. Each makes one change, shows up live in the app, and returns the document as it now is and the activity line it wrote. Dates may be words relative to today ("tomorrow", "fri", "+3d"); mentions are written as @Name.',
+  'Nothing can be deleted, archived, erased, imported, restored or moved between spaces from here, and neither spaces nor settings can be changed: those stay in the app.',
 ].join('\n');
 
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
@@ -70,7 +72,7 @@ export const mcpApiHandler = {
           timeZone: ownerTimeZone(env),
         },
         instructions: INSTRUCTIONS,
-        admit: () => datapad.admitMcpCall(key),
+        admit: () => datapad.admitMcpCall(key, Date.now(), auth.clientId),
         limited: `Rate limited: at most ${LIMITS.mcpCallsPerMinute} tool calls a minute per connection. Wait a minute and try again.`,
       });
     } catch (error) {

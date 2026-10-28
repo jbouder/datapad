@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import type { ServerMessage } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
 import type { Bindings } from '../worker/env';
 import { handleMcpPost } from '../worker/mcp/protocol';
@@ -468,7 +469,10 @@ describe('the conventions', () => {
     expect(ids(byName.projects.items)).toEqual(['p-cold']);
     const byId = await call(ctx, 'get_overview', { space: hoth });
     expect(byId.counts.projects).toBe(1);
-    for (const name of TOOLS.map((t) => t.name)) {
+    // The reads here; the writes refuse it in their own test.
+    for (const name of TOOLS.filter((t) => t.scope === 'read').map(
+      (t) => t.name,
+    )) {
       if (name === 'whoami' || name === 'list_spaces') continue;
       const args: Record<string, unknown> = { space: 'dagobah' };
       if (name === 'get_project') args.project = 'p-echo';
@@ -529,5 +533,495 @@ describe('the conventions', () => {
     expect(tool('list_tasks').input.safeParse({ due: 'soon' }).success).toBe(
       false,
     );
+  });
+});
+
+/* ---- The write tools (#154) ---------------------------------------------- */
+
+/** `seeded()`, with a token that may write. */
+async function writer(): Promise<McpToolContext> {
+  return { ...(await seeded()), scopes: ['read', 'write'] };
+}
+
+/** A socket open on the object's `main`, as a tab would have. */
+async function tab(ctx: McpToolContext) {
+  const response = await ctx.datapad.fetch(
+    new Request('https://datapad.test/ws', {
+      headers: { Upgrade: 'websocket' },
+    }),
+  );
+  const ws = response.webSocket;
+  if (!ws) throw new Error('No socket');
+  const queue: ServerMessage[] = [];
+  const waiting: ((m: ServerMessage) => void)[] = [];
+  ws.addEventListener('message', (event) => {
+    const message = JSON.parse(String(event.data)) as ServerMessage;
+    const waiter = waiting.shift();
+    if (waiter) waiter(message);
+    else queue.push(message);
+  });
+  ws.accept();
+  const next = () =>
+    new Promise<ServerMessage>((resolve) => {
+      const queued = queue.shift();
+      if (queued) resolve(queued);
+      else waiting.push(resolve);
+    });
+  expect((await next()).type).toBe('snapshot');
+  return { ws, next };
+}
+
+const lines = (out: Json) =>
+  out.activity.map((a: { text: string }) => a.text) as string[];
+
+describe('the write tools', () => {
+  it('add_task: names to ids, words to dates, mentions to tokens, the activity line', async () => {
+    const ctx = await writer();
+    const out = await call(ctx, 'add_task', {
+      title: 'Order more tauntaun feed',
+      project: 'echo base',
+      assignee: 'me',
+      due: 'fri',
+      priority: 'high',
+      desc: 'Ask @Han Solo which supplier.',
+      tags: ['logistics'],
+      today: TODAY,
+    });
+    expect(out.task).toMatchObject({
+      title: 'Order more tauntaun feed',
+      project: { id: 'p-echo', name: 'Echo Base relocation' },
+      assignee: { id: 'u-leia', name: 'Leia Organa' },
+      due: '2026-10-30',
+      priority: 'high',
+      status: 'open',
+      desc: 'Ask @Han Solo which supplier.',
+      tags: ['logistics'],
+    });
+    expect(out.activity).toEqual([
+      {
+        project: { id: 'p-echo', name: 'Echo Base relocation' },
+        text: 'Added task "Order more tauntaun feed"',
+      },
+    ]);
+    const { state } = await ctx.datapad.snapshot(MAIN_SPACE);
+    const stored = state.tasks[out.task.id];
+    expect(stored?.desc).toBe('Ask @{u-han} which supplier.');
+    expect(out.task.id).toMatch(/^[0-9a-z]{16}$/);
+
+    const general = await call(ctx, 'add_task', { title: 'Sweep the hangar' });
+    expect(general.task.project).toBeNull();
+    expect(general.activity[0].project).toBeNull();
+
+    const item = await call(ctx, 'add_task', {
+      title: 'Send the power figures',
+      meeting: 'Shield review',
+      project: 'Falcon',
+    });
+    expect(item.task.project.id).toBe('p-echo');
+    expect(item.task.meeting.id).toBe('e-1');
+    expect(lines(item)).toEqual([
+      'Added action item "Send the power figures" to "Shield review"',
+    ]);
+
+    expect(
+      await fails(ctx, 'add_task', { title: 'X', due: 'someday' }),
+    ).toMatch(/not a day/);
+    expect(await fails(ctx, 'add_task', { title: 'X', assignee: 'Yoda' })).toBe(
+      'No person matches "Yoda".',
+    );
+  });
+
+  it('complete_task and reopen_task, idempotent', async () => {
+    const ctx = await writer();
+    const done = await call(ctx, 'complete_task', { task: 't-1' });
+    expect(done.task.status).toBe('done');
+    expect(done.task.completedAt).toBeTruthy();
+    expect(lines(done)).toEqual(['Closed "Confirm shield generator delivery"']);
+    const again = await call(ctx, 'complete_task', { task: 't-1' });
+    expect(again.activity).toEqual([]);
+
+    const open = await call(ctx, 'reopen_task', { task: 'shield generator' });
+    expect(open.task.status).toBe('open');
+    expect(lines(open)).toEqual([
+      'Reopened "Confirm shield generator delivery"',
+    ]);
+  });
+
+  it('edit_task: only the fields given, and "none" clears the due date', async () => {
+    const ctx = await writer();
+    const out = await call(ctx, 'edit_task', {
+      task: 't-4',
+      title: 'Book the tauntaun vet for Thursday',
+      due: 'none',
+      assignee: 'Chewbacca',
+      tags: ['animals'],
+    });
+    expect(out.task).toMatchObject({
+      title: 'Book the tauntaun vet for Thursday',
+      due: '',
+      assignee: { id: 'u-chewie' },
+      tags: ['animals'],
+    });
+    expect(lines(out)).toEqual([
+      'Edited task "Book the tauntaun vet for Thursday"',
+    ]);
+    const unassigned = await call(ctx, 'edit_task', {
+      task: 't-4',
+      assignee: 'unassigned',
+    });
+    expect(unassigned.task.assignee).toBeNull();
+    expect(await fails(ctx, 'edit_task', { task: 't-4' })).toMatch(
+      /Nothing to change/,
+    );
+  });
+
+  it('set_blocked: on a person with a note, then unblocked', async () => {
+    const ctx = await writer();
+    const out = await call(ctx, 'set_blocked', {
+      task: 't-1',
+      on: 'Han',
+      note: 'The manifest',
+    });
+    expect(out.task.blocked).toEqual({
+      on: { id: 'u-han', name: 'Han Solo' },
+      note: 'The manifest',
+    });
+    expect(lines(out)).toEqual([
+      'Blocked "Confirm shield generator delivery" on Han Solo',
+    ]);
+    const off = await call(ctx, 'set_blocked', { task: 't-1', blocked: false });
+    expect(off.task.blocked).toBeNull();
+    expect(lines(off)).toEqual([
+      'Unblocked "Confirm shield generator delivery"',
+    ]);
+  });
+
+  it('add_note: in a project, on a meeting, on a task; not both', async () => {
+    const ctx = await writer();
+    const plain = await call(ctx, 'add_note', {
+      body: 'Talked to @Mon Mothma about the budget.',
+      project: 'p-falcon',
+    });
+    expect(plain.note).toMatchObject({
+      project: { id: 'p-falcon' },
+      body: 'Talked to @Mon Mothma about the budget.',
+      meeting: null,
+      task: null,
+    });
+    expect(lines(plain)).toEqual(['Added a note']);
+    const { state } = await ctx.datapad.snapshot(MAIN_SPACE);
+    expect(state.notes[plain.note.id]?.body).toBe(
+      'Talked to @{u-mon} about the budget.',
+    );
+    expect(state.notes[plain.note.id]?.phase).toBeNull();
+
+    const onMeeting = await call(ctx, 'add_note', {
+      body: 'Power budget agreed.',
+      meeting: 'e-1',
+    });
+    expect(onMeeting.note.meeting.id).toBe('e-1');
+    expect(onMeeting.note.project.id).toBe('p-echo');
+
+    const onTask = await call(ctx, 'add_note', {
+      body: 'Called the depot.',
+      task: 't-6',
+    });
+    expect(onTask.note.task.id).toBe('t-6');
+    expect(onTask.note.project).toBeNull();
+    expect(lines(onTask)).toEqual([
+      'Added a note to "Renew the docking permit"',
+    ]);
+
+    expect(
+      await fails(ctx, 'add_note', { body: 'x', meeting: 'e-1', task: 't-6' }),
+    ).toMatch(/not both/);
+    expect(await fails(ctx, 'add_note', { body: '   ' })).toMatch(/body/);
+  });
+
+  it('add_meeting, add_topic and cover_topic', async () => {
+    const ctx = await writer();
+    const out = await call(ctx, 'add_meeting', {
+      title: 'Hangar walkthrough',
+      date: 'tomorrow',
+      time: '09:30',
+      end: '10:00',
+      project: 'Echo Base',
+      attendees: ['Leia', 'chewbacca'],
+      today: TODAY,
+    });
+    expect(out.meeting).toMatchObject({
+      title: 'Hangar walkthrough',
+      date: '2026-10-28',
+      time: '09:30',
+      end: '10:00',
+      project: { id: 'p-echo' },
+      attendees: [
+        { id: 'u-leia', name: 'Leia Organa' },
+        { id: 'u-chewie', name: 'Chewbacca' },
+      ],
+      topics: [],
+    });
+    expect(lines(out)).toEqual(['Added meeting "Hangar walkthrough"']);
+    const id = out.meeting.id;
+
+    const topic = await call(ctx, 'add_topic', {
+      meeting: id,
+      title: 'Door seals',
+    });
+    expect(topic.topic).toMatchObject({ title: 'Door seals', done: false });
+    expect(lines(topic)).toEqual([
+      'Added topic "Door seals" to "Hangar walkthrough"',
+    ]);
+
+    const covered = await call(ctx, 'cover_topic', {
+      meeting: id,
+      topic: 'door seals',
+      outcome: 'Replace two by Friday',
+    });
+    expect(covered.topic).toMatchObject({
+      done: true,
+      outcome: 'Replace two by Friday',
+    });
+    expect(covered.activity).toEqual([]);
+    const uncovered = await call(ctx, 'cover_topic', {
+      meeting: id,
+      topic: covered.topic.id,
+      done: false,
+    });
+    expect(uncovered.topic).toMatchObject({
+      done: false,
+      outcome: 'Replace two by Friday',
+    });
+
+    expect(
+      await fails(ctx, 'add_meeting', {
+        title: 'Late',
+        date: '2026-10-30',
+        time: '15:00',
+        end: '14:00',
+      }),
+    ).toMatch(/ends before/);
+    expect(
+      await fails(ctx, 'add_meeting', { title: 'Odd', date: '2026-02-30' }),
+    ).toMatch(/not a day/);
+  });
+
+  it('create_project, set_project_status, set_project_health, add_milestone', async () => {
+    const ctx = await writer();
+    const out = await call(ctx, 'create_project', {
+      name: 'Hoth evacuation drill',
+      org: 'rebel alliance',
+      priority: 'med',
+      targetDate: '2026-12-01',
+      members: ['Leia', 'Han'],
+      tags: ['drill'],
+    });
+    expect(out.project).toMatchObject({
+      name: 'Hoth evacuation drill',
+      org: 'Rebel Alliance',
+      status: 'active',
+      health: 'none',
+      priority: 'med',
+      targetDate: '2026-12-01',
+      members: [{ id: 'u-leia' }, { id: 'u-han' }],
+    });
+    expect(lines(out)).toEqual(['Created project']);
+    const { state } = await ctx.datapad.snapshot(MAIN_SPACE);
+    expect(state.projects[out.project.id]?.orgId).toBe('o-rebel');
+
+    const free = await call(ctx, 'create_project', {
+      name: 'Bespin visit',
+      org: 'Cloud City',
+    });
+    expect(free.project.org).toBe('Cloud City');
+
+    const paused = await call(ctx, 'set_project_status', {
+      project: 'Hoth evacuation',
+      status: 'paused',
+    });
+    expect(paused.project.status).toBe('paused');
+    expect(lines(paused)).toEqual(['Status changed to paused']);
+
+    const red = await call(ctx, 'set_project_health', {
+      project: out.project.id,
+      health: 'red',
+    });
+    expect(red.project.health).toBe('red');
+    expect(lines(red)).toEqual(['Health set to red']);
+
+    const milestone = await call(ctx, 'add_milestone', {
+      project: out.project.id,
+      title: 'Dry run',
+      date: '+1w',
+      today: TODAY,
+    });
+    expect(milestone.milestone).toMatchObject({
+      title: 'Dry run',
+      date: '2026-11-03',
+    });
+    expect(milestone.project.milestones).toHaveLength(1);
+    expect(lines(milestone)).toEqual([
+      'Added milestone "Dry run" (Tue 3 Nov 2026)',
+    ]);
+
+    expect(
+      await fails(ctx, 'add_milestone', {
+        project: 'general',
+        title: 'x',
+        date: 'today',
+      }),
+    ).toMatch(/General is not a project/);
+    expect(
+      await fails(ctx, 'create_project', {
+        name: 'Backwards',
+        startDate: '2026-12-01',
+        targetDate: '2026-11-01',
+      }),
+    ).toMatch(/^Not saved: /);
+  });
+
+  it('writes to a space by name, and refuses an unknown one', async () => {
+    const ctx = await writer();
+    const made = await ctx.datapad.createSpace('Falcon');
+    if (!made.ok) throw new Error(made.error);
+    const out = await call(ctx, 'add_task', {
+      space: 'falcon',
+      title: 'Replace the motivator',
+    });
+    expect(out.space).toBe(made.value.id);
+    const { state } = await ctx.datapad.snapshot(made.value.id);
+    expect(state.tasks[out.task.id]?.title).toBe('Replace the motivator');
+    expect(await fails(ctx, 'add_task', { space: 'nope', title: 'x' })).toMatch(
+      /There is no space "nope"/,
+    );
+  });
+
+  it('fans a write out to every open tab, as the op the app would send', async () => {
+    const ctx = await writer();
+    const { ws, next } = await tab(ctx);
+    try {
+      const { seq } = await ctx.datapad.snapshot(MAIN_SPACE);
+      const out = await call(ctx, 'add_task', {
+        title: 'Live from MCP',
+        project: 'p-echo',
+      });
+      const message = await next();
+      expect(message).toMatchObject({
+        type: 'op',
+        seq: seq + 1,
+        op: {
+          type: 'addTask',
+          id: out.task.id,
+          projectId: 'p-echo',
+          title: 'Live from MCP',
+        },
+      });
+      const covered = await call(ctx, 'cover_topic', {
+        meeting: 'e-1',
+        topic: 'North ridge',
+        outcome: 'Surveyed',
+      });
+      expect(covered.topic.done).toBe(true);
+      // Two ops, one change: one batch, one sequence number.
+      const batch = await next();
+      expect(batch).toMatchObject({ type: 'op', seq: seq + 2 });
+      if (batch.type !== 'op') throw new Error('not an op');
+      expect(batch.op.type).toBe('batch');
+    } finally {
+      ws.close();
+    }
+  });
+
+  it('apply() refuses what OpSchema refuses, and dedupes an op id', async () => {
+    const ctx = await writer();
+    const bad = await ctx.datapad.apply(MAIN_SPACE, 'op-1', [
+      { type: 'addTask', id: 'x', projectId: null, title: '' },
+    ]);
+    expect(bad).toEqual({
+      ok: false,
+      error: expect.stringMatching(/required/),
+    });
+    const unknown = await ctx.datapad.apply(MAIN_SPACE, 'op-2', [
+      { type: 'eraseEverything' },
+    ]);
+    expect(unknown.ok).toBe(false);
+    const empty = await ctx.datapad.apply(MAIN_SPACE, 'op-3', []);
+    expect(empty.ok).toBe(false);
+    const nested = await ctx.datapad.apply(MAIN_SPACE, 'op-4', [
+      { type: 'batch', ops: [{ type: 'toggleTask', id: 't-1', done: true }] },
+      { type: 'toggleTask', id: 't-2', done: true },
+    ]);
+    expect(nested.ok).toBe(false);
+    const reduced = await ctx.datapad.apply(MAIN_SPACE, 'op-5', [
+      { type: 'toggleTask', id: 'no-such-task', done: true },
+    ]);
+    expect(reduced).toEqual({ ok: false, error: 'That task no longer exists' });
+
+    const op = { type: 'toggleTask', id: 't-1', done: true };
+    const first = await ctx.datapad.apply(MAIN_SPACE, 'op-6', [op]);
+    expect(first).toMatchObject({ ok: true, replay: false });
+    const replay = await ctx.datapad.apply(MAIN_SPACE, 'op-6', [op]);
+    expect(replay).toMatchObject({ ok: true, replay: true, activity: [] });
+    if (!first.ok || !replay.ok) throw new Error('refused');
+    expect(replay.seq).toBe(first.seq);
+  });
+
+  it('a read-only token neither sees nor runs a write tool', async () => {
+    const ctx = await seeded();
+    const post = async (body: unknown) =>
+      (await (
+        await handleMcpPost(
+          new Request('https://datapad.test/mcp', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          }),
+          {
+            tools: TOOLS,
+            context: ctx,
+            instructions: '',
+            admit: async () => true,
+            limited: '',
+          },
+        )
+      ).json()) as Json;
+    const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    const names = list.result.tools.map((t: { name: string }) => t.name);
+    expect(names).toHaveLength(13);
+    expect(names).not.toContain('add_task');
+    const refused = await post({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'add_task', arguments: { title: 'Sneaky' } },
+    });
+    expect(refused.result.isError).toBe(true);
+    const { state } = await ctx.datapad.snapshot(MAIN_SPACE);
+    expect(Object.values(state.tasks).some((t) => t.title === 'Sneaky')).toBe(
+      false,
+    );
+  });
+
+  it('every write tool needs the write scope, and none is destructive', () => {
+    const writes = TOOLS.filter((t) => t.scope === 'write');
+    expect(writes.map((t) => t.name)).toEqual([
+      'add_task',
+      'complete_task',
+      'reopen_task',
+      'edit_task',
+      'set_blocked',
+      'add_note',
+      'add_meeting',
+      'add_topic',
+      'cover_topic',
+      'create_project',
+      'set_project_status',
+      'set_project_health',
+      'add_milestone',
+    ]);
+    for (const t of writes) {
+      expect(t.annotations.readOnlyHint, t.name).toBe(false);
+      expect(t.annotations.destructiveHint, t.name).toBe(false);
+      expect(t.name, t.name).not.toMatch(/delete|remove|erase|archive|import/);
+    }
   });
 });
