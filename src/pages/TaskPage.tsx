@@ -43,7 +43,7 @@ export function TaskPage({ id }: { id: string }) {
   const clock = useClock();
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { editBlocked } = useBlocked();
   const { show } = useToast();
   const { toggle, isDone } = useTaskToggle();
@@ -131,14 +131,16 @@ export function TaskPage({ id }: { id: string }) {
               {done ? <ArrowCounterClockwiseIcon /> : <CheckIcon />}
               {done ? 'Reopen' : 'Close'}
             </Button>
-            <Button
-              variant="outline"
-              className="press"
-              onClick={() => summarize({ kind: 'task', id: task.id })}
-            >
-              <SparkleIcon />
-              Summarize
-            </Button>
+            {summariesOn && (
+              <Button
+                variant="outline"
+                className="press"
+                onClick={() => summarize({ kind: 'task', id: task.id })}
+              >
+                <SparkleIcon />
+                Summarize
+              </Button>
+            )}
             <Button
               variant="outline"
               className="press"

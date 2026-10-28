@@ -19,6 +19,7 @@ commit `.dev.vars`.
 | Where each whiteboard was left scrolled  | `localStorage` (`datapad:board-view:…`) in each browser                                                                                                                                              | That browser profile                                 |
 | Summary model weights                    | The browser's cache, downloaded from Hugging Face after you agree                                                                                                                                    | That browser profile                                 |
 | Summary model choice                     | `localStorage` (`datapad:summary-model`) in each browser                                                                                                                                             | That browser profile                                 |
+| Summaries on or off                      | `localStorage` (`datapad:summaries`, `off` while off) in each browser                                                                                                                                | That browser profile                                 |
 
 **Spaces.** Your object holds one or more spaces, each a complete,
 separate Datapad: its own projects, tasks, notes, meetings, people, orgs,

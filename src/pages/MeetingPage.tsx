@@ -55,7 +55,7 @@ export function MeetingPage({ id }: { id: string }) {
   const clock = useClock();
   const { state, actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { show } = useToast();
   const today = useToday();
   const meeting = state?.meetings[id];
@@ -148,14 +148,16 @@ export function MeetingPage({ id }: { id: string }) {
             {meeting.title}
           </h1>
           <div className="flex flex-wrap gap-1">
-            <Button
-              variant="outline"
-              className="press"
-              onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
-            >
-              <SparkleIcon />
-              Summarize
-            </Button>
+            {summariesOn && (
+              <Button
+                variant="outline"
+                className="press"
+                onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
+              >
+                <SparkleIcon />
+                Summarize
+              </Button>
+            )}
             <Button
               variant="outline"
               className="press"

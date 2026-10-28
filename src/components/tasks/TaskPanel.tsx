@@ -74,7 +74,7 @@ export function TaskPanel({
   const clock = useClock();
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const people = state?.people ?? {};
   const read = (t: Task): Values => ({
     title: t.title,
@@ -198,15 +198,17 @@ export function TaskPanel({
       onSubmit={save}
       footer={
         <>
-          <Button
-            type="button"
-            variant="ghost"
-            className="press"
-            onClick={() => summarize({ kind: 'task', id: task.id })}
-          >
-            <SparkleIcon />
-            Summarize
-          </Button>
+          {summariesOn && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="press"
+              onClick={() => summarize({ kind: 'task', id: task.id })}
+            >
+              <SparkleIcon />
+              Summarize
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"

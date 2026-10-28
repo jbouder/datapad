@@ -60,7 +60,7 @@ import { useToast } from '@/providers/ToastProvider';
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
   const { openProjectForm } = useProjectForm();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { newTemplate } = useTemplateForm();
   const { newMeeting } = useMeetingForm();
   const { newTask } = useTaskPanels();
@@ -201,14 +201,16 @@ export function ProjectPage({ id }: { id: string }) {
             {project.name}
           </h1>
           <div className="flex flex-wrap gap-1">
-            <Button
-              variant="outline"
-              className="press h-11 desk:h-8"
-              onClick={() => summarize({ kind: 'project', id: project.id })}
-            >
-              <SparkleIcon />
-              Summarize
-            </Button>
+            {summariesOn && (
+              <Button
+                variant="outline"
+                className="press h-11 desk:h-8"
+                onClick={() => summarize({ kind: 'project', id: project.id })}
+              >
+                <SparkleIcon />
+                Summarize
+              </Button>
+            )}
             <Button
               variant="outline"
               className="press h-11 desk:h-8"

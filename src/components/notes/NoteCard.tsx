@@ -78,7 +78,7 @@ export function NoteCard({
   const clock = useClock();
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
-  const { summarize } = useSummaries();
+  const { summarize, enabled: summariesOn } = useSummaries();
   const { openTask } = useTaskPanels();
   const { newNoteTemplate } = useTemplateForm();
   const templates = useNoteTemplates();
@@ -479,16 +479,18 @@ export function NoteCard({
             <CheckSquareOffsetIcon />
             Make task
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="press h-11 desk:h-7"
-            aria-label="Summarize note"
-            onClick={() => summarize({ kind: 'note', id: note.id })}
-          >
-            <SparkleIcon />
-            Summarize
-          </Button>
+          {summariesOn && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="press h-11 desk:h-7"
+              aria-label="Summarize note"
+              onClick={() => summarize({ kind: 'note', id: note.id })}
+            >
+              <SparkleIcon />
+              Summarize
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
