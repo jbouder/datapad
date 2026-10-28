@@ -222,6 +222,12 @@ npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
 ```
 
+**Biome checks the code, not the docs.** CI runs `bunx biome ci .`, which
+fails on any file Biome would format differently; Markdown is excluded in
+`biome.json`, so docs and `CHANGELOG.md` are formatted by hand. Run
+`npm run check` after the last code edit, and `bunx biome ci .` before
+every commit; it must print no errors.
+
 Run `npm run check && npm run build && npm test` before finishing any change,
 and `npm run e2e` when it touches the UI. Iterate with `npm run e2e:changed`
 against a running preview (build it with `VITE_DEV_COMPONENTS=1 npx vite

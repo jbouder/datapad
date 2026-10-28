@@ -1,6 +1,5 @@
 import {
   ArchiveIcon,
-  ArrowSquareOutIcon,
   ArrowsLeftRightIcon,
   ChalkboardSimpleIcon,
   CopySimpleIcon,
@@ -15,6 +14,7 @@ import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { BoardPreview } from '@/components/board/BoardPreview';
+import { ExternalLink } from '@/components/ExternalLink';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
@@ -301,16 +301,12 @@ export function ProjectPage({ id }: { id: string }) {
           {project.links.map((link, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: links are positional
             <li key={i}>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <ExternalLink
+                url={link.url}
                 className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-foreground"
               >
                 {link.label || link.type}
-                <ArrowSquareOutIcon aria-hidden />
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
+              </ExternalLink>
             </li>
           ))}
         </ul>

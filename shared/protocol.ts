@@ -77,7 +77,20 @@ export interface ConnectionList {
 
 /* ---------- fields ---------- */
 
-const id = z.string().min(1).max(LIMITS.idMax);
+/**
+ * A name every plain object already has (`__proto__`, `constructor`,
+ * `toString`, …). As a key in a collection it would read back an
+ * inherited member, or replace the map's prototype, so it is never an id.
+ */
+export function isReservedKey(key: string): boolean {
+  return key in Object.prototype;
+}
+
+const id = z
+  .string()
+  .min(1)
+  .max(LIMITS.idMax)
+  .refine((v) => !isReservedKey(v), 'That id is reserved');
 const nullableId = id.nullable();
 
 /** `YYYY-MM-DD` that names a real day. */
@@ -478,6 +491,14 @@ function keyedCollection<S extends z.ZodType>(schema: S) {
         : Object.entries(value);
       const out: Record<string, z.output<S>> = {};
       for (const [key, doc] of entries) {
+        if (isReservedKey(key)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'That key is reserved',
+          });
+          continue;
+        }
         const parsed = schema.safeParse(doc);
         if (!parsed.success) {
           for (const issue of parsed.error.issues) {

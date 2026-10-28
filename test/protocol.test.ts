@@ -371,6 +371,43 @@ describe('the export file', () => {
   });
 });
 
+describe('reserved keys', () => {
+  it('never takes a name every object has as an id', () => {
+    for (const id of [
+      '__proto__',
+      'constructor',
+      'toString',
+      'hasOwnProperty',
+    ]) {
+      expect(OpSchema.safeParse({ type: 'deleteTask', id }).success, id).toBe(
+        false,
+      );
+    }
+    for (const key of ['constructor', 'toString']) {
+      const people = ExportSchema.safeParse(
+        JSON.parse(`{"people":{"${key}":{"name":"Leia"}}}`),
+      );
+      expect(people.success, key).toBe(false);
+      const activity = ExportSchema.safeParse(
+        JSON.parse(`{"activity":{"${key}":{"events":[]}}}`),
+      );
+      expect(activity.success, key).toBe(false);
+    }
+  });
+
+  it('drops a __proto__ key without touching any prototype', () => {
+    const parsed = ExportSchema.parse(
+      JSON.parse(
+        '{"people":{"__proto__":{"name":"Leia"}},"activity":{"__proto__":{"events":[]}}}',
+      ),
+    );
+    expect(parsed.people).toEqual({});
+    expect(parsed.activity).toEqual({});
+    expect(Object.getPrototypeOf(parsed.people)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(parsed.activity)).toBe(Object.prototype);
+  });
+});
+
 describe('ops and messages', () => {
   it('accepts a well-formed op and trims its text', () => {
     const op = OpSchema.parse({

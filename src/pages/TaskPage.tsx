@@ -1,6 +1,5 @@
 import {
   ArrowCounterClockwiseIcon,
-  ArrowSquareOutIcon,
   CheckIcon,
   LockSimpleIcon,
   PencilSimpleIcon,
@@ -11,6 +10,7 @@ import { useMemo } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { notesOfTask } from '#shared/select';
 import { blockedOf } from '#shared/types';
+import { ExternalLink } from '@/components/ExternalLink';
 import { Markdown } from '@/components/Markdown';
 import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { noteLocation } from '@/components/notes/useMakeTask';
@@ -200,16 +200,12 @@ export function TaskPage({ id }: { id: string }) {
           {task.links.map((link, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: links are positional
             <li key={i}>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <ExternalLink
+                url={link.url}
                 className="inline-flex min-h-11 items-center gap-1 underline underline-offset-4 hover:text-foreground desk:min-h-0"
               >
                 {link.label || link.type}
-                <ArrowSquareOutIcon aria-hidden />
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
+              </ExternalLink>
             </li>
           ))}
         </ul>

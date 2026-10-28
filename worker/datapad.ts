@@ -175,6 +175,11 @@ const BACKUP_RETRIES = 'backup_retries';
 const BACKUP_RETRY_MS = [15 * 60_000, 60 * 60_000, 4 * 60 * 60_000];
 
 const BACKUP_PREFIX = 'datapad-';
+/**
+ * The copy kept before a destructive change (`keepCopy`). Outside
+ * `BACKUP_PREFIX`, so Settings never lists it and pruning never deletes it.
+ */
+const KEPT_PREFIX = 'before-';
 
 /** One space's documents and how many changes it has seen. */
 interface SpaceData {
@@ -283,6 +288,26 @@ export class DatapadObject extends DurableObject<Bindings> {
       });
     }
     return written;
+  }
+
+  /**
+   * Before erase, delete, import or restore change a space wholesale, its
+   * export goes to R2 at `<folder>before-<what>-<time>.json`, so a mistake
+   * is never worse than one file to import. Nothing lists or prunes these;
+   * they are kept until the owner deletes them. An empty space has nothing
+   * to keep. Throws when R2 does, and the change then does not happen.
+   */
+  private async keepCopy(
+    space: string,
+    before: 'erase' | 'delete' | 'import' | 'restore',
+  ) {
+    if (countRows(this.space(space).state) === 0) return;
+    const at = new Date().toISOString().replace(/[:.]/g, '-');
+    await this.env.BACKUPS.put(
+      `${this.backupFolder(space)}${KEPT_PREFIX}${before}-${at}.json`,
+      JSON.stringify(await this.export(space), null, 2),
+      { httpMetadata: { contentType: 'application/json; charset=utf-8' } },
+    );
   }
 
   private async prune(space: string) {
@@ -417,7 +442,13 @@ export class DatapadObject extends DurableObject<Bindings> {
     const text = await this.readBackup(space, day);
     if (text === null)
       return { ok: false, error: 'There is no backup for that day' };
-    return this.import(space, JSON.parse(text));
+    let file: unknown;
+    try {
+      file = JSON.parse(text);
+    } catch {
+      return { ok: false, error: 'That backup is not readable' };
+    }
+    return this.mergeFile(space, file, 'restore');
   }
 
   /**
@@ -969,7 +1000,16 @@ export class DatapadObject extends DurableObject<Bindings> {
    * snapshot.
    */
   async import(space: string, file: unknown): Promise<ImportOutcome> {
-    const data = this.space(space);
+    return this.mergeFile(space, file, 'import');
+  }
+
+  /** Import and restore: a copy of the space first, then the merge. */
+  private async mergeFile(
+    space: string,
+    file: unknown,
+    before: 'import' | 'restore',
+  ): Promise<ImportOutcome> {
+    this.space(space);
     const parsed = ExportSchema.safeParse(file);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
@@ -980,6 +1020,9 @@ export class DatapadObject extends DurableObject<Bindings> {
           : 'That file is not a Datapad export',
       };
     }
+    await this.keepCopy(space, before);
+    // Read after the copy: an op may have landed while R2 was writing.
+    const data = this.space(space);
     const at = new Date().toISOString();
     const { state, changed } = merge(data.state, parsed.data);
     this.commit(space, state, changed, at);
@@ -1011,10 +1054,12 @@ export class DatapadObject extends DurableObject<Bindings> {
    * another space, which is used up either way.
    */
   async erase(space: string, token: string): Promise<boolean> {
-    const data = this.space(space);
+    this.space(space);
     if (!this.takeEraseToken(space, token)) {
       return false;
     }
+    await this.keepCopy(space, 'erase');
+    const data = this.space(space);
     const changed: Changed[] = COLLECTIONS.flatMap((col) =>
       Object.keys(data.state[col]).map((id) => ({
         col,
@@ -1209,6 +1254,15 @@ export class DatapadObject extends DurableObject<Bindings> {
         ok: false,
         why: 'token',
         error: 'That confirmation has expired. Ask for a new one.',
+      };
+    }
+    await this.keepCopy(id, 'delete');
+    // Another delete may have run while R2 was writing.
+    if (this.spaces.length <= 1) {
+      return {
+        ok: false,
+        why: 'refused',
+        error: 'This is your only space, so it cannot be deleted',
       };
     }
     const doomed = this.ctx

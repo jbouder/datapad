@@ -441,3 +441,105 @@ describe('backups per space', () => {
     expect(file.tasks).toEqual({});
   });
 });
+
+describe('a copy before a destructive change', () => {
+  /** The copies kept for `space`'s folder, by what came after them. */
+  async function kept(email: string, folder = '') {
+    const listed = await bindings.BACKUPS.list({
+      prefix: `${email}/${folder}before-`,
+    });
+    return listed.objects.map((o) =>
+      o.key.slice(`${email}/${folder}before-`.length).replace(/-\d.*$/, ''),
+    );
+  }
+
+  async function copyOf(email: string, what: string) {
+    const listed = await bindings.BACKUPS.list({
+      prefix: `${email}/before-${what}-`,
+    });
+    const key = listed.objects[0]?.key ?? '';
+    return (await (await bindings.BACKUPS.get(key))?.json()) as {
+      tasks: object;
+    };
+  }
+
+  it('keeps the space before erasing it, and lists it nowhere', async () => {
+    const { email, stub } = await seeded();
+    const before = await stub.export(MAIN_SPACE);
+
+    // A wrong token keeps nothing and erases nothing.
+    await stub.eraseToken(MAIN_SPACE);
+    expect(await stub.erase(MAIN_SPACE, 'wrong')).toBe(false);
+    expect(await kept(email)).toEqual([]);
+
+    const { token } = await stub.eraseToken(MAIN_SPACE);
+    expect(await stub.erase(MAIN_SPACE, token)).toBe(true);
+    expect(await kept(email)).toEqual(['erase']);
+    expect((await copyOf(email, 'erase')).tasks).toEqual(before.tasks);
+    expect(await stub.listBackups(MAIN_SPACE)).toEqual([]);
+
+    // Erasing an empty space has nothing to keep.
+    const again = await stub.eraseToken(MAIN_SPACE);
+    expect(await stub.erase(MAIN_SPACE, again.token)).toBe(true);
+    expect(await kept(email)).toEqual(['erase']);
+  });
+
+  it('erases nothing when the copy cannot be written', async () => {
+    const { email, stub } = await seeded();
+    const restore = await breakR2(stub);
+    const { token } = await stub.eraseToken(MAIN_SPACE);
+    const response = await as(email)(
+      new Request('http://datapad.test/api/erase', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }),
+      bindings,
+    );
+    expect(response.status).toBe(500);
+    await restore();
+    expect(Object.keys((await stub.export(MAIN_SPACE)).tasks)).toEqual(
+      Object.keys(fixture.tasks),
+    );
+    expect(await kept(email)).toEqual([]);
+  });
+
+  it('keeps the space before an import or a restore, not into an empty one', async () => {
+    const { email, stub } = await seeded();
+    // seeded() imported into an empty space.
+    expect(await kept(email)).toEqual([]);
+    expect((await stub.import(MAIN_SPACE, { tasks: fixture.tasks })).ok).toBe(
+      true,
+    );
+    expect(await kept(email)).toEqual(['import']);
+    // A file that is not an export keeps nothing.
+    expect((await stub.import(MAIN_SPACE, { tasks: 'no' })).ok).toBe(false);
+    expect(await kept(email)).toEqual(['import']);
+
+    await bindings.BACKUPS.put(
+      `${email}/datapad-2026-01-02.json`,
+      JSON.stringify(fixture),
+    );
+    expect((await stub.restoreBackup(MAIN_SPACE, '2026-01-02')).ok).toBe(true);
+    expect((await kept(email)).sort()).toEqual(['import', 'restore']);
+  });
+
+  it('keeps a space in its own folder before deleting it', async () => {
+    const { email, stub } = await seeded();
+    await withSpace(stub, 'hoth');
+    await stub.import('hoth', { tasks: fixture.tasks });
+    const { token } = await stub.eraseToken('hoth');
+    expect(await stub.deleteSpace('hoth', token)).toEqual({ ok: true });
+    expect(await kept(email, 'hoth/')).toEqual(['delete']);
+    expect(await kept(email)).toEqual([]);
+  });
+
+  it('says so when a backup cannot be read', async () => {
+    const { email, stub } = await seeded();
+    await bindings.BACKUPS.put(`${email}/datapad-2026-01-03.json`, 'not json');
+    expect(await stub.restoreBackup(MAIN_SPACE, '2026-01-03')).toEqual({
+      ok: false,
+      error: 'That backup is not readable',
+    });
+  });
+});

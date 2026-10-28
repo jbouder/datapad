@@ -2,7 +2,6 @@ import {
   ArrowBendDownRightIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  ArrowSquareOutIcon,
   PencilSimpleIcon,
   SparkleIcon,
   TrashIcon,
@@ -19,6 +18,7 @@ import {
 } from '#shared/meetings';
 import { notesOfMeeting } from '#shared/select';
 import type { Meeting, Person } from '#shared/types';
+import { ExternalLink } from '@/components/ExternalLink';
 import { Initials } from '@/components/Initials';
 import { MeetingActionItems } from '@/components/meetings/MeetingActionItems';
 import {
@@ -232,16 +232,12 @@ export function MeetingPage({ id }: { id: string }) {
           )}
           {meeting.link && (
             <li>
-              <a
-                href={meeting.link}
-                target="_blank"
-                rel="noopener noreferrer"
+              <ExternalLink
+                url={meeting.link}
                 className="inline-flex min-h-11 items-center gap-1 underline underline-offset-4 hover:text-foreground desk:min-h-0"
               >
                 Join or open
-                <ArrowSquareOutIcon aria-hidden />
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
+              </ExternalLink>
             </li>
           )}
         </ul>

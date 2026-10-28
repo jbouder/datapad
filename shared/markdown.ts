@@ -153,8 +153,10 @@ const INLINE = new RegExp(
 );
 
 /** Only these schemes become links; anything else stays text. */
+export const SAFE_SCHEME = /^(https?:\/\/|mailto:)/i;
+
 export function safeHref(url: string): string | null {
-  return /^(https?:\/\/|mailto:)/i.test(url) ? url : null;
+  return SAFE_SCHEME.test(url) ? url : null;
 }
 
 /** Trailing punctuation belongs to the sentence, not the URL. */

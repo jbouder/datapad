@@ -10,6 +10,7 @@ import { formatDay } from '#shared/dates';
 import { byWhen } from '#shared/meetings';
 import { organizePlan, orgProjects, unorganized } from '#shared/orgs';
 import { healthOf, type Org, settingsOf } from '#shared/types';
+import { ExternalLink } from '@/components/ExternalLink';
 import { Field } from '@/components/Field';
 import { Initials } from '@/components/Initials';
 import { Markdown } from '@/components/Markdown';
@@ -367,15 +368,13 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
             <ul className="flex flex-col gap-1 text-sm">
               {org.links.map((l) => (
                 <li key={l.url}>
-                  <a
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <ExternalLink
+                    url={l.url}
+                    icon={false}
                     className="underline underline-offset-4"
                   >
                     {l.label || l.url}
-                    <span className="sr-only"> (opens in a new tab)</span>
-                  </a>
+                  </ExternalLink>
                 </li>
               ))}
             </ul>

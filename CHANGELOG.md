@@ -68,6 +68,15 @@ under **Export format**.
   policy is in docs/self-hosting.md. zod is now 4.6.6 or later (a
   memory-exhaustion advisory in validation, GHSA-mrhx-c7xc-m3w5), and
   the tooling's undici 7.30.1 or later.
+- **Security review** (#39): docs/security.md lists every path with its
+  check, reviews erase, import and restore, and records the findings. The
+  live socket now refuses a connection from another site's page. A link
+  saved on a project, task, org or meeting opens only if it is `https:`,
+  `http:` or `mailto:`; anything else shows as text. Erasing or deleting a
+  space, importing and restoring first save a copy of the space to R2
+  (`before-<what>-<time>.json`) and do nothing if they cannot. Ids that
+  every JavaScript object already has (`__proto__`, `toString`) are
+  refused.
 
 ## [0.1.0] — 2026-10-27
 
