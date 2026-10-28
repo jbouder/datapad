@@ -16,7 +16,12 @@ import {
 } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
 import { type AccessVerifier, verifyAccess } from './access';
-import { type DatapadObject, isNoSuchSpace } from './datapad';
+import {
+  type DatapadObject,
+  isNewerSchema,
+  isNoSuchSpace,
+  NEWER_SCHEMA,
+} from './datapad';
 import type { Bindings } from './env';
 import { authorize } from './mcp/authorize';
 import { listConnections, revokeConnection } from './mcp/connections';
@@ -192,14 +197,17 @@ export function createHandler(verify: AccessVerifier) {
         // Upgrades travel as a fetch; RPC cannot carry a socket. The name
         // comes from the verified email and nowhere else. The request goes
         // on with its query, whose `space` the object reads (falling back
-        // to the first space, never to another object).
-        return env.DATAPAD.getByName(email).fetch(request);
+        // to the first space, never to another object). Awaited, so a
+        // refusal (NEWER_SCHEMA) reaches the catch below.
+        return await env.DATAPAD.getByName(email).fetch(request);
       }
 
       return env.ASSETS.fetch(request);
     } catch (error) {
       // Every scoped call refuses a space this user does not have.
       if (isNoSuchSpace(error)) return noSuchSpace();
+      // A rolled-back Worker over newer data: every route, /ws included.
+      if (isNewerSchema(error)) return json({ error: NEWER_SCHEMA }, 503);
       console.error(
         JSON.stringify({
           level: 'error',
@@ -243,7 +251,8 @@ const API_ROUTES: Record<string, ApiRoute> = {
   // Is this user's object reachable? Behind Access like everything else,
   // so a signed-out client gets 401 (or Access's redirect) here too, which
   // is how the app tells a lapsed session from a dropped socket. It says
-  // nothing about the data.
+  // nothing about the data, except that it is from a newer version when
+  // the Worker was rolled back past a schema bump (NEWER_SCHEMA).
   '/api/health': {
     method: 'GET',
     scoped: false,
@@ -259,7 +268,10 @@ const API_ROUTES: Record<string, ApiRoute> = {
             error: error instanceof Error ? error.message : String(error),
           }),
         );
-        return json({ ok: false, error: 'Datapad is not reachable' }, 503);
+        const reason = isNewerSchema(error)
+          ? NEWER_SCHEMA
+          : 'Datapad is not reachable';
+        return json({ ok: false, error: reason }, 503);
       }
     },
   },

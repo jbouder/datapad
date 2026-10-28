@@ -1,5 +1,6 @@
 import type { OAuthResourceContext } from '@cloudflare/workers-oauth-provider';
 import { LIMITS } from '#shared/limits';
+import { isNewerSchema, NEWER_SCHEMA } from '../datapad';
 import { type Bindings, ownerTimeZone } from '../env';
 import type { McpProps, Scope } from './oauth';
 import { SCOPES } from './oauth';
@@ -87,7 +88,12 @@ export const mcpApiHandler = {
         {
           jsonrpc: '2.0',
           id: null,
-          error: { code: -32603, message: 'Something went wrong' },
+          error: {
+            code: -32603,
+            message: isNewerSchema(error)
+              ? NEWER_SCHEMA
+              : 'Something went wrong',
+          },
         },
         { status: 500, headers: MCP_HEADERS },
       );

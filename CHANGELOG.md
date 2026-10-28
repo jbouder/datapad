@@ -60,6 +60,16 @@ under **Export format**.
   docs/accessibility.md is the conformance statement, with every drag's
   keyboard and touch way.
 
+### Fixed
+
+- **Rolling back past a schema bump** (#227): a Worker older than your
+  data's schema no longer runs over it. The object reads and writes
+  nothing, the nightly backup included; every call, the socket and
+  `GET /api/health` answer 503 "This Datapad's data is from a newer
+  version; deploy that version again". docs/self-hosting.md has a
+  **Rolling back** section: `wrangler rollback`, and what to do across a
+  schema bump.
+
 ### Security
 
 - **Supply chain checks** (#57): CodeQL on every pull request and weekly;
