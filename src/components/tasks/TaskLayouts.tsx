@@ -56,7 +56,7 @@ export interface TaskLayoutProps {
   isDone: (task: Task) => boolean;
   toggle: (task: Task) => void;
   openTask: (id: string) => void;
-  /** Run ops as one change; the toast offers Undo (puts the tasks back). */
+  /** Run ops as one change; the toast offers Undo (`undoTaskOps`). */
   change: (ops: Op[], before: Task[], message: string) => void;
   onSort?: (column: string) => void;
 }

@@ -109,6 +109,12 @@ under **Export format**.
 
 ### Fixed
 
+- **Undo keeps edits made since** (#235): Undo of a bulk close, move,
+  assign, due date or delete, or of a drag on the Tasks board, puts back
+  only what that change did, through the same checked changes the app
+  makes, so an edit from another tab or MCP in between stays. It is
+  refused, with the reason, when the task's project was deleted since,
+  and Activity says what it did (a deleted task logs "Restored task").
 - **Rolling back past a schema bump** (#227): a Worker older than your
   data's schema no longer runs over it. The object reads and writes
   nothing, the nightly backup included; every call, the socket and

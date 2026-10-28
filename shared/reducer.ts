@@ -421,6 +421,8 @@ function apply(d: Draft, op: Op, now: string) {
       touch(d, t.projectId, now);
       return;
     }
+    case 'restoreTask':
+      return restoreTask(d, op, now);
 
     /* projects */
     case 'createProject': {
@@ -1144,6 +1146,12 @@ function apply(d: Draft, op: Op, now: string) {
       });
       return;
     }
+
+    default: {
+      // An op added to OpSchema without a case here fails to compile.
+      const unhandled: never = op;
+      fail(`Unknown change: ${(unhandled as { type: string }).type}`);
+    }
   }
 }
 
@@ -1212,6 +1220,34 @@ function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
     now,
   );
   touch(d, projectId, now);
+}
+
+/**
+ * Undo of a delete puts the task back as it was, checked like a new one:
+ * its id free and its project there. What it pointed at that has gone
+ * since (a meeting, the assignee, who blocks it) is dropped, not kept
+ * dangling. Its notes kept their link, so they are its notes again.
+ */
+function restoreTask(d: Draft, op: OpOf<'restoreTask'>, now: string) {
+  const t = op.task;
+  fresh(d, 'tasks', t.id, 'task');
+  checkProject(d, t.projectId);
+  const { meetingId, blocked, ...rest } = t;
+  const next: Task = {
+    ...rest,
+    assignee: t.assignee && d.get('people', t.assignee) ? t.assignee : '',
+    updatedAt: now,
+  };
+  if (meetingId && d.get('meetings', meetingId)) next.meetingId = meetingId;
+  if (blocked) {
+    next.blocked =
+      blocked.on && !d.get('people', blocked.on)
+        ? { ...blocked, on: null }
+        : blocked;
+  }
+  d.set('tasks', t.id, next);
+  log(d, t.projectId, `Restored task "${t.title}"`, now);
+  touch(d, t.projectId, now);
 }
 
 /* ---------- whiteboards ---------- */

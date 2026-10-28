@@ -865,6 +865,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editTask'), id, patch: patch(taskFields) }),
   /** Keeps the task's notes. */
   z.object({ type: z.literal('deleteTask'), id }),
+  /**
+   * Undo of a delete: the task as it was, back under its id. Refused if
+   * the id is taken or its project is gone; a meeting, assignee or
+   * blocker that has gone since is dropped. Logs `Restored task "<title>"`.
+   */
+  z.object({ type: z.literal('restoreTask'), task: TaskSchema }),
   /** Logs "Blocked "<title>" on <name>" or "Unblocked "<title>"". */
   z.object({
     type: z.literal('setBlocked'),
