@@ -171,6 +171,11 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   commit, fan-out to the space's sockets). No tool or RPC changes a space
   for MCP any other way, and no MCP tool deletes, archives, erases,
   imports, restores, moves between spaces or touches spaces or settings.
+  That rule lives in `MCP_OP_TYPES` (`shared/protocol.ts`), the op types
+  `apply()` lets through, alone or inside a `batch`; anything else refuses
+  the whole change. A new tool that needs another op adds it there
+  deliberately (`test/mcp-tools.test.ts` holds the list to exactly what
+  the tools send), and never a delete, archive, `put` or `remove`.
 - **The repository is public.** No real data in fixtures, tests or docs;
   never commit `.dev.vars`.
 - **Help and the docs stay true.** Help's shortcut, `/` command,

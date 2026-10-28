@@ -77,6 +77,11 @@ under **Export format**.
   (`before-<what>-<time>.json`) and do nothing if they cannot. Ids that
   every JavaScript object already has (`__proto__`, `toString`) are
   refused.
+- **MCP can only add and edit, enforced where it writes** (#229): the
+  Durable Object refuses any op from a connected app that is not one the
+  write tools send (`MCP_OP_TYPES`), alone or inside a batch, so no client
+  can delete, archive or overwrite a document even by building the op
+  itself. The whole change is refused and nothing is written.
 
 ## [0.1.0] — 2026-10-27
 
