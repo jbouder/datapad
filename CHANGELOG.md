@@ -40,6 +40,18 @@ under **Export format**.
   "+3d"), mentions `@Name`. Nothing can be deleted over MCP.
 - **Settings → Connected apps** (#154): the MCP apps you approved, with
   what each may do, when it connected and was last used, and Revoke.
+- **When something fails, Datapad says so and recovers** (#58). An ended
+  Access session shows **Sign in again** instead of a socket that never
+  reconnects; waiting changes and drafts are kept. A page that breaks shows
+  **This view stopped working** with Reload this view, and the rest of the
+  app keeps working. A call that gets no answer says "Could not reach
+  Datapad" instead of the browser's "Failed to fetch".
+- **A failed nightly backup is retried** after 15 minutes, an hour and four
+  hours, and **Settings → Backups** shows when the last one ran, in warn
+  colour when the latest attempt failed or a space has gone two days
+  without one.
+- `GET /api/health` answers whether your Datapad is reachable (no data);
+  docs/architecture.md lists every failure path and every log line.
 
 ### Security
 

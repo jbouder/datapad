@@ -38,10 +38,8 @@ import { useToast } from '@/providers/ToastProvider';
 const ICON_BUTTON = 'press size-11 desk:size-8';
 
 function message(error: unknown, fallback: string): string {
-  if (error instanceof SignedOutError) {
-    window.location.reload();
-    return fallback;
-  }
+  // Signed out: the app shows "Sign in again" in place of this.
+  if (error instanceof SignedOutError) return fallback;
   return error instanceof Error && error.message ? error.message : fallback;
 }
 

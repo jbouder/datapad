@@ -230,6 +230,29 @@ export function spaceOf(request: Request): string {
  * a 404.
  */
 const API_ROUTES: Record<string, ApiRoute> = {
+  // Is this user's object reachable? Behind Access like everything else,
+  // so a signed-out client gets 401 (or Access's redirect) here too, which
+  // is how the app tells a lapsed session from a dropped socket. It says
+  // nothing about the data.
+  '/api/health': {
+    method: 'GET',
+    scoped: false,
+    handle: async (_request, datapad) => {
+      try {
+        await datapad.ping();
+        return json({ ok: true });
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            what: 'health',
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        return json({ ok: false, error: 'Datapad is not reachable' }, 503);
+      }
+    },
+  },
   '/api/spaces': {
     method: 'GET',
     scoped: false,

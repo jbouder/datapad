@@ -10,6 +10,7 @@ Browser ──HTTPS──▶ Cloudflare Access (login, session cookie, signed JW
                    Worker (worker/index.ts)
                       ├─ verifyAccess(): Cf-Access-Jwt-Assertion → email, else 401
                       ├─ GET  /api/config                 { email }
+                      ├─ GET  /api/health                 DO.ping() → { ok }        no data
                       │  on one space, ?space= (missing → main, unknown → 404):
                       ├─ GET  /api/export.json            DO.export(space)
                       ├─ POST /api/import                 DO.import(space, json)   merge by id
@@ -235,7 +236,9 @@ involved.
 Each object books a Durable Object alarm for `BACKUP_HOUR` in
 `BACKUP_TIME_ZONE` (`shared/schedule.ts`, holocron's reset-time maths). The
 alarm writes each non-empty space's export to R2, prunes each space's
-folder to 30 and books the next night. `main` writes to
+folder to 30 and books the next night. A failed run is logged, kept as
+`failedAt` (Settings → Backups says so in `warn`), and retried after 15
+minutes, an hour and four hours, then on the next night. `main` writes to
 `<email>/datapad-YYYY-MM-DD.json`, where backups were before spaces; any
 other space to `<email>/<spaceId>/datapad-YYYY-MM-DD.json` (the email is
 the object's own name, `ctx.id.name`). A socket connection catches up a missed night. `GET
@@ -245,3 +248,44 @@ route, so nobody can list or read another user's folder, and take
 `?space=` like the other scoped routes. Restore goes
 through the same `merge()` and transaction as Import. See
 [data.md](data.md#backups).
+
+## Failures
+
+Every failure the owner can meet, what they see, and the test that proves
+it:
+
+| Failure                                      | What the owner sees                                                                                                                                                                                                                                                                               | Test                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| The socket drops, or the device goes offline | Sync status says "Offline, N changes waiting" in `warn`; reads keep working, writes queue (in IndexedDB too) and replay in order on reconnect, which backs off to 15 s and retries at once on `online` or when the tab is shown                                                                   | `e2e/sync.spec.ts`                                                     |
+| The server refuses a change                  | Toast "Not saved: add task “…”. <reason>"; the change is dropped from the queue                                                                                                                                                                                                                   | `e2e/errors.spec.ts`                                                   |
+| An import is not valid                       | Toast naming the file and why ("notes.txt is not JSON")                                                                                                                                                                                                                                           | `e2e/data.spec.ts`                                                     |
+| A call gets no answer                        | Toast "Could not reach Datapad. Check the connection and try again."                                                                                                                                                                                                                              | `e2e/errors.spec.ts`                                                   |
+| A summary fails (download, GPU memory)       | The panel says what happened and offers Try again and Pick another model                                                                                                                                                                                                                          | `e2e/summaries.spec.ts`                                                |
+| The Access session ends mid-session          | When the socket cannot reconnect, `GET /api/health` is asked; a 401 or Access's redirect to its login means signed out, and the app shows "Sign in again" in place of the shell and stops reconnecting. Every other call does the same check (`call()` in `src/lib/api.ts`, `redirect: 'manual'`) | `e2e/errors.spec.ts`                                                   |
+| A page throws while rendering                | "This view stopped working" in place of the page, with Reload this view; the rail, top bar and other pages keep working. A note being written is a draft in sessionStorage and comes back                                                                                                         | `e2e/errors.spec.ts`                                                   |
+| Something outside a page throws              | "Datapad stopped working" and Reload Datapad                                                                                                                                                                                                                                                      | `e2e/errors.spec.ts`                                                   |
+| The nightly backup fails                     | Retried (above); Settings → Backups: "The latest attempt failed … and is retried on its own." in `warn`, or "Last backup: …" in `warn` once a space with data has gone two days without one                                                                                                       | `test/backups.test.ts`, `test/schedule.test.ts`, `e2e/backups.spec.ts` |
+| The object cannot be reached                 | `GET /api/health` answers 503 `{ ok: false }`                                                                                                                                                                                                                                                     | `test/datapad.test.ts`                                                 |
+
+## Logs
+
+`npm run tail` (`wrangler tail`) streams the Worker's and the object's
+logs; Workers observability keeps them in the dashboard. Each line the
+code writes is one JSON object. None carries an email, a token, a request
+body or anything from a document: the path, the error's message, and
+counts.
+
+| Line                                                            | Meaning                                                                                                                                         |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{"level":"error","path":"/api/…","error":"…"}`                 | A route threw something other than "no such space"; the client got 500 `Something went wrong`.                                                  |
+| `{"level":"error","path":"/mcp","error":"…"}`                   | The MCP endpoint threw outside a tool; the client got a JSON-RPC error. Also logged for the OAuth paths (`/oauth/token`, …).                    |
+| `{"level":"error","path":"/mcp","tool":"add_task","error":"…"}` | One MCP tool threw; the client got "The tool failed; the server log has the details."                                                           |
+| `{"level":"error","what":"health","error":"…"}`                 | `GET /api/health` could not reach the object; it answered 503.                                                                                  |
+| `{"level":"info","what":"backup","spaces":2,"bytes":48211}`     | A backup ran: how many spaces it wrote and their total size.                                                                                    |
+| `{"level":"error","what":"backup","error":"…","retryAt":"…"}`   | A backup failed; `retryAt` is the next try. Without `retryAt`, the catch-up on connect failed before it could book one; the alarm is unchanged. |
+| `{"level":"warn","message":"ACCESS DISABLED: …"}`               | The dev bypass is on (`ACCESS_AUD` empty and `DEV_ACCESS_EMAIL` set). Once per isolate. Never in a deployment.                                  |
+
+Cloudflare's own fields come with each line: time, outcome, the request's
+method and URL, and, in `wrangler tail`, the client's IP and country. A
+401 from the Worker logs nothing of its own; Access's logs (Zero Trust →
+Logs) record sign-ins.

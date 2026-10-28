@@ -8,11 +8,13 @@ import type {
   SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE, type SpaceInfo } from '#shared/types';
+import { markSignedOut } from '@/lib/session';
 
 /**
  * The few HTTP calls the app makes. Every one goes to this origin, where
- * Cloudflare Access has already signed the request; a 401 means the Access
- * session ended, so the page reloads into the Access login.
+ * Cloudflare Access has already signed the request. When the Access
+ * session has ended, a call throws `SignedOutError` and the app shows
+ * "Sign in again" (`src/lib/session.ts`).
  *
  * The data calls work on one space, sent as `?space=`. `main` sends none,
  * so its URLs stay exactly what they were before spaces (the Worker reads
@@ -22,6 +24,53 @@ import { MAIN_SPACE, type SpaceInfo } from '#shared/types';
 export class SignedOutError extends Error {
   constructor() {
     super('Signed out');
+  }
+}
+
+/** The request never got an answer: offline, or the Worker is down. */
+export class UnreachableError extends Error {
+  constructor() {
+    super('Could not reach Datapad. Check the connection and try again.');
+  }
+}
+
+/**
+ * `fetch` on this origin, with the session check every call shares. Access
+ * answers a lapsed session with a redirect to its login on another origin,
+ * which `fetch` would follow and fail on as a bare network error;
+ * `redirect: 'manual'` stops that, so the redirect (or the Worker's own
+ * 401, in dev) is recognised as signed out.
+ */
+async function call(path: string, init: RequestInit = {}): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      credentials: 'same-origin',
+      redirect: 'manual',
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    throw new UnreachableError();
+  }
+  if (response.status === 401 || response.type === 'opaqueredirect') {
+    markSignedOut();
+    throw new SignedOutError();
+  }
+  return response;
+}
+
+/**
+ * The socket could not connect: find out whether the session ended (then
+ * the app says so) or the network is just down (then it keeps retrying).
+ */
+export async function probeSession(): Promise<void> {
+  try {
+    await call('/api/health');
+  } catch {
+    // Signed out is already marked; anything else, the socket retries.
   }
 }
 
@@ -37,13 +86,9 @@ export class RefusedError extends Error {
 }
 
 export async function fetchConfig(signal?: AbortSignal): Promise<AppConfig> {
-  const response = await fetch('/api/config', {
+  const response = await call('/api/config', {
     signal,
-    credentials: 'same-origin',
   });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
   if (!response.ok) {
     throw new Error(`Config answered ${response.status}`);
   }
@@ -72,10 +117,7 @@ export function socketUrl(space: string): string {
 
 /** Every space, in switcher order. */
 export async function fetchSpaces(): Promise<SpaceList> {
-  const response = await fetch('/api/spaces', { credentials: 'same-origin' });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call('/api/spaces');
   if (!response.ok) {
     throw new Error(`Spaces answered ${response.status}`);
   }
@@ -105,12 +147,7 @@ export function reorderSpaces(ids: string[]): Promise<SpaceList> {
  * for a few minutes (the same token erase uses).
  */
 export async function spaceDeleteToken(space: string): Promise<EraseToken> {
-  const response = await fetch(scoped('/api/erase-token', space), {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call(scoped('/api/erase-token', space));
   if (!response.ok) {
     throw new Error(`Erase token answered ${response.status}`);
   }
@@ -144,15 +181,11 @@ export async function moveProject(
 }
 
 async function postSpaces<T>(path: string, payload: unknown): Promise<T> {
-  const response = await fetch(path, {
+  const response = await call(path, {
     method: 'POST',
-    credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
   const body = (await response.json().catch(() => ({}))) as
     | T
     | { error?: string };
@@ -168,12 +201,7 @@ async function postSpaces<T>(path: string, payload: unknown): Promise<T> {
 
 /** A space's `GET /api/export.json` as text, ready to save. */
 export async function fetchExport(space: string): Promise<string> {
-  const response = await fetch(scoped('/api/export.json', space), {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call(scoped('/api/export.json', space));
   if (!response.ok) {
     throw new Error(`Export answered ${response.status}`);
   }
@@ -198,12 +226,7 @@ export function postRestore(space: string, day: string): Promise<ImportResult> {
 
 /** A space's nightly backups, newest first, and when they run. */
 export async function fetchBackups(space: string): Promise<BackupList> {
-  const response = await fetch(scoped('/api/backups', space), {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call(scoped('/api/backups', space));
   if (!response.ok) {
     throw new Error(`Backups answered ${response.status}`);
   }
@@ -220,12 +243,7 @@ export async function fetchBackup(
   space: string,
   day: string,
 ): Promise<unknown> {
-  const response = await fetch(backupUrl(space, day), {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call(backupUrl(space, day));
   if (!response.ok) {
     throw new Error('That backup is gone. Refresh the list.');
   }
@@ -236,15 +254,11 @@ async function postMerge(
   path: string,
   payload: unknown,
 ): Promise<ImportResult> {
-  const response = await fetch(path, {
+  const response = await call(path, {
     method: 'POST',
-    credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
   const body = (await response.json().catch(() => ({}))) as
     | ImportResult
     | { error?: string };
@@ -258,12 +272,7 @@ async function postMerge(
 
 /** The MCP apps the owner approved (#154), newest first. */
 export async function fetchConnections(): Promise<ConnectionList> {
-  const response = await fetch('/api/connections', {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
+  const response = await call('/api/connections');
   if (!response.ok) {
     throw new Error(`Connections answered ${response.status}`);
   }
@@ -275,14 +284,10 @@ export async function fetchConnections(): Promise<ConnectionList> {
  * was already gone.
  */
 export async function revokeConnection(id: string): Promise<void> {
-  const response = await fetch(`/api/connections/${encodeURIComponent(id)}`, {
+  const response = await call(`/api/connections/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
   });
-  if (response.status === 401) {
-    throw new SignedOutError();
-  }
   if (!response.ok && response.status !== 404) {
     throw new Error(`Revoke answered ${response.status}`);
   }

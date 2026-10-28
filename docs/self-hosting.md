@@ -291,8 +291,12 @@ in `.wrangler/state`; delete that folder to start over.
 
 ## Observability
 
-Workers observability is on in `wrangler.jsonc`. The Worker logs errors with
-the request path only. `npm run tail` streams live logs.
+Workers observability is on in `wrangler.jsonc`. The Worker logs one JSON
+line per error (the path and the error's message, never an email or
+content) and one per backup. `npm run tail` streams live logs;
+[architecture.md](architecture.md#logs) says what each line means.
+`GET /api/health` (behind Access, like everything) answers `{ "ok": true }`
+when your object is reachable.
 
 ## Updating
 

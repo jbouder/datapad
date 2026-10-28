@@ -5,10 +5,14 @@ import {
 import { useEffect, useState } from 'react';
 import { formatDay, localDate } from '#shared/dates';
 import type { BackupList } from '#shared/protocol';
-import { nextDailyAt } from '#shared/schedule';
+import { backupStatus, nextDailyAt } from '#shared/schedule';
+import { COLLECTIONS } from '#shared/types';
 import { useImportExport } from '@/components/ImportExport';
 import { Button } from '@/components/ui/button';
+import { useDatapad } from '@/hooks/useDatapad';
+import { useNow } from '@/hooks/useNow';
 import { backupUrl, fetchBackups, SignedOutError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { useSpaces } from '@/providers/DatapadProvider';
 
 /**
@@ -23,6 +27,13 @@ export function Backups() {
   const backups = list?.backups ?? null;
   const [failed, setFailed] = useState(false);
   const today = localDate(new Date());
+  const now = useNow();
+  const { state } = useDatapad();
+  // Like the backup itself: a space with nothing in it writes nothing.
+  const hasData = state
+    ? COLLECTIONS.some((c) => Object.keys(state[c]).length > 0)
+    : false;
+  const status = list ? backupStatus(list, new Date(now), hasData) : null;
 
   useEffect(() => {
     let current = true;
@@ -31,8 +42,8 @@ export function Backups() {
         if (current) setList(list);
       })
       .catch((error: unknown) => {
-        if (error instanceof SignedOutError) window.location.reload();
-        else if (current) setFailed(true);
+        // Signed out: the app shows "Sign in again" in place of this.
+        if (current && !(error instanceof SignedOutError)) setFailed(true);
       });
     return () => {
       current = false;
@@ -48,6 +59,16 @@ export function Backups() {
         Restoring merges a copy back in: same ids are replaced, nothing is
         deleted.
       </p>
+      {status && (
+        <p
+          className={cn(
+            'text-sm',
+            status.warn ? 'text-warn' : 'text-muted-foreground',
+          )}
+        >
+          {status.text}
+        </p>
+      )}
       {failed ? (
         <p className="text-sm">Could not list the backups. Reload to retry.</p>
       ) : backups === null ? (

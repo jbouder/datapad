@@ -1,3 +1,6 @@
+import { relativeTime } from './dates';
+import type { BackupList } from './protocol';
+
 /**
  * When is the next nightly backup? Holocron's `reset-time.ts` maths:
  * computed with Intl so daylight-saving changes in the configured zone are
@@ -130,4 +133,39 @@ export function lastDailyAt(
 export function zonedDay(ts: number, timeZone: string): string {
   const p = zonedParts(ts, timeZone);
   return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** Longer than this without a backup, a night was missed. */
+export const BACKUP_OVERDUE_MS = 48 * 60 * 60_000;
+
+/**
+ * Settings → Backups' status line for one space: when it was last backed
+ * up, and whether that needs the owner's eye (`warn`): the latest attempt
+ * failed, or a space with data has gone two days without a backup. Null
+ * before the first backup (the list says "No backups yet" itself).
+ */
+export function backupStatus(
+  list: BackupList,
+  now: Date,
+  hasData: boolean,
+): { text: string; warn: boolean } | null {
+  const last = list.backups[0]?.at;
+  const failed =
+    list.failedAt && (!last || Date.parse(list.failedAt) > Date.parse(last))
+      ? list.failedAt
+      : null;
+  if (failed) {
+    const when = relativeTime(failed, now);
+    return {
+      text: last
+        ? `Last backup: ${relativeTime(last, now)}. The latest attempt failed ${when} and is retried on its own.`
+        : `The first backup failed ${when}. It is retried on its own.`,
+      warn: true,
+    };
+  }
+  if (!last) return null;
+  return {
+    text: `Last backup: ${relativeTime(last, now)}.`,
+    warn: hasData && now.getTime() - Date.parse(last) > BACKUP_OVERDUE_MS,
+  };
 }

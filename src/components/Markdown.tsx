@@ -204,7 +204,7 @@ function CodeBlock({
       await navigator.clipboard.writeText(text);
       show('Copied');
     } catch {
-      show('Could not copy; select the text instead');
+      show('Could not copy. Select the text instead.');
     }
   };
   return (

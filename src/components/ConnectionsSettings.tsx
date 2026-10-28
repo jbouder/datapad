@@ -43,8 +43,8 @@ export function ConnectionsSettings() {
         if (current) setList(connections);
       })
       .catch((error: unknown) => {
-        if (error instanceof SignedOutError) window.location.reload();
-        else if (current) setFailed(true);
+        // Signed out: the app shows "Sign in again" in place of this.
+        if (current && !(error instanceof SignedOutError)) setFailed(true);
       });
     return () => {
       current = false;
@@ -61,8 +61,9 @@ export function ConnectionsSettings() {
       show(`Revoked ${nameOf(gone)}`);
       setAsking(null);
     } catch (error) {
-      if (error instanceof SignedOutError) window.location.reload();
-      else show(`Could not revoke ${nameOf(gone)}. Try again.`);
+      if (!(error instanceof SignedOutError)) {
+        show(`Could not revoke ${nameOf(gone)}. Try again.`);
+      }
     } finally {
       setBusy(false);
     }

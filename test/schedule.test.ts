@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { BackupList } from '#shared/protocol';
 import {
+  backupStatus,
   lastDailyAt,
   nextDailyAt as nextResetAt,
   zonedDay,
@@ -99,5 +101,53 @@ describe('lastDailyAt and zonedDay', () => {
 
   it('names the day in the zone, not in UTC', () => {
     expect(zonedDay(at('2026-01-11T03:00:00Z'), TZ)).toBe('2026-01-10');
+  });
+});
+
+describe('backupStatus', () => {
+  const now = new Date('2026-07-15T12:00:00Z');
+  const hoursAgo = (h: number) =>
+    new Date(now.getTime() - h * 60 * 60_000).toISOString();
+  const list = (ats: string[], failedAt?: string): BackupList => ({
+    backups: ats.map((at) => ({ day: at.slice(0, 10), bytes: 1, at })),
+    hour: 3,
+    timeZone: TZ,
+    ...(failedAt ? { failedAt } : {}),
+  });
+
+  it('is null before the first backup', () => {
+    expect(backupStatus(list([]), now, true)).toBeNull();
+  });
+
+  it('says when, quietly, while backups are current', () => {
+    expect(backupStatus(list([hoursAgo(9)]), now, true)).toEqual({
+      text: 'Last backup: 9 h ago.',
+      warn: false,
+    });
+  });
+
+  it('warns once a space with data has gone two days without one', () => {
+    const old = list([hoursAgo(72)]);
+    expect(backupStatus(old, now, true)?.warn).toBe(true);
+    expect(backupStatus(old, now, true)?.text).toMatch(/^Last backup: \w{3} /);
+    // An empty space writes nothing, so an old backup is expected.
+    expect(backupStatus(old, now, false)?.warn).toBe(false);
+  });
+
+  it('warns about a failure newer than the last backup', () => {
+    expect(backupStatus(list([hoursAgo(33)], hoursAgo(9)), now, true)).toEqual({
+      text: 'Last backup: yesterday. The latest attempt failed 9 h ago and is retried on its own.',
+      warn: true,
+    });
+    expect(backupStatus(list([], hoursAgo(1)), now, true)).toEqual({
+      text: 'The first backup failed 1 h ago. It is retried on its own.',
+      warn: true,
+    });
+  });
+
+  it('ignores a failure older than the last backup', () => {
+    expect(
+      backupStatus(list([hoursAgo(1)], hoursAgo(5)), now, true)?.warn,
+    ).toBe(false);
   });
 });
