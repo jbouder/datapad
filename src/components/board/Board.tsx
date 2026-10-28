@@ -1,6 +1,4 @@
 import {
-  type KeyboardEvent,
-  type PointerEvent,
   useCallback,
   useEffect,
   useId,
@@ -12,35 +10,20 @@ import {
 import {
   arrowEnds,
   arrowPoints,
-  attachedTo,
   type BoardMove,
   type Box,
   bounds,
   connect,
-  connectable,
-  constrainAngle,
-  dragBox,
-  edgeToward,
   growBox,
-  HIT_TOLERANCE,
-  hitTest,
   itemsOf,
-  nextTarget,
   nextZ,
   reaim,
-  snapEnd,
-  strokeOf,
 } from '#shared/board';
 import { LIMITS } from '#shared/limits';
 import type { BaseOp } from '#shared/protocol';
-import { BOARD_BIG_STEP, BOARD_STEP } from '#shared/shortcuts';
-import {
-  BOARD_COLORS,
-  type BoardColor,
-  type BoardItem,
-  type BoardKind,
-} from '#shared/types';
+import type { BoardColor, BoardItem, BoardKind } from '#shared/types';
 import { EditBar } from '@/components/board/EditBar';
+import type { Draft } from '@/components/board/gesture';
 import { ItemEditor } from '@/components/board/ItemEditor';
 import {
   hasText,
@@ -55,13 +38,10 @@ import {
   TEXT_FONT,
   TEXT_PAD,
 } from '@/components/board/items';
-import {
-  draws,
-  TOOL_INFO,
-  TOOLS,
-  type Tool,
-  Toolbar,
-} from '@/components/board/Toolbar';
+import { moveOps, nudgeMoves, recolorOps } from '@/components/board/ops';
+import { type Tool, Toolbar } from '@/components/board/Toolbar';
+import { useBoardGestures } from '@/components/board/useBoardGestures';
+import { useBoardKeys } from '@/components/board/useBoardKeys';
 import { useHistory } from '@/components/board/useHistory';
 import {
   readViewport,
@@ -69,7 +49,6 @@ import {
   viewportKey,
 } from '@/components/board/useViewport';
 import {
-  boxBetween,
   type Corner,
   centred,
   centreOn,
@@ -79,11 +58,7 @@ import {
   intersects,
   type Point,
   panBy,
-  pinch,
-  resizeBox,
-  toBoard,
   union,
-  type Viewport,
   viewBoxOf,
   visibleBox,
   wheelZoomFactor,
@@ -96,87 +71,8 @@ import { BOARD_ITEM_PARAM, setQuery, useQuery } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useToast } from '@/providers/ToastProvider';
 
-/** How far a pointer moves before a press becomes a drag, in px. */
-const DRAG_SLOP = 4;
-/** How long a finger rests on empty board before it draws a marquee. */
-const LONG_PRESS_MS = 450;
-/** Two clicks or taps this close together are a double one. */
-const DOUBLE_TAP_MS = 350;
 /** A rectangle placed with a click (or Enter) rather than drawn. */
 const RECT_SIZE = { w: 160, h: 100 };
-/** How near the eraser must pass to a stroke, in screen px. */
-const ERASER_REACH = 8;
-
-type Gesture =
-  | { kind: 'pan'; last: Point }
-  | { kind: 'pinch'; start: Viewport; mid: Point; distance: number }
-  | { kind: 'place'; tool: 'sticky' | 'text'; start: Point }
-  | {
-      kind: 'draw';
-      tool: 'rect' | 'arrow';
-      /** Where it began, on screen and on the board. */
-      screen: Point;
-      start: Point;
-      end: Point;
-      shift: boolean;
-    }
-  | { kind: 'ink'; points: number[] }
-  | { kind: 'erase'; last: Point; ids: Set<string> }
-  | { kind: 'end'; id: string; which: 0 | 1; at: Point; shift: boolean }
-  | { kind: 'press'; start: Point; timer: number }
-  | {
-      kind: 'move';
-      start: Point;
-      origins: Map<string, Point>;
-      moved: boolean;
-      dx: number;
-      dy: number;
-      item: string;
-      /** The pressed item was already selected (a click may narrow to it). */
-      wasSelected: boolean;
-      shift: boolean;
-    }
-  | { kind: 'marquee'; start: Point; base: string[] }
-  | {
-      kind: 'resize';
-      id: string;
-      corner: Corner;
-      start: Point;
-      origin: Box;
-      box: Box;
-    };
-
-interface Drag {
-  origins: Map<string, Point>;
-  dx: number;
-  dy: number;
-}
-
-/** What is being drawn, before it is an item. */
-type Draft =
-  | { kind: 'rect'; box: Box }
-  | { kind: 'arrow'; from: Point; to: Point }
-  | { kind: 'ink'; points: number[] };
-
-/**
- * Drawing an arrow (`connect`: from an item to the one Tab picks) or
- * re-aiming one end of an arrow (`aim`: Tab picks an item, the arrow keys
- * move the end), from the keyboard. Nothing is sent until Enter; Escape
- * leaves the board as it was.
- */
-type KeyMode =
-  | { kind: 'connect'; from: string; to?: string }
-  | { kind: 'aim'; id: string; which: 0 | 1; at: Point; to?: string };
-
-/** What a tool key says, for the tools Enter also works with. */
-const TOOL_HINTS: Partial<Record<Tool, string>> = {
-  sticky:
-    'Sticky note: click to place one, or press Enter for the middle of the view',
-  text: 'Text: click to place it, or press Enter for the middle of the view',
-  rect: 'Rectangle: drag to draw one, or press Enter for the middle of the view',
-  arrow:
-    'Arrow: drag to draw one, or press Enter to draw one from the selected item',
-};
 
 interface Editing {
   id: string;
@@ -190,7 +86,8 @@ interface Editing {
  * change is an op through `useDatapad()`; a drag, a marquee and a resize
  * are local until the pointer comes up, then one op. Remote moves slide
  * in with a `transform` transition; the item being dragged keeps to the
- * pointer until it is dropped.
+ * pointer until it is dropped. The pointers are `useBoardGestures` (over
+ * the pure `gesture.ts`), the keys `useBoardKeys`.
  */
 export function Board({ boardId, label }: { boardId: string; label: string }) {
   const { state, actions } = useDatapad();
@@ -217,37 +114,16 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   );
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const [drag, setDrag] = useState<Drag | null>(null);
-  const [resize, setResize] = useState<{ id: string; box: Box } | null>(null);
-  const [marquee, setMarquee] = useState<Box | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
-  const [panning, setPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const spaceRef = useRef(false);
   spaceRef.current = spaceHeld;
   const [announcement, setAnnouncement] = useState('');
-  const [draft, setDraft] = useState<Draft | null>(null);
-  /** Strokes the eraser has passed over, deleted when it lifts. */
-  const [erasing, setErasing] = useState<ReadonlySet<string>>(NO_IDS);
-  /** An arrow end being dragged: the arrow's points meanwhile. */
-  const [endEdit, setEndEdit] = useState<{
-    id: string;
-    points: number[];
-  } | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
-  const [mode, setModeState] = useState<KeyMode | null>(null);
-  const modeRef = useRef(mode);
-  const setMode = useCallback((next: KeyMode | null) => {
-    modeRef.current = next;
-    setModeState(next);
-  }, []);
 
-  const pointers = useRef(new Map<number, Point>());
-  const gesture = useRef<Gesture | null>(null);
   /** A press on an item focuses it; that focus must not reselect. */
   const pressing = useRef(false);
-  const lastTap = useRef<{ id: string; at: number } | null>(null);
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -297,65 +173,6 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     (): Point => ({ x: (size?.w ?? 0) / 2, y: (size?.h ?? 0) / 2 }),
     [size],
   );
-
-  /** Where an item is drawn now: a drag or a resize in progress moves it. */
-  const placed = useCallback(
-    (item: BoardItem): Box => {
-      if (resize?.id === item.id) return resize.box;
-      const origin = drag?.origins.get(item.id);
-      if (drag && origin) {
-        return {
-          x: origin.x + drag.dx,
-          y: origin.y + drag.dy,
-          w: item.w,
-          h: item.h,
-        };
-      }
-      return { x: item.x, y: item.y, w: item.w, h: item.h };
-    },
-    [drag, resize],
-  );
-
-  /**
-   * Arrows drawn other than as stored: the ones attached to what is being
-   * dragged or resized follow it, and an end being dragged moves.
-   */
-  const livePoints = useMemo(() => {
-    const out = new Map<string, number[]>();
-    if (drag || resize) {
-      const boxes = new Map<string, Box>();
-      if (resize) boxes.set(resize.id, resize.box);
-      if (drag) {
-        for (const [id, o] of drag.origins) {
-          const item = byId.get(id);
-          if (item) {
-            boxes.set(id, {
-              x: o.x + drag.dx,
-              y: o.y + drag.dy,
-              w: item.w,
-              h: item.h,
-            });
-          }
-        }
-      }
-      const moving = new Set(drag?.origins.keys() ?? []);
-      for (const m of reaim(items, boxes, moving)) out.set(m.id, m.points);
-    }
-    if (endEdit) out.set(endEdit.id, endEdit.points);
-    if (mode?.kind === 'aim') {
-      const arrow = byId.get(mode.id);
-      if (arrow) {
-        const [a, b] = arrowEnds(arrow);
-        out.set(
-          arrow.id,
-          mode.which === 0
-            ? arrowPoints(arrow, mode.at, b)
-            : arrowPoints(arrow, a, mode.at),
-        );
-      }
-    }
-    return out;
-  }, [drag, resize, endEdit, mode, items, byId]);
 
   const select = useCallback((ids: string[]) => {
     setSelected(ids);
@@ -431,67 +248,17 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleared when the board changes
   useEffect(() => clearHistory(), [boardId, space.id, clearHistory]);
 
-  /**
-   * The moves for items going to new places, with the arrows attached to
-   * them re-aimed, as `moveBoardItems` ops (up to `batchMax` moves each).
-   * Arrows moving themselves keep their shape.
-   */
-  const moveOps = useCallback(
-    (moves: BoardMove[], resized = new Map<string, Box>()): BaseOp[] => {
-      const all = itemsRef.current;
-      const boxes = new Map(resized);
-      for (const m of moves) {
-        const item = byId.get(m.id);
-        if (item && !boxes.has(m.id)) {
-          boxes.set(m.id, { x: m.x, y: m.y, w: item.w, h: item.h });
-        }
-      }
-      const moving = new Set(moves.map((m) => m.id));
-      const changed = [...moves, ...reaim(all, boxes, moving)].filter((m) => {
-        const item = byId.get(m.id);
-        return (
-          item &&
-          (item.x !== m.x ||
-            item.y !== m.y ||
-            (m.points !== undefined && m.points.join() !== item.points.join()))
-        );
-      });
-      const ops: BaseOp[] = [];
-      for (let i = 0; i < changed.length; i += LIMITS.batchMax) {
-        ops.push({
-          type: 'moveBoardItems',
-          moves: changed.slice(i, i + LIMITS.batchMax),
-        });
-      }
-      return ops;
-    },
-    [byId],
-  );
-
   const moveTo = useCallback(
     (moves: BoardMove[]) => {
-      const ops = moveOps(moves);
+      const ops = moveOps(itemsRef.current, moves);
       if (ops.length > 0) run(ops);
     },
-    [moveOps, run],
+    [run],
   );
 
   const nudge = useCallback(
     (dx: number, dy: number) => {
-      moveTo(
-        selectedRef.current.flatMap((id) => {
-          const item = byId.get(id);
-          return item
-            ? [
-                {
-                  id,
-                  x: clampCoord(item.x + dx),
-                  y: clampCoord(item.y + dy),
-                },
-              ]
-            : [];
-        }),
-      );
+      moveTo(nudgeMoves(byId, selectedRef.current, dx, dy));
     },
     [byId, moveTo],
   );
@@ -560,12 +327,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
   const recolor = useCallback(
     (next: BoardColor) => {
       setColor(next);
-      const ops: BaseOp[] = selectedRef.current.flatMap((id) => {
-        const item = byId.get(id);
-        return item && item.color !== next
-          ? [{ type: 'editBoardItem' as const, id, patch: { color: next } }]
-          : [];
-      });
+      const ops = recolorOps(byId, selectedRef.current, next);
       if (ops.length > 0) run(ops);
     },
     [byId, run],
@@ -709,6 +471,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
       }
       ops.push(
         ...moveOps(
+          itemsRef.current,
           [...resized].map(([id, b]) => ({ id, x: b.x, y: b.y })),
           resized,
         ),
@@ -721,7 +484,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           : `Resized ${resized.size} items`,
       );
     },
-    [byId, moveOps, run],
+    [byId, run],
   );
 
   const finishEdit = useCallback(
@@ -839,791 +602,125 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
     };
   }, [spaceHeld]);
 
-  /* ---------- pointers ---------- */
+  /* ---------- keys and pointers ---------- */
 
-  const hits = useCallback((box: Box) => {
-    return itemsRef.current
-      .filter((b) => intersects(box, bounds(b)))
-      .map((b) => b.id);
-  }, []);
+  const { mode, modeRef, cancelMode, onKeyDown } = useBoardKeys({
+    surface,
+    svg,
+    viewRef,
+    center,
+    itemsRef,
+    byId,
+    people,
+    selectedRef,
+    select,
+    editing: editing !== null,
+    tool,
+    setTool,
+    setSpaceHeld,
+    queued,
+    setAnnouncement,
+    announce,
+    create,
+    addItem,
+    startEdit,
+    focusItem,
+    run,
+    nudge,
+    resizeBy,
+    recolor,
+    restack,
+    remove,
+    undo,
+    redo,
+  });
 
-  const cancelGesture = useCallback(() => {
-    const g = gesture.current;
-    if (g?.kind === 'press') window.clearTimeout(g.timer);
-    gesture.current = null;
-    setDrag(null);
-    setResize(null);
-    setMarquee(null);
-    setPanning(false);
-    setDraft(null);
-    setErasing(NO_IDS);
-    setEndEdit(null);
-  }, []);
+  const { drag, resize, marquee, panning, draft, erasing, endEdit, handlers } =
+    useBoardGestures({
+      svg,
+      surface,
+      viewRef,
+      setView,
+      tool,
+      spaceRef,
+      itemsRef,
+      byId,
+      selectedRef,
+      setSelected,
+      pressing,
+      screenPoint,
+      onPress: () => {
+        queued.current = null;
+        if (modeRef.current) cancelMode(false);
+      },
+      setTool,
+      setAnnouncement,
+      create,
+      addItem,
+      run,
+      moveTo,
+      startEdit,
+      focusItem,
+    });
 
-  /** Ink strokes within reach of the eraser's path from `a` to `b`. */
-  const strokesNear = useCallback((a: Point, b: Point, zoom: number) => {
-    const reach = Math.max(HIT_TOLERANCE, ERASER_REACH / zoom);
-    const steps = Math.max(
-      1,
-      Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / reach),
-    );
-    const out: string[] = [];
-    for (const item of itemsRef.current) {
-      if (item.kind !== 'ink') continue;
-      for (let i = 0; i <= steps; i += 1) {
-        const x = a.x + ((b.x - a.x) * i) / steps;
-        const y = a.y + ((b.y - a.y) * i) / steps;
-        if (hitTest(item, x, y, reach)) {
-          out.push(item.id);
-          break;
+  /** Where an item is drawn now: a drag or a resize in progress moves it. */
+  const placed = useCallback(
+    (item: BoardItem): Box => {
+      if (resize?.id === item.id) return resize.box;
+      const origin = drag?.origins.get(item.id);
+      if (drag && origin) {
+        return {
+          x: origin.x + drag.dx,
+          y: origin.y + drag.dy,
+          w: item.w,
+          h: item.h,
+        };
+      }
+      return { x: item.x, y: item.y, w: item.w, h: item.h };
+    },
+    [drag, resize],
+  );
+
+  /**
+   * Arrows drawn other than as stored: the ones attached to what is being
+   * dragged or resized follow it, and an end being dragged moves.
+   */
+  const livePoints = useMemo(() => {
+    const out = new Map<string, number[]>();
+    if (drag || resize) {
+      const boxes = new Map<string, Box>();
+      if (resize) boxes.set(resize.id, resize.box);
+      if (drag) {
+        for (const [id, o] of drag.origins) {
+          const item = byId.get(id);
+          if (item) {
+            boxes.set(id, {
+              x: o.x + drag.dx,
+              y: o.y + drag.dy,
+              w: item.w,
+              h: item.h,
+            });
+          }
         }
+      }
+      const moving = new Set(drag?.origins.keys() ?? []);
+      for (const m of reaim(items, boxes, moving)) out.set(m.id, m.points);
+    }
+    if (endEdit) out.set(endEdit.id, endEdit.points);
+    if (mode?.kind === 'aim') {
+      const arrow = byId.get(mode.id);
+      if (arrow) {
+        const [a, b] = arrowEnds(arrow);
+        out.set(
+          arrow.id,
+          mode.which === 0
+            ? arrowPoints(arrow, mode.at, b)
+            : arrowPoints(arrow, a, mode.at),
+        );
       }
     }
     return out;
-  }, []);
-
-  /** A rect or an arrow drawn: added, selected, and back to Select. */
-  const finishDraw = (
-    g: Extract<Gesture, { kind: 'draw' }>,
-    screen: Point,
-    v: Viewport,
-  ) => {
-    const dragged = Math.hypot(screen.x - g.screen.x, screen.y - g.screen.y);
-    let id: string | null = null;
-    if (g.tool === 'rect') {
-      if (dragged <= DRAG_SLOP) {
-        create('rect', g.start);
-        return;
-      }
-      const box = dragBox(g.start, g.end, g.shift);
-      if (box.w < 1 || box.h < 1) return;
-      id = addItem('rect', box);
-    } else {
-      if (dragged <= DRAG_SLOP) return;
-      const items = itemsRef.current;
-      const from = snapEnd(items, g.start);
-      const to = snapEnd(
-        items,
-        g.shift ? constrainAngle(g.start, g.end) : g.end,
-      );
-      if (Math.hypot(to.x - from.x, to.y - from.y) < 2 / v.zoom) return;
-      const origin = { x: clampCoord(from.x), y: clampCoord(from.y) };
-      id = addItem(
-        'arrow',
-        {
-          ...origin,
-          w: Math.abs(to.x - from.x),
-          h: Math.abs(to.y - from.y),
-        },
-        arrowPoints(origin, from, to),
-        origin,
-      );
-    }
-    if (!id) return;
-    setTool('select');
-    setSelected([id]);
-    focusItem(id);
-  };
-
-  const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
-    const v = viewRef.current;
-    if (!v) return;
-    queued.current = null;
-    if (modeRef.current) cancelMode(false);
-    const p = screenPoint(e);
-    pointers.current.set(e.pointerId, p);
-    svg.current?.setPointerCapture?.(e.pointerId);
-
-    if (pointers.current.size === 2) {
-      // A second finger: whatever the first was doing becomes a pinch.
-      cancelGesture();
-      const [a, b] = [...pointers.current.values()];
-      if (!a || !b) return;
-      gesture.current = {
-        kind: 'pinch',
-        start: v,
-        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-        distance: Math.hypot(a.x - b.x, a.y - b.y),
-      };
-      return;
-    }
-    if (pointers.current.size > 2) return;
-
-    const target = e.target as Element;
-    const handle = target.closest<SVGElement>('[data-handle]');
-    const itemEl = target.closest<SVGElement>('[data-item-id]');
-    const id = itemEl?.dataset.itemId;
-    if (!itemEl) {
-      // The editor's blur saves it; the board takes focus for its keys.
-      surface.current?.focus({ preventScroll: true });
-    }
-
-    if (e.button === 1 || spaceRef.current) {
-      e.preventDefault();
-      gesture.current = { kind: 'pan', last: p };
-      setPanning(true);
-      return;
-    }
-    if (draws(tool)) {
-      // One finger (or the mouse) draws; a second finger turns it into a
-      // pinch, and what was drawn so far is dropped.
-      surface.current?.focus({ preventScroll: true });
-      const at = toBoard(v, p);
-      if (tool === 'ink') {
-        gesture.current = { kind: 'ink', points: [at.x, at.y] };
-        setDraft({ kind: 'ink', points: [at.x, at.y] });
-      } else if (tool === 'eraser') {
-        const ids = new Set(strokesNear(at, at, v.zoom));
-        gesture.current = { kind: 'erase', last: at, ids };
-        setErasing(ids);
-      } else {
-        gesture.current = {
-          kind: 'draw',
-          tool,
-          screen: p,
-          start: at,
-          end: at,
-          shift: e.shiftKey,
-        };
-      }
-      return;
-    }
-    if (tool !== 'select') {
-      gesture.current = { kind: 'place', tool, start: p };
-      return;
-    }
-    const end = handle?.dataset.end;
-    if (end) {
-      const [only] = selectedRef.current;
-      const arrow = only ? byId.get(only) : undefined;
-      if (arrow?.kind === 'arrow') {
-        const which = end === 'start' ? 0 : 1;
-        gesture.current = {
-          kind: 'end',
-          id: arrow.id,
-          which,
-          at: arrowEnds(arrow)[which],
-          shift: e.shiftKey,
-        };
-        setEndEdit({ id: arrow.id, points: arrow.points });
-        return;
-      }
-    }
-    if (handle) {
-      const [only] = selectedRef.current;
-      const item = only ? byId.get(only) : undefined;
-      if (item) {
-        gesture.current = {
-          kind: 'resize',
-          id: item.id,
-          corner: handle.dataset.handle as Corner,
-          start: toBoard(v, p),
-          origin: { x: item.x, y: item.y, w: item.w, h: item.h },
-          box: { x: item.x, y: item.y, w: item.w, h: item.h },
-        };
-        return;
-      }
-    }
-    if (id && byId.has(id)) {
-      pressing.current = true;
-      const current = selectedRef.current;
-      const wasSelected = current.includes(id);
-      let next = current;
-      if (e.shiftKey) {
-        next = wasSelected ? current.filter((s) => s !== id) : [...current, id];
-      } else if (!wasSelected) {
-        next = [id];
-      }
-      select(next);
-      if (!next.includes(id)) return;
-      // The pressed item holds focus, so the keys go on from it.
-      (itemEl as SVGGElement).focus({ preventScroll: true });
-      const origins = new Map<string, Point>();
-      for (const s of next) {
-        const item = byId.get(s);
-        if (item) origins.set(s, { x: item.x, y: item.y });
-      }
-      gesture.current = {
-        kind: 'move',
-        start: p,
-        origins,
-        moved: false,
-        dx: 0,
-        dy: 0,
-        item: id,
-        wasSelected,
-        shift: e.shiftKey,
-      };
-      return;
-    }
-    if (e.pointerType === 'touch') {
-      // One finger on empty board pans; resting a moment draws a marquee.
-      const timer = window.setTimeout(() => {
-        const g = gesture.current;
-        if (g?.kind !== 'press') return;
-        const start = toBoard(viewRef.current ?? v, g.start);
-        gesture.current = { kind: 'marquee', start, base: [] };
-        select([]);
-        setMarquee({ ...start, w: 0, h: 0 });
-      }, LONG_PRESS_MS);
-      gesture.current = { kind: 'press', start: p, timer };
-      return;
-    }
-    const base = e.shiftKey ? selectedRef.current : [];
-    if (!e.shiftKey) select([]);
-    const start = toBoard(v, p);
-    gesture.current = { kind: 'marquee', start, base };
-    setMarquee({ ...start, w: 0, h: 0 });
-  };
-
-  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
-    if (!pointers.current.has(e.pointerId)) return;
-    const p = screenPoint(e);
-    const before = pointers.current.get(e.pointerId) ?? p;
-    pointers.current.set(e.pointerId, p);
-    const g = gesture.current;
-    const v = viewRef.current;
-    if (!g || !v) return;
-    switch (g.kind) {
-      case 'pinch': {
-        const [a, b] = [...pointers.current.values()];
-        if (!a || !b) return;
-        setView(
-          pinch(
-            g.start,
-            g.mid,
-            g.distance,
-            { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-            Math.hypot(a.x - b.x, a.y - b.y),
-          ),
-        );
-        return;
-      }
-      case 'pan':
-        setView(panBy(v, p.x - g.last.x, p.y - g.last.y));
-        gesture.current = { kind: 'pan', last: p };
-        return;
-      case 'draw': {
-        g.end = toBoard(v, p);
-        g.shift = e.shiftKey;
-        if (Math.hypot(p.x - g.screen.x, p.y - g.screen.y) <= DRAG_SLOP) {
-          setDraft(null);
-          return;
-        }
-        setDraft(
-          g.tool === 'rect'
-            ? { kind: 'rect', box: dragBox(g.start, g.end, g.shift) }
-            : {
-                kind: 'arrow',
-                from: g.start,
-                to: g.shift ? constrainAngle(g.start, g.end) : g.end,
-              },
-        );
-        return;
-      }
-      case 'ink': {
-        // Every sample the browser coalesced, so a fast stroke stays smooth.
-        const samples = e.nativeEvent.getCoalescedEvents?.() ?? [];
-        for (const s of samples.length > 0 ? samples : [e.nativeEvent]) {
-          const at = toBoard(v, screenPoint(s));
-          g.points.push(at.x, at.y);
-        }
-        setDraft({ kind: 'ink', points: [...g.points] });
-        return;
-      }
-      case 'erase': {
-        const at = toBoard(v, p);
-        const found = strokesNear(g.last, at, v.zoom).filter(
-          (id) => !g.ids.has(id),
-        );
-        g.last = at;
-        if (found.length > 0) {
-          for (const id of found) g.ids.add(id);
-          setErasing(new Set(g.ids));
-        }
-        return;
-      }
-      case 'end': {
-        const arrow = byId.get(g.id);
-        if (!arrow) return;
-        const [a, b] = arrowEnds(arrow);
-        const other = g.which === 0 ? b : a;
-        let at = toBoard(v, p);
-        if (e.shiftKey) at = constrainAngle(other, at);
-        g.at = at;
-        g.shift = e.shiftKey;
-        setEndEdit({
-          id: g.id,
-          points:
-            g.which === 0
-              ? arrowPoints(arrow, at, b)
-              : arrowPoints(arrow, a, at),
-        });
-        return;
-      }
-      case 'place':
-      case 'press':
-        if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > DRAG_SLOP) {
-          if (g.kind === 'press') window.clearTimeout(g.timer);
-          setView(panBy(v, p.x - before.x, p.y - before.y));
-          gesture.current = { kind: 'pan', last: p };
-          setPanning(true);
-        }
-        return;
-      case 'move': {
-        const sx = p.x - g.start.x;
-        const sy = p.y - g.start.y;
-        if (!g.moved && Math.hypot(sx, sy) <= DRAG_SLOP) return;
-        g.moved = true;
-        g.dx = sx / v.zoom;
-        g.dy = sy / v.zoom;
-        setDrag({ origins: g.origins, dx: g.dx, dy: g.dy });
-        return;
-      }
-      case 'marquee': {
-        const box = boxBetween(g.start, toBoard(v, p));
-        setMarquee(box);
-        const inside = hits(box);
-        select([...new Set([...g.base, ...inside])]);
-        return;
-      }
-      case 'resize': {
-        const at = toBoard(v, p);
-        g.box = resizeBox(
-          g.origin,
-          g.corner,
-          at.x - g.start.x,
-          at.y - g.start.y,
-          MIN_SIZE,
-        );
-        setResize({ id: g.id, box: g.box });
-        return;
-      }
-    }
-  };
-
-  const onPointerUp = (e: PointerEvent<SVGSVGElement>) => {
-    if (!pointers.current.has(e.pointerId)) return;
-    const p = pointers.current.get(e.pointerId) ?? screenPoint(e);
-    pointers.current.delete(e.pointerId);
-    const g = gesture.current;
-    const v = viewRef.current;
-    pressing.current = false;
-    if (!g || !v) return;
-    if (g.kind === 'pinch') {
-      // The other finger lifting ends it too; it never turns into a drag.
-      if (pointers.current.size === 0) gesture.current = null;
-      return;
-    }
-    gesture.current = null;
-    switch (g.kind) {
-      case 'pan':
-        setPanning(false);
-        return;
-      case 'place':
-        create(g.tool, toBoard(v, p));
-        return;
-      case 'draw':
-        setDraft(null);
-        finishDraw(g, p, v);
-        return;
-      case 'ink': {
-        setDraft(null);
-        // Simplified to within a screen pixel, and to `inkPointsMax` at most.
-        const stroke = strokeOf(g.points, 1 / v.zoom, LIMITS.inkPointsMax);
-        addItem('ink', stroke, stroke.points);
-        return;
-      }
-      case 'erase':
-        setErasing(NO_IDS);
-        if (g.ids.size > 0) {
-          const ids = [...g.ids].filter((id) => byId.has(id));
-          if (ids.length > 0 && run([{ type: 'deleteBoardItems', ids }])) {
-            setSelected((s) => s.filter((id) => !g.ids.has(id)));
-            setAnnouncement(
-              ids.length === 1
-                ? 'Erased a drawing'
-                : `Erased ${ids.length} drawings`,
-            );
-          }
-        }
-        return;
-      case 'end': {
-        setEndEdit(null);
-        const arrow = byId.get(g.id);
-        if (!arrow) return;
-        const [a, b] = arrowEnds(arrow);
-        // Dropped on a sticky or a rect, the end holds on to its edge.
-        const at = snapEnd(itemsRef.current, g.at, arrow.id);
-        const points =
-          g.which === 0 ? arrowPoints(arrow, at, b) : arrowPoints(arrow, a, at);
-        if (points.join() !== arrow.points.join()) {
-          run([{ type: 'editBoardItem', id: arrow.id, patch: { points } }]);
-        }
-        return;
-      }
-      case 'press':
-        window.clearTimeout(g.timer);
-        select([]);
-        return;
-      case 'move': {
-        if (g.moved) {
-          moveTo(
-            [...g.origins].map(([id, o]) => ({
-              id,
-              x: clampCoord(o.x + g.dx),
-              y: clampCoord(o.y + g.dy),
-            })),
-          );
-          setDrag(null);
-          return;
-        }
-        setDrag(null);
-        // A click on one of several selected narrows to it.
-        if (g.wasSelected && !g.shift) select([g.item]);
-        // A double click (or two taps) on a sticky or text opens its
-        // editor. Counted here, not from `dblclick`: the board holds the
-        // pointer, so the click events land on it, not on the item.
-        {
-          const now = performance.now();
-          const last = lastTap.current;
-          if (last && last.id === g.item && now - last.at < DOUBLE_TAP_MS) {
-            lastTap.current = null;
-            startEdit(g.item);
-          } else {
-            lastTap.current = { id: g.item, at: now };
-          }
-        }
-        return;
-      }
-      case 'marquee':
-        setMarquee(null);
-        return;
-      case 'resize': {
-        const { box } = g;
-        setResize(null);
-        const item = byId.get(g.id);
-        if (!item) return;
-        const x = clampCoord(box.x);
-        const y = clampCoord(box.y);
-        const w = Math.round(box.w);
-        const h = Math.round(box.h);
-        const ops: BaseOp[] = [];
-        if (w !== item.w || h !== item.h) {
-          ops.push({ type: 'editBoardItem', id: item.id, patch: { w, h } });
-        }
-        // Its own move and its arrows' re-aiming, after the new size.
-        ops.push(
-          ...moveOps(
-            [{ id: item.id, x, y }],
-            new Map([[item.id, { x, y, w, h }]]),
-          ),
-        );
-        if (ops.length > 0) run(ops);
-        return;
-      }
-    }
-  };
-
-  const onPointerCancel = (e: PointerEvent<SVGSVGElement>) => {
-    pointers.current.delete(e.pointerId);
-    pressing.current = false;
-    cancelGesture();
-  };
-
-  /* ---------- arrows from the keyboard ---------- */
-
-  /** Focus an item now (a key moved to it), not on the next frame. */
-  const focusNow = useCallback((id: string) => {
-    svg.current
-      ?.querySelector<SVGGElement>(`[data-item-id="${CSS.escape(id)}"]`)
-      ?.focus({ preventScroll: true });
-  }, []);
-
-  /** Leaves the mode with nothing changed; `back` returns focus to it. */
-  function cancelMode(back = true) {
-    const m = modeRef.current;
-    if (!m) return;
-    setMode(null);
-    setAnnouncement(
-      m.kind === 'connect' ? 'Arrow cancelled' : 'Re-aiming cancelled',
-    );
-    if (back) focusNow(m.kind === 'connect' ? m.from : m.id);
-  }
-
-  /** The arrow tool's Enter: an arrow from the selected item, once aimed. */
-  const startConnect = () => {
-    const ids = selectedRef.current;
-    const from = ids.length === 1 && ids[0] ? byId.get(ids[0]) : undefined;
-    if (!from || !connectable(from)) {
-      setAnnouncement(
-        'Select the sticky note, text or rectangle the arrow starts from (Tab to it), then press Enter',
-      );
-      return;
-    }
-    setMode({ kind: 'connect', from: from.id });
-    setAnnouncement(
-      `Drawing an arrow from ${itemName(from, people)}. Tab to the item it points to, then press Enter to draw it, or Escape to cancel`,
-    );
-  };
-
-  /** Enter (the head) or Shift+Enter (the tail) on a selected arrow. */
-  const startAim = (arrow: BoardItem, which: 0 | 1) => {
-    setMode({ kind: 'aim', id: arrow.id, which, at: arrowEnds(arrow)[which] });
-    setAnnouncement(
-      `Re-aiming the arrow’s ${which === 1 ? 'head' : 'tail'}. Tab to the item it should point to, or move it with the arrow keys; Enter to confirm, Escape to cancel`,
-    );
-  };
-
-  /** Tab (or Shift+Tab) while aiming: the next item to point to. */
-  const pickTarget = (step: 1 | -1) => {
-    const m = modeRef.current;
-    if (!m) return;
-    const all = itemsRef.current;
-    const current =
-      m.to ?? (m.kind === 'connect' ? m.from : attachedTo(all, m.at)?.id);
-    const next = nextTarget(
-      all,
-      current,
-      step,
-      m.kind === 'connect' ? m.from : undefined,
-    );
-    if (!next) {
-      setAnnouncement('There is nothing else on the board to point to');
-      return;
-    }
-    if (m.kind === 'connect') {
-      setMode({ ...m, to: next.id });
-      setAnnouncement(
-        `To ${itemName(next, people)}. Enter draws the arrow, Escape cancels`,
-      );
-    } else {
-      const arrow = byId.get(m.id);
-      if (!arrow) {
-        cancelMode(false);
-        return;
-      }
-      const other = arrowEnds(arrow)[m.which === 0 ? 1 : 0];
-      setMode({ ...m, to: next.id, at: edgeToward(next, other) });
-      setAnnouncement(
-        `To ${itemName(next, people)}. Enter confirms, Escape cancels`,
-      );
-    }
-    focusNow(next.id);
-  };
-
-  /** The arrow keys while re-aiming: the end moves on its own. */
-  const moveEnd = (dx: number, dy: number) => {
-    const m = modeRef.current;
-    if (m?.kind !== 'aim') return;
-    setMode({
-      ...m,
-      to: undefined,
-      at: { x: clampCoord(m.at.x + dx), y: clampCoord(m.at.y + dy) },
-    });
-    if (m.to) focusNow(m.id);
-  };
-
-  /** Enter while aiming: the arrow drawn, or its end moved, as one step. */
-  const commitMode = () => {
-    const m = modeRef.current;
-    if (!m) return;
-    if (m.kind === 'connect') {
-      const from = byId.get(m.from);
-      const to = m.to ? byId.get(m.to) : undefined;
-      if (!from) {
-        cancelMode(false);
-        return;
-      }
-      if (!to) {
-        setAnnouncement('Tab to the item the arrow points to first');
-        return;
-      }
-      setMode(null);
-      const [a, b] = connect(from, to);
-      const origin = { x: clampCoord(a.x), y: clampCoord(a.y) };
-      const id = addItem(
-        'arrow',
-        { ...origin, w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) },
-        arrowPoints(origin, a, b),
-        origin,
-      );
-      if (!id) {
-        focusNow(from.id);
-        return;
-      }
-      setTool('select');
-      announce(
-        `Drew an arrow from ${itemName(from, people)} to ${itemName(to, people)}`,
-      );
-      setSelected([id]);
-      focusItem(id);
-      return;
-    }
-    setMode(null);
-    const arrow = byId.get(m.id);
-    if (!arrow) return;
-    const [a, b] = arrowEnds(arrow);
-    const to = m.to ? byId.get(m.to) : undefined;
-    const at = to
-      ? edgeToward(to, m.which === 0 ? b : a)
-      : snapEnd(itemsRef.current, m.at, arrow.id);
-    const points =
-      m.which === 0 ? arrowPoints(arrow, at, b) : arrowPoints(arrow, a, at);
-    if (points.join() !== arrow.points.join()) {
-      run([{ type: 'editBoardItem', id: arrow.id, patch: { points } }]);
-    }
-    const host = to ?? attachedTo(itemsRef.current, at);
-    const end = m.which === 1 ? 'head' : 'tail';
-    setAnnouncement(
-      host
-        ? `The arrow’s ${end} points to ${itemName(host, people)}`
-        : `Moved the arrow’s ${end}`,
-    );
-    focusItem(arrow.id);
-  };
-
-  /** Keys while aiming: Tab picks, arrows move an end, Enter, Escape. */
-  const onModeKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const m = modeRef.current;
-    if (!m || e.metaKey || e.ctrlKey || e.altKey) return;
-    const vector = ARROW_KEYS[e.key];
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelMode();
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      pickTarget(e.shiftKey ? -1 : 1);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      commitMode();
-    } else if (vector) {
-      e.preventDefault();
-      const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
-      if (m.kind === 'aim') moveEnd(vector[0] * step, vector[1] * step);
-    }
-  };
-
-  /* ---------- keys ---------- */
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    queued.current = null;
-    if (e.defaultPrevented || editing) return;
-    const target = e.target as Element;
-    if (target.closest('textarea, input')) return;
-    if (modeRef.current) {
-      onModeKey(e);
-      return;
-    }
-    const onBoard = surface.current?.contains(target) ?? false;
-    const mod = e.metaKey || e.ctrlKey;
-    if (mod && !e.altKey && e.key.toLowerCase() === 'a' && onBoard) {
-      e.preventDefault();
-      select(itemsRef.current.map((b) => b.id));
-      return;
-    }
-    // ⌘Z undoes, ⇧⌘Z (or Ctrl+Y) redoes: this board's steps only.
-    if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
-      e.preventDefault();
-      if (e.shiftKey) redo();
-      else undo();
-      return;
-    }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'y') {
-      e.preventDefault();
-      redo();
-      return;
-    }
-    // Alt+arrows resize (Shift: a bigger step). Prevented, so that
-    // Alt+← and Alt+→ do not go back and forward on Windows and Linux.
-    const vector = ARROW_KEYS[e.key];
-    if (e.altKey && !mod && vector && onBoard) {
-      e.preventDefault();
-      if (selectedRef.current.length > 0) {
-        const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
-        resizeBy(vector[0] * step, vector[1] * step);
-      }
-      return;
-    }
-    if (mod || e.altKey) return;
-    const key = e.key;
-    const lower = key.length === 1 ? key.toLowerCase() : key;
-    const toolKey = TOOLS.find((t) => TOOL_INFO[t].key.toLowerCase() === lower);
-    if (toolKey && !e.shiftKey) {
-      e.preventDefault();
-      setTool(toolKey);
-      const hint = TOOL_HINTS[toolKey];
-      if (hint) setAnnouncement(hint);
-      return;
-    }
-    const digit = Number(key);
-    if (key.length === 1 && digit >= 1 && digit <= BOARD_COLORS.length) {
-      const next = BOARD_COLORS[digit - 1];
-      if (next) {
-        e.preventDefault();
-        recolor(next);
-      }
-      return;
-    }
-    if ((key === ']' || key === '[') && selectedRef.current.length > 0) {
-      e.preventDefault();
-      restack(key === ']' ? 'top' : 'bottom');
-      return;
-    }
-    if (key === 'Escape') {
-      if (tool !== 'select') {
-        e.preventDefault();
-        setTool('select');
-      } else if (selectedRef.current.length > 0) {
-        e.preventDefault();
-        select([]);
-        surface.current?.focus({ preventScroll: true });
-      }
-      return;
-    }
-    if (!onBoard) return;
-    if (key === ' ') {
-      e.preventDefault();
-      if (!e.repeat) setSpaceHeld(true);
-      return;
-    }
-    if (
-      (key === 'Delete' || key === 'Backspace') &&
-      selectedRef.current.length > 0
-    ) {
-      e.preventDefault();
-      remove(selectedRef.current);
-      surface.current?.focus({ preventScroll: true });
-      return;
-    }
-    if (vector && selectedRef.current.length > 0) {
-      e.preventDefault();
-      const step = e.shiftKey ? BOARD_BIG_STEP : BOARD_STEP;
-      nudge(vector[0] * step, vector[1] * step);
-      return;
-    }
-    if (key === 'Enter') {
-      if (tool === 'sticky' || tool === 'text' || tool === 'rect') {
-        e.preventDefault();
-        const v = viewRef.current;
-        if (v) create(tool, toBoard(v, center()), true);
-        return;
-      }
-      if (tool === 'arrow') {
-        e.preventDefault();
-        startConnect();
-        return;
-      }
-      const [only] = selectedRef.current;
-      const item = only ? byId.get(only) : undefined;
-      if (selectedRef.current.length === 1 && item) {
-        e.preventDefault();
-        if (item.kind === 'arrow') startAim(item, e.shiftKey ? 0 : 1);
-        else startEdit(item.id);
-      }
-    }
-  };
+  }, [drag, resize, endEdit, mode, items, byId]);
 
   const onItemFocus = (item: BoardItem) => {
     if (pressing.current) return;
@@ -1712,13 +809,7 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
           ref={svg}
           className="absolute inset-0 size-full"
           viewBox={view && size ? viewBoxOf(view, size.w, size.h) : '0 0 1 1'}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerCancel}
-          onContextMenu={(e) => {
-            if (gesture.current) e.preventDefault();
-          }}
+          {...handlers}
         >
           <defs>
             <pattern
@@ -1881,14 +972,6 @@ export function Board({ boardId, label }: { boardId: string; label: string }) {
 }
 
 const NONE: readonly BoardItem[] = [];
-/** The arrow keys, as a step on the board. */
-const ARROW_KEYS: Record<string, [number, number]> = {
-  ArrowLeft: [-1, 0],
-  ArrowRight: [1, 0],
-  ArrowUp: [0, -1],
-  ArrowDown: [0, 1],
-};
-const NO_IDS: ReadonlySet<string> = new Set();
 
 /** An arrow's two ends, to drag: 10px circles, 44px to a finger. */
 function EndHandles({ arrow, zoom }: { arrow: BoardItem; zoom: number }) {

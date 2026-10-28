@@ -12,18 +12,9 @@ import { type KeyboardEvent, useRef, useState } from 'react';
 import { BOARD_COLORS, type BoardColor } from '#shared/types';
 import { COLOR_LABELS } from '@/components/board/items';
 import { cn } from '@/lib/utils';
+import { draws, TOOLS, type Tool } from './tools';
 
-/** What a pointer on the board does. */
-export const TOOLS = [
-  'select',
-  'sticky',
-  'text',
-  'rect',
-  'arrow',
-  'ink',
-  'eraser',
-] as const;
-export type Tool = (typeof TOOLS)[number];
+export { draws, TOOLS, type Tool };
 
 export const TOOL_INFO: Record<
   Tool,
@@ -37,13 +28,6 @@ export const TOOL_INFO: Record<
   ink: { label: 'Pen', key: 'P', icon: ScribbleIcon },
   eraser: { label: 'Eraser', key: 'E', icon: EraserIcon },
 };
-
-/** Tools that draw by dragging: one finger draws with them, two pan. */
-export function draws(tool: Tool): tool is 'rect' | 'arrow' | 'ink' | 'eraser' {
-  return (
-    tool === 'rect' || tool === 'arrow' || tool === 'ink' || tool === 'eraser'
-  );
-}
 
 const BUTTON =
   'press flex size-11 shrink-0 items-center justify-center outline-ring/50 transition-colors duration-(--duration-fast) ease-(--ease-standard) hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 aria-pressed:bg-primary aria-pressed:text-primary-foreground';

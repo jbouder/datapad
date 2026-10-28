@@ -81,7 +81,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   the topics (`MeetingTopics` on the meeting's page and in its panel,
   `PendingTopics` for a new meeting's), the meeting note composer and
   the Focus agenda strip;
-  `board/` is the whiteboard canvas (`Board`, its toolbar, Edit bar,
+  `board/` is the whiteboard canvas (`Board`, composition and render;
+  `gesture.ts`, the pointer gestures as a pure state machine whose steps
+  return effects as data, driven by `useBoardGestures`; `useBoardKeys`,
+  the keyboard map and arrows drawn from the keys; `ops.ts`, the pure op
+  builders; `tools.ts`, the tools; its toolbar, Edit bar,
   zoom, `useViewport`, `useHistory` for undo; `BoardMenu` with
   `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
   half: tokens resolved, the PNG on a canvas);
