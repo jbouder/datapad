@@ -17,8 +17,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 
 ## Layout
 
-- `shared/` — the domain, used by both sides. `types.ts` (the six
-  collections; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
+- `shared/` — the domain, used by both sides. `types.ts` (the eleven
+  collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
   (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
@@ -51,7 +51,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
   migrations in `ensureTables()`, the space RPCs,
-  its nightly R2 backup alarm), `env.ts` (bindings). `mcp/` is the MCP
+  its nightly R2 backup alarm), `env.ts` (bindings), `log.ts` (request
+  ids from `cf-ray`, the JSON error and security-event lines). `mcp/` is the MCP
   server (#152): `oauth.ts` (the provider per origin, its paths, scopes
   `read`/`write`, token lifetimes), `authorize.ts` + `consent.ts` (the
   consent page behind Access, no script), `server.ts` (`/mcp` after the
@@ -70,7 +71,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
   `/settings/…`),
-  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers), `hooks/useNow.ts` (a shared minute clock;
+  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers; `lib/motion-tokens.ts`
+  is the durations and easings script uses, equal to the CSS tokens), `hooks/useNow.ts` (a shared minute clock;
   date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),
   `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`, PagePrefs),
@@ -94,6 +96,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
   `/projects/:id`; a task opens its page only from Tasks, its panel
   everywhere else).
+- `scripts/` — `budget.ts` and `licenses.ts` (CI's checks, above), `icons.ts`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
   and the SDK client over `SELF`; `mcp-tools.test.ts`: each tool over a
@@ -113,7 +116,9 @@ React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
 · stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do
 not hand-edit) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
-resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`)
+resolver fails on Vitest 4.1 peers; one version, `packageManager` in
+`package.json`, which every workflow uses) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`; its downloads
+pinned with integrity hashes in `summary-pins.ts`)
 · `@cloudflare/workers-oauth-provider` (MCP sign-in, KV `OAUTH_KV`) ·
 `@modelcontextprotocol/sdk` (dev only: the client the MCP tests drive).
 
@@ -149,8 +154,10 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   the URL.
 - **The dev bypass is dev only.** `DEV_ACCESS_EMAIL` and the
   `x-dev-access-email` header work only while `ACCESS_AUD` is empty _and_
-  `DEV_ACCESS_EMAIL` is set (only ever in `.dev.vars`). Never set
-  `DEV_ACCESS_EMAIL` as a deployed var.
+  `DEV_ACCESS_EMAIL` is set (only ever in `.dev.vars`), on a localhost
+  hostname. Never set `DEV_ACCESS_EMAIL` as a deployed var; the deploy
+  workflow refuses one, and an empty `ACCESS_AUD`
+  (`scripts/check-deploy.ts`).
 - **No credential on a URL.** Sessions are Access cookies; nothing secret
   goes in a path or query string.
 - **Every change is an op through `reduce()`.** Add the op to
@@ -203,7 +210,8 @@ resolver fails on Vitest 4.1 peers) · WebLLM for summaries (in-browser, `src/li
   `@starting-style`, CSS `linear()` springs. Helpers in `src/lib/motion.ts`,
   `src/hooks/useFlip.ts`. (`tw-animate-css` is imported only because the
   stock shadcn overlays in `src/components/ui/*` use it; do not reach for it.)
-  Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`).
+  Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`;
+  in script `DURATION.base`, `EASE.emphasized` from `@/lib/motion`).
   Animate `opacity`/`transform` only; position changes go through FLIP or View
   Transitions. Scope `view-transition-name`s with `html[data-vt="…"]`
   (types in use: `page`, `theme`, `filter`, `layout`, `space`). Panels use `@starting-style`,
@@ -230,6 +238,10 @@ npm run preview -- --port 4318   # in another terminal: the e2e runs reuse it, n
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
+npm run budget       # after a build: the entry's gzip budget, WebLLM kept out
+npm run knip         # unused files, exports, dependencies (knip.jsonc)
+npm run licenses     # every installed package's license against the allowlist
+npm run test:coverage  # vitest with the coverage floors on shared/ and worker/
 ```
 
 **Biome checks the code, not the docs.** CI runs `bunx biome ci .`, which

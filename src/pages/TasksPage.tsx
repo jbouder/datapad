@@ -15,6 +15,7 @@ import {
   TASK_SORTS,
   type TaskFilters,
   type TaskSortKey,
+  undoTaskOps,
 } from '#shared/tasks';
 import type { Task } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -162,7 +163,7 @@ export function TasksPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selected.size]);
 
-  /** One change for a drag or drop, with Undo putting the tasks back. */
+  /** One change for a drag or drop, with Undo putting back what it changed. */
   const change = useCallback(
     (ops: Op[], before: Task[], message: string) => {
       if (ops.length === 0) {
@@ -175,7 +176,7 @@ export function TasksPage() {
       if (!actions.batch({ ops: inner })) return;
       show(message, () => {
         actions.batch({
-          ops: before.map((doc) => ({ type: 'put', col: 'tasks', doc })),
+          ops: undoTaskOps(before, ops),
         });
       });
     },

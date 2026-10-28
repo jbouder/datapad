@@ -64,6 +64,17 @@ export const WRITE_IDEMPOTENT: McpToolAnnotations = {
   idempotentHint: true,
 };
 
+/**
+ * An edit that can overwrite what the owner wrote (#244): edit_task's
+ * `desc`, `title` and `tags` replace what is there, and the old text is
+ * not kept anywhere a client can get it back. Annotations are fixed per
+ * tool, so the tool is marked destructive as a whole; still idempotent.
+ */
+export const WRITE_REPLACES: McpToolAnnotations = {
+  ...WRITE_IDEMPOTENT,
+  destructiveHint: true,
+};
+
 export interface McpTool<
   I extends z.ZodObject = z.ZodObject,
   O extends z.ZodType = z.ZodType,

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { DatapadMark } from '@/components/TopBar';
 import { Button } from '@/components/ui/button';
+import { reportCrash } from '@/lib/api';
 
 interface Props {
   /** Named in the console line, to tell the page from the app. */
@@ -20,7 +21,8 @@ interface Props {
 /**
  * Catches an error thrown while rendering what is below it and shows
  * `fallback`, which can `reset` to mount it again. The error goes to this
- * browser's console and nowhere else. Data is never at risk: saved changes
+ * browser's console and, as its message and component stack only, to the
+ * Worker's log (`POST /api/client-error`, #236). Data is never at risk: saved changes
  * are on the server, waiting ones in the local queue, and a note being
  * written is a draft in sessionStorage, so it comes back with the view.
  */
@@ -37,6 +39,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
       error,
       info.componentStack,
     );
+    reportCrash(this.props.where, error, info.componentStack);
   }
 
   reset = () => this.setState({ failed: false });

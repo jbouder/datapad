@@ -1,5 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react';
-import { EASE_EMPHASIZED, flipHeld } from '@/lib/motion';
+import { DURATION, EASE, flipHeld } from '@/lib/motion';
 
 /**
  * FLIP for a list: after every render, compare each `[data-flip-id]` child's
@@ -19,8 +19,6 @@ interface Point {
   left: number;
   top: number;
 }
-
-const DURATION_MS = 350;
 
 /** The element's current `translate`, from a slide in progress or none. */
 function currentTranslate(el: HTMLElement): Point {
@@ -91,7 +89,7 @@ export function useFlip(
           { translate: `${dx + offset.left}px ${dy + offset.top}px` },
           { translate: '0 0' },
         ],
-        { duration: DURATION_MS, easing: EASE_EMPHASIZED },
+        { duration: DURATION.slow, easing: EASE.emphasized },
       );
       sliding.current.set(el, animation);
     }

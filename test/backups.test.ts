@@ -5,8 +5,8 @@ import {
 } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import type { BackupInfo } from '#shared/protocol';
-import { MAIN_SPACE } from '#shared/types';
+import { type BackupInfo, newerFormatMessage } from '#shared/protocol';
+import { EXPORT_FORMAT, MAIN_SPACE } from '#shared/types';
 import type { DatapadObject } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { createHandler } from '../worker/index';
@@ -328,6 +328,20 @@ describe('backup routes', () => {
     ]);
     expect(file).not.toHaveProperty('events');
   });
+
+  it('refuses a backup from a newer Datapad, and changes nothing', async () => {
+    const email = `${crypto.randomUUID()}@example.com`;
+    const stub = bindings.DATAPAD.getByName(email);
+    await bindings.BACKUPS.put(
+      `${email}/datapad-2026-01-02.json`,
+      JSON.stringify({ ...fixture, format: EXPORT_FORMAT + 1 }),
+    );
+    expect(await stub.restoreBackup(MAIN_SPACE, '2026-01-02')).toEqual({
+      ok: false,
+      error: newerFormatMessage(EXPORT_FORMAT + 1),
+    });
+    expect((await stub.stats()).docs).toBe(0);
+  });
 });
 
 /** A second space, written straight into storage, then reloaded. */
@@ -541,5 +555,115 @@ describe('a copy before a destructive change', () => {
       ok: false,
       error: 'That backup is not readable',
     });
+  });
+});
+
+describe('an age limit for the copies before a destructive change', () => {
+  const DAY = 86_400_000;
+
+  /** Set `BEFORE_COPIES_MAX_DAYS` on the object, as a deployed var would. */
+  function limit(stub: DurableObjectStub<DatapadObject>, days: string) {
+    return runInDurableObject(stub, (o: DatapadObject) => {
+      const own = o as unknown as { env: Bindings };
+      own.env = { ...own.env, BEFORE_COPIES_MAX_DAYS: days };
+    });
+  }
+
+  /** Back up as the alarm does, `days` from now. */
+  function backupIn(stub: DurableObjectStub<DatapadObject>, days: number) {
+    return runInDurableObject(stub, (o: DatapadObject) =>
+      o.backup(Date.now() + days * DAY),
+    );
+  }
+
+  async function copiesOf(email: string) {
+    return (await keys(email)).filter((k) => k.includes('/before-'));
+  }
+
+  /** Copies in main's folder and in a deleted space's. */
+  async function withCopies() {
+    const { email, stub } = await seeded();
+    const { token } = await stub.eraseToken(MAIN_SPACE);
+    expect(await stub.erase(MAIN_SPACE, token)).toBe(true);
+    await stub.import(MAIN_SPACE, fixture);
+    await withSpace(stub, 'hoth');
+    await stub.import('hoth', { tasks: fixture.tasks });
+    const gone = await stub.eraseToken('hoth');
+    expect(await stub.deleteSpace('hoth', gone.token)).toEqual({ ok: true });
+    const copies = await copiesOf(email);
+    // before-erase in main, before-delete in hoth's folder.
+    expect(copies).toHaveLength(2);
+    expect(copies.some((k) => k.startsWith(`${email}/hoth/before-`))).toBe(
+      true,
+    );
+    return { email, stub, copies };
+  }
+
+  it('keeps every copy while it is off (the default)', async () => {
+    const { email, stub, copies } = await withCopies();
+    await backupIn(stub, 400);
+    expect(await copiesOf(email)).toEqual(copies);
+    // Zero, or anything but a positive whole number, is off too.
+    for (const days of ['0', '-3', '1.5', 'thirty', ' ']) {
+      await limit(stub, days);
+      await backupIn(stub, 400);
+    }
+    expect(await copiesOf(email)).toEqual(copies);
+  });
+
+  it('keeps copies younger than the limit', async () => {
+    const { email, stub, copies } = await withCopies();
+    await limit(stub, '30');
+    await backupIn(stub, 29);
+    expect(await copiesOf(email)).toEqual(copies);
+  });
+
+  it('deletes older copies in every folder, and nothing else', async () => {
+    const { email, stub } = await withCopies();
+    const other = await withCopies();
+    await bindings.BACKUPS.put(`${email}/datapad-2025-01-01.json`, '{}');
+    await bindings.BACKUPS.put(`${email}/hoth/datapad-2025-01-01.json`, '{}');
+    await limit(stub, '30');
+    await backupIn(stub, 31);
+    expect(await copiesOf(email)).toEqual([]);
+    // The nightly files stay, a deleted space's too, and so does every
+    // other email's copy.
+    const left = await keys(email);
+    expect(left).toContain(`${email}/datapad-2025-01-01.json`);
+    expect(left).toContain(`${email}/hoth/datapad-2025-01-01.json`);
+    expect(await copiesOf(other.email)).toEqual(other.copies);
+  });
+
+  it('runs on the nightly alarm', async () => {
+    const { email, stub } = await withCopies();
+    await limit(stub, '30');
+    await runDurableObjectAlarm(stub);
+    // Written just now: well inside 30 days.
+    expect(await copiesOf(email)).toHaveLength(2);
+
+    // R2 says every object is 40 days old.
+    await runInDurableObject(stub, (o: DatapadObject) => {
+      const own = o as unknown as { env: Bindings };
+      const real = own.env.BACKUPS;
+      const aged = async (options?: R2ListOptions) => {
+        const page = await real.list(options);
+        for (const object of page.objects) {
+          Object.defineProperty(object, 'uploaded', {
+            value: new Date(Date.now() - 40 * DAY),
+          });
+        }
+        return page;
+      };
+      own.env = {
+        ...own.env,
+        BACKUPS: new Proxy(real, {
+          get: (target, key) =>
+            key === 'list' ? aged : Reflect.get(target, key).bind(target),
+        }),
+      };
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(await copiesOf(email)).toEqual([]);
+    expect(await stub.listBackups(MAIN_SPACE)).toHaveLength(1);
   });
 });

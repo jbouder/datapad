@@ -231,6 +231,27 @@ async function connect(
   return { tokens: (await token.json()) as Tokens, clientId };
 }
 
+/** Every JSON line `console.log` writes while `run` runs, parsed. */
+async function captureLogs(
+  run: () => Promise<unknown>,
+): Promise<Record<string, unknown>[]> {
+  const lines: Record<string, unknown>[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => {
+    try {
+      lines.push(JSON.parse(String(args[0])) as Record<string, unknown>);
+    } catch {
+      original(...args);
+    }
+  };
+  try {
+    await run();
+  } finally {
+    console.log = original;
+  }
+  return lines;
+}
+
 /** The official SDK client, over `SELF`, with a bearer. */
 async function sdkClient(accessToken: string): Promise<Client> {
   const client = new Client({ name: 'datapad-test', version: '0.0.0' });
@@ -606,6 +627,98 @@ describe('sign-in', () => {
     const { tokens } = await connect('leia@example.com', { write: true });
     expect(tokens.scope.split(' ').sort()).toEqual(['read', 'write']);
   });
+
+  it('ticks write on the consent page only when the client asked for it (#232)', async () => {
+    const page = async (scope?: string) => {
+      const clientId = await register();
+      const { challenge } = await pkce();
+      const query = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: REDIRECT,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        ...(scope ? { scope } : {}),
+      });
+      const response = await viaAccess(
+        new Request(`${ORIGIN}${AUTHORIZE_PATH}?${query}`, {
+          headers: { [ACCESS_HEADER]: await accessJwt('leia@example.com') },
+        }),
+      );
+      expect(response.status).toBe(200);
+      const html = await response.text();
+      return /<input type="checkbox" name="write" value="1"( checked)?>/.exec(
+        html,
+      )?.[1];
+    };
+    expect(await page()).toBeUndefined();
+    expect(await page('read')).toBeUndefined();
+    expect(await page('read write')).toBe(' checked');
+  });
+
+  it('requires PKCE of every client, confidential ones too (#232)', async () => {
+    const registered = await SELF.fetch(
+      new Request(`${ORIGIN}/oauth/register`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'cf-connecting-ip': freshIp(),
+        },
+        body: JSON.stringify({
+          client_name: 'Confidential client',
+          redirect_uris: [REDIRECT],
+          token_endpoint_auth_method: 'client_secret_basic',
+          grant_types: ['authorization_code', 'refresh_token'],
+          response_types: ['code'],
+        }),
+      }),
+    );
+    expect(registered.status).toBe(201);
+    const { client_id: clientId } = (await registered.json()) as {
+      client_id: string;
+    };
+    const query = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: REDIRECT,
+      state: 'no-pkce',
+    });
+    const response = await viaAccess(
+      new Request(`${ORIGIN}${AUTHORIZE_PATH}?${query}`, {
+        redirect: 'manual',
+        headers: { [ACCESS_HEADER]: await accessJwt('leia@example.com') },
+      }),
+    );
+    expect(response.status).toBe(302);
+    const location = new URL(response.headers.get('location') ?? '');
+    expect(`${location.origin}${location.pathname}`).toBe(REDIRECT);
+    expect(location.searchParams.get('error')).toBe('invalid_request');
+    expect(location.searchParams.get('state')).toBe('no-pkce');
+    // Datapad's refusal, not the provider's (which lets confidential
+    // clients skip PKCE).
+    expect(location.searchParams.get('error_description')).toBe(
+      'PKCE (S256) is required',
+    );
+    // No consent was begun: nothing to approve.
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('logs a grant with the client and scope, never the email or a token (#236)', async () => {
+    const lines = await captureLogs(() =>
+      connect('leia@example.com', { write: true, name: 'Logged client' }),
+    );
+    const grant = lines.find((l) => l.event === 'grant');
+    expect(grant).toMatchObject({
+      level: 'info',
+      what: 'security',
+      event: 'grant',
+      outcome: 'ok',
+      scope: ['read', 'write'],
+    });
+    expect(typeof grant?.clientId).toBe('string');
+    expect(typeof grant?.requestId).toBe('string');
+    expect(JSON.stringify(lines)).not.toContain('leia@example.com');
+  });
 });
 
 describe('the /mcp endpoint', () => {
@@ -829,8 +942,9 @@ describe('the /mcp endpoint', () => {
     expect((await call()).status).toBe(401);
   });
 
-  it('rate-limits tool calls per token, as a result the model can read', async () => {
-    const { tokens } = await connect('leia@example.com');
+  it('rate-limits tool calls per grant, as a result the model can read', async () => {
+    const { tokens, clientId } = await connect('leia@example.com');
+    let bearer = tokens.access_token;
     const call = async () => {
       const response = await rpc(
         {
@@ -839,7 +953,7 @@ describe('the /mcp endpoint', () => {
           method: 'tools/call',
           params: { name: 'list_spaces' },
         },
-        { authorization: `Bearer ${tokens.access_token}` },
+        { authorization: `Bearer ${bearer}` },
       );
       expect(response.status).toBe(200);
       return (
@@ -854,7 +968,22 @@ describe('the /mcp endpoint', () => {
     const limited = await call();
     expect(limited.isError).toBe(true);
     expect(limited.content[0]?.text).toContain('Rate limited');
-    // Another token of the same user has its own minute.
+    // A refreshed token is the same grant: refreshing does not reset the
+    // minute (#232).
+    const refreshed = await SELF.fetch(`${ORIGIN}/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: tokens.refresh_token,
+        client_id: clientId,
+      }),
+    });
+    expect(refreshed.status).toBe(200);
+    bearer = ((await refreshed.json()) as Tokens).access_token;
+    expect(bearer).not.toBe(tokens.access_token);
+    expect((await call()).isError).toBe(true);
+    // Another grant of the same user has its own minute.
     const other = await connect('leia@example.com', { name: 'Other client' });
     const response = await rpc(
       {
@@ -1029,9 +1158,25 @@ describe('Settings → Connected apps', () => {
       );
     expect((await whoami()).status).toBe(200);
 
-    const revoked = await revoke(email, id);
+    let revoked: Response = new Response();
+    const lines = await captureLogs(async () => {
+      revoked = await revoke(email, id);
+    });
     expect(revoked.status).toBe(200);
     expect(await revoked.json()).toEqual({ revoked: true });
+    // One security line (#236): the grant and client, not the email.
+    expect(lines.filter((l) => l.event === 'revoke')).toEqual([
+      {
+        level: 'info',
+        what: 'security',
+        event: 'revoke',
+        requestId: expect.any(String),
+        outcome: 'ok',
+        grantId: id,
+        clientId: expect.any(String),
+      },
+    ]);
+    expect(JSON.stringify(lines)).not.toContain(email);
     expect((await whoami()).status).toBe(401);
     const gone = (await (await connections(email)).json()) as {
       connections: Connection[];

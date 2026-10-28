@@ -6,6 +6,7 @@ import {
   type FormatShortcut,
 } from '#shared/composer';
 import { PAGES, type PageSpec } from '#shared/pages';
+import { COMMIT, VERSION } from '#shared/version';
 import { ShortcutList } from '@/components/ShortcutList';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { linkProps, type Route } from '@/lib/router';
@@ -82,6 +83,11 @@ export function HelpPage({ section }: { section?: string }) {
           against your Cloudflare Access sign-in, and your data lives in your
           own Cloudflare account. Changes save as you make them and show on
           every device you have open.
+        </p>
+        <p className="text-sm text-muted-foreground" data-testid="build">
+          This is Datapad {VERSION}, built from commit{' '}
+          <span className="font-mono">{COMMIT}</span>. Settings → Account says
+          the same.
         </p>
       </Section>
 

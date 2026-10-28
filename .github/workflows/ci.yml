@@ -27,12 +27,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # The version in package.json's `packageManager`, everywhere.
+          bun-version-file: package.json
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      # Every installed package's license against the allowlist in
+      # scripts/licenses.ts (exceptions are named there, with reasons).
+      - run: bun run licenses
       # Known advisories in the installed packages, moderate and up. One
       # with no fixed release yet is skipped by id with `--ignore=GHSA-…`
       # and a comment saying why (see docs/self-hosting.md).
@@ -40,9 +46,15 @@ jobs:
       # No .dev.vars here: the generated Env must not depend on one.
       - run: bunx wrangler types
       - run: bunx biome ci .
+      # Unused files, exports and dependencies (knip.jsonc).
+      - run: bunx knip
       - run: bunx tsc -b
       - run: bunx vite build
-      - run: bunx vitest run
+      # The entry's JS and CSS (gzip) against scripts/budget.ts, and
+      # WebLLM kept out of it.
+      - run: bun run budget
+      # With the coverage floors on shared/ and worker/ (vitest.config.ts).
+      - run: bunx vitest run --coverage
 
   # The browser suite (e2e/, Playwright + axe) against the built app under
   # `vite preview`, desktop and phone projects, split across four runners.
@@ -54,10 +66,13 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     # Chromium and its system libraries come with the image: no browser
-    # download or apt step. The tag must match @playwright/test in
-    # package.json (pinned exactly there); move the two together.
+    # download or apt step. Pinned by digest, as the actions are by SHA: a
+    # tag can be pushed again. The tag in the comment must match
+    # @playwright/test in package.json (pinned exactly there); move the two
+    # together, and resolve the new digest with `docker buildx imagetools
+    # inspect mcr.microsoft.com/playwright:<tag>` (test/workflows.test.ts).
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea # v1.64.1-noble
     strategy:
       fail-fast: false
       matrix:
@@ -65,8 +80,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # setup-bun needs `unzip`, which the image lacks; npm's bun package
-      # ships the binary without it (latest, as setup-bun gives `check`).
-      - run: npm install --global bun
+      # ships the binary without it. The version is package.json's
+      # `packageManager`, as setup-bun reads it for `check`.
+      - run: npm install --global "bun@$(node -p "require('./package.json').packageManager.split('@')[1]")"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache

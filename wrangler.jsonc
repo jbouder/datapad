@@ -53,7 +53,11 @@
     "ACCESS_TEAM_DOMAIN": "broad-term-b836.cloudflareaccess.com",
     "ACCESS_AUD": "d62a172b799c1ce9fc8be3e15256b4546a79684dfef02e7d491491d112b3f1c2",
     "BACKUP_HOUR": "3",
-    "BACKUP_TIME_ZONE": "America/New_York"
+    "BACKUP_TIME_ZONE": "America/New_York",
+    // Days to keep the before-* copies written before an erase, delete,
+    // import or restore; the nightly backup deletes older ones. Empty (the
+    // default) keeps them until you delete them. See docs/data.md.
+    "BEFORE_COPIES_MAX_DAYS": ""
   },
 
   "observability": { "enabled": true }

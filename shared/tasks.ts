@@ -1,4 +1,5 @@
 import { addDays, endOfWeek } from './dates';
+import type { Op } from './protocol';
 import { type AssigneeFilter, matchesAssignee, PRIORITY_RANK } from './select';
 import { blockedOf, type DateString, type Snapshot, type Task } from './types';
 
@@ -190,4 +191,37 @@ export function dueForBucket(
     case 'overdue':
       return null;
   }
+}
+
+type TaskOp = Exclude<Op, { type: 'batch' }>;
+
+/**
+ * The ops that undo `ops` on tasks that were `before`, newest first (#235).
+ * Each puts back only what its op changed, through the op that checks it:
+ * a close reopens, a move moves back (refused if that project has gone),
+ * an edit restores the fields it set, a delete restores the task. So an
+ * edit another tab or MCP made in between is kept. Ops on other things
+ * (or on a task not in `before`) have no undo here.
+ */
+export function undoTaskOps(before: Task[], ops: Op[]): TaskOp[] {
+  const was = new Map(before.map((t) => [t.id, t]));
+  const flat = ops.flatMap((o) => (o.type === 'batch' ? o.ops : [o]));
+  const undo: TaskOp[] = [];
+  for (const op of [...flat].reverse()) {
+    const t = 'id' in op ? was.get(op.id) : undefined;
+    if (!t) continue;
+    if (op.type === 'toggleTask') {
+      undo.push({ type: 'toggleTask', id: t.id, done: t.status === 'done' });
+    } else if (op.type === 'moveTask') {
+      undo.push({ type: 'moveTask', id: t.id, projectId: t.projectId });
+    } else if (op.type === 'editTask') {
+      const patch = Object.fromEntries(
+        Object.keys(op.patch).map((k) => [k, t[k as keyof typeof op.patch]]),
+      ) as typeof op.patch;
+      undo.push({ type: 'editTask', id: t.id, patch });
+    } else if (op.type === 'deleteTask') {
+      undo.push({ type: 'restoreTask', task: t });
+    }
+  }
+  return undo;
 }

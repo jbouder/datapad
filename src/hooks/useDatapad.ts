@@ -106,6 +106,7 @@ const OP_TYPES = {
   reorderTasks: true,
   editTask: true,
   deleteTask: true,
+  restoreTask: true,
   setBlocked: true,
   createProject: true,
   editProject: true,

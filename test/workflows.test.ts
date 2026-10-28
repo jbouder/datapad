@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { deployProblems, stripJsonc } from '../scripts/deploy-config';
+import wrangler from '../wrangler.jsonc?raw';
 
 /*
  * Every action the workflows use is pinned to a full commit SHA. A tag such
@@ -18,6 +20,19 @@ const WORKFLOWS = import.meta.glob<string>(
     eager: true,
   },
 );
+
+const PACKAGE = JSON.parse(
+  Object.values(
+    import.meta.glob<string>('../package.json', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }),
+  )[0] ?? '{}',
+) as {
+  packageManager?: string;
+  devDependencies?: Record<string, string>;
+};
 
 const PINNED = /^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/;
 
@@ -67,11 +82,117 @@ describe('workflows', () => {
     expect(split, 'every use of an action carries the same pin').toEqual([]);
   });
 
+  it('use the one bun version package.json names', () => {
+    // `packageManager` is the version: setup-bun reads it through
+    // `bun-version-file`, and the e2e container installs exactly it.
+    expect(PACKAGE.packageManager).toMatch(/^bun@\d+\.\d+\.\d+$/);
+    const offenders: string[] = [];
+    for (const [file, text] of Object.entries(WORKFLOWS)) {
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        const where = `${file.replace(/^\.\.\//, '')}:${i + 1}`;
+        if (/uses:\s*oven-sh\/setup-bun@/.test(line)) {
+          // The step's own `with:` block: the lines indented past `uses:`.
+          const indent = line.search(/\S/) + 2;
+          const block: string[] = [];
+          for (const next of lines.slice(i + 1)) {
+            if (next.trim() && next.search(/\S/) < indent) break;
+            block.push(next);
+          }
+          const step = block.join('\n');
+          if (
+            !/^\s*bun-version-file:\s*package\.json\s*$/m.test(step) ||
+            /^\s*bun-version:/m.test(step)
+          ) {
+            offenders.push(`${where} setup-bun without bun-version-file`);
+          }
+        }
+        if (
+          /install\s+(?:--global|-g)\s+["']?bun\b/.test(line) &&
+          !line.includes('packageManager')
+        ) {
+          offenders.push(`${where} installs bun without packageManager`);
+        }
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('pin the Playwright image by digest, at the @playwright/test version', () => {
+    const images = Object.values(WORKFLOWS).flatMap((text) =>
+      [...text.matchAll(/^\s*image:\s*(.+?)\s*$/gm)].map((m) => m[1] ?? ''),
+    );
+    expect(images.length).toBeGreaterThan(0);
+    for (const image of images) {
+      // A tag can be pushed again; a digest cannot. The comment keeps the
+      // tag, so a reader (and the check below) knows which one it is.
+      expect(image).toMatch(/^[\w./-]+@sha256:[0-9a-f]{64} # \S+$/);
+    }
+    const playwright = images.find((i) =>
+      i.startsWith('mcr.microsoft.com/playwright@'),
+    );
+    expect(
+      playwright,
+      'the e2e job runs in the Playwright image',
+    ).toBeDefined();
+    const version = PACKAGE.devDependencies?.['@playwright/test'];
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(playwright).toMatch(new RegExp(` # v${version}-\\w+$`));
+  });
+
   it('never use pull_request_target', () => {
     // It runs fork PRs with a write token and the repository's secrets.
     const offenders = Object.entries(WORKFLOWS)
       .filter(([, text]) => /^\s*pull_request_target\s*:/m.test(text))
       .map(([file]) => file);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the deploy (#232)', () => {
+  const deploy = WORKFLOWS['../.github/workflows/deploy.yml'] ?? '';
+
+  it('checks Access is configured before it builds or deploys', () => {
+    const check = deploy.indexOf('run: bun scripts/check-deploy.ts');
+    expect(check).toBeGreaterThan(0);
+    expect(check).toBeLessThan(deploy.indexOf('run: bun run build'));
+    expect(check).toBeLessThan(deploy.indexOf('cloudflare/wrangler-action'));
+  });
+
+  it('passes the wrangler.jsonc in this repository', () => {
+    expect(deployProblems(wrangler)).toEqual([]);
+  });
+
+  it('fails an empty ACCESS_AUD or team domain, and a DEV_ACCESS_EMAIL', () => {
+    const config = (vars: Record<string, string>) => `{
+      // A comment, and "// not one" inside a string.
+      "name": "datapad // here",
+      /* a block */
+      "vars": ${JSON.stringify(vars)},
+    }`;
+    const good = {
+      ACCESS_TEAM_DOMAIN: 'rebels.cloudflareaccess.com',
+      ACCESS_AUD: 'aud',
+    };
+    expect(deployProblems(config(good))).toEqual([]);
+    expect(deployProblems(config({ ...good, ACCESS_AUD: ' ' }))).toEqual([
+      expect.stringContaining('vars.ACCESS_AUD is empty'),
+    ]);
+    expect(deployProblems(config({ ...good, ACCESS_TEAM_DOMAIN: '' }))).toEqual(
+      [expect.stringContaining('vars.ACCESS_TEAM_DOMAIN is empty')],
+    );
+    expect(
+      deployProblems(config({ ...good, DEV_ACCESS_EMAIL: 'dev@example.com' })),
+    ).toEqual([expect.stringContaining('DEV_ACCESS_EMAIL is set')]);
+    expect(deployProblems('{ "vars": {} }')).toHaveLength(2);
+    expect(deployProblems('{ not json')).toEqual([
+      'wrangler.jsonc is not valid JSONC',
+    ]);
+  });
+
+  it('strips JSONC without touching strings', () => {
+    expect(
+      JSON.parse(stripJsonc('{"a": "x//y", /* c */ "b": [1, 2,], // d\n}')),
+    ).toEqual({ a: 'x//y', b: [1, 2] });
   });
 });

@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 import type { Op } from '#shared/protocol';
+import { undoTaskOps } from '#shared/tasks';
 import type { Task } from '#shared/types';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
@@ -27,7 +28,8 @@ const plural = (n: number) => (n === 1 ? '1 task' : `${n} tasks`);
 /**
  * What to do with the selected tasks: close or reopen, move, assign, set
  * the due date, delete. Each action is one `batch` op (all or nothing),
- * and its toast's Undo puts every task back as it was.
+ * and its toast's Undo puts back what it changed, through the same
+ * checked ops (`undoTaskOps`), so an edit made since is kept.
  */
 export function BulkBar({
   tasks,
@@ -50,7 +52,7 @@ export function BulkBar({
     onDone();
     show(message, () => {
       actions.batch({
-        ops: before.map((doc) => ({ type: 'put', col: 'tasks', doc })),
+        ops: undoTaskOps(before, ops),
       });
     });
   };

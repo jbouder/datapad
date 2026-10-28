@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import { ExportSchema, type Op, OpSchema } from '#shared/protocol';
+import { ExportSchema, type Op, type OpOf, OpSchema } from '#shared/protocol';
 import { type Changed, merge, OpError, reduce } from '#shared/reducer';
+import { undoTaskOps } from '#shared/tasks';
 import {
   type BoardItem,
   emptySnapshot,
@@ -9,6 +10,7 @@ import {
   type Project,
   type Snapshot,
   settingsOf,
+  type Task,
 } from '#shared/types';
 import fixture from './fixtures/export.json';
 
@@ -2100,6 +2102,150 @@ describe('batch', () => {
       ),
     ).toThrow('That task no longer exists');
     expect(state.tasks.t1?.status).toBe('open');
+  });
+});
+
+describe('undo of a bulk change (#235)', () => {
+  function taskOf(state: Snapshot, id: string): Task {
+    const t = state.tasks[id];
+    if (!t) throw new Error(`no task ${id}`);
+    return t;
+  }
+
+  /** Run `ops` as one batch and return the batch that undoes it. */
+  function change(state: Snapshot, ops: Op[]) {
+    const before = Object.values(state.tasks);
+    const after = run(state, {
+      type: 'batch',
+      ops: ops as OpOf<'batch'>['ops'],
+    });
+    const undo: Op = { type: 'batch', ops: undoTaskOps(before, ops) };
+    return { after, undo };
+  }
+
+  it('restoreTask puts a deleted task back as it was, and logs', () => {
+    const state = base();
+    const t2 = taskOf(state, 't2');
+    const deleted = run(state, { type: 'deleteTask', id: 't2' });
+    const { state: next } = at(deleted, { type: 'restoreTask', task: t2 });
+    expect(next.tasks.t2).toEqual({ ...t2, updatedAt: T1 });
+    expect(lastLog(next, 'p1')).toBe('Restored task "Doors"');
+    expect(next.projects.p1?.updatedAt).toBe(T1);
+  });
+
+  it('restoreTask refuses a taken id or a project that has gone', () => {
+    const state = base();
+    const t2 = taskOf(state, 't2');
+    expect(() => at(state, { type: 'restoreTask', task: t2 })).toThrow(
+      'That task already exists',
+    );
+    const gone = run(
+      state,
+      { type: 'deleteTask', id: 't2' },
+      { type: 'deleteProject', id: 'p1' },
+    );
+    expect(() => at(gone, { type: 'restoreTask', task: t2 })).toThrow(
+      'That project no longer exists',
+    );
+  });
+
+  it('restoreTask drops an assignee, blocker or meeting that has gone', () => {
+    const state = run(
+      base(),
+      { type: 'editTask', id: 't2', patch: { assignee: 'u1' } },
+      { type: 'setBlocked', id: 't2', blocked: { on: 'u1', note: 'Waiting' } },
+    );
+    const t2 = taskOf(state, 't2');
+    const gone = run(
+      state,
+      { type: 'deleteTask', id: 't2' },
+      { type: 'removePerson', id: 'u1' },
+    );
+    const back = at(gone, {
+      type: 'restoreTask',
+      task: { ...t2, meetingId: 'm-gone' },
+    }).state.tasks.t2;
+    expect(back?.assignee).toBe('');
+    expect(back?.blocked).toEqual({ on: null, note: 'Waiting' });
+    expect(back?.meetingId).toBeUndefined();
+  });
+
+  it('undoes a close, a move, an edit and a delete with checked ops', () => {
+    const state = run(base(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Hoth',
+    });
+    for (const ops of [
+      [
+        { type: 'toggleTask', id: 't1', done: true },
+        { type: 'toggleTask', id: 't2', done: true },
+      ],
+      [{ type: 'moveTask', id: 't1', projectId: 'p2' }],
+      [{ type: 'editTask', id: 't1', patch: { due: '2026-11-01' } }],
+      [{ type: 'deleteTask', id: 't1' }],
+    ] as Op[][]) {
+      const { after, undo } = change(state, ops);
+      expect(
+        undo.type === 'batch' && undo.ops.map((o) => o.type),
+      ).not.toContain('put');
+      const back = run(after, undo);
+      for (const id of ['t1', 't2']) {
+        const { updatedAt: _a, order: _o, ...was } = taskOf(state, id);
+        const { updatedAt: _b, order: _p, ...now } = taskOf(back, id);
+        expect(now).toEqual(was);
+      }
+    }
+  });
+
+  it("keeps another client's edit made between the change and its Undo", () => {
+    const state = run(base(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Hoth',
+    });
+    const { after, undo } = change(state, [
+      { type: 'moveTask', id: 't1', projectId: 'p2' },
+      { type: 'editTask', id: 't2', patch: { assignee: 'u1' } },
+    ]);
+    // Another tab (or MCP) renames one and dates the other.
+    const edited = run(
+      after,
+      { type: 'editTask', id: 't1', patch: { title: 'Fix the heaters' } },
+      { type: 'editTask', id: 't2', patch: { due: '2026-11-02' } },
+    );
+    const back = run(edited, undo);
+    expect(back.tasks.t1?.projectId).toBe('p1');
+    expect(back.tasks.t1?.title).toBe('Fix the heaters');
+    expect(back.tasks.t2?.assignee).toBe('');
+    expect(back.tasks.t2?.due).toBe('2026-11-02');
+  });
+
+  it('refuses an Undo that would point at a project deleted since', () => {
+    const state = run(base(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Hoth',
+    });
+    const moved = change(state, [
+      { type: 'moveTask', id: 't1', projectId: 'p2' },
+    ]);
+    const gone = run(moved.after, { type: 'deleteProject', id: 'p1' });
+    expect(() => at(gone, moved.undo)).toThrow('That project no longer exists');
+
+    const deleted = change(state, [{ type: 'deleteTask', id: 't2' }]);
+    const gone2 = run(deleted.after, { type: 'deleteProject', id: 'p1' });
+    expect(() => at(gone2, deleted.undo)).toThrow(
+      'That project no longer exists',
+    );
+  });
+});
+
+describe('the reducer is exhaustive', () => {
+  it('refuses an op type it has no case for', () => {
+    expect(() => at(base(), { type: 'nope' } as unknown as Op)).toThrow(
+      new OpError('Unknown change: nope'),
+    );
   });
 });
 

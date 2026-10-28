@@ -22,9 +22,21 @@
 #                to) and its WebGPU library (raw.githubusercontent.com).
 #                Nothing of yours is sent to any of them.
 #   worker-src   the summary model's Web Worker, from this origin.
+#
+# Strict-Transport-Security: once on a custom domain, a browser that has
+# been here never tries plain HTTP again (#233). The Worker's own
+# responses send it too (API_HEADERS).
 /*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   Referrer-Policy: same-origin
   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-AninP3D4U6FRf13VyLzOT4f91MfmzGUmte3Qj5cy87o=' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
+
+# Vite names every file under /assets by its content hash, so a file there
+# never changes: keep it a year without asking again (#233). `private`,
+# because every response is behind Access and no shared cache may keep it.
+# index.html is not under /assets and is revalidated as usual.
+/assets/*
+  Cache-Control: private, max-age=31536000, immutable

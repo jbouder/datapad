@@ -3,11 +3,14 @@ import { LIMITS } from '#shared/limits';
 import {
   type AppConfig,
   type BackupList,
+  CLIENT_ERROR_BYTES,
+  ClientErrorSchema,
   type ConnectionList,
   type CreatedSpace,
   CreateSpaceSchema,
   DeleteSpaceSchema,
   describeIssue,
+  type Health,
   type ImportResult,
   MoveProjectSchema,
   RenameSpaceSchema,
@@ -15,6 +18,7 @@ import {
   type SpaceList,
 } from '#shared/protocol';
 import { MAIN_SPACE } from '#shared/types';
+import { COMMIT, VERSION } from '#shared/version';
 import { type AccessVerifier, SOCKET_MAX_AGE_MS, verifyAccess } from './access';
 import {
   type DatapadObject,
@@ -24,6 +28,13 @@ import {
   SESSION_EXPIRES_HEADER,
 } from './datapad';
 import type { Bindings } from './env';
+import {
+  logError,
+  logSecurity,
+  REQUEST_ID_HEADER,
+  requestIdOf,
+  withRequestId,
+} from './log';
 import { authorize } from './mcp/authorize';
 import { listConnections, revokeConnection } from './mcp/connections';
 import {
@@ -62,9 +73,11 @@ export { DatapadObject } from './datapad';
 /**
  * On every response the Worker makes itself (static assets get theirs from
  * public/_headers). None of these is a page, so nothing may run, load or
- * frame it.
+ * frame it. HSTS (#233) matters once the app is on a custom domain: a
+ * browser that has been here once never tries plain HTTP again.
  */
 export const API_HEADERS = {
+  'strict-transport-security': 'max-age=31536000; includeSubDomains',
   'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
@@ -72,11 +85,24 @@ export const API_HEADERS = {
   'cache-control': 'no-store',
 } as const;
 
-/** The handler, with the verifier injectable for tests. */
+/**
+ * The handler, with the verifier injectable for tests. Every response it
+ * makes, assets and the socket's upgrade included, carries `x-request-id`
+ * (#236).
+ */
 export function createHandler(verify: AccessVerifier) {
   return async function handle(
     request: Request,
     env: Bindings,
+  ): Promise<Response> {
+    const id = requestIdOf(request);
+    return withRequestId(await route(request, env, id), id);
+  };
+
+  async function route(
+    request: Request,
+    env: Bindings,
+    id: string,
   ): Promise<Response> {
     const { pathname } = new URL(request.url);
     try {
@@ -88,7 +114,7 @@ export function createHandler(verify: AccessVerifier) {
 
       // The MCP sign-in: behind Access, like everything below.
       if (pathname === AUTHORIZE_PATH) {
-        return await authorize(request, env, identity);
+        return await authorize(request, env, identity, id);
       }
 
       if (pathname === '/api/config') {
@@ -130,6 +156,11 @@ export function createHandler(verify: AccessVerifier) {
           connection[1],
         );
         if (!revoked) return json({ error: 'No such connection' }, 404);
+        logSecurity('revoke', id, {
+          outcome: 'ok',
+          grantId: revoked.id,
+          clientId: revoked.clientId,
+        });
         return json({ revoked: true });
       }
 
@@ -157,12 +188,12 @@ export function createHandler(verify: AccessVerifier) {
       }
 
       if (pathname.startsWith('/api/')) {
-        const route = API_ROUTES[pathname];
-        if (route) {
-          if (request.method !== route.method) {
+        const api = API_ROUTES[pathname];
+        if (api) {
+          if (request.method !== api.method) {
             return json({ error: 'Method not allowed' }, 405);
           }
-          if (route.method === 'POST') {
+          if (api.method === 'POST') {
             const refused = refuseCrossSite(request);
             if (refused) return refused;
           }
@@ -170,12 +201,12 @@ export function createHandler(verify: AccessVerifier) {
           // space only picks within that object.
           const datapad = env.DATAPAD.getByName(email);
           const space = spaceOf(request);
-          if (route.scoped && !(await datapad.hasSpace(space))) {
+          if (api.scoped && !(await datapad.hasSpace(space))) {
             return noSuchSpace();
           }
           // Awaited so a space deleted since the check still reaches the
           // catch below as a 404.
-          return await route.handle(request, datapad, space);
+          return await api.handle(request, datapad, space, id);
         }
       }
 
@@ -222,16 +253,10 @@ export function createHandler(verify: AccessVerifier) {
       if (isNoSuchSpace(error)) return noSuchSpace();
       // A rolled-back Worker over newer data: every route, /ws included.
       if (isNewerSchema(error)) return json({ error: NEWER_SCHEMA }, 503);
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          path: pathname,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-      return json({ error: 'Something went wrong' }, 500);
+      logError(id, pathname, error);
+      return serverError(id);
     }
-  };
+  }
 }
 
 type Datapad = DurableObjectStub<DatapadObject>;
@@ -244,6 +269,8 @@ interface ApiRoute {
     request: Request,
     datapad: Datapad,
     space: string,
+    /** The request's id, for its log lines (#236). */
+    id: string,
   ) => Promise<Response>;
 }
 
@@ -266,14 +293,16 @@ const API_ROUTES: Record<string, ApiRoute> = {
   // so a signed-out client gets 401 (or Access's redirect) here too, which
   // is how the app tells a lapsed session from a dropped socket. It says
   // nothing about the data, except that it is from a newer version when
-  // the Worker was rolled back past a schema bump (NEWER_SCHEMA).
+  // the Worker was rolled back past a schema bump (NEWER_SCHEMA). It says
+  // which build is running (#237), as Settings → Account does.
   '/api/health': {
     method: 'GET',
     scoped: false,
     handle: async (_request, datapad) => {
       try {
         await datapad.ping();
-        return json({ ok: true });
+        const health: Health = { ok: true, version: VERSION, commit: COMMIT };
+        return json(health);
       } catch (error) {
         console.error(
           JSON.stringify({
@@ -285,8 +314,44 @@ const API_ROUTES: Record<string, ApiRoute> = {
         const reason = isNewerSchema(error)
           ? NEWER_SCHEMA
           : 'Datapad is not reachable';
-        return json({ ok: false, error: reason }, 503);
+        const health: Health = {
+          ok: false,
+          error: reason,
+          version: VERSION,
+          commit: COMMIT,
+        };
+        return json(health, 503);
       }
+    },
+  },
+  /**
+   * A render crash in the browser (#236): the error boundary posts its
+   * message and component stack here, and it becomes one log line. Small
+   * by design, and only those fields, so no document content travels.
+   */
+  '/api/client-error': {
+    method: 'POST',
+    scoped: false,
+    handle: async (request, _datapad, _space, id) => {
+      const body = await readBody(
+        request,
+        ClientErrorSchema,
+        CLIENT_ERROR_BYTES,
+      );
+      if (!body.ok) return body.response;
+      const { where, message, componentStack, version } = body.value;
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          what: 'client',
+          requestId: id,
+          where,
+          message,
+          componentStack,
+          version,
+        }),
+      );
+      return new Response(null, { status: 204, headers: API_HEADERS });
     },
   },
   '/api/spaces': {
@@ -346,7 +411,7 @@ const API_ROUTES: Record<string, ApiRoute> = {
   '/api/spaces/delete': {
     method: 'POST',
     scoped: false,
-    handle: async (request, datapad) => {
+    handle: async (request, datapad, _space, id) => {
       const body = await readBody(request, DeleteSpaceSchema);
       if (!body.ok) return body.response;
       if (!(await datapad.hasSpace(body.value.id))) return noSuchSpace();
@@ -354,6 +419,10 @@ const API_ROUTES: Record<string, ApiRoute> = {
         body.value.id,
         body.value.token,
       );
+      logSecurity('deleteSpace', id, {
+        outcome: outcome.ok ? 'ok' : 'refused',
+        space: body.value.id,
+      });
       if (!outcome.ok) {
         return json(
           { error: outcome.error },
@@ -401,12 +470,17 @@ const API_ROUTES: Record<string, ApiRoute> = {
   '/api/import': {
     method: 'POST',
     scoped: true,
-    handle: async (request, datapad, space) => {
+    handle: async (request, datapad, space, id) => {
       const body = await readJson(request);
       if (!body.ok) {
         return json({ error: body.error }, body.status);
       }
       const outcome = await datapad.import(space, body.value);
+      logSecurity('import', id, {
+        outcome: outcome.ok ? 'ok' : 'refused',
+        space,
+        ...(outcome.ok ? { imported: outcome.imported } : {}),
+      });
       if (!outcome.ok) {
         return json({ error: outcome.error }, 400);
       }
@@ -425,7 +499,7 @@ const API_ROUTES: Record<string, ApiRoute> = {
   '/api/backups/restore': {
     method: 'POST',
     scoped: true,
-    handle: async (request, datapad, space) => {
+    handle: async (request, datapad, space, id) => {
       const body = await readJson(request);
       const day =
         body.ok && typeof body.value === 'object' && body.value !== null
@@ -435,6 +509,11 @@ const API_ROUTES: Record<string, ApiRoute> = {
         return json({ error: 'Say which day to restore' }, 400);
       }
       const outcome = await datapad.restoreBackup(space, day);
+      logSecurity('restore', id, {
+        outcome: outcome.ok ? 'ok' : 'refused',
+        space,
+        ...(outcome.ok ? { imported: outcome.imported } : {}),
+      });
       if (!outcome.ok) {
         return json({ error: outcome.error }, 404);
       }
@@ -451,13 +530,16 @@ const API_ROUTES: Record<string, ApiRoute> = {
   '/api/erase': {
     method: 'POST',
     scoped: true,
-    handle: async (request, datapad, space) => {
+    handle: async (request, datapad, space, id) => {
       const body = await readJson(request);
       const token =
         body.ok && typeof body.value === 'object' && body.value !== null
           ? (body.value as { token?: unknown }).token
           : undefined;
-      if (typeof token !== 'string' || !(await datapad.erase(space, token))) {
+      const erased =
+        typeof token === 'string' && (await datapad.erase(space, token));
+      logSecurity('erase', id, { outcome: erased ? 'ok' : 'refused', space });
+      if (!erased) {
         return json(
           { error: 'That confirmation has expired. Ask for a new one.' },
           403,
@@ -498,14 +580,17 @@ type JsonBody =
   | { ok: true; value: unknown }
   | { ok: false; status: number; error: string };
 
-/** The body as JSON, refused when larger than an import may be. */
-async function readJson(request: Request): Promise<JsonBody> {
+/** The body as JSON, refused when larger than `max` (an import's limit). */
+async function readJson(
+  request: Request,
+  max: number = LIMITS.importBytes,
+): Promise<JsonBody> {
   const declared = Number(request.headers.get('content-length') ?? 0);
-  if (declared > LIMITS.importBytes) {
+  if (declared > max) {
     return { ok: false, status: 413, error: 'That file is too large' };
   }
   const text = await request.text();
-  if (text.length > LIMITS.importBytes) {
+  if (text.length > max) {
     return { ok: false, status: 413, error: 'That file is too large' };
   }
   try {
@@ -521,8 +606,9 @@ type Body<T> = { ok: true; value: T } | { ok: false; response: Response };
 async function readBody<T>(
   request: Request,
   schema: z.ZodType<T>,
+  max?: number,
 ): Promise<Body<T>> {
-  const body = await readJson(request);
+  const body = await readJson(request, max);
   if (!body.ok) {
     return { ok: false, response: json({ error: body.error }, body.status) };
   }
@@ -555,21 +641,17 @@ export function createWorker(verify: AccessVerifier) {
     ): Promise<Response> {
       const { pathname } = new URL(request.url);
       if (isProviderPath(pathname)) {
+        const id = requestIdOf(request);
         try {
           const limited = await limitRegistration(request, env);
-          if (limited) return withApiHeaders(limited);
+          if (limited) return withApiHeaders(limited, id);
           return withApiHeaders(
             await providerFor(request).fetch(request, env, ctx),
+            id,
           );
         } catch (error) {
-          console.error(
-            JSON.stringify({
-              level: 'error',
-              path: pathname,
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          );
-          return json({ error: 'Something went wrong' }, 500);
+          logError(id, pathname, error);
+          return withRequestId(serverError(id), id);
         }
       }
       return handle(request, env);
@@ -577,12 +659,16 @@ export function createWorker(verify: AccessVerifier) {
   } satisfies ExportedHandler<Bindings>;
 }
 
-/** The provider's answers, with whichever of `API_HEADERS` they lack. */
-function withApiHeaders(response: Response): Response {
+/**
+ * The provider's answers, with whichever of `API_HEADERS` they lack and
+ * the request's id.
+ */
+function withApiHeaders(response: Response, id: string): Response {
   const out = new Response(response.body, response);
   for (const [name, value] of Object.entries(API_HEADERS)) {
     if (!out.headers.has(name)) out.headers.set(name, value);
   }
+  out.headers.set(REQUEST_ID_HEADER, id);
   return out;
 }
 
@@ -634,6 +720,11 @@ const SIGN_IN_PAGE = `<!doctype html>
 </body>
 </html>
 `;
+
+/** A 500 that names the request, so its log line can be found (#236). */
+function serverError(id: string): Response {
+  return json({ error: 'Something went wrong', requestId: id }, 500);
+}
 
 function noSuchSpace(): Response {
   return json({ error: 'No such space' }, 404);

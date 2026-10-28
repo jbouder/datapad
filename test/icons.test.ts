@@ -69,7 +69,9 @@ describe('the installed app icon', () => {
     for (const text of [
       manifest.description,
       ...Array.from(
-        html.matchAll(/name="description" content="([^"]+)"/g),
+        html.matchAll(
+          /(?:name|property)="(?:og:)?description" content="([^"]+)"/g,
+        ),
         (m) => m[1],
       ),
     ]) {

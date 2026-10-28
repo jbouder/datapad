@@ -3,10 +3,13 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { buildInfo } from './build-info';
 
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss(), cloudflare()],
   define: {
+    // The version and commit (#237), for the app and the Worker.
+    ...buildInfo(),
     // /dev/components (src/lib/router.ts): in `vite dev`, and in the e2e
     // build (VITE_DEV_COMPONENTS=1). A constant, so production bundles
     // drop the page entirely.

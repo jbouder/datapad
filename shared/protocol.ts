@@ -12,6 +12,7 @@ import {
   DEFAULT_SETTINGS,
   type Decision,
   DOC_COLLECTIONS,
+  EXPORT_FORMAT,
   type ExportFile,
   type Link,
   type Meeting,
@@ -514,33 +515,85 @@ function keyedCollection<S extends z.ZodType>(schema: S) {
     });
 }
 
+/** The message a file from a newer Datapad is refused with (#240). */
+export function newerFormatMessage(format: number): string {
+  return `This file is from a newer version of Datapad (export format ${format}; this one reads up to ${EXPORT_FORMAT}). Update Datapad, then try again.`;
+}
+
+/**
+ * Its `format` (#240): none is legacy, which is migrated by shape; one
+ * this version knows is read as it is; a newer one is refused whole, with
+ * a message that says so, before any of it is read.
+ */
+function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
+  const format =
+    typeof input === 'object' && input !== null && !Array.isArray(input)
+      ? (input as { format?: unknown }).format
+      : undefined;
+  if (format === undefined) return migrate(input);
+  if (typeof format === 'number' && Number.isInteger(format)) {
+    if (format > EXPORT_FORMAT) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [],
+        message: newerFormatMessage(format),
+        params: { newerFormat: format },
+      });
+      return z.NEVER;
+    }
+  }
+  return input;
+}
+
 /**
  * Datapad's export and the artifact's `ledger-*.json`, unchanged. Missing
- * collections are empty; unknown top-level keys are ignored. A file from
- * before meetings (with `events`) is migrated first (`shared/migrate.ts`),
- * so what comes out is always the current shape.
+ * collections are empty; unknown top-level keys are ignored. A file
+ * without `format` is legacy: one from before meetings (with `events`) is
+ * migrated first (`shared/migrate.ts`). A newer `format` is refused. What
+ * comes out is always the current shape, without `format`.
  */
 export const ExportSchema = z.preprocess(
-  migrate,
-  z.object({
-    exportedAt: timestamp.optional(),
-    projects: collectionOf(ProjectSchema),
-    tasks: collectionOf(TaskSchema),
-    notes: collectionOf(NoteSchema),
-    meetings: collectionOf(MeetingSchema),
-    people: collectionOf(PersonSchema),
-    /** Datapad only; older exports and the artifact have none. */
-    decisions: collectionOf(DecisionSchema),
-    /** Datapad only (M7); older files carry orgs as project text. */
-    orgs: collectionOf(OrgSchema),
-    /** Datapad only (M7). */
-    templates: collectionOf(TemplateSchema),
-    /** Datapad only (M12); older files have no whiteboards. */
-    boardItems: collectionOf(BoardItemSchema),
-    activity: keyedCollection(ActivitySchema),
-    settings: keyedCollection(SettingsSchema),
-  }),
+  checkFormat,
+  z
+    .object({
+      format: z.number().int().min(1).max(EXPORT_FORMAT).optional(),
+      exportedAt: timestamp.optional(),
+      projects: collectionOf(ProjectSchema),
+      tasks: collectionOf(TaskSchema),
+      notes: collectionOf(NoteSchema),
+      meetings: collectionOf(MeetingSchema),
+      people: collectionOf(PersonSchema),
+      /** Datapad only; older exports and the artifact have none. */
+      decisions: collectionOf(DecisionSchema),
+      /** Datapad only (M7); older files carry orgs as project text. */
+      orgs: collectionOf(OrgSchema),
+      /** Datapad only (M7). */
+      templates: collectionOf(TemplateSchema),
+      /** Datapad only (M12); older files have no whiteboards. */
+      boardItems: collectionOf(BoardItemSchema),
+      activity: keyedCollection(ActivitySchema),
+      settings: keyedCollection(SettingsSchema),
+    })
+    .transform(({ format: _, ...file }) => file),
 );
+
+/**
+ * A refused export as one sentence: a newer format says only that, and
+ * anything else names the field.
+ */
+export function exportProblem(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return 'That file is not a Datapad export';
+  return newerFormat(error) ?? `${issuePath(issue)}: ${describeIssue(issue)}`;
+}
+
+/** The message, when an export was refused for being from a newer Datapad. */
+export function newerFormat(error: z.ZodError): string | null {
+  const issue = error.issues[0];
+  return issue?.code === 'custom' && issue.params?.newerFormat
+    ? issue.message
+    : null;
+}
 
 export type ParsedExport = z.output<typeof ExportSchema>;
 
@@ -639,10 +692,8 @@ export const SESSION_EXPIRED_REASON = 'session expired';
 
 /** Create a space. The server chooses its id and position. */
 export const CreateSpaceSchema = z.object({ name: spaceName });
-export type CreateSpace = z.infer<typeof CreateSpaceSchema>;
 
 export const RenameSpaceSchema = z.object({ id, name: spaceName });
-export type RenameSpace = z.infer<typeof RenameSpaceSchema>;
 
 /** Every space's id, once each, in the new order. */
 export const ReorderSpacesSchema = z.object({
@@ -652,7 +703,6 @@ export const ReorderSpacesSchema = z.object({
     .max(LIMITS.spacesMax)
     .refine((ids) => new Set(ids).size === ids.length, 'Each space once'),
 });
-export type ReorderSpaces = z.infer<typeof ReorderSpacesSchema>;
 
 /**
  * Delete a space and everything in it. Like erase, it takes a token the
@@ -662,7 +712,33 @@ export const DeleteSpaceSchema = z.object({
   id,
   token: z.string().min(1).max(LIMITS.idMax),
 });
-export type DeleteSpace = z.infer<typeof DeleteSpaceSchema>;
+
+/**
+ * `GET /api/health`: whether the object answers, and which build is
+ * running (#237): `version` from package.json, `commit` the short SHA.
+ */
+export interface Health {
+  ok: boolean;
+  error?: string;
+  version: string;
+  commit: string;
+}
+
+/** The most `POST /api/client-error` takes; anything larger is 413. */
+export const CLIENT_ERROR_BYTES = 8 * 1024;
+
+/**
+ * `POST /api/client-error` (#236): a render crash, for the Worker's log.
+ * Only the error's message and React's component stack (component names),
+ * each cut short: never state, props or anything from a document.
+ */
+export const ClientErrorSchema = z.object({
+  where: z.enum(['page', 'app']),
+  message: z.string().max(500),
+  componentStack: z.string().max(4000),
+  version: z.string().max(64),
+});
+export type ClientError = z.infer<typeof ClientErrorSchema>;
 
 /** Move a project, with everything that hangs off it, to another space. */
 export const MoveProjectSchema = z
@@ -671,7 +747,6 @@ export const MoveProjectSchema = z
     message: 'Pick another space',
     path: ['to'],
   });
-export type MoveProject = z.infer<typeof MoveProjectSchema>;
 
 /* ---------- ops ---------- */
 
@@ -865,6 +940,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('editTask'), id, patch: patch(taskFields) }),
   /** Keeps the task's notes. */
   z.object({ type: z.literal('deleteTask'), id }),
+  /**
+   * Undo of a delete: the task as it was, back under its id. Refused if
+   * the id is taken or its project is gone; a meeting, assignee or
+   * blocker that has gone since is dropped. Logs `Restored task "<title>"`.
+   */
+  z.object({ type: z.literal('restoreTask'), task: TaskSchema }),
   /** Logs "Blocked "<title>" on <name>" or "Unblocked "<title>"". */
   z.object({
     type: z.literal('setBlocked'),
@@ -1250,8 +1331,6 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   /** Ask for a fresh snapshot (after a sequence gap or a disagreement). */
   z.object({ type: z.literal('sync') }),
 ]);
-
-export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 /** Server → client. Not validated on the client; the server is trusted. */
 export type ServerMessage =

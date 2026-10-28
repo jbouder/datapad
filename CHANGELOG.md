@@ -11,12 +11,26 @@ was planned under.
 Datapad has no API version. The only format other software reads is the
 export file (`datapad-YYYY-MM-DD.json`, [docs/data.md](docs/data.md#the-format)),
 and every release imports every earlier one: old shapes are migrated on
-the way in, never refused. A release that changes the format says so here
-under **Export format**.
+the way in, never refused. The file carries its `format` number; one from
+a newer release is refused with a message saying so. A release that
+changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
 ### Added
+
+- **An age limit for the copies kept before a destructive change** (#242):
+  set `BEFORE_COPIES_MAX_DAYS` in `wrangler.jsonc` and the nightly backup
+  deletes `before-*` copies older than that many days, in every space's
+  folder. Off by default: they are kept until you delete them.
+  docs/data.md has a checklist for deleting everything of one email
+  across the object, R2 and KV.
+- **`SECURITY.md`** (#230): what is in scope and how to report a
+  vulnerability privately.
+- **Which build is running** (#237): Settings → Account and Help → About
+  show the version and commit, and `GET /api/health` returns them.
+  docs/self-hosting.md sets up an error-rate notification and an alert for
+  a failed nightly backup.
 
 - **The whiteboard without a pointer** (#222): with S, T or R picked,
   Enter places a sticky, text or rectangle in the middle of the view, open
@@ -81,6 +95,13 @@ under **Export format**.
 
 ### Changed
 
+- **MCP writes are retry-safe** (#244): every write tool takes an
+  optional `requestId`; calling again with the same one returns what the
+  first call made instead of adding it twice, and one spent on a
+  different change is refused. `edit_task` is now marked destructive (it
+  replaces a task's details), and the instructions a client gets at
+  `initialize` say that text in Datapad is the owner's data, never
+  instructions (docs/mcp.md).
 - **Quieter control edges**: selects, the layout switch, segmented
   choices and outline buttons (in Dark too) now share the cards' light
   border. Text fields and checkboxes keep the darker 3:1 edge that shows
@@ -99,9 +120,19 @@ under **Export format**.
   pinned) that opens the note in place. Grid is a masonry grid: cards keep
   their height and pack into columns with no holes, in reading order, one
   column on phones. A saved or linked Feed reads as List.
+- **Datapad starts lighter** (#234): Whiteboard, Help, Digest, Settings
+  and a meeting's and a task's page load on demand (and in the background
+  once the app is idle), so the first load downloads about 11% less
+  script (377 KB gzipped, from 423 KB). CI fails a change that grows the
+  first load past its budget or pulls the summary model's library into it.
 
 ### Export format
 
+- **A format version** (#240): exports and backups now start with
+  `"format": 1`. A file without it (every earlier export, and the
+  artifact's) is legacy and imports as before. A file with a newer
+  format than this Datapad knows is refused whole, on Import and on
+  restoring a backup, with a message that says to update Datapad.
 - A note may carry `scratch: true` (#218): the space's Notepad. Files
   from before it import unchanged; an export writes it only on that note.
   An import that brings a second Notepad keeps the older one as the
@@ -109,6 +140,12 @@ under **Export format**.
 
 ### Fixed
 
+- **Undo keeps edits made since** (#235): Undo of a bulk close, move,
+  assign, due date or delete, or of a drag on the Tasks board, puts back
+  only what that change did, through the same checked changes the app
+  makes, so an edit from another tab or MCP in between stays. It is
+  refused, with the reason, when the task's project was deleted since,
+  and Activity says what it did (a deleted task logs "Restored task").
 - **Rolling back past a schema bump** (#227): a Worker older than your
   data's schema no longer runs over it. The object reads and writes
   nothing, the nightly backup included; every call, the socket and
@@ -129,6 +166,24 @@ under **Export format**.
   the dividers are the frame's colour.
 
 ### Security
+
+- **MCP and Access hardening** (#232): `/oauth/authorize` requires PKCE
+  (S256) of every client, confidential ones too; the consent page ticks
+  **write** only when the app asked for it; the 60-calls-a-minute limit
+  counts per grant, so refreshing a token no longer resets it; the Access
+  key fetch times out after five seconds and is shared by concurrent
+  requests; the dev bypass answers only on `localhost`, and the deploy
+  workflow fails when `wrangler.jsonc` has an empty `ACCESS_AUD` or a
+  `DEV_ACCESS_EMAIL`.
+- **HSTS and asset caching** (#233): `Strict-Transport-Security` on every
+  response, and the hashed files under `/assets/` are kept a year
+  (`private, immutable`), so a launch no longer revalidates them.
+- **Request ids and security logs** (#236): every Worker response carries
+  `x-request-id` (the `cf-ray`), and a 500 shows it; a view that crashes
+  reports its message and component stack to the Worker's log
+  (`POST /api/client-error`, no document content); allowing or revoking an
+  MCP app, erase, deleting a space, import and restore each log one line,
+  with no email or token.
 
 - **MCP client registration is capped** (#225): `/oauth/register`, open
   so an MCP client can sign in, takes five registrations a minute per
@@ -162,6 +217,17 @@ under **Export format**.
   write tools send (`MCP_OP_TYPES`), alone or inside a batch, so no client
   can delete, archive or overwrite a document even by building the op
   itself. The whole change is refused and nothing is written.
+- **The summary model is pinned and checked** (#239): its WebGPU library
+  comes from a fixed commit, not a moving branch, and its weights from a
+  fixed Hugging Face revision; WebLLM checks the library, the model's
+  config and its tokenizer against hashes and refuses one that differs.
+  A model downloaded before downloads once more (it now comes from the
+  pinned address); the old copy is freed once the new one has loaded.
+- **Pinned tooling** (#238, #245): one Bun version everywhere
+  (`packageManager` in `package.json`), the Playwright image by digest,
+  and CI now checks every installed package's license against an
+  allowlist, runs knip for unused code and dependencies, and holds
+  coverage floors on `shared/` and `worker/`.
 
 ## [0.1.0] — 2026-10-27
 

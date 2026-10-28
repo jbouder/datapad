@@ -30,7 +30,8 @@ first deploy, replace them with yours, or blank `ACCESS_AUD` until step 4:
   "ACCESS_TEAM_DOMAIN": "",
   "ACCESS_AUD": "",
   "BACKUP_HOUR": "3",
-  "BACKUP_TIME_ZONE": "America/New_York"
+  "BACKUP_TIME_ZONE": "America/New_York",
+  "BEFORE_COPIES_MAX_DAYS": ""
 }
 ```
 
@@ -57,6 +58,11 @@ default `3`) and `BACKUP_TIME_ZONE` (an IANA zone, default
 `America/New_York`). Each user's Durable Object books its own alarm for that
 hour. See [data.md § Backups](data.md#backups) for retention and restoring.
 
+The copies written before an erase, a space's deletion, an import or a
+restore (`before-*.json`) are kept until you delete them. To give them an
+age limit instead, set `BEFORE_COPIES_MAX_DAYS` to a number of days; the
+nightly alarm then deletes older ones. Empty (the default) keeps them all.
+
 ## 3. Deploy the Worker
 
 ```bash
@@ -69,8 +75,14 @@ With `ACCESS_AUD` empty in `wrangler.jsonc`, the Worker answers **401 to
 everything**: it fails closed until Access is set up. That is expected.
 
 `DEV_ACCESS_EMAIL` only ever lives in `.dev.vars`, which is never deployed,
-and it is ignored whenever `ACCESS_AUD` is set. Do not add it as a var or
-secret in the dashboard.
+and it is ignored whenever `ACCESS_AUD` is set, and on any hostname but
+`localhost`. Do not add it as a var or secret in the dashboard.
+
+This first deploy from your machine is the only one that may go out
+without Access. The GitHub Actions deploy (below) runs
+`bun scripts/check-deploy.ts` first and fails when `wrangler.jsonc` has an
+empty `ACCESS_AUD` or `ACCESS_TEAM_DOMAIN`, or any `DEV_ACCESS_EMAIL`. Run
+it yourself before a manual deploy if you like.
 
 ## 4. Put Cloudflare Access in front
 
@@ -229,10 +241,26 @@ the AUD, so a hostname that Access does not cover gets 401.
 ## Deploy from GitHub Actions
 
 `.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
-type check, build, Vitest in workerd, then Playwright + axe (desktop and
-phone) against `vite preview`, split across four runners on the Playwright
-container image. The `check` job also runs `bun audit` and fails on a
-known advisory of moderate severity or above. `.github/workflows/codeql.yml`
+knip, type check, build, the bundle budget, Vitest in workerd with
+coverage, then Playwright + axe (desktop and phone) against `vite
+preview`, split across four runners on the Playwright container image.
+The `check` job also runs `bun audit` and fails on a known advisory of
+moderate severity or above, and checks every installed package's license
+against an allowlist. Each of these fails the job:
+- **Licenses** (`npm run licenses`, `scripts/licenses.ts`): every package
+  in `node_modules` carries an allowed license, or is named in its
+  exceptions with the reason.
+- **knip** (`npm run knip`, `knip.jsonc`): no unused file, export or
+  dependency. Delete what is unused; ignore something only with a reason
+  in `knip.jsonc`.
+- **Bundle budget** (`npm run build && npm run budget`,
+  `scripts/budget.ts`): what `index.html` loads up front (its script, the
+  chunks it preloads, its stylesheet) stays under the gzip budgets, and
+  WebLLM is never in it. Raise a budget only on purpose, in the change
+  that needs it.
+- **Coverage** (`npm run test:coverage`, `vitest.config.ts`): floors on
+  `shared/` and `worker/`, just under where the suite is. Raise them as
+  it grows. `.github/workflows/codeql.yml`
 runs CodeQL (security-extended queries) over the TypeScript and over the
 workflows themselves, on every pull request, on `main` and weekly.
 `.github/workflows/deploy.yml` deploys `main` after a green CI run.
@@ -243,12 +271,14 @@ workflows themselves, on every pull request, on `main` and weekly.
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 3. Settings → Environments → create `production` (add yourself as a
    required reviewer if you want a manual gate).
-4. Settings → Branches (or Rules) → protect `main`: require a pull request
-   and the `check`, `e2e`, `codeql (javascript-typescript)` and
-   `codeql (actions)` status checks. The browser suite runs as four
+4. Settings → Branches (or Rules) → protect `main`: require the `check`
+   and `e2e` status checks. The browser suite runs as four
    `e2e shard n/4` jobs; `e2e` is the one job that passes only when all of
    them do, so require it, not the shards. GitHub only offers a check once
-   it has run.
+   it has run. That is what this repository requires today. Recommended
+   on top: require `codeql (javascript-typescript)` and `codeql (actions)`
+   too, so a CodeQL finding blocks a merge, and require a pull request, so
+   nothing reaches `main` (and so deploys) without one.
 5. Settings → Advanced Security: turn on secret scanning and push
    protection (a push that contains a recognised credential is refused).
 
@@ -288,6 +318,20 @@ and never deploy until merged. The policy:
   `uses:` that is not pinned that way, on one action pinned to two
   versions, and on `pull_request_target`. To add an action, resolve its
   tag with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+- **Bun** is one version: `packageManager` in `package.json`. setup-bun
+  reads it (`bun-version-file`) and the e2e container installs exactly
+  it; `test/workflows.test.ts` fails if a workflow does otherwise. Move
+  it by changing that one field.
+- **The Playwright image** is pinned by digest, with its tag in a
+  comment; the tag must match `@playwright/test` (pinned exactly). When
+  that moves, resolve the new digest with `docker buildx imagetools
+  inspect mcr.microsoft.com/playwright:v<version>-noble` and update both.
+  `test/workflows.test.ts` checks the pin and the match.
+- **The summary model** is pinned in `src/lib/summary-pins.ts`: its
+  WebGPU library to a commit, its weights to a Hugging Face revision,
+  with the integrity hashes WebLLM checks. A WebLLM update that changes
+  its libraries fails `test/summary-pins.test.ts` until the pins move;
+  the file says how.
 - **Advisories.** `bun audit --audit-level=moderate` in CI fails on any
   known advisory in the installed packages, moderate and up, including
   ones published after the lockfile last changed. Fix it with an update,
@@ -310,11 +354,37 @@ in `.wrangler/state`; delete that folder to start over.
 ## Observability
 
 Workers observability is on in `wrangler.jsonc`. The Worker logs one JSON
-line per error (the path and the error's message, never an email or
-content) and one per backup. `npm run tail` streams live logs;
-[architecture.md](architecture.md#logs) says what each line means.
-`GET /api/health` (behind Access, like everything) answers `{ "ok": true }`
-when your object is reachable.
+line per error (the path, the request id and the error's message, never an
+email or content), one per crash a browser reports, one per security event
+and one per backup. `npm run tail` streams live logs;
+[architecture.md](architecture.md#logs) says what each line means. A 500
+names its request (`requestId`, also the `x-request-id` header and the
+request's `cf-ray`): search the logs for it.
+
+`GET /api/health` (behind Access, like everything) answers
+`{ "ok": true, "version": "0.1.0", "commit": "a1b2c3d" }` when your object
+is reachable: which build is running. Settings → Account and Help → About
+show the same.
+
+### Alerts
+
+Nothing pages you by default. Two alerts are worth setting up once:
+1. **Error rate.** Dashboard → **Notifications** → **Add**, choose the
+   Workers notification for errors (Cloudflare lists it under **Workers**;
+   pick the `datapad` Worker if asked) and send it to your email. Where
+   your plan offers it, Workers & Pages → `datapad` → **Observability**
+   can also alert on a query; there, alert when `$metadata.level = "error"`
+   lines exceed a handful in 15 minutes.
+2. **A failed nightly backup.** In Workers & Pages → `datapad` →
+   **Observability**, save a query for lines where `what = "backup"` and
+   `level = "error"` (the Durable Object's backup failures, which carry
+   `retryAt`), and add an alert on it that fires on any match. Settings →
+   Backups also says so in `warn` when the latest attempt failed or a space
+   has gone two days without a backup, so check it now and then even with
+   the alert in place.
+
+Cloudflare's dashboard moves; if a menu above is named differently, look
+for Notifications (account level) and the Worker's Observability tab.
 
 ## Updating
 

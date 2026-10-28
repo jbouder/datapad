@@ -198,6 +198,17 @@ from before meetings, which keeps its query and renames the id
 parameter to `meeting`) is `shared/routes.ts`, so Vitest tests it
 without a DOM; `src/lib/router.ts` re-exports it.
 
+The pages most visits never open (Whiteboard, Help, Digest, Settings and
+a meeting's and a task's page) are chunks of their own
+(`src/pages/lazy.tsx`), rendered inside the page's error boundary with an
+empty, `aria-busy` Suspense fallback. They are fetched anyway once the
+browser is idle, and a first visit straight to one loads its chunk before
+the first render (`src/main.tsx`), so a loaded page never suspends. A
+chunk that fails to load is a page that threw: "This view stopped
+working", whose Reload this view fetches it again.
+`scripts/budget.ts` holds the entry (what `index.html` loads up front) to
+a gzip budget in CI.
+
 The active space is remembered per device in `localStorage`
 (`datapad:space`), not in the URL, so a link opens in whatever space is
 active. `DatapadProvider` opens one socket on it and shares `useSpaces()`
@@ -232,8 +243,13 @@ In the browser: `@mlc-ai/web-llm` in a Web Worker
 settings, streamed. `shared/summaries.ts` holds the models, the prompt and
 the context builders; `src/lib/summary-engine.ts` wraps one loaded model
 (unit-tested with a fake); `src/lib/summary-runtime.ts` loads WebLLM lazily,
-so the library is not in the main bundle and nothing downloads until the
-owner agrees. `SummaryProvider` keeps the model loaded between summaries and
+so the library is not in the main bundle (`scripts/budget.ts` fails CI if
+it ever is) and nothing downloads until the owner agrees. Every WebLLM call
+gets `src/lib/summary-pins.ts`'s `appConfig`: the WebGPU library from a
+commit of `binary-mlc-llm-libs` and the weights from a Hugging Face
+revision, never a branch, with SRI hashes WebLLM checks for the library,
+the model's config and its tokenizer (it has no option for the weight
+shards; the pinned revision is what fixes those). `SummaryProvider` keeps the model loaded between summaries and
 owns the `Summary · <item>` panel. No Worker route and no API key are
 involved.
 
@@ -279,13 +295,25 @@ it:
 `npm run tail` (`wrangler tail`) streams the Worker's and the object's
 logs; Workers observability keeps them in the dashboard. Each line the
 code writes is one JSON object. None carries an email, a token, a request
-body or anything from a document: the path, the error's message, and
-counts.
+body or anything from a document: the path, the error's message, ids and
+counts (`worker/log.ts`).
+
+Every response the Worker makes carries `x-request-id`: the request's
+`cf-ray`, which also names it in Cloudflare's own logs (a random id in
+local runs). A 500 puts it in its body as `requestId` and its log line
+carries the same, so an id read off a failure finds the line.
 
 | Line                                                            | Meaning                                                                                                                                         |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{"level":"error","path":"/api/…","error":"…"}`                 | A route threw something other than "no such space"; the client got 500 `Something went wrong`.                                                  |
-| `{"level":"error","path":"/mcp","error":"…"}`                   | The MCP endpoint threw outside a tool; the client got a JSON-RPC error. Also logged for the OAuth paths (`/oauth/token`, …).                    |
+| `{"level":"error","path":"/api/…","requestId":"…","error":"…"}` | A route threw something other than "no such space"; the client got 500 `{ error: "Something went wrong", requestId }`. Also for the OAuth paths (`/oauth/token`, …). |
+| `{"level":"error","path":"/mcp","error":"…"}`                   | The MCP endpoint threw outside a tool; the client got a JSON-RPC error.                                                                         |
+| `{"level":"error","what":"client","requestId":"…","where":"page","message":"…","componentStack":"…","version":"…"}` | A view crashed in the browser; its error boundary posted the error's message and component stack (names only) to `POST /api/client-error`, which takes at most 8 KB and nothing else. |
+| `{"level":"info","what":"security","event":"grant","requestId":"…","outcome":"ok","clientId":"…","scope":["read"]}` | The owner allowed an MCP client on the consent page.                                                                                            |
+| `{"level":"info","what":"security","event":"revoke","requestId":"…","outcome":"ok","grantId":"…","clientId":"…"}` | The owner revoked an MCP client in Settings → Connected apps.                                                                                    |
+| `{"level":"info","what":"security","event":"erase","requestId":"…","outcome":"ok","space":"main"}` | Erase everything in a space; `outcome` is `refused` for a wrong or expired confirmation.                                                         |
+| `{"level":"info","what":"security","event":"deleteSpace","requestId":"…","outcome":"ok","space":"…"}` | A space was deleted; `refused` for a wrong confirmation or the last space.                                                                      |
+| `{"level":"info","what":"security","event":"import","requestId":"…","outcome":"ok","space":"main","imported":{…}}` | A file was imported into a space, with how many of each kind came in; `refused` when it was not valid.                                         |
+| `{"level":"info","what":"security","event":"restore","requestId":"…","outcome":"ok","space":"main","imported":{…}}` | A backup was restored into a space; `refused` when there was none for that day.                                                                 |
 | `{"level":"error","path":"/mcp","tool":"add_task","error":"…"}` | One MCP tool threw; the client got "The tool failed; the server log has the details."                                                           |
 | `{"level":"error","what":"health","error":"…"}`                 | `GET /api/health` could not reach the object; it answered 503.                                                                                  |
 | `{"level":"error","what":"startup","error":"…"}`                | The object could not start, so every call to it failed. After a rollback past a schema bump: the newer-version message (self-hosting.md).       |

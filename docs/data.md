@@ -12,6 +12,8 @@ commit `.dev.vars`.
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Everything you enter                     | One SQLite-backed Durable Object in your Cloudflare account, named by your verified email, holding each of your spaces                                                                               | The Worker, only after verifying your Access sign-in |
 | Nightly backups                          | The `BACKUPS` R2 bucket in your account, one folder per space (see [Backups](#backups)), latest 30 kept in each                                                                                      | You, through the Cloudflare dashboard or API         |
+| Which MCP clients you connected          | The `OAUTH_KV` namespace in your account: each client that registered and each grant you allowed, with its tokens (as hashes) and email (encrypted); key names carry the email URL-encoded           | You, through the Cloudflare dashboard or API         |
+| When each MCP client last called         | Your Durable Object's `mcp_clients` table (client id, time), for Settings → Connected apps                                                                                                           | The Worker, only after verifying your Access sign-in |
 | Last snapshot, and changes not yet saved | IndexedDB in each browser you use (`datapad:snapshot`, `datapad:pending`), and the unsaved changes again in `localStorage` (`datapad:pending-now`); spaces other than `main` add `:<id>` to each key | That browser profile                                 |
 | Which space is open                      | `localStorage` (`datapad:space`) in each browser                                                                                                                                                     | That browser profile                                 |
 | Theme, motion and clock preferences      | `localStorage` (`datapad:theme`, `datapad:motion`, `datapad:clock`) in each browser                                                                                                                  | That browser profile                                 |
@@ -45,6 +47,8 @@ Save as note, and then like any other note.
 The only thing downloaded is the model itself: its weights from Hugging
 Face (about 1 GB for the default Qwen3 1.7B) and its WebGPU library from
 `raw.githubusercontent.com`, once, after you agree in the summary panel.
+Both come from fixed commits, and the library, config and tokenizer are
+checked against hashes before they are used.
 Those requests carry no referrer and nothing of yours. Settings →
 Summaries picks the model and removes the downloaded weights again.
 
@@ -75,6 +79,7 @@ as it is (migrated on the way in, below):
 
 ```json
 {
+  "format": 1,
   "exportedAt": "2026-10-23T12:00:00.000Z",
   "projects": { "<id>": { "id": "<id>", "name": "…", … } },
   "tasks": { … },
@@ -90,6 +95,18 @@ as it is (migrated on the way in, below):
 }
 ```
 
+- `format` (#240) is the file's format version, `1` today
+  (`EXPORT_FORMAT` in [`shared/types.ts`](../shared/types.ts)); every
+  export and nightly backup writes it. A file without it (the
+  artifact's, or Datapad's from before #240) is legacy, read as before
+  and migrated by its shape (below). A file with a higher `format` than this Datapad knows is
+  from a newer version: Import and restoring a backup refuse it whole,
+  before reading anything else, with "This file is from a newer version
+  of Datapad (export format 2; this one reads up to 1). Update Datapad,
+  then try again." A `format` that is not a whole number from 1 is
+  refused as invalid. The number goes up only when a change would be
+  misread by an older Datapad, and CHANGELOG.md says so under **Export
+  format**.
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
@@ -217,8 +234,17 @@ datapad-backups/
 **Before a destructive change**, the space's export is written to its
 folder as `before-<what>-<time>.json`, where `<what>` is `erase`,
 `delete` (deleting the space), `import` or `restore`. If R2 cannot take
-the copy, the change does not happen. Nothing lists or prunes these files;
-they stay until you delete them. An empty space has nothing to copy.
+the copy, the change does not happen. The app never lists these files.
+An empty space has nothing to copy.
+
+**How long they stay** is up to you. By default nothing prunes them: they
+stay until you delete them. To have them go by themselves, set
+`BEFORE_COPIES_MAX_DAYS` in `wrangler.jsonc` to a number of days (say
+`"90"`) and deploy; every night the backup alarm then deletes each
+`before-*` file under your email older than that, by its upload time, in
+every space's folder and a deleted space's too. Nothing else is touched:
+the nightly files keep their latest 30. Empty, `0` or anything but a
+whole number of days leaves it off.
 
 If a night is missed, the next time any tab connects writes one at once.
 
@@ -239,9 +265,9 @@ npx wrangler r2 object get "datapad-backups/you@example.com/datapad-2026-10-24.j
 
 The file is an ordinary export: read it as JSON, or import it into any
 Datapad through Settings → Data → Import… once the app is back.
-`npx wrangler r2 object list datapad-backups --prefix you@example.com/
---remote` lists what there is, every space's folder included (or browse
-the bucket in the dashboard). A space's id is in the `/api/spaces` list.
+To see what there is, every space's folder included, browse the bucket
+in the dashboard (R2 → `datapad-backups` → your email). A space's id is in
+the `/api/spaces` list.
 
 ## Moving a project to another space
 
@@ -268,8 +294,10 @@ deleted; Main can, once another exists. Every tab open on it is closed and
 opens the first space left.
 
 Its backups stay in R2, with a `before-delete-…` copy of the space as it
-was a moment before: nothing prunes a deleted space's folder, but the app
-no longer lists it. Restore one by hand (above) and import it.
+was a moment before: nothing prunes a deleted space's nightly files, but
+the app no longer lists them (`BEFORE_COPIES_MAX_DAYS`, above, ages out its
+`before-*` copies with the rest). Restore one by hand (above) and import
+it, or delete the folder (`<email>/<spaceId>/`) in the dashboard.
 
 ## Deleting everything
 
@@ -299,3 +327,44 @@ no longer lists it. Restore one by hand (above) and import it.
   then deletes every Datapad object and its storage. Empty the `BACKUPS`
   bucket too. To start again, add the class back under a new migration tag
   (`new_sqlite_classes`). This cannot be undone; export first if in doubt.
+
+### Every store, for one email
+
+Your data is in three stores in your account, and erasing a space empties
+only the first. To leave nothing of an email behind, go through all three.
+Below, `you@example.com` is the email and `you%40example.com` the same
+email URL-encoded, as the KV key names carry it. Export each space first
+if you might want it back.
+
+1. **MCP grants (KV).** While the app still works, Settings → Connected
+   apps → revoke each one: that deletes the grant and its tokens. Then
+   check nothing is left, and delete what is:
+
+   ```bash
+   npx wrangler kv key list --binding OAUTH_KV --remote --prefix "grant:you%40example.com:"
+   npx wrangler kv key list --binding OAUTH_KV --remote --prefix "token:you%40example.com:"
+   npx wrangler kv key delete --binding OAUTH_KV --remote "<name from the list>"
+   ```
+
+   The `client:…` keys are the apps' registrations, not tied to an email;
+   each expires 60 days after it was last used.
+2. **The object (Durable Object).** Erase every space and delete every one
+   but the last (above). That empties the object of documents; what stays
+   is its bookkeeping (the space list, the op-id table, `mcp_clients`). Only
+   deleting the class (above) removes the object itself, and with it every
+   other email's: on a single-owner deployment, that is the full delete.
+3. **The backups (R2).** Every space's nightly files and `before-*` copies
+   are under `you@example.com/`. In the dashboard, R2 → `datapad-backups` →
+   select the `you@example.com` folder → Delete. Or let a lifecycle rule do
+   it, then remove the rule:
+
+   ```bash
+   npx wrangler r2 bucket lifecycle add datapad-backups delete-you "you@example.com/" --expire-days 1
+   # a day or two later, once the folder is empty:
+   npx wrangler r2 bucket lifecycle remove datapad-backups --name delete-you
+   ```
+
+   Do this last: erasing and deleting spaces write `before-*` copies.
+
+Access keeps its own sign-in logs (Zero Trust → Logs) for its retention
+period; they are not Datapad's to delete.

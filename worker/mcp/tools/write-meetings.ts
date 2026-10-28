@@ -22,8 +22,9 @@ import {
 } from './read';
 import {
   DayText,
+  docId,
   MarkdownArg,
-  newId,
+  RequestIdArg,
   requiredDay,
   resolvePeople,
   resolveTask,
@@ -60,6 +61,7 @@ export const addNote = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     body: z
       .string()
       .trim()
@@ -87,17 +89,22 @@ export const addNote = defineTool({
         : args.project === undefined
           ? null
           : resolveProject(state, args.project);
-    const id = newId();
-    const written = await write(ctx, space, [
-      {
-        type: 'addNote',
-        id,
-        projectId,
-        body: tokens(state, args.body),
-        ...(meetingId ? { meetingId } : {}),
-        ...(task ? { taskId: task.id } : {}),
-      },
-    ]);
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [
+        {
+          type: 'addNote',
+          id,
+          projectId,
+          body: tokens(state, args.body),
+          ...(meetingId ? { meetingId } : {}),
+          ...(task ? { taskId: task.id } : {}),
+        },
+      ],
+      args.requestId,
+    );
     const note = written.state.notes[id];
     if (!note) throw new ToolError('That note is gone.');
     return {
@@ -116,6 +123,7 @@ export const addMeeting = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     title: TitleArg,
     date: DayText,
     time: TimeArg.optional().describe('Start, HH:MM 24-hour.'),
@@ -148,23 +156,28 @@ export const addMeeting = defineTool({
     if (args.time && args.end && args.end < args.time) {
       throw new ToolError('The meeting ends before it starts.');
     }
-    const id = newId();
-    const written = await write(ctx, space, [
-      {
-        type: 'addMeeting',
-        id,
-        projectId,
-        title: args.title,
-        date: requiredDay(args.date, today, 'The meeting'),
-        ...(args.time ? { time: args.time } : {}),
-        ...(args.end ? { end: args.end } : {}),
-        ...(args.attendees
-          ? { attendees: resolvePeople(state, args.attendees) }
-          : {}),
-        ...(args.link ? { link: args.link } : {}),
-        ...(args.note ? { note: args.note } : {}),
-      },
-    ]);
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [
+        {
+          type: 'addMeeting',
+          id,
+          projectId,
+          title: args.title,
+          date: requiredDay(args.date, today, 'The meeting'),
+          ...(args.time ? { time: args.time } : {}),
+          ...(args.end ? { end: args.end } : {}),
+          ...(args.attendees
+            ? { attendees: resolvePeople(state, args.attendees) }
+            : {}),
+          ...(args.link ? { link: args.link } : {}),
+          ...(args.note ? { note: args.note } : {}),
+        },
+      ],
+      args.requestId,
+    );
     return meetingResult(space, written, id);
   },
 });
@@ -177,6 +190,7 @@ export const addTopic = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     meeting: MeetingArg,
     title: TitleArg,
   }),
@@ -184,10 +198,13 @@ export const addTopic = defineTool({
   async run(args, ctx) {
     const { space, state } = await readSpace(ctx, args.space);
     const meetingId = resolveMeeting(state, args.meeting);
-    const id = newId();
-    const written = await write(ctx, space, [
-      { type: 'addTopic', meetingId, id, title: args.title },
-    ]);
+    const id = await docId(args.requestId);
+    const written = await write(
+      ctx,
+      space,
+      [{ type: 'addTopic', meetingId, id, title: args.title }],
+      args.requestId,
+    );
     return {
       ...meetingResult(space, written, meetingId),
       topic: topicOf(written.state, meetingId, id),
@@ -203,6 +220,7 @@ export const coverTopic = defineTool({
   scope: 'write',
   input: z.object({
     space: SpaceArg,
+    requestId: RequestIdArg,
     meeting: MeetingArg,
     topic: z
       .string()
@@ -239,7 +257,7 @@ export const coverTopic = defineTool({
         patch: { outcome: args.outcome },
       });
     }
-    const written = await write(ctx, space, ops);
+    const written = await write(ctx, space, ops, args.requestId);
     return {
       ...meetingResult(space, written, meetingId),
       topic: topicOf(written.state, meetingId, topic.id),

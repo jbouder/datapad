@@ -5,6 +5,7 @@ import {
   createAccessVerifier,
   DEV_EMAIL_HEADER,
   DEV_SESSION_HEADER,
+  isLocalHost,
   teamOrigin,
 } from '../worker/access';
 import type { Bindings } from '../worker/env';
@@ -84,8 +85,12 @@ async function token(
   return `${header}.${body}.${b64url(new Uint8Array(signature))}`;
 }
 
-function request(jwt?: string, headers: Record<string, string> = {}) {
-  return new Request('https://datapad.example.com/', {
+function request(
+  jwt?: string,
+  headers: Record<string, string> = {},
+  url = 'https://datapad.example.com/',
+) {
+  return new Request(url, {
     headers: jwt ? { [ACCESS_HEADER]: jwt, ...headers } : headers,
   });
 }
@@ -266,6 +271,80 @@ describe('verifyAccess with Access configured', () => {
   });
 });
 
+describe('the key fetch (#232)', () => {
+  it('shares one in-flight fetch per origin', async () => {
+    const calls: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const verify = createAccessVerifier({
+      now: () => NOW,
+      fetch: async (input) => {
+        calls.push(String(input));
+        await gate;
+        return Response.json({ keys: [current.jwk] });
+      },
+    });
+    const jwt = await token(current);
+    const pending = Promise.all(
+      [1, 2, 3, 4, 5].map(() => verify(request(jwt), configured)),
+    );
+    // Let every request reach the key fetch before it answers.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    release();
+    const results = await pending;
+    expect(calls).toHaveLength(1);
+    for (const result of results) {
+      expect(result?.email).toBe('leia@example.com');
+    }
+  });
+
+  it('fails closed when the certs endpoint does not answer in time', async () => {
+    let aborted = false;
+    const verify = createAccessVerifier({
+      now: () => NOW,
+      timeoutMs: 20,
+      fetch: (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            aborted = true;
+            reject(new Error('aborted'));
+          });
+        }),
+    });
+    const started = Date.now();
+    expect(await verify(request(await token(current)), configured)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(aborted).toBe(true);
+  });
+
+  it('tries again after a fetch that timed out', async () => {
+    let calls = 0;
+    const verify = createAccessVerifier({
+      now: () => NOW,
+      timeoutMs: 20,
+      fetch: (_input, init) => {
+        calls += 1;
+        if (calls === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            );
+          });
+        }
+        return Promise.resolve(Response.json({ keys: [current.jwk] }));
+      },
+    });
+    const jwt = await token(current);
+    expect(await verify(request(jwt), configured)).toBeNull();
+    expect((await verify(request(jwt), configured))?.email).toBe(
+      'leia@example.com',
+    );
+    expect(calls).toBe(2);
+  });
+});
+
 describe('the dev bypass (ACCESS_AUD empty)', () => {
   const dev: Bindings = {
     ...base,
@@ -274,26 +353,30 @@ describe('the dev bypass (ACCESS_AUD empty)', () => {
     DEV_ACCESS_EMAIL: 'Dev@Example.com',
   };
 
+  /** A request to the dev server: the bypass answers on localhost only. */
+  const local = (jwt?: string, headers: Record<string, string> = {}) =>
+    request(jwt, headers, 'http://localhost:5173/');
+
   it('signs in as DEV_ACCESS_EMAIL', async () => {
     const { verify, calls } = harness(() => []);
-    expect(await verify(request(), dev)).toEqual({ email: 'dev@example.com' });
+    expect(await verify(local(), dev)).toEqual({ email: 'dev@example.com' });
     expect(calls).toHaveLength(0);
   });
 
   it('lets the e2e header pick a per-test address', async () => {
     const { verify } = harness(() => []);
-    const r = request(undefined, { [DEV_EMAIL_HEADER]: 'Test-7@E2E.test' });
+    const r = local(undefined, { [DEV_EMAIL_HEADER]: 'Test-7@E2E.test' });
     expect(await verify(r, dev)).toEqual({ email: 'test-7@e2e.test' });
   });
 
   it('has no session end unless the e2e header asks for one', async () => {
     const { verify } = harness(() => []);
-    const r = request(undefined, { [DEV_SESSION_HEADER]: '2' });
+    const r = local(undefined, { [DEV_SESSION_HEADER]: '2' });
     expect(await verify(r, dev)).toEqual({
       email: 'dev@example.com',
       expiresAt: NOW + 2000,
     });
-    const bad = request(undefined, { [DEV_SESSION_HEADER]: 'soon' });
+    const bad = local(undefined, { [DEV_SESSION_HEADER]: 'soon' });
     expect(await verify(bad, dev)).toEqual({ email: 'dev@example.com' });
   });
 
@@ -307,16 +390,45 @@ describe('the dev bypass (ACCESS_AUD empty)', () => {
 
   it('refuses a header that is not an email', async () => {
     const { verify } = harness(() => []);
-    const r = request(undefined, { [DEV_EMAIL_HEADER]: 'not an email' });
+    const r = local(undefined, { [DEV_EMAIL_HEADER]: 'not an email' });
     expect(await verify(r, dev)).toBeNull();
   });
 
   it('refuses everything when DEV_ACCESS_EMAIL is not set either', async () => {
     const { verify } = harness(() => []);
     const bare = { ...dev, DEV_ACCESS_EMAIL: undefined };
-    expect(await verify(request(), bare)).toBeNull();
-    const r = request(undefined, { [DEV_EMAIL_HEADER]: 'han@example.com' });
+    expect(await verify(local(), bare)).toBeNull();
+    const r = local(undefined, { [DEV_EMAIL_HEADER]: 'han@example.com' });
     expect(await verify(r, bare)).toBeNull();
+  });
+
+  it('refuses on any hostname but this machine (#232)', async () => {
+    const { verify } = harness(() => []);
+    for (const url of [
+      'https://datapad.example.com/',
+      'https://datapad.alice.workers.dev/',
+      'http://localhost.example.com/',
+      'http://10.0.0.5:5173/',
+    ]) {
+      expect(await verify(request(undefined, {}, url), dev), url).toBeNull();
+      const asked = request(
+        undefined,
+        { [DEV_EMAIL_HEADER]: 'han@e.test' },
+        url,
+      );
+      expect(await verify(asked, dev), url).toBeNull();
+    }
+    for (const url of [
+      'http://localhost:4173/',
+      'http://127.0.0.1:8787/',
+      'http://[::1]:5173/',
+      'http://datapad.localhost/',
+    ]) {
+      expect(isLocalHost(url), url).toBe(true);
+      expect(await verify(request(undefined, {}, url), dev), url).toEqual({
+        email: 'dev@example.com',
+      });
+    }
   });
 });
 

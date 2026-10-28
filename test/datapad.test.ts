@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
   type CreatedSpace,
+  newerFormatMessage,
   type Op,
   SESSION_EXPIRED_CLOSE,
   SESSION_EXPIRED_REASON,
@@ -11,7 +12,14 @@ import {
   SPACE_DELETED_REASON,
   type SpaceList,
 } from '#shared/protocol';
-import { MAIN_SPACE, type Snapshot, type SpaceInfo } from '#shared/types';
+import {
+  EXPORT_FORMAT,
+  MAIN_SPACE,
+  type Snapshot,
+  type SpaceInfo,
+} from '#shared/types';
+import { COMMIT, VERSION } from '#shared/version';
+import pkg from '../package.json';
 import { SOCKET_MAX_AGE_MS } from '../worker/access';
 import { DatapadObject, SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
@@ -341,14 +349,21 @@ describe('Worker routes', () => {
     expect(await response.json()).toEqual({ email: 'leia@example.com' });
   });
 
-  it('answers /api/health with reachability and nothing else', async () => {
+  it('answers /api/health with reachability and the build, nothing else', async () => {
     const response = await as('leia@example.com')(
       new Request('http://datapad.test/api/health'),
       bindings,
     );
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({ ok: true });
+    // The version and commit the build defined (#237).
+    expect(await response.json()).toEqual({
+      ok: true,
+      version: pkg.version,
+      commit: COMMIT,
+    });
+    expect(VERSION).toBe(pkg.version);
+    expect(COMMIT).toMatch(/^([0-9a-f]{7}|unknown)$/);
 
     const post = await as('leia@example.com')(
       new Request('http://datapad.test/api/health', { method: 'POST' }),
@@ -382,6 +397,8 @@ describe('Worker routes', () => {
     expect(await response.json()).toEqual({
       ok: false,
       error: 'Datapad is not reachable',
+      version: VERSION,
+      commit: COMMIT,
     });
   });
 
@@ -852,8 +869,12 @@ describe('export and import', () => {
     expect(exported.headers.get('content-disposition')).toMatch(
       /^attachment; filename="datapad-\d{4}-\d{2}-\d{2}\.json"$/,
     );
-    const file = (await exported.json()) as Snapshot & { exportedAt: string };
+    const file = (await exported.json()) as Snapshot & {
+      format: number;
+      exportedAt: string;
+    };
     expect(Object.keys(file)).toEqual([
+      'format',
       'exportedAt',
       'projects',
       'tasks',
@@ -867,7 +888,8 @@ describe('export and import', () => {
       'templates',
       'boardItems',
     ]);
-    const { exportedAt, ...back } = file;
+    const { format, exportedAt, ...back } = file;
+    expect(format).toBe(EXPORT_FORMAT);
     expect(Date.parse(exportedAt)).not.toBeNaN();
     // The artifact's documents unchanged, plus Datapad's (empty) settings and decisions.
     expect(back).toEqual({
@@ -949,6 +971,16 @@ describe('export and import', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: 'tasks › t-2 › title: Title is required',
+    });
+    expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(0);
+
+    const newer = await post(email, '/api/import', {
+      ...fixture,
+      format: EXPORT_FORMAT + 1,
+    });
+    expect(newer.status).toBe(400);
+    expect(await newer.json()).toEqual({
+      error: newerFormatMessage(EXPORT_FORMAT + 1),
     });
     expect((await bindings.DATAPAD.getByName(email).stats()).docs).toBe(0);
 
