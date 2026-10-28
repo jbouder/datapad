@@ -205,7 +205,14 @@ datapad-backups/
   you@example.com/
     datapad-2026-10-24.json             main, where backups were before spaces
     <spaceId>/datapad-2026-10-24.json   every other space, in a folder named by its id
+    before-erase-2026-10-28T14-05-09-120Z.json   the copy kept before a destructive change
 ```
+
+**Before a destructive change**, the space's export is written to its
+folder as `before-<what>-<time>.json`, where `<what>` is `erase`,
+`delete` (deleting the space), `import` or `restore`. If R2 cannot take
+the copy, the change does not happen. Nothing lists or prunes these files;
+they stay until you delete them. An empty space has nothing to copy.
 
 If a night is missed, the next time any tab connects writes one at once.
 
@@ -254,8 +261,9 @@ deletes the space and every document in it. The last space cannot be
 deleted; Main can, once another exists. Every tab open on it is closed and
 opens the first space left.
 
-Its backups stay in R2: nothing prunes a deleted space's folder, but the
-app no longer lists it. Restore one by hand (above) and import it.
+Its backups stay in R2, with a `before-delete-…` copy of the space as it
+was a moment before: nothing prunes a deleted space's folder, but the app
+no longer lists it. Restore one by hand (above) and import it.
 
 ## Deleting everything
 
@@ -277,7 +285,8 @@ app no longer lists it. Restore one by hand (above) and import it.
   calls for another) is deleted and every tab open on it is sent the empty
   state. The space itself stays. The token works once; a wrong one uses it up. This is the
   only code path that deletes everything, and nothing runs it on a timer.
-  Export first.
+  The space's export is written to R2 first (`before-erase-…`, above).
+
 - **Everyone's data, and the class:** add a migration to `wrangler.jsonc`
   that deletes the class, `{ "tag": "v2", "deleted_classes":
   ["DatapadObject"] }`, remove the `DATAPAD` binding and deploy. Cloudflare

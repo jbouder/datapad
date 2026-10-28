@@ -179,6 +179,16 @@ export function createHandler(verify: AccessVerifier) {
             headers: API_HEADERS,
           });
         }
+        // A browser always sends Origin on a WebSocket handshake, and the
+        // handshake is not subject to CORS, so this is the only thing that
+        // stops another site (a sibling subdomain is same-site, so a Lax
+        // Access cookie goes with it) from reading and writing everything.
+        if (isCrossSite(request)) {
+          return new Response('Cross-site request refused', {
+            status: 403,
+            headers: API_HEADERS,
+          });
+        }
         // Upgrades travel as a fetch; RPC cannot carry a socket. The name
         // comes from the verified email and nowhere else. The request goes
         // on with its query, whose `space` the object reads (falling back
@@ -438,8 +448,7 @@ const API_ROUTES: Record<string, ApiRoute> = {
  * alone can never import into or erase someone's data (CSRF).
  */
 function refuseCrossSite(request: Request): Response | null {
-  const origin = request.headers.get('Origin');
-  if (origin !== null && origin !== new URL(request.url).origin) {
+  if (isCrossSite(request)) {
     return json({ error: 'Cross-site request refused' }, 403);
   }
   const type = request.headers.get('content-type') ?? '';
@@ -447,6 +456,16 @@ function refuseCrossSite(request: Request): Response | null {
     return json({ error: 'Send JSON' }, 415);
   }
   return null;
+}
+
+/**
+ * An `Origin` other than this one (`null` included). A request without one
+ * is not from a page on another site: browsers send it on every
+ * cross-origin request, every `POST` and every WebSocket handshake.
+ */
+function isCrossSite(request: Request): boolean {
+  const origin = request.headers.get('Origin');
+  return origin !== null && origin !== new URL(request.url).origin;
 }
 
 type JsonBody =

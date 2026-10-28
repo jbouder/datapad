@@ -231,6 +231,16 @@ describe('tasks', () => {
     expect(lastLog(state, 'p1')).toBe('Deleted task "Doors"');
   });
 
+  it('never reads an inherited member as a document', () => {
+    // OpSchema refuses these ids; the reducer does not trust that alone.
+    for (const id of ['toString', 'constructor']) {
+      expect(() => run(base(), { type: 'deleteTask', id })).toThrow(OpError);
+      expect(() =>
+        run(base(), { type: 'editTask', id, patch: { title: 'x' } }),
+      ).toThrow(OpError);
+    }
+  });
+
   it('reorderTasks rewrites 1..n and reports only rows that moved', () => {
     const state = run(base(), {
       type: 'addTask',

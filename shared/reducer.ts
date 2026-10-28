@@ -100,7 +100,9 @@ class Draft {
   }
 
   get<C extends Collection>(col: C, id: string): Collections[C] | undefined {
-    return (this.state[col] as Record<string, Collections[C]>)[id];
+    const docs = this.state[col] as Record<string, Collections[C]>;
+    // Own documents only: never `toString` or another inherited member.
+    return Object.hasOwn(docs, id) ? docs[id] : undefined;
   }
 
   all<C extends Collection>(col: C): Collections[C][] {
@@ -113,7 +115,7 @@ class Draft {
   }
 
   delete(col: Collection, id: string) {
-    if (!(id in this.state[col])) {
+    if (!Object.hasOwn(this.state[col], id)) {
       return;
     }
     delete this.own(col)[id];

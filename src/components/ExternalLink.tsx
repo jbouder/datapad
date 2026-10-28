@@ -1,0 +1,39 @@
+import { ArrowSquareOutIcon } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
+import { safeHref } from '#shared/markdown';
+
+/**
+ * A link a document holds (a project's or task's links, an org's, a
+ * meeting's), opened in a new tab. Only `https:`, `http:` and `mailto:`
+ * become links, as in Markdown (`safeHref`); anything else, `javascript:`
+ * say, from an import or an MCP client, is shown as text and never
+ * followed.
+ */
+export function ExternalLink({
+  url,
+  className,
+  icon = true,
+  children,
+}: {
+  url: string;
+  className?: string;
+  icon?: boolean;
+  children: ReactNode;
+}) {
+  const href = safeHref(url.trim());
+  if (!href) {
+    return <span className="break-all text-muted-foreground">{url}</span>;
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+    >
+      {children}
+      {icon && <ArrowSquareOutIcon aria-hidden />}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
+}

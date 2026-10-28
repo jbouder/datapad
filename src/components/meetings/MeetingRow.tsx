@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
+import { safeHref } from '#shared/markdown';
 import {
   carryForward,
   nextMeeting,
@@ -76,6 +77,8 @@ export function MeetingRow({
   style?: React.CSSProperties;
 }) {
   const clock = useClock();
+  // Only a link Markdown would make (`safeHref`); `javascript:` is not one.
+  const link = safeHref(meeting.link.trim());
   const { actions } = useDatapad();
   const { openMeeting } = useMeetingForm();
   // Whether a note is being written under the row.
@@ -185,9 +188,9 @@ export function MeetingRow({
             </span>
           )}
         </div>
-        {meeting.link && (
+        {link && (
           <a
-            href={meeting.link}
+            href={link}
             target="_blank"
             rel="noopener noreferrer"
             className="press flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground desk:size-8"

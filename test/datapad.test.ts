@@ -429,6 +429,35 @@ describe('Worker routes', () => {
     expect(response.status).toBe(426);
   });
 
+  it('refuses a socket opened from another site', async () => {
+    for (const origin of [
+      'https://evil.datapad.test',
+      'http://datapad.test.evil.test',
+      'null',
+    ]) {
+      const response = await as('leia@example.com')(
+        new Request('http://datapad.test/ws', {
+          headers: { Upgrade: 'websocket', Origin: origin },
+        }),
+        bindings,
+      );
+      expect(response.status, origin).toBe(403);
+      expect(response.webSocket).toBeNull();
+    }
+  });
+
+  it('opens a socket from its own page', async () => {
+    const response = await as('origin@example.com')(
+      new Request('http://datapad.test/ws', {
+        headers: { Upgrade: 'websocket', Origin: 'http://datapad.test' },
+      }),
+      bindings,
+    );
+    expect(response.status).toBe(101);
+    response.webSocket?.accept();
+    response.webSocket?.close(1000, 'done');
+  });
+
   it('opens a socket on the signed-in user’s object that answers ping', async () => {
     const email = 'socket@example.com';
     const inbox = await openSocket(as(email));
