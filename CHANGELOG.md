@@ -19,6 +19,13 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **`get_recap` for MCP** (#260): a read tool that returns Focus's Since
+  yesterday for a space, so Claude can write the morning briefing from the
+  same facts: the window (yesterday, or Friday through Sunday on a
+  Monday), its count line, tasks closed and added, meetings held with
+  their action items and notes, notes written and the other activity
+  lines. Takes a `date` to recap the working day before it and an
+  `assignee` (an id, a name or `me`).
 - **Since yesterday on Focus** (#258): the first section is what happened
   on the last working day (yesterday; Friday through Sunday on a Monday),
   worked out from the data with no model, so it works on phones and with

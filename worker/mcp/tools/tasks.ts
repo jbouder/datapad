@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import {
+  buildRecap,
+  recapCounts,
+  recapLine,
+  recapMeetingLine,
+} from '#shared/recap';
+import {
   type AssigneeFilter,
   agenda,
   attention,
@@ -19,13 +25,20 @@ import {
   selectTasks,
   TASK_SORTS,
 } from '#shared/tasks';
-import { healthOf, type Snapshot } from '#shared/types';
+import {
+  healthOf,
+  type Note,
+  type Project,
+  type Snapshot,
+  type Task,
+} from '#shared/types';
 import { defineTool, READ_ONLY, SpaceArg, ToolError } from '../tool';
 import {
   cap,
   LimitArg,
   MeetingArg,
   meetingOut,
+  noteOut,
   PersonArg,
   ProjectArg,
   personRef,
@@ -36,6 +49,7 @@ import {
   resolveProject,
   TodayArg,
   taskOut,
+  text,
 } from './read';
 
 /** Focus's buckets, in its order (`DUE_BUCKETS`). */
@@ -227,6 +241,66 @@ export const getFocus = defineTool({
         ),
       ),
       me: personRef(state, me),
+    };
+  },
+});
+
+export const getRecap = defineTool({
+  name: 'get_recap',
+  title: 'Since yesterday',
+  description:
+    "Focus's Since yesterday: what happened on the last working day before a day (yesterday; Friday through Sunday on a Monday, Friday and Saturday on a Sunday). Tasks closed (by project) and added, meetings held with their topics, action items and notes, notes written (by project), and the other activity lines (status, health, blocked, milestones; 5 per project, with how many more). Projects in the archive are left out; an assignee narrows closed and added.",
+  scope: 'read',
+  input: z.object({
+    space: SpaceArg,
+    date: TodayArg.describe(
+      "Recap the working day before this one, YYYY-MM-DD. Defaults to today in the owner's zone.",
+    ),
+    assignee: AssigneeArg.optional(),
+  }),
+  annotations: READ_ONLY,
+  async run(args, ctx) {
+    const { space, state, today } = await readSpace(ctx, args.space, args.date);
+    const recap = buildRecap(
+      state,
+      today,
+      assigneeFilter(state, args.assignee),
+    );
+    const tasks = (list: readonly Task[]) =>
+      cap(list.map((t) => taskOut(state, t)));
+    const notes = (list: readonly Note[]) =>
+      cap(list.map((n) => noteOut(state, n)));
+    const ref = (p: Project | null) => (p ? { id: p.id, name: p.name } : null);
+    return {
+      space,
+      date: today,
+      window: recap.window,
+      line: recapLine(recap),
+      counts: recapCounts(recap),
+      closed: recap.closed.map((g) => ({
+        project: ref(g.project),
+        tasks: tasks(g.items),
+      })),
+      added: tasks(recap.added),
+      meetings: cap(
+        recap.meetings.map((m) => ({
+          ...meetingOut(state, m.meeting),
+          covered: m.covered,
+          line: recapMeetingLine(m),
+          actionItems: tasks(m.actionItems),
+          notes: notes(m.notes),
+        })),
+      ),
+      notes: recap.notes.map((g) => ({
+        project: ref(g.project),
+        notes: notes(g.items),
+      })),
+      activity: recap.activity.map((g) => ({
+        project: ref(g.project),
+        lines: g.items.map((e) => ({ t: e.t, text: text(state, e.text) })),
+        more: g.more,
+      })),
+      me: personRef(state, meId(state.people)),
     };
   },
 });
