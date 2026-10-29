@@ -1,6 +1,7 @@
 import { CalendarDotIcon, CalendarDotsIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { formatDay } from '#shared/dates';
+import { buildRecap, recapEmpty } from '#shared/recap';
 import {
   agenda,
   assigneeFromQuery,
@@ -20,6 +21,7 @@ import {
   weekMovement,
 } from '#shared/select';
 import { healthOf, type Task } from '#shared/types';
+import { SinceYesterday } from '@/components/focus/SinceYesterday';
 import { SelectField } from '@/components/inputs/SelectField';
 import {
   useView,
@@ -67,16 +69,17 @@ const GROUP_LINK =
 /**
  * Focus, the morning briefing (#206), as Day (the default) or Week
  * (`?view=`, then what is saved for the page; `v` switches). The header
- * has the week's movement. Then, each only when it has something: the
- * agenda (today's meetings and milestones, or the next seven days', each
+ * has the week's movement. Then, each only when it has something: Since
+ * yesterday (the last working day's recap, #258, the same in Day and
+ * Week), the agenda (today's meetings and milestones, or the next seven days', each
  * meeting with its prep), Waiting on (blocked tasks by who they wait on),
  * Attention (active projects off health, near or past their target, or
  * quiet), Follow-ups (open action items from the last week's meetings)
  * and Due (overdue and today's tasks, plus the rest of the week's in
- * Week, grouped by priority, High first; #218). Waiting on, Attention and
- * Follow-ups are sections remembered with the page. The assignee filter
- * (`m` toggles Mine) lives in the URL and narrows Waiting on, Follow-ups
- * and Due. Tasks are added from the + menu or `n` (the new-task panel).
+ * Week, grouped by priority, High first; #218). Since yesterday, Waiting
+ * on, Attention and Follow-ups are sections remembered with the page. The
+ * assignee filter (`m` toggles Mine) lives in the URL and narrows Since
+ * yesterday's Closed and Added, Waiting on, Follow-ups and Due. Tasks are added from the + menu or `n` (the new-task panel).
  * Everything follows the local date and rolls over at midnight; rows FLIP
  * between groups when a priority changes and out when a task closes.
  */
@@ -139,6 +142,8 @@ export function FocusPage() {
   }
 
   const movement = weekMovement(state.tasks, state.projects, today);
+  const recap = buildRecap(state, today, who);
+  const noRecap = recapEmpty(recap);
   const week = agenda(state.meetings, state.projects, today);
   const upcoming =
     view === 'day' ? week.filter((item) => item.date === today) : week;
@@ -168,6 +173,7 @@ export function FocusPage() {
   const waitingCount = waiting.reduce((n, g) => n + g.tasks.length, 0);
   const followCount = follow.reduce((n, g) => n + g.tasks.length, 0);
   const empty =
+    noRecap &&
     upcoming.length === 0 &&
     waiting.length === 0 &&
     projects.length === 0 &&
@@ -232,6 +238,16 @@ export function FocusPage() {
           <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
         </div>
       </div>
+
+      {!noRecap && (
+        <SinceYesterday
+          recap={recap}
+          projects={state.projects}
+          people={state.people}
+          today={today}
+          onOpenTask={onOpen}
+        />
+      )}
 
       {upcoming.length > 0 && (
         <AgendaStrip
