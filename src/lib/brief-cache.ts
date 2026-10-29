@@ -1,3 +1,4 @@
+import { withoutThinking } from '#shared/summaries';
 import { keyFor } from '@/lib/spaces';
 
 /**
@@ -24,8 +25,9 @@ export function readBrief(space: string, day: string): string | null {
     const raw = localStorage.getItem(briefKey(space));
     if (!raw) return null;
     const stored = JSON.parse(raw) as Partial<Stored>;
+    // A brief kept before the fix may still open with the model's <think> block.
     return stored.day === day && typeof stored.text === 'string'
-      ? stored.text
+      ? withoutThinking(stored.text) || null
       : null;
   } catch {
     return null;

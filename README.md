@@ -24,8 +24,8 @@ over WebSockets, and backs itself up to R2 every night.
   a health flag (green, yellow, red) and an activity log. A project page
   holds its milestones, tasks, meetings, notes and whiteboard. Archive
   when done; start a new one from a template.
-- **Tasks.** Quick-add on every list (Enter adds, stays put), a circular
-  checkbox to close with Undo, priority, due date (type `fri`, `+3d`,
+- **Tasks.** Add from the top bar's + or `n`, a circular checkbox to
+  close with Undo, priority, due date (type `fri`, `+3d`,
   `10/31`), assignee, tags, links, Markdown details and dated running
   notes. Mark a task blocked on someone. Select several in the table to
   close, move or assign at once. Reorder by drag, keyboard or touch. Each
@@ -42,17 +42,26 @@ over WebSockets, and backs itself up to R2 every night.
   came from. Add as many notes as you like, before, during or after.
 - **Milestones.** Dated marks on a project, shown on the project page, the
   Projects timeline and the Focus agenda.
-- **Focus.** A briefing of what needs you: the week's movement, today's or
-  the week's meetings and milestones with where each meeting's prep
-  stands, blocked tasks by who they wait on, projects off health or near
-  their target, open action items, and what is overdue or due today.
+- **Focus.** A briefing of what needs you: the week's movement; Since
+  yesterday, what happened on the last working day (Friday through Sunday
+  on a Monday); today's or the week's meetings and milestones with where
+  each meeting's prep stands, blocked tasks by who they wait on, projects
+  off health or near their target, open action items, and what is overdue
+  or due today. With summaries on, **Brief me** has the on-device model
+  turn it into a few sentences about yesterday and today.
 - **Layouts.** Projects as cards, a table or a timeline; Tasks as a list,
   a table, a board or a timeline, grouped by project, due, assignee or
   priority; Meetings as a list, a month calendar or a timeline; Notes as
-  a feed or a grid. Every page remembers its layout, sort, filters and
+  a list or a grid. Every page remembers its layout, sort, filters and
   open sections, saved with your data so every device opens it the same
-  way. Settings → Navigation picks which sections the rail and the
-  phone's tab bar show.
+  way. Settings → Navigation picks which sections and tools the rail and
+  the phone's tab bar show, and in what order.
+- **Tools.** Under their own heading in the rail: the Notepad, the
+  Whiteboard and the Weekly digest, each shown or hidden, ordered and put
+  on the phone's tab bar as you like (otherwise they are in the account
+  menu).
+- **Notepad.** One running note for the space, saved as you type, for
+  whatever you need to jot down before it has a home.
 - **Whiteboards.** A freeform canvas for each project and one for the
   space: sticky notes, text, rectangles, arrows and freehand ink in five
   colors, undo and redo, zoom and pan, download as PNG or SVG. Live on
@@ -69,10 +78,10 @@ over WebSockets, and backs itself up to R2 every night.
 - **Weekly digest.** What happened in each project over a week, from the
   tasks, notes, meetings and activity logs; copy as Markdown or keep it
   as a note.
-- **Summaries.** Summarize a project, task, meeting, note or digest with a
-  small language model ([WebLLM](https://github.com/mlc-ai/web-llm);
-  Qwen3 1.7B by default, 4B and 8B selectable) that runs in your browser
-  on your GPU. Nothing about your data leaves the device. Opt-in: the
+- **Summaries.** Summarize a project, task, meeting, note or digest, or
+  ask Focus to Brief me, with a small language model
+  ([WebLLM](https://github.com/mlc-ai/web-llm); Qwen3 1.7B by default, 4B
+  and 8B selectable) that runs in your browser on your GPU. Nothing about your data leaves the device. Opt-in: the
   model downloads from Hugging Face only after you agree, and stays
   cached in that browser. Needs WebGPU.
 - **Works offline.** The last snapshot paints at once; changes made
@@ -116,7 +125,7 @@ over WebSockets, and backs itself up to R2 every night.
   and `localStorage`, keys prefixed `datapad:`), which space is open, the
   theme, motion and clock preferences, drafts you have not saved, each
   whiteboard's viewport and, if you use Summaries, the model weights in
-  Cache Storage. Clearing site data removes them.
+  Cache Storage and the day's brief. Clearing site data removes them.
 - **Logs.** Access logs record your email and sign-ins, by design. The
   Worker logs errors with the request path only, never document content.
 - **This repository is public** and contains no data; the fixtures are
@@ -134,7 +143,8 @@ Datapad is an MCP server at `/mcp`: `claude mcp add --transport http
 datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
 Desktop. You sign in through Access and approve the client on a consent
 page. Claude can then read everything the app shows: the overview, Focus,
-projects, tasks, notes, meetings, people, orgs, the digest and search. See
+what happened since the last working day, projects, tasks, notes,
+meetings, people, orgs, the digest and search. See
 [docs/mcp.md](docs/mcp.md).
 
 ## Run it yourself
