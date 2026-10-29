@@ -185,6 +185,11 @@ changes the format says so here under **Export format**.
 
 ### Fixed
 
+- **Brief me and Summarize no longer show `<think>`** at the top of their
+  text: Qwen3 opens with an empty thinking block even with thinking off,
+  and it is now left out as it streams, in saved notes and in a brief
+  kept from earlier in the day.
+
 - **Undo keeps edits made since** (#235): Undo of a bulk close, move,
   assign, due date or delete, or of a drag on the Tasks board, puts back
   only what that change did, through the same checked changes the app

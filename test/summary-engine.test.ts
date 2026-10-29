@@ -76,6 +76,16 @@ describe('SummaryEngine', () => {
     expect(result).toEqual({ text: 'One two three.', stopped: false });
   });
 
+  it('leaves out the empty <think> block Qwen3 opens with', async () => {
+    const f = fake(['<thi', 'nk>\n\n</th', 'ink>\n\n', 'One ', 'two.']);
+    const engine = new SummaryEngine(f.factory);
+    await engine.load('m', () => {});
+    const seen: string[] = [];
+    const result = await engine.summarize('x', (t) => seen.push(t));
+    expect(seen).toEqual(['One ', 'One two.']);
+    expect(result).toEqual({ text: 'One two.', stopped: false });
+  });
+
   it('sends holocron’s settings, streamed, with the system prompt', async () => {
     const f = fake(['ok']);
     const engine = new SummaryEngine(f.factory);

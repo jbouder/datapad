@@ -1,5 +1,9 @@
 import type { MLCEngineInterface } from '@mlc-ai/web-llm';
-import { REQUEST_SETTINGS, SYSTEM_PROMPT } from '#shared/summaries';
+import {
+  REQUEST_SETTINGS,
+  SYSTEM_PROMPT,
+  withoutThinking,
+} from '#shared/summaries';
 
 /**
  * One loaded summary model and the runs it makes (holocron's
@@ -76,12 +80,14 @@ export class SummaryEngine {
       ...REQUEST_SETTINGS,
       stream: true,
     });
+    let raw = '';
     let text = '';
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content ?? '';
       if (delta) {
-        text += delta;
-        onText(text);
+        raw += delta;
+        text = withoutThinking(raw);
+        if (text) onText(text);
       }
     }
     return { text, stopped: this.interrupted };

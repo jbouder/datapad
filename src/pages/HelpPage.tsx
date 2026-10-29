@@ -140,7 +140,7 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
-            meeting, org or person.
+            meeting, org, person or whiteboard item.
           </Term>
           <Term name="People">
             In Settings → People: everyone you assign, add to projects and
@@ -190,8 +190,9 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="basics">
         <ul className="list-disc space-y-1 pl-5 text-sm">
           <li>
-            <strong>Enter adds.</strong> Type in a quick-add and press Enter; it
-            stays ready for the next one.
+            <strong>Add from anywhere.</strong> The top bar’s + (or <Key>n</Key>
+            ) opens a new task; in a milestone or topic field, Enter adds and
+            the field stays ready for the next one.
           </li>
           <li>
             <strong>The checkbox closes</strong> a task. Undo is in the message

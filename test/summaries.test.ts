@@ -17,6 +17,7 @@ import {
   summaryNoteBody,
   summaryRequest,
   taskContext,
+  withoutThinking,
 } from '#shared/summaries';
 import {
   emptySnapshot,
@@ -811,5 +812,26 @@ describe('briefContext', () => {
     );
     expect(BRIEF_PROMPT).toMatch(/morning briefing/);
     expect(BRIEF_PROMPT).toMatch(/under 150 words/);
+  });
+});
+
+describe('withoutThinking', () => {
+  it('drops the <think> block and the space after it', () => {
+    expect(
+      withoutThinking('<think>\n\n</think>\n\nYesterday you closed 4.'),
+    ).toBe('Yesterday you closed 4.');
+    expect(withoutThinking('<think>weighing it</think>Done.')).toBe('Done.');
+  });
+
+  it('shows nothing while the block or its tag is still arriving', () => {
+    expect(withoutThinking('')).toBe('');
+    expect(withoutThinking('<thi')).toBe('');
+    expect(withoutThinking('<think>\n\n</thi')).toBe('');
+  });
+
+  it('leaves an answer without one as it is', () => {
+    expect(withoutThinking('One <think> in the middle.')).toBe(
+      'One <think> in the middle.',
+    );
   });
 });

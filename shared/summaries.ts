@@ -97,6 +97,20 @@ export const REQUEST_SETTINGS = {
   extra_body: { enable_thinking: false },
 } as const;
 
+/**
+ * The model's answer without its `<think>` block. Qwen3 still opens with
+ * an empty `<think>\n\n</think>` when thinking is off; while the block (or
+ * its opening tag) is still streaming, nothing is shown yet.
+ */
+export function withoutThinking(raw: string): string {
+  const text = raw.trimStart();
+  if (text.startsWith('<think>')) {
+    const end = text.indexOf('</think>');
+    return end === -1 ? '' : text.slice(end + '</think>'.length).trimStart();
+  }
+  return '<think>'.startsWith(text) ? '' : raw;
+}
+
 /** The spec's prompt, word for word. The context follows it. */
 export const SYSTEM_PROMPT =
   'You are summarizing one item from a personal project tracker used by an engineering leader. Write a concise summary in plain markdown using short paragraphs and "- " bullets (headings, if any, as "### "). Structure: a 1–3 sentence overview; then bullets for key points; then "Open items" and "Suggested next steps" when the data supports them. Be specific, keep names and dates, do not invent anything not in the data, and stay under 220 words.';
