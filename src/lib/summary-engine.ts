@@ -56,11 +56,13 @@ export class SummaryEngine {
   /**
    * One summary of `context`, streamed: `onText` gets the whole text so
    * far after every chunk. Resolves with the text, marked `stopped` when
-   * `stop()` cut it short.
+   * `stop()` cut it short. `prompt` is the system prompt (Brief me sends
+   * its own).
    */
   async summarize(
     context: string,
     onText: (text: string) => void,
+    prompt: string = SYSTEM_PROMPT,
   ): Promise<Generation> {
     if (!this.engine) {
       throw new Error('The model is not loaded');
@@ -68,7 +70,7 @@ export class SummaryEngine {
     this.interrupted = false;
     const stream = await this.engine.chat.completions.create({
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: prompt },
         { role: 'user', content: context },
       ],
       ...REQUEST_SETTINGS,

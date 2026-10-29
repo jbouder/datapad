@@ -30,7 +30,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   collection from before meetings → meetings and milestones; every import
   and the DO's schema 3 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
-  sends), `schedule.ts` (the nightly backup's time, DST-safe), `search.ts`
+  sends, and Focus's Brief me context and prompt), `schedule.ts` (the
+  nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
   what each page remembers, the address over what is saved, what a change
   saves; `PAGES` is also where Help's Layouts table comes from), `nav.ts`

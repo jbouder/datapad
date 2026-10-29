@@ -178,9 +178,10 @@ function Output({
 
 /**
  * Before the model is ready: the browser check, the opt-in, the download
- * progress, or the error (holocron's `ModelGate`).
+ * progress, or the error (holocron's `ModelGate`). Focus's Brief me card
+ * shows it too.
  */
-function ModelGate({ summaries }: { summaries: Summaries }) {
+export function ModelGate({ summaries }: { summaries: Summaries }) {
   const { model, choice } = summaries;
   switch (model.kind) {
     case 'unsupported':

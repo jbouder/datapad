@@ -30,6 +30,8 @@ import {
  * one Markdown answer instead of three JSON ones). The model stays loaded
  * between summaries once the owner has agreed to it, so the second one
  * starts at once; the panel shows whichever item was asked for last.
+ * Focus's Brief me (#259) is the same flow with its own target kind,
+ * shown in a card on Focus (`useBrief()`) instead of the panel.
  */
 
 export type ModelState =
@@ -128,9 +130,21 @@ interface Session {
   key: number;
   open: boolean;
   request: SummaryRequest;
+  /** The side panel, or Focus's Brief me card (a `brief` target). */
+  surface: 'panel' | 'card';
+}
+
+/** Brief me's run in flight, for Focus's card. */
+export interface Brief {
+  request: SummaryRequest;
+  run: Run;
+  stop: () => void;
+  /** Stop and forget it (dismiss, or leaving Focus). */
+  close: () => void;
 }
 
 const Context = createContext<Summaries | null>(null);
+const BriefContext = createContext<Brief | null>(null);
 
 export function SummaryProvider({ children }: { children: ReactNode }) {
   const { state } = useDatapad();
@@ -243,9 +257,13 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     const id = ++runId.current;
     setRun({ status: 'running', text: '' });
     current
-      .summarize(request.context, (text) => {
-        if (runId.current === id) setRun({ status: 'running', text });
-      })
+      .summarize(
+        request.context,
+        (text) => {
+          if (runId.current === id) setRun({ status: 'running', text });
+        },
+        request.prompt,
+      )
       .then(({ text, stopped }) => {
         if (runId.current === id) setRun({ status: 'done', text, stopped });
       })
@@ -273,7 +291,12 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     engine.current?.stop();
     runId.current += 1;
     setRun({ status: 'idle' });
-    setSession({ key: Date.now(), open: true, request });
+    setSession({
+      key: Date.now(),
+      open: true,
+      request,
+      surface: target.kind === 'brief' ? 'card' : 'panel',
+    });
   }, []);
 
   // Ready and asked: go. Covers both "already loaded" and "just loaded".
@@ -290,6 +313,14 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     setSession((s) => (s ? { ...s, open: false } : s));
   }, []);
 
+  /** The card has no exit animation to wait for: gone at once. */
+  const closeBrief = useCallback(() => {
+    engine.current?.stop();
+    runId.current += 1;
+    setSession((s) => (s?.surface === 'card' ? null : s));
+    setRun((r) => (r.status === 'idle' ? r : { status: 'idle' }));
+  }, []);
+
   const setEnabled = useCallback(
     (on: boolean) => {
       enabledRef.current = on;
@@ -299,10 +330,11 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       // weights; Settings offers to remove them.
       if (!on) {
         close();
+        closeBrief();
         unload();
       }
     },
-    [close, unload],
+    [close, closeBrief, unload],
   );
 
   const value = useMemo(
@@ -332,10 +364,17 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const card = session?.surface === 'card' ? session : null;
+  const brief = useMemo(
+    () =>
+      card ? { request: card.request, run, stop, close: closeBrief } : null,
+    [card, run, stop, closeBrief],
+  );
+
   return (
     <Context.Provider value={value}>
-      {children}
-      {session && (
+      <BriefContext.Provider value={brief}>{children}</BriefContext.Provider>
+      {session?.surface === 'panel' && (
         <SummaryPanel
           key={session.key}
           open={session.open}
@@ -352,6 +391,11 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       )}
     </Context.Provider>
   );
+}
+
+/** Brief me's run, while Focus's card has one; null otherwise. */
+export function useBrief(): Brief | null {
+  return useContext(BriefContext);
 }
 
 export function useSummaries(): Summaries {

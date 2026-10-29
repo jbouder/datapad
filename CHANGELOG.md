@@ -26,6 +26,14 @@ changes the format says so here under **Export format**.
   their action items and notes, notes written and the other activity
   lines. Takes a `date` to recap the working day before it and an
   `assignee` (an id, a name or `me`).
+- **Brief me on Focus** (#259): with summaries on, a Brief me button has
+  the on-device model write a short paragraph about the last working day,
+  one about today, and up to three things to do first, from what Focus
+  already shows (under its Assignee filter), so the names and counts are
+  Datapad's. It streams into a card at the top of Focus with Stop,
+  Regenerate, Save as note (a General note, "Brief · <day>") and dismiss,
+  and stays on this device for the rest of the day, per space, without
+  running again. It is never synced and never runs by itself.
 - **Since yesterday on Focus** (#258): the first section is what happened
   on the last working day (yesterday; Friday through Sunday on a Monday),
   worked out from the data with no model, so it works on phones and with
