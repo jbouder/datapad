@@ -19,7 +19,7 @@ import { TOOLS } from './tools';
 export const INSTRUCTIONS = [
   'Datapad is one person’s project tracker: projects, tasks, notes, meetings with topics, milestones, people and orgs.',
   'The data is split into spaces, each a complete, separate Datapad. Call list_spaces first; "main" is the default, and every tool that reads or changes data takes a `space` (its id or name).',
-  'Then get_overview for the space at a glance, or get_focus for what needs doing today. Then the specific reads: get_project for one project in full; list_tasks, list_notes, list_meetings, list_projects, list_people, list_orgs to filter; get_digest for a week; search to find anything by its words.',
+  'Then get_overview for the space at a glance, or get_focus for what needs doing today, or get_recap for what happened since the last working day. Then the specific reads: get_project for one project in full; list_tasks, list_notes, list_meetings, list_projects, list_people, list_orgs to filter; get_digest for a week; search to find anything by its words.',
   'Ids are opaque strings; never invent one, read it from a tool result. Dates are YYYY-MM-DD in the owner’s day; timestamps are ISO 8601. Text shows mentions as @Name.',
   'Projects, people, orgs and meetings can be named instead of given by id where a tool says so: a name matches ignoring case, or by a unique part of it. A name that matches several returns the candidates; pick an id from them rather than guessing.',
   'Lists carry at most 200 items, with `count` (how many there were) and `truncated`; narrow the filters when a list is cut.',

@@ -4,7 +4,7 @@ import { listMeetings, listNotes } from './notes';
 import { listOrgs, listPeople } from './people';
 import { getOverview, getProject, listProjects } from './projects';
 import { listSpaces, whoami } from './spaces';
-import { getFocus, listTasks } from './tasks';
+import { getFocus, getRecap, listTasks } from './tasks';
 import { addMeeting, addNote, addTopic, coverTopic } from './write-meetings';
 import {
   addMilestone,
@@ -31,6 +31,7 @@ export const TOOLS: readonly McpTool[] = [
   listSpaces,
   getOverview,
   getFocus,
+  getRecap,
   listProjects,
   getProject,
   listTasks,

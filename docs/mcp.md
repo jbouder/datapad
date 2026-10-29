@@ -86,7 +86,7 @@ refused. Protocol versions `2025-11-25`, `2025-06-18` and `2025-03-26`.
 
 At `initialize` the server tells the model how the data is shaped and
 which tools to reach for in order: `list_spaces` (`main` is the default),
-then `get_overview` or `get_focus`, then the specific reads. Ids are
+then `get_overview`, `get_focus` or `get_recap`, then the specific reads. Ids are
 opaque, dates are `YYYY-MM-DD`, names match ignoring case, lists are
 capped, read before you write. It also says (#244) that every text field
 a tool returns (titles, notes, descriptions, outcomes, activity) is the
@@ -105,8 +105,8 @@ not reset the count.
 
 Every read tool is read-only and needs the `read` scope. Each is a thin façade
 over the `shared/` selectors the app's pages use (`select.ts`, `tasks.ts`,
-`projects.ts`, `notes.ts`, `meetings.ts`, `orgs.ts`, `digest.ts`,
-`search.ts`), run in the Worker over one space's snapshot (the Durable
+`projects.ts`, `notes.ts`, `meetings.ts`, `orgs.ts`, `recap.ts`,
+`digest.ts`, `search.ts`), run in the Worker over one space's snapshot (the Durable
 Object's `snapshot(space)` RPC: read-only, no socket).
 
 | Tool            | Arguments                                                                                                | Returns                                                                                                                                                                                      |
@@ -115,6 +115,7 @@ Object's `snapshot(space)` RPC: read-only, no socket).
 | `list_spaces`   | none                                                                                                     | Every space (id, name, position, created) in the order the app shows them                                                                                                                    |
 | `get_overview`  | `space`, `today`                                                                                         | The space's counts, the week's movement (closed, added, overdue), and each project outside the archive with status, health, priority, dates, next milestone, open and blocked counts         |
 | `get_focus`     | `space`, `assignee`, `today`                                                                             | Focus: open tasks due overdue, today and this week (later and undated as counts), waiting on whom, the last week's meetings' open action items, projects needing attention, the 7-day agenda |
+| `get_recap`     | `space`, `date`, `assignee`                                                                              | Focus's Since yesterday for the working day before `date` (Friday to Sunday on a Monday): tasks closed and added, meetings held with action items and notes, notes written, other activity   |
 | `list_projects` | `space`, `status`, `health`, `org`, `archived`, `sort`, `today`                                          | Projects as the Projects page selects them (by default every status outside the archive, most recently updated first), each as on `get_overview`                                             |
 | `get_project`   | `space`, `project`, `today`                                                                              | One project (or `general`): details, members, links, milestones, open tasks in order, the 10 latest notes (pinned first), 5 upcoming and 5 recent meetings with topics, 25 activity lines    |
 | `list_tasks`    | `space`, `project`, `status`, `assignee`, `due`, `blocked`, `meeting`, `query`, `sort`, `limit`, `today` | Tasks as the Tasks page selects them, soonest due first; `due` is a Focus bucket: `overdue`, `today`, `week`, `later`, `none`                                                                |

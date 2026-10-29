@@ -281,6 +281,230 @@ describe('the read tools', () => {
     expect(ids(han.due.thisWeek.items)).toEqual(['t-5']);
   });
 
+  describe('get_recap (#260)', () => {
+    const { sourceNoteId: _, ...plain } = fixture.tasks['t-4'];
+    const task = (id: string, fields: Record<string, unknown>) => ({
+      ...plain,
+      id,
+      title: `Recap task ${id}`,
+      createdAt: '2026-10-12T09:00:00.000Z',
+      updatedAt: '2026-10-12T09:00:00.000Z',
+      ...fields,
+    });
+    const done = (at: string) => ({
+      status: 'done',
+      completedAt: at,
+      updatedAt: at,
+    });
+    /** A weekend around Monday 26 Oct: the window is Friday 23 to Sunday 25. */
+    const WEEKEND = {
+      tasks: {
+        'r-1': task('r-1', {
+          assignee: 'u-han',
+          ...done('2026-10-23T15:00:00.000Z'),
+        }),
+        'r-2': task('r-2', {
+          projectId: 'p-station',
+          assignee: 'u-leia',
+          ...done('2026-10-24T10:00:00.000Z'),
+        }),
+        'r-3': task('r-3', {
+          projectId: null,
+          assignee: 'u-han',
+          desc: 'Ask @{u-chewie} first.',
+          createdAt: '2026-10-25T08:00:00.000Z',
+          updatedAt: '2026-10-25T08:00:00.000Z',
+        }),
+        // Thursday: the day before the window.
+        'r-4': task('r-4', done('2026-10-22T17:00:00.000Z')),
+        'r-5': task('r-5', {
+          assignee: 'u-leia',
+          meetingId: 'e-r',
+          createdAt: '2026-10-23T11:00:00.000Z',
+          updatedAt: '2026-10-23T11:00:00.000Z',
+        }),
+        // Yavin is archived: left out.
+        'r-6': task('r-6', {
+          projectId: 'p-yavin',
+          ...done('2026-10-23T10:00:00.000Z'),
+        }),
+      },
+      meetings: {
+        'e-r': {
+          ...fixture.meetings['e-1'],
+          id: 'e-r',
+          title: 'Hangar standup',
+          date: '2026-10-23',
+          topics: [
+            { id: 'tp-r1', title: 'Doors', done: true, outcome: 'Insulate' },
+            { id: 'tp-r2', title: 'Heaters', done: false, outcome: '' },
+          ],
+        },
+      },
+      notes: {
+        'r-n': {
+          ...fixture.notes['n-1'],
+          id: 'r-n',
+          pinned: false,
+          editedAt: '2026-10-23T12:00:00.000Z',
+          meetingId: 'e-r',
+          body: 'Ask @{u-han} about the doors.',
+          createdAt: '2026-10-23T12:00:00.000Z',
+        },
+      },
+      activity: {
+        'p-station': {
+          events: [
+            { t: '2026-10-25T09:00:00.000Z', text: 'Health set to at risk' },
+            { t: '2026-10-24T10:00:00.000Z', text: `Closed "Recap task r-2"` },
+            { t: '2026-10-24T09:05:00.000Z', text: 'Status changed to paused' },
+            { t: '2026-10-24T09:04:00.000Z', text: 'Status changed to active' },
+            { t: '2026-10-24T09:03:00.000Z', text: 'Health set to on track' },
+            { t: '2026-10-24T09:02:00.000Z', text: 'Target date set' },
+            { t: '2026-10-24T09:01:00.000Z', text: 'Priority set to high' },
+            { t: '2026-10-22T09:00:00.000Z', text: 'Created project' },
+          ],
+        },
+      },
+    };
+
+    async function weekend() {
+      const ctx = await seeded();
+      expect(await ctx.datapad.import(MAIN_SPACE, WEEKEND)).toMatchObject({
+        ok: true,
+      });
+      return ctx;
+    }
+
+    it('on a Monday, Friday through Sunday from buildRecap', async () => {
+      const ctx = await weekend();
+      const out = await call(ctx, 'get_recap', { date: '2026-10-26' });
+      expect(out.space).toBe(MAIN_SPACE);
+      expect(out.date).toBe('2026-10-26');
+      expect(out.window).toEqual({
+        from: '2026-10-23',
+        to: '2026-10-25',
+        label: 'Since Friday',
+      });
+      expect(out.counts).toEqual({
+        closed: 2,
+        added: 2,
+        meetings: 1,
+        notes: 1,
+        activity: 6,
+      });
+      expect(out.line).toBe(
+        'Since Friday: 2 closed · 2 added · 1 meeting · 1 note',
+      );
+      // By project name; Thursday's close and the archive's are out.
+      expect(
+        out.closed.map((g: Json) => [g.project?.id, ids(g.tasks.items)]),
+      ).toEqual([
+        ['p-echo', ['r-1']],
+        ['p-station', ['r-2']],
+      ]);
+      expect(out.closed[0].project).toEqual({
+        id: 'p-echo',
+        name: 'Echo Base relocation',
+      });
+      expect(ids(out.added.items)).toEqual(['r-3', 'r-5']);
+      expect(out.added.items[0].desc).toBe('Ask @Chewbacca first.');
+      expect(out.added.items[0].project).toBeNull();
+      const [meeting] = out.meetings.items;
+      expect(meeting).toMatchObject({
+        id: 'e-r',
+        title: 'Hangar standup',
+        covered: 1,
+        line: '1 of 2 topics covered · 1 action item · 1 note',
+      });
+      expect(meeting.topics).toHaveLength(2);
+      expect(ids(meeting.actionItems.items)).toEqual(['r-5']);
+      expect(meeting.notes.items[0].body).toBe(
+        'Ask @Han Solo about the doors.',
+      );
+      expect(
+        out.notes.map((g: Json) => [g.project?.id, ids(g.notes.items)]),
+      ).toEqual([['p-echo', ['r-n']]]);
+      // The Closed line is shown as Closed; five lines kept, one more.
+      expect(out.activity).toHaveLength(1);
+      expect(out.activity[0].project.id).toBe('p-station');
+      expect(out.activity[0].lines.map((l: Json) => l.text)).toEqual([
+        'Health set to at risk',
+        'Status changed to paused',
+        'Status changed to active',
+        'Health set to on track',
+        'Target date set',
+      ]);
+      expect(out.activity[0].more).toBe(1);
+      expect(out.me).toEqual({ id: 'u-leia', name: 'Leia Organa' });
+      // The model hears of it at initialize.
+      expect(INSTRUCTIONS).toContain(
+        'get_recap for what happened since the last working day',
+      );
+    });
+
+    it('on a Tuesday, yesterday alone', async () => {
+      const ctx = await weekend();
+      const out = await call(ctx, 'get_recap', { date: TODAY });
+      expect(out.window).toEqual({
+        from: '2026-10-26',
+        to: '2026-10-26',
+        label: 'Yesterday',
+      });
+      expect(out.counts).toEqual({
+        closed: 0,
+        added: 0,
+        meetings: 0,
+        notes: 0,
+        activity: 0,
+      });
+      expect(out.line).toBe('');
+      expect(out.added).toEqual({ count: 0, truncated: false, items: [] });
+    });
+
+    it('narrows closed and added to an assignee', async () => {
+      const ctx = await weekend();
+      const han = await call(ctx, 'get_recap', {
+        date: '2026-10-26',
+        assignee: 'han solo',
+      });
+      expect(han.closed.flatMap((g: Json) => ids(g.tasks.items))).toEqual([
+        'r-1',
+      ]);
+      expect(ids(han.added.items)).toEqual(['r-3']);
+      // Meetings, notes and activity are not anyone's.
+      expect(han.counts).toMatchObject({ meetings: 1, notes: 1, activity: 6 });
+      const me = await call(ctx, 'get_recap', {
+        date: '2026-10-26',
+        assignee: 'me',
+      });
+      expect(me.closed.flatMap((g: Json) => ids(g.tasks.items))).toEqual([
+        'r-2',
+      ]);
+      expect(ids(me.added.items)).toEqual(['r-5']);
+    });
+
+    it('refuses an unknown space, a name that matches several people, and a bad date', async () => {
+      const ctx = await weekend();
+      expect(await fails(ctx, 'get_recap', { space: 'dagobah' })).toBe(
+        'There is no space "dagobah". Call list_spaces for the ids.',
+      );
+      // Leia Organa and Han Solo both contain "an".
+      const message = await fails(ctx, 'get_recap', { assignee: 'an' });
+      expect(message).toMatch(
+        /^"an" matches 2 persons; pass one of these ids:/,
+      );
+      expect(message).toContain('u-leia (Leia Organa)');
+      expect(message).toContain('u-han (Han Solo)');
+      expect(await fails(ctx, 'get_recap', { assignee: 'Vader' })).toBe(
+        'No person matches "Vader".',
+      );
+      expect(await fails(ctx, 'get_recap', { date: '26 Oct' })).toMatch(
+        /^Invalid arguments: date:/,
+      );
+    });
+  });
+
   it('list_notes: project, meeting, query and limit, mentions as names', async () => {
     const ctx = await seeded();
     const all = await call(ctx, 'list_notes', {});
@@ -519,7 +743,7 @@ describe('the conventions', () => {
 
   it('every read tool is read-only and needs only the read scope', () => {
     const reads = TOOLS.filter((t) => t.scope === 'read');
-    expect(reads).toHaveLength(13);
+    expect(reads).toHaveLength(14);
     for (const t of reads) {
       expect(t.scope, t.name).toBe('read');
       expect(t.annotations.readOnlyHint, t.name).toBe(true);
@@ -1120,7 +1344,7 @@ describe('the write tools', () => {
       ).json()) as Json;
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toHaveLength(13);
+    expect(names).toHaveLength(14);
     expect(names).not.toContain('add_task');
     const refused = await post({
       jsonrpc: '2.0',
