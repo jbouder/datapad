@@ -4,6 +4,7 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  isMobile,
   openLive,
   SEED,
   test,
@@ -12,7 +13,7 @@ import {
 interface Stored {
   notes: Record<
     string,
-    { body: string; scratch?: boolean; projectId: string | null }
+    { id: string; body: string; scratch?: boolean; projectId: string | null }
   >;
   activity: Record<string, { events: { text: string }[] }>;
 }
@@ -53,8 +54,11 @@ test('the Notepad saves as you type, silently, and comes back', async ({
   request,
 }) => {
   const before = await logged(request);
-  await openLive(page, '/notes');
-  await expect(page.getByRole('radio', { name: 'Notepad' })).toBeChecked();
+  await openLive(page, '/notepad');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Notepad' }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(/^Notepad/);
   await expect(pad(page)).toHaveValue('');
   await expect(status(page)).toHaveText('Saves as you type.');
   await expectAccessible(page);
@@ -87,27 +91,27 @@ test('the Notepad saves as you type, silently, and comes back', async ({
     'Call the tauntaun vet\nAsk about the heaters. Soon.',
   ]);
 
-  // Back on Notes, after a reload, it is all there.
-  await openLive(page, '/notes');
+  // Back on the Notepad, after a reload, it is all there.
+  await openLive(page, '/notepad');
   await expect(pad(page)).toHaveValue(
     'Call the tauntaun vet\nAsk about the heaters. Soon.',
   );
   expect(await logged(request)).toBe(before);
 });
 
-test('the Notepad is one note, in List and Grid, and on another device', async ({
+test('the Notepad is one note, first in List and Grid, opening its page, and on another device', async ({
   page,
   context,
   request,
 }) => {
-  await openLive(page, '/notes');
+  await openLive(page, '/notepad');
   await pad(page).fill('Shield frequencies');
   await expect(status(page)).toHaveText('Saved.');
   await expectSaved(page);
 
   // Another tab shows it, and its change comes back here.
   const other = await context.newPage();
-  await openLive(other, '/notes');
+  await openLive(other, '/notepad');
   await expect(pad(other)).toHaveValue('Shield frequencies');
   await pad(other).fill('Shield frequencies, rotated');
   await expect(status(other)).toHaveText('Saved.');
@@ -116,11 +120,18 @@ test('the Notepad is one note, in List and Grid, and on another device', async (
   await expectSaved(page);
   expect(await notepad(request)).toHaveLength(1);
 
-  // List: first, labelled Notepad, and it opens like any note.
-  await pick(page, 'List');
+  // List: first, labelled Notepad, and it opens the Notepad.
+  await page.goto('/notes');
   const first = page.locator('[data-note-row]').first();
   await expect(first).toContainText('Shield frequencies, rotated');
   await expect(first).toContainText('Notepad');
+  await expectAccessible(page);
+  await first.getByRole('link').click();
+  await expect(page).toHaveURL(/\/notepad$/);
+  await expect(pad(page)).toHaveValue('Shield frequencies, rotated');
+
+  // Grid: first, labelled Notepad; the card opens the Notepad too.
+  await page.goto('/notes');
   await pick(page, 'Grid');
   const card = page
     .getByRole('list', { name: 'Notes' })
@@ -128,12 +139,61 @@ test('the Notepad is one note, in List and Grid, and on another device', async (
     .first();
   await expect(card).toContainText('Notepad');
   await expect(card).toContainText('Shield frequencies, rotated');
+  await card.getByRole('link', { name: 'Open the Notepad' }).click();
+  await expect(page).toHaveURL(/\/notepad$/);
+
+  // A link to its note (⌘K) opens the Notepad as well.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Search' }).click();
+  const palette = page.getByRole('dialog', { name: 'Search' });
+  await palette.getByRole('combobox').fill('rotated');
+  await palette.getByRole('option', { name: /Shield frequencies/ }).click();
+  await expect(page).toHaveURL(/\/notepad$/);
+  const [note] = await notepad(request);
+  await page.goto(`/notes?note=${note?.id}`);
+  await expect(page).toHaveURL(/\/notepad$/);
 
   // Emptying it removes it.
-  await pick(page, 'Notepad');
   await pad(page).fill('');
   await pad(page).blur();
   await expect(status(page)).toHaveText('Saved.');
   await expectSaved(page);
   expect(await notepad(request)).toHaveLength(0);
+});
+
+test('Notes’ old Notepad address lands on /notepad; ⌘K and the nav go there', async ({
+  page,
+}) => {
+  await openLive(page, '/notes?view=notepad');
+  await expect(page).toHaveURL(/\/notepad$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Notepad' }),
+  ).toBeVisible();
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Search' }).click();
+  const palette = page.getByRole('dialog', { name: 'Search' });
+  await palette.getByRole('combobox').fill('Go to Notepad');
+  await palette.getByRole('option', { name: /Go to Notepad/ }).click();
+  await expect(page).toHaveURL(/\/notepad$/);
+
+  // The rail's Tools on desktop, the account menu on a phone.
+  await page.goto('/');
+  if (isMobile(page)) {
+    await page.getByRole('button', { name: 'Account and settings' }).click();
+    await page.getByRole('menuitem', { name: 'Notepad' }).click();
+  } else {
+    await page
+      .getByRole('complementary', { name: 'Datapad' })
+      .getByRole('link', { name: 'Notepad' })
+      .click();
+  }
+  await expect(page).toHaveURL(/\/notepad$/);
+  if (!isMobile(page)) {
+    await expect(
+      page
+        .getByRole('complementary', { name: 'Datapad' })
+        .getByRole('link', { name: 'Notepad' }),
+    ).toHaveAttribute('aria-current', 'page');
+  }
 });

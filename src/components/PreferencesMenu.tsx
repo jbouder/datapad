@@ -1,6 +1,5 @@
 import {
   ArrowClockwiseIcon,
-  ChalkboardSimpleIcon,
   GearSixIcon,
   QuestionIcon,
   SignOutIcon,
@@ -31,17 +30,15 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then the space's Whiteboard (on a
- * phone whose tab bar leaves it out, as it does by default; the rail has
- * it on desktop), Refresh, Help, Settings and Sign out.
+ * quick Motion and Theme switches, then the shown tools the phone's tab
+ * bar leaves out (#261: all of them, by default; the rail has them on
+ * desktop), Refresh, Help, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const { spaces, current, switchSpace } = useSpaces();
-  const phoneHasBoard = useNav().phoneItems.some(
-    (item) => item.name === 'whiteboard',
-  );
+  const { menuTools } = useNav();
 
   return (
     <DropdownMenu>
@@ -118,16 +115,17 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {/* The rail has it on desktop; the tab bar can. */}
-          {!phoneHasBoard && (
+          {/* The rail has them on desktop; the tab bar can. */}
+          {menuTools.map(({ name, route, label, icon: ToolIcon }) => (
             <DropdownMenuItem
+              key={name}
               className="desk:hidden"
-              render={<a {...linkProps({ name: 'whiteboard' })} />}
+              render={<a {...linkProps(route)} />}
             >
-              <ChalkboardSimpleIcon />
-              Whiteboard
+              <ToolIcon />
+              {label}
             </DropdownMenuItem>
-          )}
+          ))}
           <DropdownMenuItem onClick={() => window.location.reload()}>
             <ArrowClockwiseIcon />
             Refresh

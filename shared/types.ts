@@ -413,7 +413,13 @@ export interface NavPrefs {
   hidden?: string[];
   /** The shown sections the phone's tab bar leaves out (the rail keeps). */
   phoneHidden?: string[];
+  /** `digest` is from before tools (#261): read until `tools` is saved. */
   extras?: { activeProjects?: boolean; digest?: boolean; archived?: boolean };
+  /**
+   * The rail's tools (#261): their order, the hidden ones and those the
+   * phone's tab bar leaves out, saved whole. Absent until first saved.
+   */
+  tools?: { order?: string[]; hidden?: string[]; phoneHidden?: string[] };
   /** The top bar's + menu (#201): its actions' order and the hidden ones. */
   quickAdd?: { order?: string[]; hidden?: string[] };
 }

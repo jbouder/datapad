@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import {
-  canonicalQuery,
+  landRoute,
   linkedMeeting,
   parseRoute,
   type Route,
@@ -70,12 +70,13 @@ function here(): string {
 /**
  * Where an address lands: the route and its query. Old addresses settle on
  * their canonical one: /focus is /, /people is /settings/people,
- * /events?event=<id> and /meetings?meeting=<id> are /meetings/<id>.
+ * /events?event=<id> and /meetings?meeting=<id> are /meetings/<id>,
+ * /notes?view=notepad is /notepad.
  */
 function land(pathname: string, query: string, hash: string): [Route, string] {
   const meeting = linkedMeeting(pathname, query);
   if (meeting) return [{ name: 'meeting', id: meeting }, ''];
-  return [parse(pathname, hash), canonicalQuery(pathname, query)];
+  return landRoute(pathname, query, hash, DEV_ROUTES);
 }
 
 let [current, search] = land(
@@ -158,8 +159,11 @@ export function navigate(
 window.addEventListener('popstate', () => {
   const { pathname, search: query, hash } = window.location;
   const [route, nextSearch] = land(pathname, query, hash);
-  // An old meeting link in the history: settle it as on load.
-  if (route.name === 'meeting' && pathFor(route) !== pathname) {
+  // An old meeting or Notepad link in the history: settle it as on load.
+  if (
+    (route.name === 'meeting' || route.name === 'notepad') &&
+    pathFor(route) !== pathname
+  ) {
     window.history.replaceState(null, '', pathFor(route) + hash);
   }
   commit(route, nextSearch);

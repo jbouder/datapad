@@ -35,7 +35,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   what each page remembers, the address over what is saved, what a change
   saves; `PAGES` is also where Help's Layouts table comes from), `nav.ts`
   (navigation preferences: the rail's and tab bar's sections and order,
-  what the phone's tab bar leaves out, the + menu), `routes.ts` (the app's
+  what the phone's tab bar leaves out, the Tools (Notepad, Whiteboard,
+  Weekly digest) the same way and what carries over from before them,
+  the + menu), `routes.ts` (the app's
   addresses, pure: parse, paths, redirects from old addresses, titles;
   `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order,
   and the pure halves of moving a project between spaces),

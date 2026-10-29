@@ -104,6 +104,21 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Tools in the rail** (#261): a **Tools** group under the sections
+  holds the Notepad, the Whiteboard and the Weekly digest, in that order
+  by default. Settings → Navigation has a Tools table like the sections'
+  (Show, Phone, Move up / Move down), and any tool can be hidden; the
+  heading goes when all are. On a phone each tool is off the tab bar
+  until its Phone switch puts it there (after the sections, six tabs at
+  most), and the account menu has every shown tool the tab bar leaves
+  out. The Whiteboard is no longer a section, and the Weekly digest is
+  no longer a rail extra: it shows whenever it is switched on, projects
+  or not. A hidden Whiteboard or a switched-off digest stays that way.
+- **The Notepad has its own page**, `/notepad` (#261). Notes is List
+  (now the default) and Grid; the Notepad's note still comes first in
+  both, and opens the Notepad. ⌘K has Go to Notepad. An old
+  `/notes?view=notepad` link lands on `/notepad`, and a saved Notepad
+  layout on Notes reads as List.
 - **MCP writes are retry-safe** (#244): every write tool takes an
   optional `requestId`; calling again with the same one returns what the
   first call made instead of adding it twice, and one spent on a
@@ -146,6 +161,12 @@ changes the format says so here under **Export format**.
   from before it import unchanged; an export writes it only on that note.
   An import that brings a second Notepad keeps the older one as the
   Notepad and the other as an ordinary note.
+- `settings.nav` may carry `tools` (#261): `{ order, hidden,
+  phoneHidden }`, the rail's Tools (`notepad`, `whiteboard`, `digest`).
+  Files without it import unchanged, and their `whiteboard` in `hidden` /
+  `phoneHidden` and `extras.digest` still decide those two tools until
+  `tools` is saved. An export writes it only once Settings → Navigation
+  has changed a section or a tool.
 
 ### Fixed
 

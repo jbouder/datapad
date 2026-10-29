@@ -96,7 +96,20 @@ describe('precedence: the address, then what is saved, then the default', () => 
     expect(currentValues('notes', { view: 'feed' }, state())).toEqual({
       view: 'list',
     });
-    expect(PAGES.notes.fields[0]?.def).toBe('notepad');
+    expect(PAGES.notes.fields[0]?.def).toBe('list');
+  });
+
+  it('reads Notes’ old Notepad layout as List (#261)', () => {
+    expect(
+      effectiveQuery('notes', q(''), { view: 'notepad' }).get('view'),
+    ).toBe('list');
+    expect(currentValues('notes', { view: 'notepad' }, state())).toEqual({
+      view: 'list',
+    });
+    expect(PAGES.notes.fields[0]?.options?.map((o) => o.value)).toEqual([
+      'list',
+      'grid',
+    ]);
   });
 
   it('leaves keys a page does not remember alone', () => {

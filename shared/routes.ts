@@ -15,6 +15,8 @@ export type Route =
   /** One task's page (`/tasks/:id`), opened from Tasks. */
   | { name: 'task'; id: string }
   | { name: 'notes' }
+  /** The space's Notepad (#261), a tool: its one running note. */
+  | { name: 'notepad' }
   | { name: 'meetings' }
   /** One meeting's page (`/meetings/:id`). */
   | { name: 'meeting'; id: string }
@@ -65,10 +67,40 @@ const SIMPLE = new Set<RouteName>([
   'archive',
   'tasks',
   'notes',
+  'notepad',
   'meetings',
   'digest',
   'whiteboard',
 ]);
+
+/**
+ * `/notes?view=notepad`: Notes' Notepad layout until it became a page of
+ * its own (#261), `/notepad`.
+ */
+function oldNotepad(clean: string, search: string): boolean {
+  return (
+    clean === '/notes' && new URLSearchParams(search).get('view') === 'notepad'
+  );
+}
+
+/**
+ * Where an address lands, query and all: an old one settles on its new
+ * address (the Notepad layout on `/notepad`, with no query); anything
+ * else is `parseRoute` with `canonicalQuery`.
+ */
+export function landRoute(
+  pathname: string,
+  search: string,
+  hash = '',
+  devRoutes = false,
+): [Route, string] {
+  const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+  if (oldNotepad(clean, search)) return [{ name: 'notepad' }, ''];
+  return [
+    parseRoute(pathname, hash, devRoutes),
+    canonicalQuery(pathname, search),
+  ];
+}
 
 /**
  * What `pathname` (and, for Help, `hash`) means. `devRoutes` admits
@@ -267,6 +299,7 @@ const TITLES: Partial<Record<RouteName, string>> = {
   archive: 'Archived',
   tasks: 'Tasks',
   notes: 'Notes',
+  notepad: 'Notepad',
   meetings: 'Meetings',
   digest: 'Weekly digest',
   whiteboard: 'Whiteboard',

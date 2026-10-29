@@ -121,23 +121,20 @@ test('filters apply to the Grid as well', async ({ page }) => {
   await expect(page.locator('[data-note-row]')).toHaveCount(1);
 });
 
-test('Notepad, List and Grid, Notepad first and the default', async ({
+test('List and Grid, List the default; the Notepad has its own page (#261)', async ({
   page,
 }) => {
   await openLive(page, '/notes');
   const group = page.getByRole('group', { name: 'Layout (press v to cycle)' });
-  await expect(group.getByRole('radio')).toHaveCount(3);
-  await expect(group.getByRole('radio').first()).toHaveAccessibleName(
-    'Notepad',
-  );
-  await expect(group.getByRole('radio', { name: 'Notepad' })).toBeChecked();
-  await expect(page.getByRole('combobox', { name: 'Notepad' })).toBeVisible();
-  // The filters are for List and Grid.
-  await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
-  await page.locator('body').press('v');
+  await expect(group.getByRole('radio')).toHaveCount(2);
+  await expect(group.getByRole('radio').first()).toHaveAccessibleName('List');
   await expect(group.getByRole('radio', { name: 'List' })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Notepad' })).toHaveCount(0);
+  await expect(page.getByRole('searchbox', { name: 'Find' })).toBeVisible();
   await page.locator('body').press('v');
   await expect(group.getByRole('radio', { name: 'Grid' })).toBeChecked();
+  await page.locator('body').press('v');
+  await expect(group.getByRole('radio', { name: 'List' })).toBeChecked();
 });
 
 test('an old Feed address reads as List', async ({ page }) => {

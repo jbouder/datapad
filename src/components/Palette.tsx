@@ -10,7 +10,6 @@ import {
   FolderIcon,
   type Icon,
   MagnifyingGlassIcon,
-  NewspaperIcon,
   NoteIcon,
   PlusIcon,
   SquaresFourIcon,
@@ -138,12 +137,6 @@ export function Palette({
         run: go(n.route),
       })),
       {
-        id: 'go-digest',
-        label: 'Go to Weekly digest',
-        icon: NewspaperIcon,
-        run: go({ name: 'digest' }),
-      },
-      {
         // On a project (or its board), its board; anywhere else the space's.
         id: 'whiteboard',
         label: 'Open whiteboard',
@@ -227,7 +220,9 @@ export function Palette({
         return choose(() => openTask(id));
       case 'note':
         return choose(() =>
-          navigate({ name: 'notes' }, { query: `note=${id}` }),
+          state?.notes[id]?.scratch
+            ? navigate({ name: 'notepad' })
+            : navigate({ name: 'notes' }, { query: `note=${id}` }),
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));

@@ -5,12 +5,12 @@ import {
   ArrowUpIcon,
   FoldersIcon,
   type Icon,
-  NewspaperIcon,
 } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
 import {
   isQuickAddAction,
   isSectionName,
+  isToolName,
   type NavExtra,
   navExtrasOf,
   navHiddenOf,
@@ -20,13 +20,19 @@ import {
   quickAddHiddenOf,
   quickAddOrderOf,
   type SectionName,
+  TAB_BAR_MAX,
+  type ToolName,
+  toolsHiddenOf,
+  toolsOrderOf,
+  toolsPhoneHiddenOf,
+  toolsPrefsOf,
 } from '#shared/nav';
 import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
-import { NAV_ITEMS, QUICK_ADD_ITEMS } from '@/lib/nav';
+import { NAV_ITEMS, QUICK_ADD_ITEMS, TOOL_ITEMS } from '@/lib/nav';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -42,12 +48,6 @@ const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
     hint: 'The list of active projects, most recently updated first.',
   },
   {
-    name: 'digest',
-    label: 'Weekly digest',
-    icon: NewspaperIcon,
-    hint: 'Under Active projects in the rail, once there is a project.',
-  },
-  {
     name: 'archived',
     label: 'Archived',
     icon: ArchiveIcon,
@@ -57,10 +57,11 @@ const EXTRAS: { name: NavExtra; label: string; icon: Icon; hint: string }[] = [
 
 /**
  * Settings → Navigation: which sections the rail and the tab bar show, in
- * what order, which of those stay off the phone's tab bar (the
- * Whiteboard, by default), the rail's extras, and what the top bar's +
- * offers. Saved for this space as each change is made; Reset to default
- * puts today's nav back, with Undo.
+ * what order, and which of those stay off the phone's tab bar; the tools
+ * the same way (#261: Notepad, Whiteboard, Weekly digest, every one off
+ * the tab bar by default, in the account menu then); the rail's extras;
+ * and what the top bar's + offers. Saved for this space as each change is
+ * made; Reset to default puts today's nav back, with Undo.
  */
 export function NavSettings() {
   const { state, actions } = useDatapad();
@@ -75,12 +76,22 @@ export function NavSettings() {
   const phoneVisible = order.filter(
     (name) => !hidden.has(name) && !phoneHidden.has(name),
   ).length;
+  const tools = toolsOrderOf(stored.nav);
+  const toolsHidden = toolsHiddenOf(stored.nav);
+  const toolsPhoneHidden = toolsPhoneHiddenOf(stored.nav);
+  const toolsOnPhone = tools.filter(
+    (name) => !toolsHidden.has(name) && !toolsPhoneHidden.has(name),
+  ).length;
+  // The tab bar's six columns: a tool's Phone switch cannot add a seventh.
+  const tabBarFull = phoneVisible + toolsOnPhone >= TAB_BAR_MAX;
   const addOrder = quickAddOrderOf(stored.nav?.quickAdd);
   const addHidden = quickAddHiddenOf(stored.nav?.quickAdd);
   const addVisible = addOrder.length - addHidden.size;
 
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
+  const toolList = useRef<HTMLUListElement>(null);
+  useFlip(toolList, active);
   const addList = useRef<HTMLUListElement>(null);
   useFlip(addList, active);
 
@@ -99,11 +110,53 @@ export function NavSettings() {
     (pressed && !pressed.disabled ? pressed : button(-want.by))?.focus();
   });
 
+  // A section change from before tools were ever saved saves them too, as
+  // they read now: the Whiteboard's carry-over from the section lists
+  // (#261) would otherwise go with the name.
+  const setSections = (
+    patch: Partial<Record<'order' | 'hidden' | 'phoneHidden', SectionName[]>>,
+  ) =>
+    actions.setNav({
+      patch: stored.nav?.tools
+        ? patch
+        : { ...patch, tools: toolsPrefsOf(stored.nav) },
+    });
+
   const move = (name: SectionName, by: -1 | 1) => {
     const next = moved(order, name, by);
     if (!next) return;
     refocus.current = { name, by };
-    actions.setNav({ patch: { order: next } });
+    setSections({ order: next });
+  };
+
+  // The tools are saved whole, every list each time, so a tool a later
+  // release adds is one they have never named and keeps its defaults.
+  const saveTools = (
+    patch: Partial<Record<'order' | 'hidden' | 'phoneHidden', ToolName[]>>,
+  ) =>
+    actions.setNav({
+      patch: { tools: { ...toolsPrefsOf(stored.nav), ...patch } },
+    });
+
+  const moveTool = (name: ToolName, by: -1 | 1) => {
+    const next = moved(tools, name, by);
+    if (!next) return;
+    refocus.current = { name: `tool-${name}`, by };
+    saveTools({ order: next });
+  };
+
+  const setToolShown = (name: ToolName, on: boolean) => {
+    const next = new Set(toolsHidden);
+    if (on) next.delete(name);
+    else next.add(name);
+    saveTools({ hidden: [...next] });
+  };
+
+  const setToolOnPhone = (name: ToolName, on: boolean) => {
+    const next = new Set(toolsPhoneHidden);
+    if (on) next.delete(name);
+    else next.add(name);
+    saveTools({ phoneHidden: [...next] });
   };
 
   // The + menu is saved whole, order and hidden together, so an action a
@@ -134,7 +187,7 @@ export function NavSettings() {
     const next = new Set(hidden);
     if (on) next.delete(name);
     else next.add(name);
-    actions.setNav({ patch: { hidden: [...next] } });
+    setSections({ hidden: [...next] });
   };
 
   // Saved whole, with the order naming every section there is today, so
@@ -144,7 +197,7 @@ export function NavSettings() {
     const next = new Set(phoneHidden);
     if (on) next.delete(name);
     else next.add(name);
-    actions.setNav({ patch: { order, phoneHidden: [...next] } });
+    setSections({ order, phoneHidden: [...next] });
   };
 
   const reset = () => {
@@ -157,6 +210,7 @@ export function NavSettings() {
           hidden: null,
           phoneHidden: null,
           extras: null,
+          tools: null,
           quickAdd: null,
         },
       })
@@ -169,6 +223,14 @@ export function NavSettings() {
           hidden: before.hidden?.filter(isSectionName) ?? null,
           phoneHidden: before.phoneHidden?.filter(isSectionName) ?? null,
           extras: before.extras ?? null,
+          // As they read before: what carried over from before tools too.
+          tools: before.tools
+            ? {
+                order: before.tools.order?.filter(isToolName) ?? [],
+                hidden: before.tools.hidden?.filter(isToolName) ?? [],
+                phoneHidden: before.tools.phoneHidden?.filter(isToolName) ?? [],
+              }
+            : toolsPrefsOf(before),
           quickAdd: before.quickAdd
             ? {
                 order: before.quickAdd.order?.filter(isQuickAddAction) ?? [],
@@ -183,9 +245,9 @@ export function NavSettings() {
   return (
     <>
       <p className="text-sm text-muted-foreground">
-        The sections in the rail and the tab bar, in this order, for this space.
-        Phone keeps a section off the phone’s tab bar (the Whiteboard, by
-        default; the account menu has it then). A hidden section still opens
+        The sections and tools in the rail and the tab bar, in this order, for
+        this space. Phone puts one on the phone’s tab bar; a shown tool that is
+        not there is in the account menu. A hidden section or tool still opens
         from its address, ⌘K and Help. Changes save as you make them.
       </p>
 
@@ -226,7 +288,8 @@ export function NavSettings() {
                 lastHint="nav-last-hint"
                 phone={{
                   on: onPhone,
-                  last: onPhone && phoneVisible <= 1,
+                  locked: onPhone && phoneVisible <= 1,
+                  hint: 'nav-last-hint',
                   onChange: (on) => setOnPhone(name, on),
                 }}
                 first={i === 0}
@@ -244,11 +307,67 @@ export function NavSettings() {
       </div>
 
       <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold" id="nav-tools">
+          Tools
+        </h3>
+        <div
+          aria-hidden
+          className="flex items-center gap-1 text-xs text-muted-foreground"
+        >
+          <span className="flex-1" />
+          <span className={`${CELL} text-center`}>Show</span>
+          <span className={`${CELL} text-center`}>Phone</span>
+          <span className={ICON_BUTTON} />
+          <span className={ICON_BUTTON} />
+        </div>
+        <ul
+          ref={toolList}
+          aria-labelledby="nav-tools"
+          className="flex flex-col border-t"
+        >
+          {tools.map((name, i) => {
+            const { label, icon } = TOOL_ITEMS[name];
+            const shown = !toolsHidden.has(name);
+            const onPhone = shown && !toolsPhoneHidden.has(name);
+            return (
+              <OrderRow
+                key={name}
+                name={name}
+                label={label}
+                icon={icon}
+                rowAttr={{ 'data-tool-row': name }}
+                switchId={`nav-tool-${name}`}
+                moveKey={`tool-${name}`}
+                shown={shown}
+                lastShown={false}
+                lastHint="nav-tools-hint"
+                phone={{
+                  on: onPhone,
+                  locked: !onPhone && tabBarFull,
+                  hint: 'nav-tools-hint',
+                  onChange: (on) => setToolOnPhone(name, on),
+                }}
+                first={i === 0}
+                last={i === tools.length - 1}
+                onShow={(on) => setToolShown(name, on)}
+                onMove={(by) => moveTool(name, by)}
+              />
+            );
+          })}
+        </ul>
+        <p id="nav-tools-hint" className="text-xs text-muted-foreground">
+          Under the sections in the rail; with every tool hidden, so is the
+          heading. The tab bar holds {TAB_BAR_MAX} at most, tools after the
+          sections.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold" id="nav-extras">
           In the rail
         </h3>
         <p className="text-xs text-muted-foreground">
-          Below the sections, on wider screens. Each shows only when there is
+          Below the tools, on wider screens. Each shows only when there is
           something to show.
         </p>
         <ul aria-labelledby="nav-extras" className="flex flex-col border-t">
@@ -343,10 +462,11 @@ export function NavSettings() {
 }
 
 /**
- * One row of an ordered list (a section, a + action): its icon and label,
- * a Show switch, a Phone switch for a section (whether the phone's tab bar
- * has it; off while the section is hidden) and Move up / Move down, 44px
- * on touch. `moveKey` names its move buttons so focus can follow a move.
+ * One row of an ordered list (a section, a tool, a + action): its icon and
+ * label, a Show switch, a Phone switch for a section or a tool (whether
+ * the phone's tab bar has it; off while it is hidden) and Move up / Move
+ * down, 44px on touch. `moveKey` names its move buttons so focus can
+ * follow a move.
  */
 function OrderRow({
   name,
@@ -375,8 +495,16 @@ function OrderRow({
   lastShown: boolean;
   /** The id of the line that says why. */
   lastHint: string;
-  /** A section's place on the phone's tab bar; a + action has none. */
-  phone?: { on: boolean; last: boolean; onChange: (on: boolean) => void };
+  /**
+   * Its place on the phone's tab bar (a + action has none); `locked`
+   * when it cannot change, `hint` the id of the line that says why.
+   */
+  phone?: {
+    on: boolean;
+    locked: boolean;
+    hint: string;
+    onChange: (on: boolean) => void;
+  };
   first: boolean;
   last: boolean;
   onShow: (on: boolean) => void;
@@ -420,8 +548,8 @@ function OrderRow({
             id={`${switchId}-phone`}
             aria-label={`${label} on the phone`}
             checked={phone.on}
-            disabled={!shown || phone.last}
-            aria-describedby={phone.last ? lastHint : undefined}
+            disabled={!shown || phone.locked}
+            aria-describedby={phone.locked ? phone.hint : undefined}
             onCheckedChange={phone.onChange}
           />
         </span>

@@ -195,7 +195,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Meetings, Notes, Whiteboard (off the phone); People and Orgs are in Settings', async ({
+test('sections run Focus, Projects, Tasks, Meetings, Notes, then the Tools (off the phone); People and Orgs are in Settings', async ({
   page,
 }) => {
   await page.goto('/');
@@ -209,9 +209,9 @@ test('sections run Focus, Projects, Tasks, Meetings, Notes, Whiteboard (off the 
     /Tasks/,
     /Meetings/,
     /Notes/,
-    // The space's whiteboard is a section, off the phone's tab bar by
-    // default (the account menu has it there).
-    ...(isMobile(page) ? [] : [/Whiteboard/]),
+    // The tools (#261) follow in the rail, off the phone's tab bar by
+    // default (the account menu has them there).
+    ...(isMobile(page) ? [] : [/Notepad/, /Whiteboard/, /Weekly digest/]),
   ]);
   // People and Orgs live under Settings (#159), in neither the rail nor
   // the tab bar.

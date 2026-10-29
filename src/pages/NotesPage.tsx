@@ -1,9 +1,4 @@
-import {
-  NotePencilIcon,
-  PlusIcon,
-  RowsIcon,
-  SquaresFourIcon,
-} from '@phosphor-icons/react';
+import { PlusIcon, RowsIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import {
   useCallback,
   useEffect,
@@ -13,7 +8,12 @@ import {
   useState,
 } from 'react';
 import { localDate } from '#shared/dates';
-import { type NoteFilters, queryWords, selectNotes } from '#shared/notes';
+import {
+  type NoteFilters,
+  notepadOf,
+  queryWords,
+  selectNotes,
+} from '#shared/notes';
 import type { Note } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
@@ -24,7 +24,6 @@ import {
 } from '@/components/layouts/ViewSwitcher';
 import { NoteCard } from '@/components/notes/NoteCard';
 import { NoteList } from '@/components/notes/NoteList';
-import { Notepad } from '@/components/notes/Notepad';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,14 +32,13 @@ import { useFlip } from '@/hooks/useFlip';
 import { useMasonry } from '@/hooks/useMasonry';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withLayoutTransition, withViewTransition } from '@/lib/motion';
-import { setQuery, useQuery } from '@/lib/router';
+import { navigate, setQuery, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
 
-type NoteView = 'notepad' | 'list' | 'grid';
+type NoteView = 'list' | 'grid';
 
 export const NOTE_VIEWS: readonly ViewOption<NoteView>[] = [
-  { id: 'notepad', label: 'Notepad', icon: NotePencilIcon },
   { id: 'list', label: 'List', icon: RowsIcon },
   { id: 'grid', label: 'Grid', icon: SquaresFourIcon },
 ];
@@ -85,15 +83,15 @@ function useNoteFilters(query: URLSearchParams): NoteFilters {
 }
 
 /**
- * Notes as a Notepad (the default: the space's one running note, written
- * in place and saved as you type), a List (one compact row per note,
- * newest first, each opening in place) or a Grid (compact cards in
- * masonry columns, pinned first, opening in place) (#218). In List and
- * Grid the Notepad's note comes first. Add note opens the new-note panel,
- * preset to the filtered project (General otherwise), as `N` does here;
- * List and Grid then have a project filter, Pinned and Find. Filters and
+ * Notes as a List (the default: one compact row per note, newest first,
+ * each opening in place) or a Grid (compact cards in masonry columns,
+ * pinned first, opening in place) (#218). The Notepad's note comes first
+ * in both, and opens its own page, `/notepad` (#261). Add note opens the
+ * new-note panel, preset to the filtered project (General otherwise), as
+ * `N` does here; then a project filter, Pinned and Find. Filters and
  * layout live in the URL, and all but Find are saved for the page (#186).
- * `?note=<id>` (a link to one note) shows it opened in the List.
+ * `?note=<id>` (a link to one note) shows it opened in the List; the
+ * Notepad's goes to its page.
  */
 export function NotesPage() {
   usePageTitle('Notes');
@@ -102,10 +100,15 @@ export function NotesPage() {
   const { active } = useMotion();
   const [query, changePage] = usePageQuery('notes');
   const filters = useNoteFilters(query);
-  const [chosen, setView] = useView('notes', NOTE_VIEWS, 'notepad');
+  const [view, setView] = useView('notes', NOTE_VIEWS, 'list');
   const target = useQuery().get('note');
-  // A link to one note opens it in the List, never the Notepad.
-  const view: NoteView = target && chosen === 'notepad' ? 'list' : chosen;
+  const padId = state ? notepadOf(state.notes)?.id : undefined;
+  // A link to the Notepad's note opens the Notepad.
+  useEffect(() => {
+    if (target && target === padId) {
+      navigate({ name: 'notepad' }, { replace: true });
+    }
+  }, [target, padId]);
   const [open, setOpen] = useState<string | null>(null);
   const [rows, setRows] = useState<ReadonlySet<string>>(
     () => new Set(target ? [target] : []),
@@ -248,53 +251,47 @@ export function NotesPage() {
         </Button>
       </div>
 
-      {view !== 'notepad' && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <SelectField
-            label="Project"
-            value={filters.project || 'all'}
-            options={[
-              { value: 'all', label: 'All projects' },
-              { value: 'general', label: 'General' },
-              ...projects.map((p) => ({
-                value: p.id,
-                label: p.archived ? `${p.name} (archived)` : p.name,
-              })),
-            ]}
-            onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <SelectField
+          label="Project"
+          value={filters.project || 'all'}
+          options={[
+            { value: 'all', label: 'All projects' },
+            { value: 'general', label: 'General' },
+            ...projects.map((p) => ({
+              value: p.id,
+              label: p.archived ? `${p.name} (archived)` : p.name,
+            })),
+          ]}
+          onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
+        />
+        <Segmented
+          legend="Show"
+          value={filters.pinned ? 'pinned' : 'all'}
+          onChange={(v) => changeQuery({ pinned: v === 'pinned' ? '1' : null })}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'pinned', label: 'Pinned' },
+          ]}
+        />
+        <div className="flex flex-col gap-1.5 sm:col-span-2 desk:col-span-1">
+          <label htmlFor="note-find" className="text-xs font-medium">
+            Find
+          </label>
+          <Input
+            id="note-find"
+            type="search"
+            value={find}
+            placeholder="Words in a note, or a name"
+            autoComplete="off"
+            onChange={(e) => setFind(e.target.value)}
+            className="h-11 text-base desk:h-8 desk:text-xs"
           />
-          <Segmented
-            legend="Show"
-            value={filters.pinned ? 'pinned' : 'all'}
-            onChange={(v) =>
-              changeQuery({ pinned: v === 'pinned' ? '1' : null })
-            }
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'pinned', label: 'Pinned' },
-            ]}
-          />
-          <div className="flex flex-col gap-1.5 sm:col-span-2 desk:col-span-1">
-            <label htmlFor="note-find" className="text-xs font-medium">
-              Find
-            </label>
-            <Input
-              id="note-find"
-              type="search"
-              value={find}
-              placeholder="Words in a note, or a name"
-              autoComplete="off"
-              onChange={(e) => setFind(e.target.value)}
-              className="h-11 text-base desk:h-8 desk:text-xs"
-            />
-          </div>
         </div>
-      )}
+      </div>
 
       <div ref={feed} className="vt-list flex flex-col gap-6">
-        {view === 'notepad' ? (
-          <Notepad state={state} />
-        ) : notes.length === 0 ? (
+        {notes.length === 0 ? (
           any && filtered ? (
             <div className="flex flex-col items-start gap-2">
               <p className="text-state">No notes match.</p>
