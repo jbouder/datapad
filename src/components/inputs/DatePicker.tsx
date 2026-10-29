@@ -118,7 +118,6 @@ export function DatePicker({
           <PopoverContent align="end" className="w-auto p-0">
             <Calendar
               mode="single"
-              weekStartsOn={1}
               selected={value ? toDate(value) : undefined}
               defaultMonth={value ? toDate(value) : undefined}
               onSelect={(date) => {
