@@ -9,6 +9,7 @@ const ROUTES = [
   '/projects',
   '/tasks',
   '/notes',
+  '/notepad',
   '/meetings',
   '/digest',
   '/settings/people',

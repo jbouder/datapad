@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
 import { migrate } from './migrate';
-import { NAV_SECTIONS, QUICK_ADD_ACTIONS } from './nav';
+import { NAV_SECTION_NAMES, NAV_TOOLS, QUICK_ADD_ACTIONS } from './nav';
 import {
   type Activity,
   BOARD_COLORS,
@@ -334,6 +334,15 @@ export const ActivitySchema = z.object({
   events: z.array(ActivityEntrySchema).max(LIMITS.activityMax).default([]),
 }) satisfies z.ZodType<Activity, unknown>;
 
+/**
+ * A `setNav` op's names: the sections, and the Whiteboard, a section until
+ * #261, so an older client's change still applies (the readers ignore it).
+ */
+const sectionNames = z
+  .array(z.enum(NAV_SECTION_NAMES))
+  .max(NAV_SECTION_NAMES.length);
+const toolNames = z.array(z.enum(NAV_TOOLS)).max(NAV_TOOLS.length);
+
 /** Navigation preferences: names are free text here, checked on read. */
 const navName = z.string().max(40);
 const NavExtrasSchema = z.object({
@@ -350,6 +359,14 @@ const NavPrefsSchema = z.object({
   hidden: z.array(navName).max(20).optional(),
   phoneHidden: z.array(navName).max(20).optional(),
   extras: NavExtrasSchema.optional(),
+  /** The rail's tools (#261). */
+  tools: z
+    .object({
+      order: z.array(navName).max(20).optional(),
+      hidden: z.array(navName).max(20).optional(),
+      phoneHidden: z.array(navName).max(20).optional(),
+    })
+    .optional(),
   quickAdd: QuickAddPrefsSchema.optional(),
 });
 
@@ -1234,17 +1251,22 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     type: z.literal('setSettings'),
     patch: patch({ defaultOrg: z.string().trim().max(LIMITS.nameMax) }),
   }),
-  /** Navigation preferences; `null` clears a key (all five: the default). */
+  /** Navigation preferences; `null` clears a key (all six: the default). */
   z.object({
     type: z.literal('setNav'),
     patch: patch({
-      order: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
-      hidden: z.array(z.enum(NAV_SECTIONS)).max(NAV_SECTIONS.length).nullable(),
-      phoneHidden: z
-        .array(z.enum(NAV_SECTIONS))
-        .max(NAV_SECTIONS.length)
-        .nullable(),
+      order: sectionNames.nullable(),
+      hidden: sectionNames.nullable(),
+      phoneHidden: sectionNames.nullable(),
       extras: NavExtrasSchema.nullable(),
+      /** The tools (#261), saved whole: every list each time. */
+      tools: z
+        .object({
+          order: toolNames,
+          hidden: toolNames,
+          phoneHidden: toolNames,
+        })
+        .nullable(),
       quickAdd: z
         .object({
           order: z

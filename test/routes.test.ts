@@ -4,6 +4,7 @@ import {
   boardItemLink,
   boardRoute,
   canonicalQuery,
+  landRoute,
   linkedMeeting,
   parseRoute,
   type Route,
@@ -22,6 +23,7 @@ describe('parseRoute', () => {
       'archive',
       'tasks',
       'notes',
+      'notepad',
       'meetings',
       'digest',
     ] as const) {
@@ -173,6 +175,37 @@ describe('linkedMeeting', () => {
     expect(linkedMeeting('/meetings', '')).toBeNull();
     expect(linkedMeeting('/notes', '?meeting=e-1')).toBeNull();
     expect(linkedMeeting('/meetings/e-1', '?meeting=e-2')).toBeNull();
+  });
+});
+
+describe('landRoute', () => {
+  it('sends Notes’ old Notepad layout to /notepad (#261), with no query', () => {
+    expect(landRoute('/notes', '?view=notepad')).toEqual([
+      { name: 'notepad' },
+      '',
+    ]);
+    expect(landRoute('/notes/', '?project=p1&view=notepad')).toEqual([
+      { name: 'notepad' },
+      '',
+    ]);
+    expect(routePath({ name: 'notepad' })).toBe('/notepad');
+    expect(titleOf({ name: 'notepad' })).toBe('Notepad');
+    expect(sectionOf({ name: 'notepad' })).toBe('notepad');
+  });
+
+  it('leaves every other address to parseRoute and canonicalQuery', () => {
+    expect(landRoute('/notes', '?view=grid')).toEqual([
+      { name: 'notes' },
+      '?view=grid',
+    ]);
+    expect(landRoute('/events', '?event=e-1&view=list')).toEqual([
+      { name: 'meetings' },
+      '?view=list&meeting=e-1',
+    ]);
+    expect(landRoute('/tasks', '?view=notepad')).toEqual([
+      { name: 'tasks' },
+      '?view=notepad',
+    ]);
   });
 });
 

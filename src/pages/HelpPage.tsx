@@ -122,10 +122,14 @@ export function HelpPage({ section }: { section?: string }) {
             notes.
           </Term>
           <Term name="Notes" to={{ name: 'notes' }}>
-            Every note, as a Notepad (one running note for the space, saved as
-            you type), a list (one row per note, opening in place) or a grid.
-            Pinned notes stay on top of the grid. <strong>Add note</strong>{' '}
-            opens a new note in the project you have filtered to, or General.
+            Every note, as a list (one row per note, opening in place) or a
+            grid. Pinned notes stay on top of the grid; the Notepad’s note comes
+            first and opens the Notepad. <strong>Add note</strong> opens a new
+            note in the project you have filtered to, or General.
+          </Term>
+          <Term name="Notepad" to={{ name: 'notepad' }}>
+            A tool: one running note for the space, saved as you type. It is a
+            General note too, so Notes lists it.
           </Term>
           <Term name="Digest" to={{ name: 'digest' }}>
             Your own status report: what happened in each project over a week,
@@ -169,13 +173,15 @@ export function HelpPage({ section }: { section?: string }) {
         </p>
         <p className="text-sm">
           Settings → Navigation chooses which sections the rail and the tab bar
-          show, and in what order, for the open space, and whether the rail
-          lists Active projects, the Weekly digest and Archived. A hidden
-          section still opens from its address, <Key>⌘K</Key> and the links
-          above. The address <code>/</code> is always Focus. Its Quick add group
-          chooses what the top bar’s + offers (Add task and Write a note by
-          default; Add meeting and Add project too), in what order; with one
-          shown, + does it directly.
+          show, and in what order, for the open space; the Tools under them
+          (Notepad, Whiteboard and Weekly digest) the same way, each off the
+          phone’s tab bar by default and in the account menu then; and whether
+          the rail lists Active projects and Archived. A hidden section or tool
+          still opens from its address, <Key>⌘K</Key> and the links above. The
+          address <code>/</code> is always Focus. Its Quick add group chooses
+          what the top bar’s + offers (Add task and Write a note by default; Add
+          meeting and Add project too), in what order; with one shown, + does it
+          directly.
         </p>
       </Section>
 
@@ -317,10 +323,11 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="whiteboard">
         <p className="text-sm">
           Every project has a whiteboard (<strong>Whiteboard</strong> on its
-          page), and the space has one of its own in the rail; <Key>⌘K</Key> →
-          Open whiteboard goes to the one you are on. It is a freeform canvas
-          for sticky notes, text, rectangles, arrows and freehand ink, kept with
-          the rest of your data and live on every device.
+          page), and the space has one of its own under Tools in the rail;{' '}
+          <Key>⌘K</Key> → Open whiteboard goes to the one you are on. It is a
+          freeform canvas for sticky notes, text, rectangles, arrows and
+          freehand ink, kept with the rest of your data and live on every
+          device.
         </p>
         <p className="text-sm">
           The tools are on the toolbar, each with a key: <Key>V</Key> select,{' '}
@@ -416,18 +423,19 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="account">
         <p className="text-sm">
           The account button at the top right opens the menu: your spaces,
-          Motion, Theme, Settings and Sign out. Settings has Appearance (theme,
-          12-hour or 24-hour time, motion), Pages (what each page remembers,
-          with Reset), Navigation (the sections the rail and tab bar show, their
-          order, and which stay off the phone’s tab bar), Templates (the tasks a
-          new project can start with, and the text a new note can; Save as
-          template on a project or a note makes one), Summaries, Spaces, People
-          (each person with their projects, tasks and mentions), Orgs (each org
-          with its projects, contacts, meetings and notes), Data, Connected apps
-          (the MCP apps, such as Claude, you let in, with Revoke) and Account.
-          Signing out ends your Cloudflare Access session on this browser; sign
-          in again to come back. When your device asks for reduced motion,
-          Datapad never animates.
+          Motion, Theme, on a phone the tools its tab bar leaves out, Settings
+          and Sign out. Settings has Appearance (theme, 12-hour or 24-hour time,
+          motion), Pages (what each page remembers, with Reset), Navigation (the
+          sections and tools the rail and tab bar show, their order, and which
+          the phone’s tab bar has), Templates (the tasks a new project can start
+          with, and the text a new note can; Save as template on a project or a
+          note makes one), Summaries, Spaces, People (each person with their
+          projects, tasks and mentions), Orgs (each org with its projects,
+          contacts, meetings and notes), Data, Connected apps (the MCP apps,
+          such as Claude, you let in, with Revoke) and Account. Signing out ends
+          your Cloudflare Access session on this browser; sign in again to come
+          back. When your device asks for reduced motion, Datapad never
+          animates.
         </p>
       </Section>
 

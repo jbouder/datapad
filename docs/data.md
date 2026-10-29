@@ -112,9 +112,14 @@ as it is (migrated on the way in, below):
   default org for new projects (none until you pick one in Orgs; a new
   space starts with no orgs) and, optionally, `nav`, the navigation
   preferences from Settings → Navigation (#187):
-  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "digest": false, "archived": true }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
+  `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "archived": true }, "tools": { "order": ["digest", "notepad", "whiteboard"], "hidden": ["notepad"], "phoneHidden": ["digest", "whiteboard"] }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
   (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,
-  `project`; an action it never names keeps its default).
+  `project`; an action it never names keeps its default. `tools`, #261,
+  is the rail's Tools: `notepad`, `whiteboard`, `digest`, written whole;
+  a tool it never names keeps its default place, shown and off the
+  phone's tab bar. Until `tools` is written, a `whiteboard` in `hidden`
+  or `phoneHidden` and `extras.digest: false`, from before tools, still
+  decide those two tools; among the sections `whiteboard` is ignored).
   Every key is optional and `nav` is absent until you change something, so
   a file without it imports unchanged. Section names are kept as written
   and checked when read: an unknown one is ignored, and a section missing

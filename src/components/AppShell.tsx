@@ -47,6 +47,7 @@ import {
   WhiteboardPage,
 } from '@/pages/lazy';
 import { MeetingsPage } from '@/pages/MeetingsPage';
+import { NotepadPage } from '@/pages/NotepadPage';
 import { NotesPage, notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectPage } from '@/pages/ProjectPage';
@@ -299,6 +300,8 @@ function Page({ route }: { route: Route }) {
       return <TaskPage id={route.id} />;
     case 'notes':
       return <NotesPage />;
+    case 'notepad':
+      return <NotepadPage />;
     case 'meetings':
       return <MeetingsPage />;
     case 'meeting':

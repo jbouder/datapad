@@ -7,7 +7,6 @@ import {
   expectNoSidewaysScroll,
   isMobile,
   openLive,
-  openPreferences,
   SEED,
   syncStatus,
   test,
@@ -81,7 +80,6 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
   if (isMobile(page)) {
     // Four even columns, each still a 44px target.
@@ -106,7 +104,6 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
 
   // A hidden section still opens from its address and ⌘K, and nothing in
@@ -141,7 +138,6 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
   await other.close();
 });
@@ -150,13 +146,7 @@ test('the last section stays, and Reset puts the default back with Undo', async 
   page,
 }) => {
   await openLive(page, '/settings/navigation');
-  for (const label of [
-    'Focus',
-    'Projects',
-    'Tasks',
-    'Meetings',
-    'Whiteboard',
-  ]) {
+  for (const label of ['Focus', 'Projects', 'Tasks', 'Meetings']) {
     await page
       .getByRole('switch', { name: `Show ${label}`, exact: true })
       .click();
@@ -174,7 +164,6 @@ test('the last section stays, and Reset puts the default back with Undo', async 
     /Tasks/,
     /Meetings/,
     /Notes/,
-    ...(isMobile(page) ? [] : [/Whiteboard/]),
   ]);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(sections(page)).toHaveText([/Notes/]);
@@ -186,77 +175,6 @@ test('the last section stays, and Reset puts the default back with Undo', async 
   await expectAccessible(page);
 });
 
-test('the Whiteboard is in the rail, not the tab bar, until Phone puts it there', async ({
-  page,
-  request,
-}) => {
-  await request.post('/api/import', { data: SEED });
-  await openLive(page, '/settings/navigation');
-  const phone = page.getByRole('switch', {
-    name: 'Whiteboard on the phone',
-  });
-  await expect(phone).not.toBeChecked();
-  // Every other section is on the phone.
-  for (const label of ['Focus', 'Projects', 'Tasks', 'Meetings', 'Notes']) {
-    await expect(
-      page.getByRole('switch', { name: `${label} on the phone` }),
-    ).toBeChecked();
-  }
-  const board = sections(page).filter({ hasText: 'Whiteboard' });
-  await expect(board).toHaveCount(isMobile(page) ? 0 : 1);
-  // The account menu has it on a phone, where the tab bar does not.
-  const menuBoard = page.getByRole('menuitem', { name: 'Whiteboard' });
-  await openPreferences(page);
-  await expect(menuBoard).toHaveCount(isMobile(page) ? 1 : 0);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('menu')).toHaveCount(0);
-
-  await phone.click();
-  await expect(phone).toBeChecked();
-  await expect(sections(page)).toHaveText([
-    /Focus/,
-    /Projects/,
-    /Tasks/,
-    /Meetings/,
-    /Notes/,
-    /Whiteboard/,
-  ]);
-  if (isMobile(page)) {
-    // Six even columns, each still a 44px target.
-    const boxes = await Promise.all(
-      (await sections(page).all()).map((l) => l.boundingBox()),
-    );
-    for (const box of boxes) {
-      expect(box?.height).toBeGreaterThanOrEqual(44);
-      expect(box?.width).toBeGreaterThanOrEqual(44);
-      expect(Math.abs((box?.width ?? 0) - (boxes[0]?.width ?? 0))).toBeLessThan(
-        2,
-      );
-    }
-    await openPreferences(page);
-    await expect(menuBoard).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('menu')).toHaveCount(0);
-  }
-  await expectAccessible(page);
-  await expectNoSidewaysScroll(page);
-
-  // It stays after a reload, and opens the space's board from the tab bar.
-  await page.reload();
-  await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
-  await board.click();
-  await expect(page).toHaveURL(/\/whiteboard$/);
-  await expect(board).toHaveAttribute('aria-current', 'page');
-
-  // Hiding the section takes it off the phone too, and Phone goes grey.
-  await page.goto('/settings/navigation');
-  await page
-    .getByRole('switch', { name: 'Show Whiteboard', exact: true })
-    .click();
-  await expect(phone).toBeDisabled();
-  await expect(board).toHaveCount(0);
-});
-
 test('the rail extras can be hidden', async ({ page, request }) => {
   test.skip(isMobile(page), 'The rail is desktop only.');
   await request.post('/api/import', { data: SEED });
@@ -265,27 +183,27 @@ test('the rail extras can be hidden', async ({ page, request }) => {
   await expect(
     rail.getByRole('region', { name: 'Active projects' }),
   ).toBeVisible();
-  await expect(rail.getByRole('link', { name: 'Weekly digest' })).toBeVisible();
   await expect(rail.getByRole('link', { name: /Archived/ })).toBeVisible();
+  // The Weekly digest is a tool now (#261), not an extra.
+  await expect(
+    page.getByRole('switch', { name: 'Show Weekly digest', exact: true }),
+  ).toHaveCount(1);
 
-  for (const label of ['Active projects', 'Weekly digest', 'Archived']) {
+  for (const label of ['Active projects', 'Archived']) {
     await page.getByRole('switch', { name: `Show ${label}` }).click();
   }
   await expect(
     rail.getByRole('region', { name: 'Active projects' }),
   ).toHaveCount(0);
-  await expect(rail.getByRole('link', { name: 'Weekly digest' })).toHaveCount(
-    0,
-  );
   await expect(rail.getByRole('link', { name: /Archived/ })).toHaveCount(0);
   // Still reachable by address.
-  await page.goto('/digest');
+  await page.goto('/archive');
   await expect(
-    page.getByRole('heading', { level: 1, name: /digest/i }),
+    page.getByRole('heading', { level: 1, name: 'Archived' }),
   ).toBeVisible();
 });
 
-test('the sync status sits at the foot of the rail (the top bar on phones); the digest above Archived', async ({
+test('the sync status sits at the foot of the rail (the top bar on phones); the Tools above Active projects', async ({
   page,
   request,
 }) => {
@@ -323,14 +241,24 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
   } else expect(await width()).toBeGreaterThan(30);
 
   if (!isMobile(page)) {
-    // The digest sits under Active projects, above Archived, in the nav.
+    // The Tools sit under the sections, above Active projects (#261).
     const nav = rail.getByRole('navigation');
     const links = await nav.getByRole('link').allInnerTexts();
     const names = links.map((t) => t.split('\n')[0].trim());
-    const digestAt = names.indexOf('Weekly digest');
-    expect(digestAt).toBeGreaterThan(names.indexOf('Falcon hyperdrive refit'));
-    expect(digestAt).toBeGreaterThan(names.indexOf('Echo Base relocation'));
-    expect(digestAt).toBe(names.indexOf('Archived') - 1);
+    expect(names.slice(0, 8)).toEqual([
+      'Focus',
+      'Projects',
+      'Tasks',
+      'Meetings',
+      'Notes',
+      'Notepad',
+      'Whiteboard',
+      'Weekly digest',
+    ]);
+    expect(names.indexOf('Weekly digest')).toBeLessThan(
+      names.indexOf('Echo Base relocation'),
+    );
+    expect(names.at(-1)).toBe('Archived');
     const digest = nav.getByRole('link', { name: 'Weekly digest' });
     await digest.click();
     await expect(page).toHaveURL(/\/digest$/);

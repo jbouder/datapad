@@ -1,24 +1,31 @@
-import { ArchiveIcon, NewspaperIcon } from '@phosphor-icons/react';
+import { ArchiveIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { agenda, focusBuckets, openCounts } from '#shared/select';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
-import { sectionOf, useNav } from '@/lib/nav';
+import { type NavItem, sectionOf, useNav } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 const ANYONE = { kind: 'anyone' } as const;
 
+/** A section's or a tool's row: the same look, `aria-current` on its page. */
+const ROW =
+  'press flex h-9 items-center gap-2.5 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2';
+const CURRENT =
+  'bg-sidebar-accent font-semibold text-sidebar-accent-foreground';
+
 /**
  * The desktop rail (≥ 820px): the space switcher, the sections with live
- * counts (those Settings → Navigation shows, in its order; the Whiteboard,
- * the space's board, is one of them), the active projects (most recently
- * updated first) with their open counts, the Weekly digest and Archived
- * when there is any (each extra can be switched off), and the sync status
- * at the foot. Hidden below 820px; the tab bar (and the top bar's copy of
- * the status) takes over.
+ * counts (those Settings → Navigation shows, in its order), the Tools
+ * (#261: Notepad, Whiteboard, Weekly digest, those shown, in their order;
+ * the heading goes when none is), the active projects (most recently
+ * updated first) with their open counts, Archived when there is any (each
+ * extra can be switched off), and the sync status at the foot. Hidden
+ * below 820px; the tab bar (and the top bar's copy of the status) takes
+ * over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
@@ -58,9 +65,6 @@ export function Rail({ route }: { route: Route }) {
   const archived = state
     ? Object.values(state.projects).filter((p) => p.archived).length
     : 0;
-  const anyProjects = state ? Object.keys(state.projects).length > 0 : false;
-  const showDigest =
-    nav.extras.digest && (anyProjects || route.name === 'digest');
 
   const countFor = (name: string): number | undefined =>
     name === 'focus' || name === 'tasks' || name === 'meetings'
@@ -87,11 +91,7 @@ export function Rail({ route }: { route: Route }) {
                 <a
                   {...linkProps(to)}
                   aria-current={current ? 'page' : undefined}
-                  className={cn(
-                    'press flex h-9 items-center gap-2.5 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-                    current &&
-                      'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-                  )}
+                  className={cn(ROW, current && CURRENT)}
                 >
                   <Icon weight={current ? 'fill' : 'regular'} aria-hidden />
                   <span className="flex-1">{label}</span>
@@ -108,6 +108,26 @@ export function Rail({ route }: { route: Route }) {
             );
           })}
         </ul>
+
+        {nav.tools.length > 0 && (
+          <section aria-labelledby="rail-tools">
+            <h2
+              id="rail-tools"
+              className="px-2 pb-1 text-xs font-medium text-muted-foreground"
+            >
+              Tools
+            </h2>
+            <ul className="flex flex-col">
+              {nav.tools.map((tool) => (
+                <ToolRow
+                  key={tool.name}
+                  tool={tool}
+                  current={section === tool.route.name}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
 
         {nav.extras.activeProjects && projects.length > 0 && (
           <section aria-labelledby="rail-projects">
@@ -147,20 +167,6 @@ export function Rail({ route }: { route: Route }) {
           </section>
         )}
 
-        {showDigest && (
-          <a
-            {...linkProps({ name: 'digest' })}
-            aria-current={route.name === 'digest' ? 'page' : undefined}
-            className={cn(
-              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-              route.name === 'digest' &&
-                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-            )}
-          >
-            <NewspaperIcon aria-hidden />
-            <span className="flex-1">Weekly digest</span>
-          </a>
-        )}
         {nav.extras.archived && archived > 0 && (
           <a
             {...linkProps({ name: 'archive' })}
@@ -182,5 +188,21 @@ export function Rail({ route }: { route: Route }) {
         <SyncStatus />
       </footer>
     </aside>
+  );
+}
+
+function ToolRow({ tool, current }: { tool: NavItem; current: boolean }) {
+  const { route: to, label, icon: Icon } = tool;
+  return (
+    <li>
+      <a
+        {...linkProps(to)}
+        aria-current={current ? 'page' : undefined}
+        className={cn(ROW, current && CURRENT)}
+      >
+        <Icon weight={current ? 'fill' : 'regular'} aria-hidden />
+        <span className="flex-1">{label}</span>
+      </a>
+    </li>
   );
 }

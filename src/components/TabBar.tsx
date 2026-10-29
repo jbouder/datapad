@@ -14,9 +14,10 @@ const COLUMNS: Record<number, string> = {
 
 /**
  * The phone's navigation (< 820px): the sections Settings → Navigation
- * shows and keeps on the phone (the Whiteboard is off it by default), in
- * its order, evenly along the bottom (one to six columns), one thumb
- * away, above the home indicator. The rail replaces it on desktop.
+ * shows and keeps on the phone, in its order, then the tools whose Phone
+ * switch is on (#261; none by default), evenly along the bottom (one to
+ * six columns; tools past six go to the account menu), one thumb away,
+ * above the home indicator. The rail replaces it on desktop.
  */
 export function TabBar({ route }: { route: Route }) {
   const section = sectionOf(route);

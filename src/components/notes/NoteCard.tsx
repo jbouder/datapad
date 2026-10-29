@@ -26,11 +26,11 @@ import { useNoteTemplates } from '@/components/notes/useNoteCommands';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
-import { linkProps, useQuery } from '@/lib/router';
+import { linkProps, navigate, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /**
@@ -227,12 +227,19 @@ export function NoteCard({
         const target = e.target as Element;
         if (target.closest('a, button, input, textarea, label')) return;
         if (!document.getSelection()?.isCollapsed) return;
-        expand.toggle();
+        // The Notepad's card opens the Notepad (#261).
+        if (note.scratch) navigate({ name: 'notepad' });
+        else expand.toggle();
       }}
     >
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         {note.scratch && (
-          <span className="border px-1.5 py-0.5 text-foreground">Notepad</span>
+          <a
+            {...linkProps({ name: 'notepad' })}
+            className="border px-1.5 py-0.5 text-foreground hover:bg-accent"
+          >
+            Notepad
+          </a>
         )}
         {showProject &&
           !note.scratch &&
@@ -292,21 +299,35 @@ export function NoteCard({
               <span className={cn(compact && 'sr-only')}>Pinned</span>
             </span>
           )}
-          {expand && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="press -my-1 size-11 desk:size-7"
-              aria-expanded={expand.expanded}
-              aria-label={expand.expanded ? 'Collapse note' : 'Expand note'}
-              onClick={expand.toggle}
-            >
-              {expand.expanded ? (
-                <ArrowsInSimpleIcon />
-              ) : (
-                <ArrowsOutSimpleIcon />
+          {expand && note.scratch ? (
+            <a
+              {...linkProps({ name: 'notepad' })}
+              title="Open the Notepad"
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+                'press -my-1 size-11 desk:size-7',
               )}
-            </Button>
+            >
+              <ArrowsOutSimpleIcon />
+              <span className="sr-only">Open the Notepad</span>
+            </a>
+          ) : (
+            expand && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="press -my-1 size-11 desk:size-7"
+                aria-expanded={expand.expanded}
+                aria-label={expand.expanded ? 'Collapse note' : 'Expand note'}
+                onClick={expand.toggle}
+              >
+                {expand.expanded ? (
+                  <ArrowsInSimpleIcon />
+                ) : (
+                  <ArrowsOutSimpleIcon />
+                )}
+              </Button>
+            )
           )}
         </span>
       </header>

@@ -2644,6 +2644,76 @@ describe('setNav', () => {
     });
   });
 
+  it('stores the tools whole (#261), keeps the rest, and clears them with null', () => {
+    const start = base();
+    const state = run(
+      start,
+      { type: 'setNav', patch: { hidden: ['notes'] } },
+      {
+        type: 'setNav',
+        patch: {
+          tools: {
+            order: ['digest', 'notepad', 'notepad', 'whiteboard'],
+            hidden: ['notepad'],
+            phoneHidden: ['digest', 'whiteboard'],
+          },
+        },
+      },
+    );
+    expect(settingsOf(state).nav).toEqual({
+      hidden: ['notes'],
+      tools: {
+        order: ['digest', 'notepad', 'whiteboard'],
+        hidden: ['notepad'],
+        phoneHidden: ['digest', 'whiteboard'],
+      },
+    });
+    // Not logged.
+    expect(state.activity).toEqual(start.activity);
+    const cleared = at(state, { type: 'setNav', patch: { tools: null } });
+    expect(settingsOf(cleared.state).nav).toEqual({ hidden: ['notes'] });
+    // Only tools it knows, and every list together.
+    expect(
+      OpSchema.safeParse({
+        type: 'setNav',
+        patch: { tools: { order: ['focus'], hidden: [], phoneHidden: [] } },
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'setNav',
+        patch: { tools: { order: ['notepad'], hidden: [] } },
+      }).success,
+    ).toBe(false);
+    // An older client's section change naming the Whiteboard still applies.
+    expect(
+      OpSchema.safeParse({
+        type: 'setNav',
+        patch: { hidden: ['whiteboard'], phoneHidden: ['whiteboard'] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('imports tools with names it does not know, and old exports without', () => {
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...base() }));
+    file.settings = {
+      user: {
+        defaultOrg: '',
+        nav: {
+          hidden: ['whiteboard'],
+          extras: { digest: false },
+          tools: { order: ['calendar', 'notepad'], hidden: ['calendar'] },
+        },
+      },
+    };
+    const next = merge(emptySnapshot(), ExportSchema.parse(file)).state;
+    expect(settingsOf(next).nav).toEqual({
+      hidden: ['whiteboard'],
+      extras: { digest: false },
+      tools: { order: ['calendar', 'notepad'], hidden: ['calendar'] },
+    });
+  });
+
   it('stores the + menu whole, keeps the rest, and clears it with null', () => {
     const start = base();
     const state = run(

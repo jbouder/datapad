@@ -236,8 +236,8 @@ gets the most care:
   `ViewSwitcher` in the page toolbar and remembered per page (URL query +
   the space's saved page preferences, #186): Projects = Cards · Table · Timeline (target dates and
   milestones on a time axis); Tasks = List · Table · Board (columns by due
-  bucket, project or assignee) · Timeline (by due date); Notes = Notepad ·
-  List · Grid (masonry); Meetings = List · Calendar (month grid) · Timeline; People = List ·
+  bucket, project or assignee) · Timeline (by due date); Notes = List ·
+  Grid (masonry) (the Notepad is a page of its own, `/notepad`, #261); Meetings = List · Calendar (month grid) · Timeline; People = List ·
   Cards. Switching runs inside a `layout` view transition and FLIPs items
   that exist in both layouts, so the same task is seen moving rather than
   re-appearing. Every layout exposes the same actions (open, close, inline

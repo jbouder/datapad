@@ -39,6 +39,7 @@ const ROUTES = [
   { path: '/settings/account', heading: 'Settings' },
   { path: '/digest', heading: 'Weekly digest' },
   { path: '/whiteboard', heading: 'Whiteboard' },
+  { path: '/notepad', heading: 'Notepad' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
   // The shared inputs (#19), only in the e2e build.
@@ -51,7 +52,8 @@ const WITH_DATA = [
   '/archive',
   ...['list', 'table', 'board', 'timeline'].map((v) => `/tasks?view=${v}`),
   '/tasks/t-2',
-  ...['notepad', 'list', 'grid'].map((v) => `/notes?view=${v}`),
+  ...['list', 'grid'].map((v) => `/notes?view=${v}`),
+  '/notepad',
   '/notes?note=n-1',
   '/meetings/e-1',
   '/digest',

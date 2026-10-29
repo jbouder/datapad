@@ -152,14 +152,13 @@ test('Back returns to what the page showed before a change', async ({
   request,
 }) => {
   await openLive(page, '/notes');
-  // The filters are List's and Grid's, not the Notepad's.
-  await layout(page).locator('label', { hasText: 'List' }).click();
+  await layout(page).locator('label', { hasText: 'Grid' }).click();
   await page
     .getByRole('group', { name: 'Show' })
     .locator('label', { hasText: 'Pinned' })
     .click();
   await expectStored(request, 'notes', {
-    view: 'list',
+    view: 'grid',
     filters: { pinned: '1' },
   });
   // Opened with Pinned saved; All is chosen, then Back.
@@ -276,6 +275,23 @@ test('a saved Feed on Notes reads as List (#218)', async ({
     },
   });
   await openLive(page, '/notes');
+  await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
+  await expect(page.locator('[data-note-row]').first()).toBeVisible();
+});
+
+test('a saved Notepad layout on Notes reads as List (#261)', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', {
+    data: {
+      settings: {
+        user: { defaultOrg: '', pages: { notes: { view: 'notepad' } } },
+      },
+    },
+  });
+  await openLive(page, '/notes');
+  await expect(layout(page).getByRole('radio')).toHaveCount(2);
   await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
   await expect(page.locator('[data-note-row]').first()).toBeVisible();
 });

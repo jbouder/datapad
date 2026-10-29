@@ -309,16 +309,16 @@ export const PAGES: Record<PageKey, PageSpec> = {
   notes: {
     label: 'Notes',
     fields: [
-      // Feed became List (#218).
+      // Feed became List (#218); Notepad, a layout until it got a page of
+      // its own (#261), reads as List.
       layout(
         [
-          { value: 'notepad', label: 'Notepad' },
           { value: 'list', label: 'List' },
           { value: 'grid', label: 'Grid' },
         ],
-        'notepad',
+        'list',
         'Layout',
-        { feed: 'list' },
+        { feed: 'list', notepad: 'list' },
       ),
       project,
       {

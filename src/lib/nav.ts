@@ -7,27 +7,33 @@ import {
   FolderPlusIcon,
   FoldersIcon,
   type Icon,
+  NewspaperIcon,
   NoteIcon,
   NotePencilIcon,
 } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import {
   NAV_SECTIONS,
+  NAV_TOOLS,
   type NavExtra,
   navExtrasOf,
+  navMenuToolsOf,
   navOf,
   navPhoneOf,
+  navPhoneToolsOf,
+  navToolsOf,
   type QuickAddAction,
   quickAddOf,
   type SectionName,
+  type ToolName,
 } from '#shared/nav';
 import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
 import { useDatapad } from '@/hooks/useDatapad';
 import type { Route } from '@/lib/router';
 
-/** A top-level section, as the rail and the tab bar show it. */
+/** A top-level section or a tool, as the rail and the tab bar show it. */
 export interface NavItem {
-  name: SectionName;
+  name: SectionName | ToolName;
   route: Route;
   label: string;
   icon: Icon;
@@ -64,16 +70,38 @@ export const NAV_ITEMS: Record<SectionName, NavItem> = {
     label: 'Notes',
     icon: NoteIcon,
   },
+};
+
+/** The tools (#261): below the sections in the rail. */
+export const TOOL_ITEMS: Record<ToolName, NavItem> = {
+  notepad: {
+    name: 'notepad',
+    route: { name: 'notepad' },
+    label: 'Notepad',
+    icon: NotePencilIcon,
+  },
   whiteboard: {
     name: 'whiteboard',
     route: { name: 'whiteboard' },
     label: 'Whiteboard',
     icon: ChalkboardSimpleIcon,
   },
+  digest: {
+    name: 'digest',
+    route: { name: 'digest' },
+    label: 'Weekly digest',
+    icon: NewspaperIcon,
+  },
 };
 
-/** Every section in the default order (⌘K lists them all, hidden or not). */
-export const NAV: NavItem[] = NAV_SECTIONS.map((name) => NAV_ITEMS[name]);
+/**
+ * Every section, then every tool, in the default order (⌘K lists them
+ * all, hidden or not).
+ */
+export const NAV: NavItem[] = [
+  ...NAV_SECTIONS.map((name) => NAV_ITEMS[name]),
+  ...NAV_TOOLS.map((name) => TOOL_ITEMS[name]),
+];
 
 /** One of the + menu's actions, as the top bar and Settings show it. */
 export interface QuickAddItem {
@@ -102,13 +130,16 @@ export const QUICK_ADD_ITEMS: Record<QuickAddAction, QuickAddItem> = {
 };
 
 /**
- * The sections the rail shows, in the open space's order, those of them
- * the phone's tab bar shows, which of the rail's extras are on, and what
- * the top bar's + offers (Settings → Navigation).
+ * The sections the rail shows, in the open space's order, and the tools
+ * under them; what the phone's tab bar shows (sections, then tools) and
+ * the shown tools it leaves to the account menu; which of the rail's
+ * extras are on, and what the top bar's + offers (Settings → Navigation).
  */
 export function useNav(): {
   items: NavItem[];
+  tools: NavItem[];
   phoneItems: NavItem[];
+  menuTools: NavItem[];
   extras: Record<NavExtra, boolean>;
   quickAdd: QuickAddItem[];
 } {
@@ -117,7 +148,12 @@ export function useNav(): {
   return useMemo(
     () => ({
       items: navOf(stored).map((name) => NAV_ITEMS[name]),
-      phoneItems: navPhoneOf(stored).map((name) => NAV_ITEMS[name]),
+      tools: navToolsOf(stored).map((name) => TOOL_ITEMS[name]),
+      phoneItems: [
+        ...navPhoneOf(stored).map((name) => NAV_ITEMS[name]),
+        ...navPhoneToolsOf(stored).map((name) => TOOL_ITEMS[name]),
+      ],
+      menuTools: navMenuToolsOf(stored).map((name) => TOOL_ITEMS[name]),
       extras: navExtrasOf(stored),
       quickAdd: quickAddOf(stored).map((name) => QUICK_ADD_ITEMS[name]),
     }),
