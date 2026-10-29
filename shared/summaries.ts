@@ -3,9 +3,25 @@ import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
-import { tasksOfMeeting } from './select';
+import { noteTitle } from './notes';
+import { buildRecap, recapCounts, recapMeetingLine } from './recap';
+import {
+  type AssigneeFilter,
+  agenda,
+  attention,
+  attentionLine,
+  daysSince,
+  focusBuckets,
+  meId,
+  prepLine,
+  prepOf,
+  tasksOfMeeting,
+  waitingFor,
+  waitingOn,
+} from './select';
 import {
   blockedOf,
+  type DateString,
   healthOf,
   type Meeting,
   milestonesOf,
@@ -409,6 +425,251 @@ export function noteContext(
   return lines.join('\n');
 }
 
+/* ---- Brief me (#259) ----------------------------------------------------- */
+
+/**
+ * Focus's Brief me: the model turns the day's facts into prose. The facts
+ * come from the selectors Focus already uses, so the numbers stay right;
+ * the model only writes.
+ */
+export const BRIEF_PROMPT =
+  'You are writing a morning briefing for an engineering leader from their personal project tracker. Write one short paragraph about what happened since the last working day, then one short paragraph about what today holds, then up to 3 "- " bullets for what to do first. Plain markdown, no headings. Keep names, dates and counts exactly as given, do not invent anything not in the data, skip a section that says "none", and stay under 150 words.';
+
+/**
+ * How much of each section goes in, so the prompt and the context stay
+ * near 2.5k tokens on a busy day (the model's window is 4096, and 900 of
+ * them are the answer's). Past a cap, a section says how many more.
+ */
+export const BRIEF_LIMITS = {
+  closed: 8,
+  added: 5,
+  meetingsHeld: 5,
+  notes: 5,
+  activity: 6,
+  agenda: 6,
+  due: 8,
+  /** People in Waiting on; each lists at most `waitingTasks`. */
+  waiting: 4,
+  waitingTasks: 2,
+  attention: 5,
+  /** Characters of any one title, first line or activity line. */
+  text: 60,
+  /** Characters of a project's or a person's name. */
+  name: 40,
+} as const;
+
+/**
+ * The most the prompt and the context come to, in characters, whatever
+ * the data: about 2.5k tokens at 3.5 characters a token (Qwen3's
+ * tokenizer on English runs nearer 4). The caps above keep it there
+ * (`test/summaries.test.ts` fills every section past them, every title
+ * and name at its longest).
+ */
+export const BRIEF_BUDGET_CHARS = 8750;
+
+/** A title or a first line, on one line and cut to `max` characters. */
+function clip(text: string, max: number = BRIEF_LIMITS.text): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
+}
+
+function clipName(name: string): string {
+  return clip(name, BRIEF_LIMITS.name);
+}
+
+/** "Tasks closed (12):", then the first `cap` lines and "- and 4 more". */
+function section(
+  title: string,
+  lines: string[],
+  cap: number,
+  /** When there are more than `lines` holds (the recap's own cap). */
+  total = lines.length,
+): string[] {
+  const head = `${title} (${total}):`;
+  if (total === 0) return [head, 'none'];
+  const shown = lines.slice(0, cap);
+  return total > shown.length
+    ? [head, ...shown, `- and ${total - shown.length} more`]
+    : [head, ...shown];
+}
+
+function filterLabel(state: Lookup, filter: AssigneeFilter): string {
+  switch (filter.kind) {
+    case 'anyone':
+      return '';
+    case 'mine':
+      return 'my own tasks';
+    case 'unassigned':
+      return 'unassigned tasks';
+    case 'person':
+      return `tasks assigned to ${clipName(personName(state, filter.id) ?? 'someone no longer listed')}`;
+  }
+}
+
+/**
+ * What Brief me sends: the last working day (`buildRecap`, #258), then
+ * today's Agenda (each meeting with its prep line), Due (overdue and
+ * today, not blocked), Waiting on and Attention, selected the way Focus
+ * selects them (archived projects out, `assignee` narrowing the tasks).
+ * Mentions are names; every section is capped (`BRIEF_LIMITS`).
+ */
+export function briefContext(
+  state: Snapshot,
+  today: DateString,
+  assignee: AssigneeFilter = { kind: 'anyone' },
+): string {
+  const me = meId(state.people);
+  const where = (id: string | null) => clipName(projectName(state, id));
+  const group = (project: { name: string } | null) =>
+    clipName(project?.name ?? 'General');
+  const title = (t: Task) => clip(tokensToNames(t.title, state.people));
+  const recap = buildRecap(state, today, assignee);
+  const { from, to } = recap.window;
+  const filter = filterLabel(state, assignee);
+
+  const lines = [`Today is ${day(today)}.`];
+  if (filter) lines.push(`Tasks are narrowed to ${filter}.`);
+
+  lines.push(
+    '',
+    `Since the last working day (${from === to ? day(from) : `${day(from)} to ${day(to)}`}):`,
+    '',
+    ...section(
+      'Tasks closed',
+      recap.closed.flatMap((g) =>
+        g.items.map((t) => `- ${title(t)} (${group(g.project)})`),
+      ),
+      BRIEF_LIMITS.closed,
+    ),
+    '',
+    ...section(
+      'Tasks added',
+      recap.added.map((t) => `- ${title(t)} (${where(t.projectId)})`),
+      BRIEF_LIMITS.added,
+    ),
+    '',
+    ...section(
+      'Meetings held',
+      recap.meetings.map((m) => {
+        const what = recapMeetingLine(m);
+        return `- ${day(m.meeting.date)}: ${clip(m.meeting.title)} (${where(m.meeting.projectId)})${what ? `: ${what}` : ''}`;
+      }),
+      BRIEF_LIMITS.meetingsHeld,
+    ),
+    '',
+    ...section(
+      'Notes written',
+      recap.notes.flatMap((g) =>
+        g.items.map(
+          (n) => `- ${group(g.project)}: ${clip(noteTitle(n, state.people))}`,
+        ),
+      ),
+      BRIEF_LIMITS.notes,
+    ),
+    '',
+    ...section(
+      'Other changes',
+      recap.activity.flatMap((g) =>
+        g.items.map(
+          (e) =>
+            `- ${group(g.project)}: ${clip(tokensToNames(e.text, state.people))}`,
+        ),
+      ),
+      BRIEF_LIMITS.activity,
+      recapCounts(recap).activity,
+    ),
+  );
+
+  const meetings = agenda(state.meetings, state.projects, today).filter(
+    (item) => item.date === today,
+  );
+  const buckets = focusBuckets(
+    state.tasks,
+    state.projects,
+    today,
+    me,
+    assignee,
+  );
+  const due = [...buckets.overdue, ...buckets.today];
+  const waiting = waitingOn(
+    state.tasks,
+    state.projects,
+    state.people,
+    me,
+    assignee,
+  );
+  const projects = attention(state.projects, today);
+
+  lines.push(
+    '',
+    `Today (${day(today)}):`,
+    '',
+    ...section(
+      'Agenda',
+      meetings.map((item) => {
+        if (item.kind === 'milestone') {
+          return `- Milestone: ${clip(item.milestone.title)} (${clipName(item.project.name)})`;
+        }
+        const m = item.meeting;
+        const range = timeRange(m, '24h');
+        const prep = prepLine(prepOf(m, state), today);
+        return `- ${range ? `${range} ` : ''}${clip(m.title)} (${where(m.projectId)})${prep ? `: ${prep}` : ''}`;
+      }),
+      BRIEF_LIMITS.agenda,
+    ),
+    '',
+    ...section(
+      'Due (overdue and today)',
+      due.map((t) => {
+        const bits = [
+          `- ${title(t)} (${where(t.projectId)})`,
+          t.due < today ? `overdue since ${day(t.due)}` : 'due today',
+        ];
+        if (t.priority !== 'none') {
+          bits.push(`priority ${PRIORITY_WORDS[t.priority]}`);
+        }
+        const who = personName(state, t.assignee);
+        if (who) bits.push(`assigned to ${clipName(who)}`);
+        return bits.join(', ');
+      }),
+      BRIEF_LIMITS.due,
+    ),
+    '',
+    ...section(
+      'Waiting on',
+      waiting.map((g) => {
+        const who = g.person ? clipName(g.person.name) : 'no one listed';
+        const shown = g.tasks.slice(0, BRIEF_LIMITS.waitingTasks).map(title);
+        const more = g.tasks.length - shown.length;
+        if (more > 0) shown.push(`and ${more} more`);
+        const count = `${g.tasks.length} ${g.tasks.length === 1 ? 'task' : 'tasks'}`;
+        return `- ${who}, ${count}, ${waitingFor(daysSince(g.since, today))}: ${shown.join('; ')}`;
+      }),
+      BRIEF_LIMITS.waiting,
+    ),
+    '',
+    ...section(
+      'Projects that need attention',
+      projects.map(
+        ({ project: p, reasons }) =>
+          `- ${clipName(p.name)}: ${attentionLine(reasons)}`,
+      ),
+      BRIEF_LIMITS.attention,
+    ),
+  );
+  return lines.join('\n');
+}
+
+/** Brief me's label, and the first line of the note it saves. */
+export function briefLabel(today: DateString): string {
+  return `Brief · ${day(today)}`;
+}
+
+/** The saved brief: "Brief · Wed 28 Oct 2026", then the text. */
+export function briefNoteBody(today: DateString, text: string): string {
+  return `${briefLabel(today)}\n\n${text.trim()}`;
+}
+
 /** What a Summarize button names. */
 export type SummaryTarget =
   | { kind: 'project'; id: string }
@@ -416,7 +677,9 @@ export type SummaryTarget =
   | { kind: 'meeting'; id: string }
   | { kind: 'note'; id: string }
   /** The seven days ending `toDay` (the Digest page). */
-  | { kind: 'digest'; toDay: string };
+  | { kind: 'digest'; toDay: string }
+  /** Focus's Brief me (#259): `today`, under Focus's assignee filter. */
+  | { kind: 'brief'; today: DateString; assignee: AssigneeFilter };
 
 export interface SummaryRequest {
   /** "Echo Base", "Shield review", "note of Wed 21 Oct 2026". */
@@ -426,6 +689,8 @@ export interface SummaryRequest {
   projectId: string | null;
   /** Set when summarizing a meeting, so the saved note links to it. */
   meetingId: string | null;
+  /** The system prompt: `SYSTEM_PROMPT`, or `BRIEF_PROMPT` for a brief. */
+  prompt: string;
 }
 
 /** Everything one Summarize run needs, or null when the item is gone. */
@@ -442,6 +707,7 @@ export function summaryRequest(
         context: projectContext(project.id, state),
         projectId: project.id,
         meetingId: null,
+        prompt: SYSTEM_PROMPT,
       };
     }
     case 'task': {
@@ -452,6 +718,7 @@ export function summaryRequest(
         context: taskContext(task, state),
         projectId: task.projectId,
         meetingId: null,
+        prompt: SYSTEM_PROMPT,
       };
     }
     case 'meeting': {
@@ -462,6 +729,7 @@ export function summaryRequest(
         context: meetingContext(meeting, state),
         projectId: meeting.projectId,
         meetingId: meeting.id,
+        prompt: SYSTEM_PROMPT,
       };
     }
     case 'digest': {
@@ -472,8 +740,17 @@ export function summaryRequest(
         context: `Weekly digest across every project.\n\n${digestMarkdown(digest)}`,
         projectId: null,
         meetingId: null,
+        prompt: SYSTEM_PROMPT,
       };
     }
+    case 'brief':
+      return {
+        label: briefLabel(target.today),
+        context: briefContext(state, target.today, target.assignee),
+        projectId: null,
+        meetingId: null,
+        prompt: BRIEF_PROMPT,
+      };
     case 'note': {
       const note = state.notes[target.id];
       if (!note) return null;
@@ -482,6 +759,7 @@ export function summaryRequest(
         context: noteContext(note, state),
         projectId: note.projectId,
         meetingId: null,
+        prompt: SYSTEM_PROMPT,
       };
     }
   }

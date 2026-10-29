@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BRIEF_BUDGET_CHARS,
+  BRIEF_LIMITS,
+  BRIEF_PROMPT,
+  briefContext,
+  briefNoteBody,
   DEFAULT_MODEL,
   findModel,
   meetingContext,
@@ -572,5 +577,239 @@ describe('the model', () => {
       extra_body: { enable_thinking: false },
     });
     expect(SYSTEM_PROMPT).toMatch(/^You are summarizing one item/);
+  });
+});
+
+describe('briefContext', () => {
+  const today = '2026-10-28';
+  const yesterday = '2026-10-27T12:00:00.000Z';
+
+  function busy(): Snapshot {
+    const state = world();
+    state.projects.p1 = { ...project, health: 'yellow' };
+    state.projects.old = {
+      ...project,
+      id: 'old',
+      name: 'Yavin',
+      archived: true,
+    };
+    state.tasks = {
+      closed: task('closed', {
+        title: 'Order thermal blankets',
+        status: 'done',
+        completedAt: yesterday,
+        assignee: 'leia',
+      }),
+      added: task('added', {
+        title: 'Map the ice caves',
+        createdAt: yesterday,
+        updatedAt: yesterday,
+        assignee: 'han',
+      }),
+      late: task('late', {
+        title: 'Calibrate shields',
+        due: '2026-10-26',
+        priority: 'high',
+        assignee: 'leia',
+      }),
+      now: task('now', { title: 'Brief the pilots', due: today }),
+      waits: task('waits', {
+        title: 'Get the redline',
+        blocked: { on: 'han', note: '' },
+        updatedAt: '2026-10-19T12:00:00.000Z',
+      }),
+      archived: task('archived', {
+        title: 'Write the Yavin report',
+        projectId: 'old',
+        status: 'done',
+        completedAt: yesterday,
+        due: today,
+      }),
+    };
+    state.meetings = {
+      held: {
+        ...meeting,
+        id: 'held',
+        title: 'Ridge patrol debrief',
+        date: '2026-10-27',
+        topics,
+      },
+      next: {
+        ...meeting,
+        id: 'next',
+        title: 'Shield review',
+        date: today,
+        time: '09:00',
+        end: '10:00',
+        topics: [{ id: 'x', title: 'Power', done: false, outcome: '' }],
+      },
+    };
+    state.notes.n = note('n', {
+      meetingId: null,
+      body: 'Probe droid on the ridge, ask @{han}\nMore lines',
+      createdAt: yesterday,
+    });
+    state.activity.p1 = {
+      events: [{ t: yesterday, text: 'Health set to yellow' }],
+    };
+    return state;
+  }
+
+  it('has the last working day, then today, in labeled sections', () => {
+    expect(briefContext(busy(), today)).toBe(
+      [
+        'Today is Wed 28 Oct 2026.',
+        '',
+        'Since the last working day (Tue 27 Oct 2026):',
+        '',
+        'Tasks closed (1):',
+        '- Order thermal blankets (Echo Base)',
+        '',
+        'Tasks added (1):',
+        '- Map the ice caves (Echo Base)',
+        '',
+        'Meetings held (1):',
+        '- Tue 27 Oct 2026: Ridge patrol debrief (Echo Base): 2 of 3 topics covered',
+        '',
+        'Notes written (1):',
+        '- Echo Base: Probe droid on the ridge, ask @Han Solo',
+        '',
+        'Other changes (1):',
+        '- Echo Base: Health set to yellow',
+        '',
+        'Today (Wed 28 Oct 2026):',
+        '',
+        'Agenda (1):',
+        '- 09:00–10:00 Shield review (Echo Base): 1 of 1 topic left · no note yet',
+        '',
+        'Due (overdue and today) (2):',
+        '- Calibrate shields (Echo Base), overdue since Mon 26 Oct 2026, priority high, assigned to Leia Organa',
+        '- Brief the pilots (Echo Base), due today',
+        '',
+        'Waiting on (1):',
+        '- Han Solo, 1 task, waiting 9 days: Get the redline',
+        '',
+        'Projects that need attention (1):',
+        '- Echo Base: yellow · quiet 27 days',
+      ].join('\n'),
+    );
+  });
+
+  it('says "none" for an empty section, and leaves archived projects out', () => {
+    const state = busy();
+    state.projects.p1 = { ...state.projects.p1, archived: true };
+    const text = briefContext(state, today);
+    expect(text).toContain('Tasks closed (0):\nnone');
+    expect(text).toContain('Agenda (0):\nnone');
+    expect(text).not.toContain('Echo Base');
+    expect(text).not.toContain('Yavin');
+  });
+
+  it('narrows the tasks to the assignee filter, and says so', () => {
+    const mine = briefContext(busy(), today, { kind: 'mine' });
+    expect(mine).toContain('Tasks are narrowed to my own tasks.');
+    expect(mine).toContain('Tasks closed (1):');
+    expect(mine).toContain('Tasks added (0):');
+    expect(mine).toContain('Due (overdue and today) (1):');
+    expect(mine).toContain('Waiting on (0):');
+    // Meetings and projects are no one's.
+    expect(mine).toContain('Agenda (1):');
+    const han = briefContext(busy(), today, { kind: 'person', id: 'han' });
+    expect(han).toContain('Tasks are narrowed to tasks assigned to Han Solo.');
+    expect(han).toContain('- Map the ice caves (Echo Base)');
+    expect(briefContext(busy(), today)).not.toContain('narrowed');
+  });
+
+  it('caps every section, so a busy day stays within the model’s budget', () => {
+    const state = world();
+    const long = 'x'.repeat(400);
+    for (let i = 0; i < 200; i++) {
+      const id = `p${i}`;
+      state.projects[id] = {
+        ...project,
+        id,
+        name: `${long} ${i}`,
+        health: 'red',
+        milestones: [{ id: `m${i}`, title: long, date: today }],
+      };
+      state.people[`h${i}`] = { id: `h${i}`, name: long, role: '', me: false };
+      const patches: [string, Partial<Task>][] = [
+        ['c', { status: 'done', completedAt: yesterday }],
+        ['a', { createdAt: yesterday }],
+        ['d', { due: '2026-10-01', assignee: `h${i}` }],
+        ['b', { blocked: { on: `h${i}`, note: long } }],
+        ['b2', { blocked: { on: `h${i}`, note: '' } }],
+        ['b3', { blocked: { on: `h${i}`, note: '' } }],
+        ['b4', { blocked: { on: `h${i}`, note: '' } }],
+      ];
+      for (const [kind, patch] of patches) {
+        state.tasks[`${kind}${i}`] = task(`${kind}${i}`, {
+          title: `${long}\n${long}`,
+          projectId: id,
+          ...patch,
+        });
+      }
+      for (const [key, date] of [
+        ['y', '2026-10-27'],
+        ['t', today],
+      ]) {
+        state.meetings[`${key}${i}`] = {
+          ...meeting,
+          id: `${key}${i}`,
+          projectId: id,
+          title: long,
+          date,
+        };
+      }
+      state.notes[`n${i}`] = note(`n${i}`, {
+        projectId: id,
+        meetingId: null,
+        body: long,
+        createdAt: yesterday,
+      });
+      state.activity[id] = {
+        events: Array.from({ length: 10 }, () => ({
+          t: yesterday,
+          text: long,
+        })),
+      };
+    }
+    const text = briefContext(state, today);
+    // Each section stops at its cap and counts the rest.
+    expect(text).toContain(
+      `- and ${200 - BRIEF_LIMITS.closed} more\n\nTasks added (200):`,
+    );
+    expect(text).toContain(`Agenda (400):`);
+    expect(text).toContain(`- and ${200 - BRIEF_LIMITS.due} more`);
+    expect(text).toContain('Waiting on (200):');
+    expect(text).toContain('; and 2 more');
+    expect(text).toContain(`- and ${2000 - BRIEF_LIMITS.activity} more`);
+    // No title, name or note runs on.
+    expect(text).not.toContain('x'.repeat(BRIEF_LIMITS.text));
+    expect(BRIEF_PROMPT.length + text.length).toBeLessThan(BRIEF_BUDGET_CHARS);
+  });
+
+  it('is what Brief me sends, with its own prompt, saved as "Brief · <day>"', () => {
+    const state = busy();
+    expect(
+      summaryRequest(
+        { kind: 'brief', today, assignee: { kind: 'anyone' } },
+        state,
+      ),
+    ).toEqual({
+      label: 'Brief · Wed 28 Oct 2026',
+      context: briefContext(state, today),
+      projectId: null,
+      meetingId: null,
+      prompt: BRIEF_PROMPT,
+    });
+    expect(summaryRequest({ kind: 'project', id: 'p1' }, state)?.prompt).toBe(
+      SYSTEM_PROMPT,
+    );
+    expect(briefNoteBody(today, '\nAll quiet.\n')).toBe(
+      'Brief · Wed 28 Oct 2026\n\nAll quiet.',
+    );
+    expect(BRIEF_PROMPT).toMatch(/morning briefing/);
+    expect(BRIEF_PROMPT).toMatch(/under 150 words/);
   });
 });

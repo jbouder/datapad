@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { REQUEST_SETTINGS, SYSTEM_PROMPT } from '#shared/summaries';
+import {
+  BRIEF_PROMPT,
+  REQUEST_SETTINGS,
+  SYSTEM_PROMPT,
+} from '#shared/summaries';
 import {
   type ChatEngine,
   type EngineFactory,
@@ -82,6 +86,23 @@ describe('SummaryEngine', () => {
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: 'Task: Calibrate' },
+        ],
+        ...REQUEST_SETTINGS,
+        stream: true,
+      },
+    ]);
+  });
+
+  it('sends another system prompt when asked (Brief me)', async () => {
+    const f = fake(['ok']);
+    const engine = new SummaryEngine(f.factory);
+    await engine.load('m', () => {});
+    await engine.summarize('Today is Wed.', () => {}, BRIEF_PROMPT);
+    expect(f.requests).toEqual([
+      {
+        messages: [
+          { role: 'system', content: BRIEF_PROMPT },
+          { role: 'user', content: 'Today is Wed.' },
         ],
         ...REQUEST_SETTINGS,
         stream: true,

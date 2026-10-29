@@ -21,6 +21,7 @@ import {
   weekMovement,
 } from '#shared/select';
 import { healthOf, type Task } from '#shared/types';
+import { BriefCard, BriefMeButton } from '@/components/focus/BriefMe';
 import { SinceYesterday } from '@/components/focus/SinceYesterday';
 import { SelectField } from '@/components/inputs/SelectField';
 import {
@@ -69,7 +70,9 @@ const GROUP_LINK =
 /**
  * Focus, the morning briefing (#206), as Day (the default) or Week
  * (`?view=`, then what is saved for the page; `v` switches). The header
- * has the week's movement. Then, each only when it has something: Since
+ * has the week's movement, and Brief me (#259) where summaries are on:
+ * its card, the model's paragraph about yesterday and today, sits on top
+ * of the sections and replaces none of them. Then, each only when it has something: Since
  * yesterday (the last working day's recap, #258, the same in Day and
  * Week), the agenda (today's meetings and milestones, or the next seven days', each
  * meeting with its prep), Waiting on (blocked tasks by who they wait on),
@@ -236,8 +239,11 @@ export function FocusPage() {
             className="min-w-0 flex-1 sm:max-w-56"
           />
           <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
+          <BriefMeButton today={today} assignee={who} />
         </div>
       </div>
+
+      <BriefCard today={today} assignee={who} />
 
       {!noRecap && (
         <SinceYesterday

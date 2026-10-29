@@ -102,8 +102,10 @@ export function HelpPage({ section }: { section?: string }) {
             where its prep stands; blocked tasks by who they wait on, and for
             how long; projects off health, near or past their target, or quiet
             for two weeks; open action items from the last week’s meetings; and
-            what is overdue and due today (this week too, in Week), by priority.{' '}
-            <Key>v</Key> switches Day and Week; <Key>m</Key> shows only yours.
+            what is overdue and due today (this week too, in Week), by priority.
+            With summaries on, Brief me turns that into a short paragraph about
+            yesterday and today. <Key>v</Key> switches Day and Week;{' '}
+            <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects" to={{ name: 'projects' }}>
             Every active project as cards, a table or a timeline. A project page
@@ -378,6 +380,15 @@ export function HelpPage({ section }: { section?: string }) {
           Summaries can be turned off on this device in Settings → Summaries:
           then nothing offers Summarize and the model is never loaded. Turn the
           same switch back on to bring Summarize back.
+        </p>
+        <p className="text-sm">
+          Brief me, on Focus, has the same model write a few sentences about the
+          last working day and today, and up to three things to do first, from
+          what Focus shows (under its Assignee filter). The facts and counts
+          come from Datapad; the model only writes. The brief stays on this
+          device for the rest of the day, in each space, without running again;
+          Regenerate writes it anew, Save as note keeps it as a General note,
+          and × puts it away. It is never synced.
         </p>
       </Section>
 
