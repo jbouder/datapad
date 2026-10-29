@@ -119,6 +119,10 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **All notes from the Notepad**: a link beside the Notepad's heading
+  goes to Notes.
+- **Date pickers start the week on Sunday**: the calendar behind every
+  date field now shows Sunday first.
 - **Tools in the rail** (#261): a **Tools** group under the sections
   holds the Notepad, the Whiteboard and the Weekly digest, in that order
   by default. Settings → Navigation has a Tools table like the sections'

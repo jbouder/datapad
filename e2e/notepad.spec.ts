@@ -120,8 +120,12 @@ test('the Notepad is one note, first in List and Grid, opening its page, and on 
   await expectSaved(page);
   expect(await notepad(request)).toHaveLength(1);
 
-  // List: first, labelled Notepad, and it opens the Notepad.
-  await page.goto('/notes');
+  // All notes goes to Notes. List: first, labelled Notepad, and it opens
+  // the Notepad.
+  await page.getByRole('link', { name: 'All notes' }).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Notes' }),
+  ).toBeVisible();
   const first = page.locator('[data-note-row]').first();
   await expect(first).toContainText('Shield frequencies, rotated');
   await expect(first).toContainText('Notepad');
