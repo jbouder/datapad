@@ -19,6 +19,15 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **Since yesterday on Focus** (#258): the first section is what happened
+  on the last working day (yesterday; Friday through Sunday on a Monday),
+  worked out from the data with no model, so it works on phones and with
+  summaries off. A line counts it ("Yesterday: 4 closed · 2 added · 2
+  meetings · 3 notes"); below it, tasks closed and added, meetings held
+  with their topics covered, action items and notes, notes written, and
+  the other activity lines (health, status, blocked, milestones, 5 per
+  project). The Assignee filter narrows Closed and Added; the section
+  closes and stays closed like the others.
 - **An age limit for the copies kept before a destructive change** (#242):
   set `BEFORE_COPIES_MAX_DAYS` in `wrangler.jsonc` and the nightly backup
   deletes `before-*` copies older than that many days, in every space's

@@ -95,13 +95,15 @@ export function HelpPage({ section }: { section?: string }) {
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
           <Term name="Focus" to={{ name: 'focus' }}>
             A briefing on what needs you. The week so far (closed, added,
-            overdue); today’s meetings and milestones (or the next seven days’,
-            in Week), each meeting with where its prep stands; blocked tasks by
-            who they wait on, and for how long; projects off health, near or
-            past their target, or quiet for two weeks; open action items from
-            the last week’s meetings; and what is overdue and due today (this
-            week too, in Week), by priority. <Key>v</Key> switches Day and Week;{' '}
-            <Key>m</Key> shows only yours.
+            overdue); Since yesterday, what happened on the last working day
+            (Friday through Sunday on a Monday): tasks closed and added,
+            meetings held, notes written and other activity; today’s meetings
+            and milestones (or the next seven days’, in Week), each meeting with
+            where its prep stands; blocked tasks by who they wait on, and for
+            how long; projects off health, near or past their target, or quiet
+            for two weeks; open action items from the last week’s meetings; and
+            what is overdue and due today (this week too, in Week), by priority.{' '}
+            <Key>v</Key> switches Day and Week; <Key>m</Key> shows only yours.
           </Term>
           <Term name="Projects" to={{ name: 'projects' }}>
             Every active project as cards, a table or a timeline. A project page

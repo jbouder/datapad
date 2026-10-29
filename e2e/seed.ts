@@ -238,3 +238,93 @@ export function briefingSeed(): Seed {
   };
   return s;
 }
+
+/** `time` (`HH:MM`) on `day` in the local zone, as an ISO timestamp. */
+function localAt(day: string, time: string): string {
+  return new Date(`${day}T${time}:00`).toISOString();
+}
+
+/**
+ * {@link briefingSeed} with a full Since yesterday (#258). Everything is
+ * yesterday at a local time, which is in the recap's window whatever the
+ * weekday (on Monday it is Sunday, the end of Friday through Sunday) and
+ * whatever the zone. `briefingSeed` alone already has one thing there:
+ * the thermal blankets, closed yesterday.
+ *
+ * - Closed: the thermal blankets (Echo Base); not the Yavin report, closed
+ *   yesterday too but in an archived project.
+ * - Added: the ice caves (an action item, Leia's) and the bacta tanks
+ *   (General, no one's).
+ * - Meetings held: the ridge patrol debrief, 2 of 3 topics covered, the
+ *   ice caves its one action item, one note.
+ * - Notes written: that note.
+ * - Activity: Echo Base's health set to yellow; its other lines yesterday
+ *   (the action item, the note, the close) say what the rest already
+ *   does.
+ */
+export function recapSeed(): Seed {
+  const s = briefingSeed();
+  const yesterday = addDays(today(), -1);
+  const tasks = s.tasks as Record<string, Doc>;
+  const meetings = s.meetings as Record<string, Doc>;
+  const notes = s.notes as Record<string, Doc>;
+  const activity = s.activity as Record<string, { events: Doc[] }>;
+
+  Object.assign(tasks['t-7'] ?? {}, {
+    completedAt: localAt(yesterday, '11:00'),
+    updatedAt: localAt(yesterday, '11:00'),
+  });
+  meetings['e-7'] = {
+    id: 'e-7',
+    projectId: 'p-echo',
+    title: 'Ridge patrol debrief',
+    date: yesterday,
+    time: '15:00',
+    end: '15:30',
+    attendees: ['u-leia', 'u-han'],
+    link: '',
+    note: '',
+    topics: [
+      { id: 'tp-7a', title: 'Probe droid', done: true, outcome: 'Destroyed' },
+      { id: 'tp-7b', title: 'Ice caves', done: true, outcome: 'Map them' },
+      { id: 'tp-7c', title: 'Wampa sightings', done: false, outcome: '' },
+    ],
+    createdAt: localAt(yesterday, '09:00'),
+    updatedAt: localAt(yesterday, '15:30'),
+  };
+  tasks['t-11'] = actionItem('t-11', 'Map the ice caves', {
+    meetingId: 'e-7',
+    assignee: 'u-leia',
+    order: 13,
+    createdAt: localAt(yesterday, '15:20'),
+    updatedAt: localAt(yesterday, '15:20'),
+  });
+  tasks['t-12'] = actionItem('t-12', 'Restock the bacta tanks', {
+    projectId: null,
+    meetingId: null,
+    order: 14,
+    createdAt: localAt(yesterday, '16:00'),
+    updatedAt: localAt(yesterday, '16:00'),
+  });
+  notes['n-5'] = {
+    id: 'n-5',
+    projectId: 'p-echo',
+    body: 'Patrol found probe droid wreckage on the ridge',
+    pinned: false,
+    meetingId: 'e-7',
+    phase: null,
+    createdAt: localAt(yesterday, '15:25'),
+  };
+  const echo = activity['p-echo'] ?? { events: [] };
+  echo.events.unshift(
+    { t: localAt(yesterday, '16:30'), text: 'Health set to yellow' },
+    { t: localAt(yesterday, '15:25'), text: 'Added a note' },
+    {
+      t: localAt(yesterday, '15:20'),
+      text: 'Added action item "Map the ice caves" to "Ridge patrol debrief"',
+    },
+    { t: localAt(yesterday, '12:00'), text: 'Closed "Order thermal blankets"' },
+  );
+  activity['p-echo'] = echo;
+  return s;
+}

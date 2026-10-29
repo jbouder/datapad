@@ -69,11 +69,16 @@ export interface PageSpec {
 }
 
 /**
- * Focus's collapsible sections (#206): Waiting on, Attention and
- * Follow-ups. The buckets that used to be sections (Blocked, This week,
+ * Focus's collapsible sections (#206): Since yesterday (#258), Waiting
+ * on, Attention and Follow-ups. The buckets that used to be sections (Blocked, This week,
  * Later, No date, and Day's `day:` copies) are gone.
  */
-export const FOCUS_SECTIONS = ['waiting', 'attention', 'followUps'] as const;
+export const FOCUS_SECTIONS = [
+  'recap',
+  'waiting',
+  'attention',
+  'followUps',
+] as const;
 
 const PROJECT_LAYOUTS = [
   { value: 'cards', label: 'Cards' },
