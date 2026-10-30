@@ -137,6 +137,19 @@ describe('focusBuckets', () => {
     expect(b.upcoming.at(-1)?.due).toBe(addDays(today, FOCUS_DAYS - 1));
   });
 
+  it('looks as many days ahead as Focus is set to', () => {
+    const at = (days: number) =>
+      focusBuckets(state.tasks, state.projects, today, null, anyone, days);
+    expect(ids(at(3).upcoming)).toEqual(['tomorrow']);
+    expect(ids(at(3).later)).toEqual(['monday', 'thursday', 'friday']);
+    expect(ids(at(14).upcoming)).toEqual([
+      'tomorrow',
+      'monday',
+      'thursday',
+      'friday',
+    ]);
+  });
+
   it('leaves out done tasks and archived projects, and filters by assignee', () => {
     const s = seeded();
     const all = focusBuckets(s.tasks, s.projects, today, 'u-leia', anyone);
@@ -330,6 +343,14 @@ describe('other selectors', () => {
       agenda(s.meetings, s.projects, '2026-10-21').map((e) => e.id),
     ).toEqual(['e-1']);
     expect(agenda(s.meetings, s.projects, '2026-10-20')).toEqual([]);
+  });
+
+  it('looks as many days ahead as Focus is set to', () => {
+    // The shield review is on the 27th.
+    expect(agenda(s.meetings, s.projects, '2026-10-23', 3)).toEqual([]);
+    expect(
+      agenda(s.meetings, s.projects, '2026-10-20', 14).map((e) => e.id),
+    ).toEqual(['e-1']);
   });
 
   it('puts milestones in the agenda with meetings, all day first', () => {

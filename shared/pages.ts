@@ -1,7 +1,7 @@
 import { LIMITS } from './limits';
 import { PROJECT_SORTS } from './projects';
 import type { PagePrefsPatch } from './protocol';
-import { meId, orgs } from './select';
+import { FOCUS_DAY_CHOICES, FOCUS_DAYS, meId, orgs } from './select';
 import { TASK_SORTS } from './tasks';
 import {
   GENERAL,
@@ -109,6 +109,24 @@ export function currentName(field: PrefField, value: string): string {
     : value;
 }
 
+/** How far Focus's Week looks ahead: set in Settings → Pages only. */
+const focusDaysField: PrefField = {
+  key: 'days',
+  label: 'Week shows',
+  def: String(FOCUS_DAYS),
+  options: FOCUS_DAY_CHOICES.map((n) => ({
+    value: String(n),
+    label: `${n} days`,
+  })),
+  control: 'select',
+};
+
+/** Focus's Week window from a page query or saved values (`?days=`). */
+export function focusDays(value: string | null | undefined): number {
+  const n = Number(value);
+  return FOCUS_DAY_CHOICES.some((c) => c === n) ? n : FOCUS_DAYS;
+}
+
 const who: PrefField = {
   key: 'who',
   label: 'Assignee',
@@ -208,6 +226,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
         ],
         'day',
       ),
+      focusDaysField,
     ],
     sections: true,
     sectionKeys: FOCUS_SECTIONS,

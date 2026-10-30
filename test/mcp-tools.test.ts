@@ -279,6 +279,26 @@ describe('the read tools', () => {
     });
     expect(ids(han.due.overdue.items)).toEqual([]);
     expect(ids(han.due.upcoming.items)).toEqual(['t-5']);
+    expect(out.days).toBe(7);
+  });
+
+  it('get_focus looks as far ahead as Settings → Pages says', async () => {
+    const ctx = await seeded();
+    const set = (days: string) =>
+      ctx.datapad.import(MAIN_SPACE, {
+        settings: {
+          user: { defaultOrg: '', pages: { focus: { filters: { days } } } },
+        },
+      });
+    expect((await set('3')).ok).toBe(true);
+    const short = await call(ctx, 'get_focus', { today: TODAY });
+    expect(short.days).toBe(3);
+    expect(ids(short.due.upcoming.items)).toEqual(['t-5']);
+    expect(short.due.later).toBe(1);
+    expect((await set('14')).ok).toBe(true);
+    const long = await call(ctx, 'get_focus', { today: TODAY });
+    expect(long.days).toBe(14);
+    expect(ids(long.due.upcoming.items)).toEqual(['t-5', 't-4']);
   });
 
   describe('get_recap (#260)', () => {
