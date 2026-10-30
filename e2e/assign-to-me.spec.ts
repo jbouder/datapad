@@ -55,7 +55,7 @@ test('Assign new tasks to me: off by default, on prefills you, a pick still wins
   // Off: a new task goes to nobody.
   let panel = await newTask(page, 'Sweep the hangar');
   await expect(panel.getByRole('combobox', { name: 'Assignee' })).toHaveValue(
-    '',
+    'Unassigned',
   );
   await panel.getByRole('textbox', { name: 'Title' }).press('Enter');
   await expect(panel).toBeHidden();
@@ -102,6 +102,6 @@ test('Assign new tasks to me: off by default, on prefills you, a pick still wins
   await expect(assignSwitch(page)).not.toBeChecked();
   panel = await newTask(page, 'Restock rations');
   await expect(panel.getByRole('combobox', { name: 'Assignee' })).toHaveValue(
-    '',
+    'Unassigned',
   );
 });
