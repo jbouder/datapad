@@ -42,7 +42,7 @@ import { linkProps } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 
 type FocusView = 'day' | 'week';
-type DueKey = Extract<keyof FocusBuckets, 'overdue' | 'today' | 'thisWeek'>;
+type DueKey = Extract<keyof FocusBuckets, 'overdue' | 'today' | 'upcoming'>;
 
 export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
   { id: 'day', label: 'Day', icon: CalendarDotIcon },
@@ -55,7 +55,7 @@ const ANYONE: AssigneeFilter = { kind: 'anyone' };
 /** The buckets Due draws from in each view, grouped by priority. */
 const DUE: Record<FocusView, DueKey[]> = {
   day: ['overdue', 'today'],
-  week: ['overdue', 'today', 'thisWeek'],
+  week: ['overdue', 'today', 'upcoming'],
 };
 
 /** A group's header in Waiting on and Follow-ups: 44px on touch. */
@@ -75,7 +75,7 @@ const GROUP_LINK =
  * meeting with its prep), Waiting on (blocked tasks by who they wait on),
  * Attention (active projects off health, near or past their target, or
  * quiet), Follow-ups (open action items from the last week's meetings)
- * and Due (overdue and today's tasks, plus the rest of the week's in
+ * and Due (overdue and today's tasks, plus the next seven days' in
  * Week, grouped by priority, High first; #218). Since yesterday, Waiting
  * on, Attention and Follow-ups are sections remembered with the page.
  * Focus has no filters: it shows everyone's tasks. Tasks are added from

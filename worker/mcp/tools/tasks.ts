@@ -161,7 +161,7 @@ export const getFocus = defineTool({
   name: 'get_focus',
   title: 'Focus',
   description:
-    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, this week; later and undated as counts), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the seven-day agenda of meetings and milestones.",
+    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next seven days; later and undated as counts), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the seven-day agenda of meetings and milestones.",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -186,7 +186,7 @@ export const getFocus = defineTool({
       due: {
         overdue: tasks(buckets.overdue),
         today: tasks(buckets.today),
-        thisWeek: tasks(buckets.thisWeek),
+        upcoming: tasks(buckets.upcoming),
         later: buckets.later.length,
         noDate: buckets.noDate.length,
       },

@@ -42,7 +42,7 @@ export function Rail({ route }: { route: Route }) {
         b.blocked.length +
         b.overdue.length +
         b.today.length +
-        b.thisWeek.length +
+        b.upcoming.length +
         b.later.length +
         b.noDate.length,
       tasks: [...open.values()].reduce((a, n) => a + n, 0),
