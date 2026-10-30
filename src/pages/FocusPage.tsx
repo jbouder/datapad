@@ -1,6 +1,7 @@
 import { CalendarDotIcon, CalendarDotsIcon } from '@phosphor-icons/react';
 import { useCallback, useRef } from 'react';
 import { formatDay } from '#shared/dates';
+import { focusDays } from '#shared/pages';
 import { buildRecap, recapEmpty } from '#shared/recap';
 import {
   type AssigneeFilter,
@@ -40,6 +41,7 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { linkProps } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 type FocusView = 'day' | 'week';
 type DueKey = Extract<keyof FocusBuckets, 'overdue' | 'today' | 'upcoming'>;
@@ -71,7 +73,8 @@ const GROUP_LINK =
  * its card, the model's paragraph about yesterday and today, sits on top
  * of the sections and replaces none of them. Then, each only when it has something: Since
  * yesterday (the last working day's recap, #258, the same in Day and
- * Week), the agenda (today's meetings and milestones, or the next seven days', each
+ * Week), the agenda (today's meetings and milestones, or the next seven days'
+ * in Week, or as many as Settings → Pages says, `days`), each
  * meeting with its prep), Waiting on (blocked tasks by who they wait on),
  * Attention (active projects off health, near or past their target, or
  * quiet), Follow-ups (open action items from the last week's meetings)
@@ -93,6 +96,9 @@ export function FocusPage() {
   useFlip(flipRoot, active);
 
   const [view, setView] = useView('focus', FOCUS_VIEWS, 'day');
+  // How far Week looks ahead, from Settings → Pages (or `?days=`).
+  const [query] = usePageQuery('focus');
+  const days = focusDays(query.get('days'));
   const today = useToday();
   const me = state ? meId(state.people) : null;
 
@@ -111,7 +117,7 @@ export function FocusPage() {
   const movement = weekMovement(state.tasks, state.projects, today);
   const recap = buildRecap(state, today);
   const noRecap = recapEmpty(recap);
-  const week = agenda(state.meetings, state.projects, today);
+  const week = agenda(state.meetings, state.projects, today, days);
   const upcoming =
     view === 'day' ? week.filter((item) => item.date === today) : week;
   const waiting = waitingOn(
@@ -130,7 +136,14 @@ export function FocusPage() {
     me,
     ANYONE,
   );
-  const buckets = focusBuckets(state.tasks, state.projects, today, me, ANYONE);
+  const buckets = focusBuckets(
+    state.tasks,
+    state.projects,
+    today,
+    me,
+    ANYONE,
+    days,
+  );
   // A task shows once: an action item under its meeting, not in Due too.
   const followed = new Set(follow.flatMap((g) => g.tasks.map((t) => t.id)));
   const due = byPriority(
@@ -215,7 +228,7 @@ export function FocusPage() {
           items={upcoming}
           state={state}
           today={today}
-          title={view === 'day' ? 'Today’s agenda' : 'Next 7 days'}
+          title={view === 'day' ? 'Today’s agenda' : `Next ${days} days`}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { currentValues, focusDays, savedPrefs } from '#shared/pages';
 import {
   buildRecap,
   recapCounts,
@@ -161,7 +162,7 @@ export const getFocus = defineTool({
   name: 'get_focus',
   title: 'Focus',
   description:
-    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next seven days; later and undated as counts), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the seven-day agenda of meetings and milestones.",
+    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the agenda of meetings and milestones over those `days` (seven unless the owner set Focus's Week to another number in Settings → Pages).",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -177,12 +178,23 @@ export const getFocus = defineTool({
     );
     const me = meId(state.people);
     const who = assigneeFilter(state, args.assignee);
-    const buckets = focusBuckets(state.tasks, state.projects, today, me, who);
+    const days = focusDays(
+      currentValues('focus', savedPrefs(state, 'focus'), state).days,
+    );
+    const buckets = focusBuckets(
+      state.tasks,
+      state.projects,
+      today,
+      me,
+      who,
+      days,
+    );
     const tasks = (list: typeof buckets.today) =>
       cap(list.map((t) => taskOut(state, t)));
     return {
       space,
       today,
+      days,
       due: {
         overdue: tasks(buckets.overdue),
         today: tasks(buckets.today),
@@ -224,7 +236,7 @@ export const getFocus = defineTool({
         reasons: attentionLine(a.reasons),
       })),
       agenda: cap(
-        agenda(state.meetings, state.projects, today).map((item) =>
+        agenda(state.meetings, state.projects, today, days).map((item) =>
           item.kind === 'meeting'
             ? {
                 kind: 'meeting' as const,

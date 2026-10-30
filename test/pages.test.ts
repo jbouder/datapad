@@ -6,6 +6,7 @@ import {
   currentValues,
   effectiveQuery,
   filterFields,
+  focusDays,
   hasPagePrefs,
   isFiltered,
   legacyPrefs,
@@ -62,6 +63,30 @@ describe('the registry', () => {
         if (field.def === '') expect(field.token).toBeTruthy();
       }
     }
+  });
+});
+
+describe('how far Focus’s Week looks ahead', () => {
+  it('is seven days unless a choice is saved', () => {
+    expect(focusDays(undefined)).toBe(7);
+    expect(focusDays(null)).toBe(7);
+    expect(focusDays('14')).toBe(14);
+    expect(focusDays('3')).toBe(3);
+    // Not one of the choices: the default.
+    expect(focusDays('6')).toBe(7);
+    expect(focusDays('nope')).toBe(7);
+  });
+
+  it('is saved as a Focus filter and read back, a stale value dropped', () => {
+    const s = state();
+    const saved = applyPagePatch({}, { filters: { days: '10' } }) ?? {};
+    expect(currentValues('focus', saved, s).days).toBe('10');
+    expect(effectiveQuery('focus', q(''), { days: '10' }).get('days')).toBe(
+      '10',
+    );
+    expect(
+      currentValues('focus', { filters: { days: '6' } }, s).days,
+    ).toBeUndefined();
   });
 });
 

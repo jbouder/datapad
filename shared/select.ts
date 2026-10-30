@@ -181,8 +181,13 @@ export function matchesAssignee(
   }
 }
 
-/** Focus's Week looks this many days ahead, today included. */
+/**
+ * How many days Focus's Week looks ahead, today included: the agenda's
+ * window and Due's. `FOCUS_DAYS` unless Settings → Pages says otherwise
+ * (`focusDays()` in `shared/pages.ts`).
+ */
 export const FOCUS_DAYS = 7;
+export const FOCUS_DAY_CHOICES = [3, 5, 7, 10, 14] as const;
 
 /**
  * Every open task by when it is due. Focus's Due shows Overdue, Today and
@@ -196,8 +201,8 @@ export interface FocusBuckets {
   overdue: Task[];
   today: Task[];
   /**
-   * After today, within `FOCUS_DAYS` of it: the same rolling window as
-   * the agenda, so a Friday sees Monday.
+   * After today, within `days` of it (today included): the same rolling
+   * window as the agenda, so a Friday sees Monday.
    */
   upcoming: Task[];
   /** After that. */
@@ -227,8 +232,9 @@ export const focusBuckets = lastCall(
     today: DateString,
     me: string | null,
     filter: AssigneeFilter,
+    days: number = FOCUS_DAYS,
   ): FocusBuckets => {
-    const last = addDays(today, FOCUS_DAYS - 1);
+    const last = addDays(today, days - 1);
     const buckets: FocusBuckets = {
       blocked: [],
       overdue: [],
@@ -303,7 +309,8 @@ function titleOf(item: AgendaItem): string {
 }
 
 /**
- * Meetings and milestones in the next seven days (today included), outside
+ * Meetings and milestones in the next `days` (seven unless Focus's setting
+ * says otherwise; today included), outside
  * archived projects, as one list: by day, all-day items first within a
  * day, then by time and title.
  */
@@ -312,8 +319,9 @@ export const agenda = lastCall(
     meetings: Snapshot['meetings'],
     projects: Projects,
     today: DateString,
+    days: number = FOCUS_DAYS,
   ): AgendaItem[] => {
-    const last = addDays(today, FOCUS_DAYS - 1);
+    const last = addDays(today, days - 1);
     const soon = (date: DateString) => date >= today && date <= last;
     const items: AgendaItem[] = [];
     for (const m of Object.values(meetings)) {
