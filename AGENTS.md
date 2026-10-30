@@ -116,7 +116,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 - `docs/` — SPEC, PLAN, architecture, data, design, security, self-hosting, mcp,
   accessibility (the conformance statement, what checks it, every drag's
   keyboard and touch way), `audits/` (dated web-app audit reports; the next
-  one compares with the last).
+  one compares with the last), `screenshots/` (the README's).
 
 ## Stack
 
@@ -214,6 +214,8 @@ pinned with integrity hashes in `summary-pins.ts`)
   branch. Take them with seeded, fictional data (`e2e/seed.ts`); `gh`
   cannot upload images, so attach them through the PR's comment box in a
   browser, copy the asset URLs into the body and discard the comment.
+  The one exception is the README's own screenshots, committed in
+  `docs/screenshots/`: taken the same way, light theme, from the seed.
 - **No animation libraries for app motion.** View Transitions, WAAPI,
   `@starting-style`, CSS `linear()` springs. Helpers in `src/lib/motion.ts`,
   `src/hooks/useFlip.ts`. (`tw-animate-css` is imported only because the
