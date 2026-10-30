@@ -1,5 +1,13 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectAccessible,
+  expectNoSidewaysScroll,
+  expectSaved,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 interface Stored {
   tasks: Record<string, { title: string; assignee: string }>;
@@ -165,4 +173,42 @@ test('Cards: counts match the detail, and a card opens the person', async ({
   ).toContainText('Find a replacement motivator');
   // The layout is remembered after navigating.
   await expect(page.getByRole('radio', { name: 'Cards' })).toBeChecked();
+});
+
+test('Find narrows People by name or role, and Clear filters brings them back', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/settings/people');
+  const links = people(page).getByRole('link');
+  await expect(links).toHaveCount(4);
+  const find = page.getByRole('searchbox', { name: 'Find' });
+  await find.fill('captain');
+  await expect(page).toHaveURL(/q=captain/);
+  await expect(links).toHaveCount(1);
+  await expect(links).toContainText('Han Solo');
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // Nothing matches: the filtered empty state, then everyone again.
+  await find.fill('wookiee captain');
+  await expect(page.getByText('None match these filters.')).toBeVisible();
+  await expectAccessible(page);
+  await page
+    .getByRole('button', { name: 'Clear filters' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(find).toHaveValue('');
+  await expect(page).not.toHaveURL(/q=/);
+  await expect(links).toHaveCount(4);
+
+  // Picking someone keeps Find.
+  await find.fill('captain');
+  await expect(links).toHaveCount(1);
+  await links.first().click();
+  await expect(page).toHaveURL(/\/settings\/people\/u-han\?q=captain$/);
+  await expect(find).toHaveValue('captain');
+  await expect(detail(page)).toBeVisible();
 });

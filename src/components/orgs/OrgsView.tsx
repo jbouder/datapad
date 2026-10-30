@@ -8,11 +8,18 @@ import {
 import { useMemo, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { byWhen } from '#shared/meetings';
-import { organizePlan, orgProjects, unorganized } from '#shared/orgs';
+import { findOrgs, organizePlan, orgProjects, unorganized } from '#shared/orgs';
+import { findText } from '#shared/pages';
 import { healthOf, type Org, settingsOf } from '#shared/types';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Field } from '@/components/Field';
 import { Initials } from '@/components/Initials';
+import { FindField } from '@/components/inputs/FindField';
+import {
+  ListEmpty,
+  type ListFilters,
+  ListToolbar,
+} from '@/components/layouts/ListToolbar';
 import { Markdown } from '@/components/Markdown';
 import { OrgForm } from '@/components/orgs/OrgForm';
 import { OrgKindPill } from '@/components/orgs/OrgKind';
@@ -23,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
 import { newId } from '@/lib/ids';
-import { linkProps } from '@/lib/router';
+import { linkProps, setQuery, useQuery } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -114,6 +121,18 @@ function OrgList({ onAdd }: { onAdd: () => void }) {
       ),
     [state?.orgs],
   );
+  // Orgs remember nothing (not a saved page), so Find is the address's
+  // alone: `?q=`, with no filters to count.
+  const q = findText(useQuery());
+  const shown = useMemo(
+    () => findOrgs(orgs, q, state?.people ?? {}),
+    [orgs, q, state?.people],
+  );
+  const listFilters: ListFilters = {
+    count: 0,
+    filtered: q !== '',
+    clear: () => setQuery({ q: null }),
+  };
   return (
     <>
       <p className="text-sm text-muted-foreground">
@@ -141,11 +160,25 @@ function OrgList({ onAdd }: { onAdd: () => void }) {
           Add org
         </Button>
       </div>
-      {orgs.length === 0 ? (
-        <p className="text-state">No org records yet.</p>
+      {orgs.length > 0 && (
+        <ListToolbar
+          state={listFilters}
+          find={
+            <FindField
+              value={q}
+              placeholder="Name, kind or notes"
+              onChange={(text) =>
+                setQuery({ q: text || null }, { replace: true })
+              }
+            />
+          }
+        />
+      )}
+      {shown.length === 0 ? (
+        <ListEmpty state={listFilters}>No org records yet.</ListEmpty>
       ) : (
         <ul aria-label="Orgs" className="flex flex-col border-t">
-          {orgs.map((o) => {
+          {shown.map((o) => {
             const n = counts.get(o.id)?.length ?? 0;
             return (
               <li

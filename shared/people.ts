@@ -1,4 +1,6 @@
 import { LIMITS } from './limits';
+import { queryWords } from './notes';
+import type { Org, Person } from './types';
 
 /**
  * Adding a person or an org by name from inside a form (#160). Names are
@@ -39,4 +41,30 @@ export function planInlineAdd<T extends { id: string; name: string }>(
   return found
     ? { kind: 'existing', id: found.id, name: found.name }
     : { kind: 'new', name };
+}
+
+/**
+ * People's Find (#272): the people whose name, role or orgs (those that
+ * list them as a contact) hold every word typed, ignoring case, in the
+ * order given. No words, everyone.
+ */
+export function findPeople<T extends Pick<Person, 'id' | 'name' | 'role'>>(
+  people: readonly T[],
+  q: string,
+  orgs: Record<string, Pick<Org, 'name' | 'contacts'>>,
+): T[] {
+  const words = queryWords(q);
+  if (words.length === 0) return [...people];
+  const orgNames = new Map<string, string[]>();
+  for (const org of Object.values(orgs)) {
+    for (const id of org.contacts) {
+      orgNames.set(id, [...(orgNames.get(id) ?? []), org.name]);
+    }
+  }
+  return people.filter((p) => {
+    const text = [p.name, p.role, ...(orgNames.get(p.id) ?? [])]
+      .join('\n')
+      .toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
 }

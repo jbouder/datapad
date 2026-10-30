@@ -1,9 +1,17 @@
 import { ListIcon, PlusIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { findText } from '#shared/pages';
+import { findPeople } from '#shared/people';
 import { peopleStats, statsFor } from '#shared/select';
 import type { Person } from '#shared/types';
 import { Initials } from '@/components/Initials';
+import { FindField } from '@/components/inputs/FindField';
 import { CardGrid } from '@/components/layouts/CardGrid';
+import {
+  ListEmpty,
+  ListToolbar,
+  useListFilters,
+} from '@/components/layouts/ListToolbar';
 import {
   useView,
   type ViewOption,
@@ -15,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps, navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
+import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 type PeopleLayout = 'list' | 'cards';
 
@@ -46,13 +55,22 @@ export function PeopleView({ selected }: { selected?: string }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [view, setView] = useView('people', PEOPLE_VIEWS, 'list');
   const detail = useRef<HTMLDivElement>(null);
+  const [query, change] = usePageQuery('people');
+  const listFilters = useListFilters('people', query, change);
+  const q = findText(query);
+  // Picking someone keeps Find as it is.
+  const keep = q ? new URLSearchParams({ q }).toString() : undefined;
 
-  const people = useMemo(
+  const everyone = useMemo(
     () =>
       Object.values(state?.people ?? {}).sort((a, b) =>
         a.name.localeCompare(b.name),
       ),
     [state?.people],
+  );
+  const people = useMemo(
+    () => findPeople(everyone, q, state?.orgs ?? {}),
+    [everyone, q, state?.orgs],
   );
   const stats = state ? peopleStats(state.projects, state.tasks) : null;
   const person: Person | undefined = selected
@@ -91,19 +109,38 @@ export function PeopleView({ selected }: { selected?: string }) {
         </Button>
       </div>
 
-      {people.length === 0 ? (
+      {everyone.length === 0 ? (
         <p className="text-state">
           No people yet. Add your team members to assign tasks and mention them
           in notes.
         </p>
       ) : (
+        <ListToolbar
+          state={listFilters}
+          find={
+            <FindField
+              value={q}
+              placeholder="Name, role or org"
+              onChange={(text) =>
+                change({ q: text || null }, { replace: true })
+              }
+            />
+          }
+        />
+      )}
+
+      {everyone.length > 0 && (
         <div
           className={cn(
             'grid grid-cols-1 gap-6',
             view === 'list' && 'desk:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]',
           )}
         >
-          {view === 'list' ? (
+          {people.length === 0 ? (
+            <div className="self-start">
+              <ListEmpty state={listFilters}>No people yet.</ListEmpty>
+            </div>
+          ) : view === 'list' ? (
             <ul
               aria-label="People"
               className="flex flex-col self-start border-t"
@@ -111,7 +148,7 @@ export function PeopleView({ selected }: { selected?: string }) {
               {people.map((p) => (
                 <li key={p.id} className="border-b">
                   <a
-                    {...linkProps({ name: 'people', person: p.id })}
+                    {...linkProps({ name: 'people', person: p.id }, keep)}
                     aria-current={p.id === selected ? 'true' : undefined}
                     className={cn(
                       'press row flex items-center gap-2 px-2 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
@@ -145,7 +182,7 @@ export function PeopleView({ selected }: { selected?: string }) {
                 const s = statsFor(stats, p.id);
                 return (
                   <a
-                    {...linkProps({ name: 'people', person: p.id })}
+                    {...linkProps({ name: 'people', person: p.id }, keep)}
                     aria-current={p.id === selected ? 'true' : undefined}
                     className={cn(
                       'press flex min-h-24 items-start gap-3 border bg-card p-3 text-card-foreground outline-ring/50 hover:bg-accent/40 focus-visible:outline-2',

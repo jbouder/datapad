@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import { byName, planInlineAdd } from '#shared/people';
+import { byName, findPeople, planInlineAdd } from '#shared/people';
 
 const people = {
   a: { id: 'a', name: 'Leia Organa' },
@@ -42,5 +42,35 @@ describe('planInlineAdd', () => {
     expect(planInlineAdd(people, 'x'.repeat(LIMITS.nameMax + 1))).toEqual({
       kind: 'tooLong',
     });
+  });
+});
+
+describe('findPeople', () => {
+  const list = [
+    { id: 'a', name: 'Leia Organa', role: 'Director' },
+    { id: 'b', name: 'Han Solo', role: 'Pilot' },
+    { id: 'c', name: 'Lando Calrissian', role: '' },
+  ];
+  const orgs = {
+    o1: { name: 'Cloud City', contacts: ['c'] },
+    o2: { name: 'Rebel Fleet', contacts: ['a', 'b'] },
+  };
+  const ids = (q: string) => findPeople(list, q, orgs).map((p) => p.id);
+
+  it('keeps everyone, in order, with no words', () => {
+    expect(ids('')).toEqual(['a', 'b', 'c']);
+    expect(ids('   ')).toEqual(['a', 'b', 'c']);
+  });
+  it('matches the name and the role, ignoring case', () => {
+    expect(ids('LEIA')).toEqual(['a']);
+    expect(ids('pilot')).toEqual(['b']);
+  });
+  it('matches the orgs that list them as a contact', () => {
+    expect(ids('cloud')).toEqual(['c']);
+    expect(ids('rebel')).toEqual(['a', 'b']);
+  });
+  it('needs every word, across fields', () => {
+    expect(ids('rebel pilot')).toEqual(['b']);
+    expect(ids('han director')).toEqual([]);
   });
 });

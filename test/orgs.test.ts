@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  findOrgs,
   guessKind,
   organizePlan,
   orgByName,
@@ -96,5 +97,34 @@ describe('orgs', () => {
   it('guesses internal teams from the name', () => {
     expect(guessKind('Alderaan Internal')).toBe('internal');
     expect(guessKind('Internals Ltd')).toBe('client');
+  });
+});
+
+describe('findOrgs', () => {
+  const people = {
+    p1: { id: 'p1', name: 'Mon Mothma', role: '', me: false },
+  };
+  const list = [
+    { ...org('o1', 'Corellia'), notes: 'Shipyards, ask @{p1}' },
+    { ...org('o2', 'Alderaan'), kind: 'internal' as const },
+    { ...org('o3', 'Bespin'), kind: 'vendor' as const, notes: 'Gas' },
+  ];
+  const ids = (q: string) => findOrgs(list, q, people).map((o) => o.id);
+
+  it('keeps every org, in order, with no words', () => {
+    expect(ids('')).toEqual(['o1', 'o2', 'o3']);
+  });
+  it('matches the name, kind and notes, ignoring case', () => {
+    expect(ids('alder')).toEqual(['o2']);
+    expect(ids('VENDOR')).toEqual(['o3']);
+    expect(ids('shipyards')).toEqual(['o1']);
+  });
+  it('reads mentions in the notes as names', () => {
+    expect(ids('mothma')).toEqual(['o1']);
+    expect(ids('p1')).toEqual([]);
+  });
+  it('needs every word', () => {
+    expect(ids('bespin gas')).toEqual(['o3']);
+    expect(ids('bespin shipyards')).toEqual([]);
   });
 });

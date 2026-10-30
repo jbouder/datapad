@@ -116,6 +116,11 @@ changes the format says so here under **Export format**.
   whenever you leave it. Saving it is silent in Activity. It is also a
   General note, first in List and Grid and labelled Notepad; emptying it
   removes it.
+- **Find on People and Orgs** (#272): Settings → People finds by name,
+  role or an org that lists them as a contact, and Settings → Orgs by
+  name, kind or notes, in the same toolbar as Tasks and Notes (`?q=`,
+  `f`, Clear filters, "None match these filters."). Picking someone keeps
+  what you typed. The Default org picker stays where it was.
 
 ### Changed
 
