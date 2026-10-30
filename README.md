@@ -17,6 +17,14 @@ serves the app and checks your sign-in again on every request, and one
 SQLite-backed Durable Object per email holds your data, pushes live updates
 over WebSockets, and backs itself up to R2 every night.
 
+<p align="center">
+  <img src="docs/screenshots/project.png" alt="A project page on a laptop: the project's org, status, health, priority, dates, members and tags across the top, its description, then milestones, tasks and meetings beside its notes and whiteboard." width="72%" />
+  &nbsp;
+  <img src="docs/screenshots/focus-phone.png" alt="Focus on a phone: today's agenda with one meeting and a high priority task that is overdue, above the tab bar." width="22%" />
+</p>
+
+<p align="center"><sub>A project page on a laptop and Focus on a phone, with fictional data.</sub></p>
+
 ## Features
 
 - **Projects.** Name, org, status (active, paused, done), priority,
