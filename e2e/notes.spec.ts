@@ -1,6 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   addFromTopBar,
+  chooseFilter,
   expect,
   expectAccessible,
   expectSaved,
@@ -89,12 +90,10 @@ test('adds notes in two projects, filters by project and text', async ({
   expect(data.activity['p-falcon']?.events[0]?.text).toBe('Added a note');
 
   // Filter by project, then by text (with mentions read as names).
-  await page.getByRole('combobox', { name: 'Project', exact: true }).click();
-  await page.getByRole('option', { name: 'Falcon hyperdrive refit' }).click();
+  await chooseFilter(page, 'Project', 'Falcon hyperdrive refit');
   await expect(page).toHaveURL(/project=p-falcon/);
   await expect(page.locator('[data-note-row]')).toHaveCount(1);
-  await page.getByRole('combobox', { name: 'Project', exact: true }).click();
-  await page.getByRole('option', { name: 'All projects' }).click();
+  await chooseFilter(page, 'Project', 'All projects');
 
   await page.getByRole('searchbox', { name: 'Find' }).fill('chewba');
   await expect(page).toHaveURL(/q=chewba/);
@@ -108,9 +107,14 @@ test('adds notes in two projects, filters by project and text', async ({
   );
 
   await page.getByRole('searchbox', { name: 'Find' }).fill('nothing like it');
-  await expect(page.getByText('No notes match.')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear the filters' }).click();
+  await expect(page.getByText('None match these filters.')).toBeVisible();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Clear filters' })
+    .last()
+    .click();
   await expect(page.locator('[data-note-row]')).toHaveCount(5);
+  await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveValue('');
 });
 
 test('pins, edits in place and toggles a checkbox without logging', async ({

@@ -15,6 +15,7 @@ export interface Shortcut {
     | 'Focus'
     | 'Task lists and tables'
     | 'Collection pages'
+    | 'Lists'
     | 'Panels'
     | 'Whiteboard';
   /** Not bound yet: arrives with a later feature. */
@@ -105,6 +106,16 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['v'],
     action: 'Next layout (Table, Board, Timeline …)',
     scope: 'Collection pages',
+  },
+  {
+    keys: ['f'],
+    action: 'Go to Find',
+    scope: 'Lists',
+  },
+  {
+    keys: ['Esc'],
+    action: 'In Find: clear it, then leave it',
+    scope: 'Lists',
   },
   { keys: ['⌘Enter', 'Ctrl+Enter'], action: 'Save', scope: 'Panels' },
   {
