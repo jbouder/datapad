@@ -229,6 +229,14 @@ changes the format says so here under **Export format**.
 
 ### Fixed
 
+- **Selecting tasks shows the selection bar again**: ticking a task's
+  box on Tasks put the bar (Close, Move…, Assign…, Set due…, Delete) at
+  the foot of the page instead of the window, out of sight below a long
+  list, so the box seemed to do nothing. It stays at the bottom of the
+  window now.
+- **Layout switchers and segmented filters line up with their
+  neighbours**: they were 2px taller than the buttons and selects beside
+  them on phones (Brief me looked short next to Focus's switcher).
 - **Brief me and Summarize no longer show `<think>`** at the top of their
   text: Qwen3 opens with an empty thinking block even with thinking off,
   and it is now left out as it streams, in saved notes and in a brief
