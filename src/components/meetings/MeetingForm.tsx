@@ -476,7 +476,7 @@ export function MeetingForm({
         <LinkedNoteList
           notes={notesOfMeeting(state.notes, meeting.id)}
           fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
-          people={state.people}
+          state={state}
           label={meetingNoteLabel(meeting)}
           draftKey={meetingDraftKey(meeting)}
         />

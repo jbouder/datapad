@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NOTE_FILTERS,
   groupByDay,
+  notePreview,
   projectNotes,
   queryWords,
   selectNotes,
@@ -116,5 +117,39 @@ describe('taskTitleFrom', () => {
     );
     expect(taskTitleFrom('x'.repeat(300), state.people)).toHaveLength(200);
     expect(taskTitleFrom('  \n ', state.people)).toBe('');
+  });
+});
+
+describe('notePreview', () => {
+  const people = state.people;
+  it('strips Markdown and reads mentions as names', () => {
+    expect(
+      notePreview(
+        'Ask **@{leia}** about _the_ ~~old~~ `plan`, [doc](https://x.y)',
+        people,
+      ),
+    ).toBe('Ask @Leia Organa about the old plan, doc');
+    expect(notePreview('Hi @{gone}', people)).toBe('Hi @unknown');
+  });
+
+  it('keeps headings as their text and drops empty lines and dividers', () => {
+    expect(notePreview('## Standup\n\n\n---\n\nAll  good', people)).toBe(
+      'Standup\nAll good',
+    );
+    expect(notePreview('  \n\n ', people)).toBe('');
+  });
+
+  it('marks list items and checkboxes', () => {
+    expect(
+      notePreview('- one\n- [ ] two\n- [x] three\n3. four\n> quoted', people),
+    ).toBe('• one\n☐ two\n☑ three\n3. four\nquoted');
+  });
+
+  it('takes code as it is and stops after six lines', () => {
+    expect(notePreview('```ts\nconst a = 1;\n```', people)).toBe(
+      'const a = 1;',
+    );
+    const many = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
+    expect(notePreview(many, people).split('\n')).toHaveLength(6);
   });
 });

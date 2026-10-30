@@ -20,7 +20,7 @@ import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { Markdown } from '@/components/Markdown';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingList } from '@/components/meetings/MeetingList';
-import { NoteCard } from '@/components/notes/NoteCard';
+import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
@@ -83,7 +83,7 @@ export function ProjectPage({ id }: { id: string }) {
   const [leaving, setLeaving] = useState(false);
   const { hidden, newNote } = useNotes();
   const { active } = useMotion();
-  const notesList = useRef<HTMLDivElement>(null);
+  const notesList = useRef<HTMLUListElement>(null);
   useFlip(notesList, active);
   const notes = useMemo(
     () => projectNotes(state?.notes ?? {}, id, hidden),
@@ -396,21 +396,26 @@ export function ProjectPage({ id }: { id: string }) {
               </Button>
             }
           >
-            <div ref={notesList} className="flex flex-col gap-2 pt-2">
+            <div className="pt-2">
               {notes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No notes on this project yet.
                 </p>
               ) : (
-                notes.map((n) => (
-                  <NoteCard
-                    key={n.id}
-                    note={n}
-                    state={state}
-                    showProject={false}
-                    when="day"
-                  />
-                ))
+                <ul
+                  ref={notesList}
+                  aria-label="Notes"
+                  className="flex flex-col gap-2"
+                >
+                  {notes.map((n) => (
+                    <NoteRow
+                      key={n.id}
+                      note={n}
+                      state={state}
+                      chips={{ meeting: true, task: true }}
+                    />
+                  ))}
+                </ul>
               )}
             </div>
           </Section>

@@ -4,7 +4,9 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  noteAction,
   openLive,
+  openNoteRow,
   openNotes,
   SEED,
   test,
@@ -80,18 +82,20 @@ test('running notes on a task: add, edit and delete from its panel', async ({
   await notes.getByRole('button', { name: 'Save note' }).click();
   await expect(box).toBeHidden();
 
-  // Newest first, rendered.
-  const items = notes.getByRole('listitem');
+  // Newest first, compact rows (#273); opened, rendered.
+  const items = notes.locator('li[data-note-id]');
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('Redline is back');
+  await expect(items.nth(0).locator('strong')).toHaveCount(0);
+  await openNoteRow(items.nth(0));
   await expect(items.nth(0).locator('strong')).toHaveText('back');
   await expect(items.nth(1)).toContainText('Pinged legal');
 
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Edit in place.
-  await items.nth(1).getByRole('button', { name: /^Edit/ }).click();
+  // Edit in place, from the row's menu.
+  await noteAction(items.nth(1), 'Edit');
   const edit = panel.getByRole('combobox', { name: 'Edit note' });
   await expect(edit).toBeFocused();
   await edit.fill('Pinged legal again');
@@ -100,10 +104,7 @@ test('running notes on a task: add, edit and delete from its panel', async ({
   await expect(items.nth(1)).toContainText('edited');
 
   // Delete, with Undo offered.
-  await items
-    .nth(0)
-    .getByRole('button', { name: /^Delete/ })
-    .click();
+  await noteAction(items.nth(0), 'Delete');
   await expect(items).toHaveCount(1);
   await expect(page.getByText('Deleted the note')).toBeVisible();
 

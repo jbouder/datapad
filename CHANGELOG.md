@@ -119,6 +119,11 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Compact notes on project, meeting and task pages** (#273): each note
+  is a short row, its time and first two lines, that opens in place to
+  the whole note. Edit, Pin, Make task, Summarize, Save as template and
+  Delete are in the row's ⋯ menu, on meeting and task notes too. A link
+  to a note (a task's "From note") opens its row. Notes keeps its cards.
 - **One set of header actions on detail pages**: a project's, a meeting's
   and a task's page now show the same few buttons, the state action when
   there is one (Close or Reopen on a task), Edit, then a More menu (⋯)

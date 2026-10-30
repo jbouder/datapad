@@ -4,7 +4,10 @@ import {
   expect,
   expectAccessible,
   expectSaved,
+  noteAction,
+  noteRow,
   openLive,
+  openNoteRow,
   openNotes,
   SEED,
   test,
@@ -118,13 +121,13 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  const notes = page.locator('article[data-note-id]');
+  const notes = page.locator('li[data-note-id]');
   // Pinned first.
   await expect(notes.first()).toContainText('Standup');
 
-  const prep = card(page, 'Bring the power budget');
-  await prep.getByRole('button', { name: 'Pin' }).click();
-  await card(page, 'Standup').getByRole('button', { name: 'Unpin' }).click();
+  // Pin and Unpin are in each row's ⋯ menu (#273).
+  await noteAction(noteRow(page, 'Bring the power budget'), 'Pin');
+  await noteAction(noteRow(page, 'Standup'), 'Unpin');
   await expect(notes.first()).toContainText('Bring the power budget');
 
   await page.goto('/notes?view=list&pinned=1');
@@ -132,8 +135,8 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   await page.goto('/projects/p-echo');
 
   // Edit: mentions come back as names, and are tokens again on save.
-  const standup = card(page, 'Standup');
-  await standup.getByRole('button', { name: 'Edit' }).click();
+  const standup = noteRow(page, 'Standup');
+  await noteAction(standup, 'Edit');
   const editor = standup.getByRole('combobox', { name: 'Edit note' });
   await expect(editor).toHaveValue(/@Chewbacca has the hangar keys/);
   await editor.evaluate((el: HTMLTextAreaElement) =>
@@ -142,6 +145,7 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   await page.keyboard.type(' Ask @Han');
   await page.keyboard.press('Enter');
   await standup.getByRole('button', { name: 'Save note' }).click();
+  await openNoteRow(standup);
   await expect(standup.locator('.mention')).toHaveText([
     '@Chewbacca',
     '@Han Solo',
@@ -230,7 +234,7 @@ test('Add note on a project page opens the panel, preset to it', async ({
   await page.keyboard.type('Swap the motivator');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(panel).toBeHidden();
-  await expect(card(page, 'Swap the motivator')).toBeVisible();
+  await expect(noteRow(page, 'Swap the motivator')).toBeVisible();
   await expect(add).toBeFocused();
 });
 
@@ -305,7 +309,7 @@ test('writes a note from anywhere, into the project you are on', async ({
   await expect(
     page.getByText('Added a note to Falcon hyperdrive refit'),
   ).toBeVisible();
-  await expect(card(page, 'Check the coolant lines')).toBeVisible();
+  await expect(noteRow(page, 'Check the coolant lines')).toBeVisible();
 
   await expectSaved(page);
   const data = await stored(request);

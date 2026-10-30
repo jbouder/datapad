@@ -361,7 +361,7 @@ export function TaskPanel({
         <LinkedNoteList
           notes={notesOfTask(state.notes, task.id)}
           fields={{ projectId: task.projectId, taskId: task.id }}
-          people={state.people}
+          state={state}
           label={`New note on “${task.title}”`}
           draftKey={`datapad:draft:note:task:${task.id}`}
         />

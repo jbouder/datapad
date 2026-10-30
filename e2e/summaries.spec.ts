@@ -5,6 +5,7 @@ import {
   expectSaved,
   moreAction,
   moreActions,
+  noteAction,
   openLive,
   openNotes,
   SEED,
@@ -157,7 +158,7 @@ test('streams a summary, copies it and saves it as a note', async ({
   // The model stays loaded: the next summary starts at once.
   await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: 'Summarize note' }).first().click();
+  await noteAction(page.locator('li[data-note-id]').first(), 'Summarize');
   const second = page.getByRole('dialog', { name: /^Summary · note of / });
   await expect(second.getByText('Shields due soon')).toBeVisible();
 });

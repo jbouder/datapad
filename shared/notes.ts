@@ -1,4 +1,5 @@
 import { localDate } from './dates';
+import { type Inline, parseMarkdown } from './markdown';
 import { tokensToNames } from './mentions';
 import type { DateString, Note, Snapshot } from './types';
 
@@ -137,4 +138,68 @@ export function taskTitleFrom(
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .trim()
     .slice(0, 200);
+}
+
+/** How many lines `notePreview()` keeps; a row shows two of them. */
+const PREVIEW_LINES = 6;
+
+function plainInline(nodes: Inline[], people: Snapshot['people']): string {
+  return nodes
+    .map((n) => {
+      switch (n.t) {
+        case 'text':
+        case 'code':
+          return n.v;
+        case 'mention':
+          return `@${people[n.id]?.name ?? 'unknown'}`;
+        default:
+          return plainInline(n.c, people);
+      }
+    })
+    .join('');
+}
+
+/**
+ * A note's first lines as plain text, for a compact row (#273): Markdown
+ * marks stripped, mentions as `@Name`, list items kept as `•`, `1.`, `☐`
+ * or `☑`, blank lines and dividers left out. Lines are joined with `\n`
+ * (at most six); the row clamps them to two.
+ */
+export function notePreview(body: string, people: Snapshot['people']): string {
+  const out: string[] = [];
+  const push = (line: string) => {
+    const clean = line.replace(/\s+/g, ' ').trim();
+    if (clean && out.length < PREVIEW_LINES) out.push(clean);
+  };
+  for (const b of parseMarkdown(body)) {
+    if (out.length >= PREVIEW_LINES) break;
+    switch (b.t) {
+      case 'h':
+        push(plainInline(b.c, people));
+        break;
+      case 'p':
+      case 'quote':
+        for (const l of b.lines) push(plainInline(l, people));
+        break;
+      case 'ul':
+        for (const item of b.items) push(`• ${plainInline(item, people)}`);
+        break;
+      case 'ol':
+        b.items.forEach((item, i) => {
+          push(`${b.start + i}. ${plainInline(item, people)}`);
+        });
+        break;
+      case 'check':
+        for (const item of b.items) {
+          push(`${item.checked ? '☑' : '☐'} ${plainInline(item.c, people)}`);
+        }
+        break;
+      case 'code':
+        for (const l of b.text.split('\n')) push(l);
+        break;
+      default:
+        break;
+    }
+  }
+  return out.join('\n');
 }

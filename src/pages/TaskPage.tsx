@@ -249,7 +249,7 @@ export function TaskPage({ id }: { id: string }) {
         <LinkedNoteList
           notes={notes}
           fields={{ projectId: task.projectId, taskId: task.id }}
-          people={state.people}
+          state={state}
           label={`New note on “${task.title}”`}
           draftKey={`datapad:draft:note:task:${task.id}`}
           headingLevel={2}
