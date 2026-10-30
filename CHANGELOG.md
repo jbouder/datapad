@@ -33,6 +33,18 @@ changes the format says so here under **Export format**.
   looks ahead, 3, 5, 7, 10 or 14 (7 by default), for both the agenda and
   Due. It is saved with the space, and MCP `get_focus` follows it (and
   says which, as `days`).
+- Settings → People → **Assign new tasks to me**: new tasks go to the
+  person marked as you unless you pick someone else. The New task panel
+  starts with you as the assignee, and `/task`, Make task, a meeting's
+  action items and MCP `add_task` without an assignee give you the task.
+  Off by default, saved with the space, and needs someone marked “This is
+  me”.
+
+### Export format
+
+- `settings.user` may carry `assignToMe: true` (Assign new tasks to me).
+  Absent means off, so earlier files import unchanged and older Datapads
+  ignore it.
 
 ## [0.2.0] — 2026-10-30
 

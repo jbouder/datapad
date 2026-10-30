@@ -179,7 +179,10 @@ now is and the activity lines the change wrote (`{ project, text }`,
 | `add_milestone`      | `space`, `project`, `title`, `date`, `today`                                                                           | `addMilestone`                                    |
 
 A `task` is an id or a title (ignoring case, or a unique part of it);
-ids from `list_tasks` are safest.
+ids from `list_tasks` are safest. `add_task` without an `assignee`
+follows Settings → People's **Assign new tasks to me**: on, the task goes
+to the person marked as you; off (the default), to nobody. An
+`assignee`, `unassigned` included, always wins.
 
 **Retries** (#244). Every write tool also takes an optional `requestId`:
 8 to 60 letters, digits, `-` or `_` (a UUID will do). The op goes to the

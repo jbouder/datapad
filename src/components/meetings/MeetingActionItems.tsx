@@ -2,6 +2,7 @@ import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { taskNoteCounts, tasksOfMeeting } from '#shared/select';
+import { defaultAssignee } from '#shared/tasks';
 import type { Meeting } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
@@ -85,6 +86,7 @@ export function MeetingActionItems({
       projectId: meeting.projectId,
       meetingId: meeting.id,
       title,
+      assignee: state ? defaultAssignee(state) : '',
     });
     if (id === null) return;
     setDraft('');

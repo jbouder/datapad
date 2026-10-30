@@ -1,7 +1,32 @@
 import { addDays, endOfWeek } from './dates';
 import type { Op } from './protocol';
-import { type AssigneeFilter, matchesAssignee, PRIORITY_RANK } from './select';
-import { blockedOf, type DateString, type Snapshot, type Task } from './types';
+import {
+  type AssigneeFilter,
+  matchesAssignee,
+  meId,
+  PRIORITY_RANK,
+} from './select';
+import {
+  blockedOf,
+  type DateString,
+  type Snapshot,
+  settingsOf,
+  type Task,
+} from './types';
+
+/**
+ * Who a new task goes to when nobody is picked: the person marked as you
+ * when Settings → People's "Assign new tasks to me" is on, else nobody
+ * (''). Every way of adding a task reads it: the New task panel prefills
+ * it, the quick adds (`/task`, Make task, action items) and MCP's
+ * `add_task` use it when no assignee is given.
+ */
+export function defaultAssignee(
+  state: Pick<Snapshot, 'people' | 'settings'>,
+): string {
+  if (!settingsOf(state).assignToMe) return '';
+  return meId(state.people) ?? '';
+}
 
 /** The Tasks view's controls, as kept in the URL. */
 export interface TaskFilters {

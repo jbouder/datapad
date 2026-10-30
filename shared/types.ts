@@ -393,6 +393,12 @@ export const MAIN_SPACE = 'main';
 export interface Settings {
   /** The org a new project starts with; empty for none. */
   defaultOrg: string;
+  /**
+   * New tasks go to the person marked as you unless someone else (or
+   * nobody) is picked. Absent (off) until switched on, so older exports
+   * round-trip unchanged; `defaultAssignee()` in `shared/tasks.ts` reads it.
+   */
+  assignToMe?: boolean;
   /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
   nav?: NavPrefs;
   /**

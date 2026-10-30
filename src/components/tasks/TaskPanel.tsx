@@ -4,6 +4,7 @@ import { formatDay, formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { notesOfTask } from '#shared/select';
+import { defaultAssignee } from '#shared/tasks';
 import {
   blockedOf,
   type Link,
@@ -414,7 +415,7 @@ export function TaskPanel({
 export function NewTaskPanel({
   projectId,
   title = '',
-  assignee = '',
+  assignee,
   meetingId,
   open,
   onClose,
@@ -423,7 +424,10 @@ export function NewTaskPanel({
   projectId: string | null;
   /** Prefilled (a meeting topic's Make a task). */
   title?: string;
-  /** Preset (Tasks filtered to someone). */
+  /**
+   * Preset (Tasks filtered to someone, or to nobody: ''). Absent, it is
+   * `defaultAssignee()`: you, when Settings → People says so.
+   */
   assignee?: string;
   /**
    * An action item of this meeting (a topic's Make a task): it goes in
@@ -443,7 +447,7 @@ export function NewTaskPanel({
     projectId,
     priority: 'none' as Priority,
     due: '',
-    assignee,
+    assignee: assignee ?? (state ? defaultAssignee(state) : ''),
     desc: '',
   }));
   const [values, setValues] = useState(initial);

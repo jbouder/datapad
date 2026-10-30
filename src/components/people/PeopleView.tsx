@@ -2,8 +2,8 @@ import { ListIcon, PlusIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { findText } from '#shared/pages';
 import { findPeople } from '#shared/people';
-import { peopleStats, statsFor } from '#shared/select';
-import type { Person } from '#shared/types';
+import { meId, peopleStats, statsFor } from '#shared/select';
+import { type Person, settingsOf } from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { FindField } from '@/components/inputs/FindField';
 import { CardGrid } from '@/components/layouts/CardGrid';
@@ -20,10 +20,12 @@ import {
 import { PersonDetail, YouTag } from '@/components/people/PersonDetail';
 import { PersonForm } from '@/components/people/PersonForm';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
 import { linkProps, navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 type PeopleLayout = 'list' | 'cards';
 
@@ -34,6 +36,52 @@ export const PEOPLE_VIEWS: readonly ViewOption<PeopleLayout>[] = [
 
 function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * "Assign new tasks to me": synced with the space's settings. It needs
+ * someone marked as you, so it is off and disabled until there is one;
+ * left on after the mark goes, it says new tasks go to nobody.
+ */
+function AssignToMe() {
+  const { state, actions } = useDatapad();
+  const { show } = useToast();
+  if (!state) return null;
+  const on = settingsOf(state).assignToMe === true;
+  const me = meId(state.people);
+  const name = me ? state.people[me]?.name : undefined;
+  const hint = !name
+    ? on
+      ? 'Nobody is marked as you, so new tasks go to nobody. Edit yourself and tick “This is me”.'
+      : 'Mark yourself first: edit your record and tick “This is me”.'
+    : on
+      ? `New tasks go to ${name} unless you pick someone else.`
+      : 'New tasks go to nobody unless you pick someone.';
+  return (
+    <label
+      htmlFor="assign-to-me"
+      className="flex min-h-11 items-center justify-between gap-4 text-sm desk:min-h-8"
+    >
+      <span className="flex flex-col">
+        <span className="font-medium">Assign new tasks to me</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      </span>
+      <Switch
+        id="assign-to-me"
+        checked={on}
+        disabled={!on && !name}
+        onCheckedChange={(next) => {
+          if (actions.setSettings({ patch: { assignToMe: next } })) {
+            show(
+              next
+                ? `New tasks go to ${name ?? 'you'}`
+                : 'New tasks go to nobody',
+            );
+          }
+        }}
+      />
+    </label>
+  );
 }
 
 /** Which person the form is for: someone to edit, or `null` for new. */
@@ -108,6 +156,8 @@ export function PeopleView({ selected }: { selected?: string }) {
           Add person
         </Button>
       </div>
+
+      <AssignToMe />
 
       {everyone.length === 0 ? (
         <p className="text-state">

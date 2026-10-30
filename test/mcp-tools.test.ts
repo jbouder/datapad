@@ -943,6 +943,29 @@ describe('the write tools', () => {
     );
   });
 
+  it('add_task with no assignee follows "Assign new tasks to me"', async () => {
+    const ctx = await writer();
+    const off = await call(ctx, 'add_task', { title: 'Sweep the hangar' });
+    expect(off.task.assignee).toBeNull();
+    const on = await ctx.datapad.import(MAIN_SPACE, {
+      settings: { user: { defaultOrg: '', assignToMe: true } },
+    });
+    expect(on.ok).toBe(true);
+    const mine = await call(ctx, 'add_task', { title: 'Check the shields' });
+    expect(mine.task.assignee).toEqual({ id: 'u-leia', name: 'Leia Organa' });
+    // Naming someone, or nobody, still wins.
+    const han = await call(ctx, 'add_task', {
+      title: 'Fix the hyperdrive',
+      assignee: 'Han Solo',
+    });
+    expect(han.task.assignee.id).toBe('u-han');
+    const nobody = await call(ctx, 'add_task', {
+      title: 'Restock rations',
+      assignee: 'unassigned',
+    });
+    expect(nobody.task.assignee).toBeNull();
+  });
+
   it('complete_task and reopen_task, idempotent', async () => {
     const ctx = await writer();
     const done = await call(ctx, 'complete_task', { task: 't-1' });
