@@ -141,7 +141,7 @@ test('sorting, filters and Back, all in the URL', async ({ page }) => {
   await expect(titles).toHaveText(['Find a replacement motivator']);
 });
 
-test('Add task on Mine assigns to you; ⌘A and Esc', async ({
+test('Add task on Mine starts with the default assignee; ⌘A and Esc', async ({
   page,
   request,
 }) => {
@@ -152,21 +152,19 @@ test('Add task on Mine assigns to you; ⌘A and Esc', async ({
     .getByRole('button', { name: 'Add task' })
     .click();
   const panel = page.getByRole('dialog', { name: 'New task' });
+  // The filter does not pick the assignee: Assign new tasks to me is off.
   await expect(panel.getByRole('combobox', { name: 'Assignee' })).toHaveValue(
-    'Leia Organa',
+    'Unassigned',
   );
   await panel.getByLabel('Title').fill('Brief the pilots');
   await panel.getByRole('button', { name: 'Add task' }).click();
   await expect(panel).toBeHidden();
-  await expect(table(page).locator('[data-task-title]')).toContainText([
-    'Brief the pilots',
-  ]);
   await expectSaved(page);
   const data = await (await request.get('/api/export.json')).json();
   const added = Object.values(data.tasks).find(
     (t) => (t as { title: string }).title === 'Brief the pilots',
   ) as { assignee: string };
-  expect(added.assignee).toBe('u-leia');
+  expect(added.assignee).toBe('');
 
   await table(page).locator('tr[data-row-id]').first().focus();
   await page.keyboard.press('ControlOrMeta+a');

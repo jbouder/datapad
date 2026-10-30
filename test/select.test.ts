@@ -11,7 +11,6 @@ import { reduce } from '#shared/reducer';
 import {
   activeProjects,
   agenda,
-  assigneeFor,
   assigneeFromQuery,
   assigneeToQuery,
   byPriority,
@@ -675,16 +674,6 @@ describe('assignee filter in the URL', () => {
     expect(assigneeFromQuery(null)).toEqual({ kind: 'anyone' });
     expect(assigneeFromQuery('p:')).toEqual({ kind: 'anyone' });
     expect(assigneeFromQuery('someone')).toEqual({ kind: 'anyone' });
-  });
-
-  it('pre-assigns quick-added tasks to Mine or the person', () => {
-    expect(assigneeFor({ kind: 'mine' }, 'u-leia')).toBe('u-leia');
-    expect(assigneeFor({ kind: 'mine' }, null)).toBe('');
-    expect(assigneeFor({ kind: 'person', id: 'u-han' }, 'u-leia')).toBe(
-      'u-han',
-    );
-    expect(assigneeFor({ kind: 'unassigned' }, 'u-leia')).toBe('');
-    expect(assigneeFor({ kind: 'anyone' }, 'u-leia')).toBe('');
   });
 });
 

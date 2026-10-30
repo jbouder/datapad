@@ -26,6 +26,10 @@ changes the format says so here under **Export format**.
 - Focus's Due shows every open High priority task, whatever its due
   date: one due after the window, or with no date, is in High priority
   too, in Day and Week. MCP `get_focus` returns those as `due.high`.
+- Add task on Tasks starts with the default assignee (you, with Assign
+  new tasks to me on; else nobody) even when Tasks is filtered by
+  Assignee, like every other way of adding a task. It used to start with
+  the filtered person.
 
 ### Added
 

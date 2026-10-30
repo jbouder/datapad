@@ -157,13 +157,6 @@ export function assigneeToQuery(filter: AssigneeFilter): string {
   return filter.kind === 'person' ? `p:${filter.id}` : filter.kind;
 }
 
-/** Who a task quick-added under the filter goes to ('' = nobody). */
-export function assigneeFor(filter: AssigneeFilter, me: string | null): string {
-  if (filter.kind === 'mine') return me ?? '';
-  if (filter.kind === 'person') return filter.id;
-  return '';
-}
-
 export function matchesAssignee(
   task: Task,
   filter: AssigneeFilter,
