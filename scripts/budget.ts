@@ -17,8 +17,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
-/** Gzipped kilobytes (1 KB = 1000 bytes, as Vite reports them). */
-const BUDGET_KB = { js: 385, css: 28 };
+/**
+ * Gzipped kilobytes (1 KB = 1000 bytes, as Vite reports them). JS went
+ * from 385 to 390 with #268: DetailActions is shared by ProjectPage (in
+ * the entry) and the lazy meeting and task pages, and Rolldown now splits
+ * the entry into more chunks, which gzip less well than one; the
+ * component itself is about 1 KB.
+ */
+const BUDGET_KB = { js: 390, css: 28 };
 
 /**
  * Strings only WebLLM's own code holds: its TVM runtime and its cache's
