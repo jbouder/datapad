@@ -2,7 +2,9 @@ import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import { localDate } from '#shared/dates';
 import { type MeetingFilters, selectMeetings } from '#shared/meetings';
+import { FindField } from '@/components/inputs/FindField';
 import { SelectField } from '@/components/inputs/SelectField';
+import { ListToolbar, useListFilters } from '@/components/layouts/ListToolbar';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import {
@@ -18,21 +20,22 @@ import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 /**
  * The view's controls, from the URL so Back restores them, over what is
- * saved for the page.
+ * saved for the page (never the Find text).
  */
 function useMeetingFilters(query: URLSearchParams): MeetingFilters {
   const value = query.toString();
   return useMemo(() => {
     const q = new URLSearchParams(value);
-    return { project: q.get('project') ?? '' };
+    return { project: q.get('project') ?? '', q: q.get('q') ?? '' };
   }, [value]);
 }
 
 /**
  * Every meeting as a List (upcoming by month, then Past, collapsed), a
- * Calendar or a Timeline. Add meeting (any project, or General) and a
- * project filter; the filter and layout live in the URL and are saved for
- * the page (#186).
+ * Calendar or a Timeline. Add meeting (any project, or General), then the
+ * list toolbar (#271): Find (title, agenda, topics, attendees) and a
+ * project filter. Filters and layout live in the URL, and all but Find
+ * are saved for the page (#186).
  */
 export function MeetingsPage() {
   usePageTitle('Meetings');
@@ -50,9 +53,10 @@ export function MeetingsPage() {
       }),
     [active, changePage],
   );
+  const listFilters = useListFilters('meetings', query, changeQuery);
 
   const meetings = useMemo(
-    () => (state ? selectMeetings(state.meetings, filters) : []),
+    () => (state ? selectMeetings(state.meetings, filters, state.people) : []),
     [state, filters],
   );
 
@@ -65,7 +69,6 @@ export function MeetingsPage() {
     (a, b) =>
       Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name),
   );
-  const filtered = Boolean(filters.project);
   const filterProject =
     filters.project && filters.project !== 'general' ? filters.project : null;
 
@@ -88,21 +91,31 @@ export function MeetingsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 desk:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] desk:items-end">
-        <SelectField
-          label="Project"
-          value={filters.project || 'all'}
-          options={[
-            { value: 'all', label: 'All projects' },
-            { value: 'general', label: 'General' },
-            ...projects.map((p) => ({
-              value: p.id,
-              label: p.archived ? `${p.name} (archived)` : p.name,
-            })),
-          ]}
-          onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
-        />
-      </div>
+      <ListToolbar
+        state={listFilters}
+        find={
+          <FindField
+            value={filters.q ?? ''}
+            placeholder="Title, agenda, topic or attendee"
+            onChange={(q) => changePage({ q: q || null }, { replace: true })}
+          />
+        }
+        filters={
+          <SelectField
+            label="Project"
+            value={filters.project || 'all'}
+            options={[
+              { value: 'all', label: 'All projects' },
+              { value: 'general', label: 'General' },
+              ...projects.map((p) => ({
+                value: p.id,
+                label: p.archived ? `${p.name} (archived)` : p.name,
+              })),
+            ]}
+            onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
+          />
+        }
+      />
 
       <MeetingLayouts
         view={view}
@@ -110,12 +123,11 @@ export function MeetingsPage() {
         state={state}
         today={today}
         projectId={filterProject}
+        filters={listFilters}
         empty={
           meetings.length === 0
-            ? filtered
-              ? 'No meetings match.'
-              : 'No meetings yet. Add a meeting.'
-            : filtered
+            ? 'No meetings yet. Add a meeting.'
+            : listFilters.filtered
               ? 'Nothing coming up that matches.'
               : 'Nothing coming up.'
         }

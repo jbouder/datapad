@@ -12,6 +12,7 @@ import {
   topicsOf,
 } from '#shared/types';
 import { Calendar } from '@/components/layouts/Calendar';
+import { ListEmpty, type ListFilters } from '@/components/layouts/ListToolbar';
 import { Timeline } from '@/components/layouts/Timeline';
 import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
@@ -51,13 +52,18 @@ interface Props {
   today: DateString;
   /** The project a new meeting starts in (the page's filter). */
   projectId: string | null;
+  /** The page's filters: when they leave nothing, every layout says so. */
+  filters: ListFilters;
+  /** The List's words when nothing is coming up. */
   empty: string;
 }
 
 /**
  * The same meetings as a List (by month, Past collapsed), a Calendar (a
  * month, or a week on phones; click a day to add) or a Timeline (a lane
- * per project). The page's filters apply to all three.
+ * per project). The page's filters apply to all three, and when they
+ * leave nothing, each shows "None match these filters." with Clear
+ * filters instead (#271).
  */
 export function MeetingLayouts({
   view,
@@ -65,11 +71,16 @@ export function MeetingLayouts({
   state,
   today,
   projectId,
+  filters,
   empty,
 }: Props) {
   const { newMeeting } = useMeetingForm();
   const clock = useClock();
   const open = (id: string) => navigate({ name: 'meeting', id });
+
+  if (meetings.length === 0 && filters.filtered) {
+    return <ListEmpty state={filters}>{empty}</ListEmpty>;
+  }
 
   if (view === 'calendar') {
     const byId = new Map(meetings.map((e) => [e.id, e]));

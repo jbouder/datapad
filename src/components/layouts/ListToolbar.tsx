@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useDesk } from '@/hooks/useMediaQuery';
+import { cn } from '@/lib/utils';
 
 export interface ListFilters {
   /** Filters away from the page's defaults (not Find, not the sort). */
@@ -51,7 +52,8 @@ export function useListFilters(
  * desktop they sit in one row that wraps; on phones it is Find and a
  * Filters (n) button whose bottom sheet holds the filters and Sort, with
  * Clear filters and Done. The controls render once, in whichever is
- * showing.
+ * showing. A page that is not a list (Focus, #271) has filters and no
+ * Find.
  */
 export function ListToolbar({
   find,
@@ -59,8 +61,8 @@ export function ListToolbar({
   sort,
   state,
 }: {
-  /** The page's `FindField`. */
-  find: ReactNode;
+  /** The page's `FindField`; none on a page that is not a list. */
+  find?: ReactNode;
   /** The page's filter controls (`SelectField`, `Segmented`), in order. */
   filters?: ReactNode;
   /** The page's `SortField`, when it has one here. */
@@ -83,9 +85,14 @@ export function ListToolbar({
   if (desk) {
     return (
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-48 flex-[2_1_14rem]">{find}</div>
+        {find && <div className="min-w-48 flex-[2_1_14rem]">{find}</div>}
         {more && (
-          <div className="contents *:min-w-36 *:flex-[1_1_10rem]">
+          <div
+            className={cn(
+              'contents *:min-w-36 *:flex-[1_1_10rem]',
+              !find && '*:max-w-56',
+            )}
+          >
             {filters}
             {sort}
           </div>
@@ -97,7 +104,7 @@ export function ListToolbar({
 
   return (
     <div className="flex items-end gap-2">
-      <div className="min-w-0 flex-1">{find}</div>
+      {find && <div className="min-w-0 flex-1">{find}</div>}
       {more && (
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger

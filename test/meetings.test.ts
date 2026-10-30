@@ -98,6 +98,43 @@ describe('selecting meetings', () => {
     expect(ids('p9')).toEqual([]);
   });
 
+  it('finds by title, agenda, topic titles and attendees by name', () => {
+    const people = {
+      x: { id: 'x', name: 'Ada Quill', role: '', me: false },
+      y: { id: 'y', name: 'Bo Reed', role: '', me: false },
+    };
+    const found = {
+      t: meeting('t', { title: 'Roadmap review', projectId: 'p1' }),
+      n: meeting('n', {
+        note: 'Budget before the offsite',
+        date: '2026-10-28',
+      }),
+      k: meeting('k', {
+        date: '2026-10-29',
+        topics: [{ id: 'k1', title: 'Hiring plan', done: false, outcome: '' }],
+      }),
+      a: meeting('a', { date: '2026-10-30', attendees: ['x'] }),
+      m: meeting('m', { date: '2026-10-31', note: 'Ask @{y} first' }),
+    };
+    const ids = (q: string, project = '') =>
+      selectMeetings(found, { project, q }, people).map((m) => m.id);
+    expect(ids('ROADMAP')).toEqual(['t']);
+    expect(ids('offsite')).toEqual(['n']);
+    expect(ids('hiring')).toEqual(['k']);
+    expect(ids('quill')).toEqual(['a']);
+    expect(ids('@bo')).toEqual(['m']);
+    // Every word, in any field.
+    expect(ids('budget offsite')).toEqual(['n']);
+    expect(ids('budget hiring')).toEqual([]);
+    // With the project filter, and blank text matching all.
+    expect(ids('roadmap', 'general')).toEqual([]);
+    expect(ids('   ')).toEqual(['t', 'n', 'k', 'a', 'm']);
+    // Without people, an attendee has no name to find.
+    expect(
+      selectMeetings(found, { project: '', q: 'quill' }).map((m) => m.id),
+    ).toEqual([]);
+  });
+
   it("lists one project's meetings", () => {
     expect(projectMeetings(meetings, 'p1').map((m) => m.id)).toEqual([
       'a',
