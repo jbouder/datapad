@@ -24,9 +24,12 @@ import { gzipSync } from 'node:zlib';
  * the entry into more chunks, which gzip less well than one; the
  * component itself is about 1 KB. Then to 392 with #269: the shared list
  * toolbar (Find, the Filters sheet, Sort, the filter count) is about
- * 2 KB, and Tasks and Notes, which use it, are in the entry.
+ * 2 KB, and Tasks and Notes, which use it, are in the entry. Then to
+ * 393 with #273: the compact note row and its plain-text preview, on the
+ * project page in the entry (about 1 KB, half of it offset by sharing
+ * NoteCard's parts).
  */
-const BUDGET_KB = { js: 392, css: 28 };
+const BUDGET_KB = { js: 393, css: 28 };
 
 /**
  * Strings only WebLLM's own code holds: its TVM runtime and its cache's
