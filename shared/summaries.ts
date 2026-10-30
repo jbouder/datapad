@@ -692,8 +692,8 @@ export type SummaryTarget =
   | { kind: 'note'; id: string }
   /** The seven days ending `toDay` (the Digest page). */
   | { kind: 'digest'; toDay: string }
-  /** Focus's Brief me (#259): `today`, under Focus's assignee filter. */
-  | { kind: 'brief'; today: DateString; assignee: AssigneeFilter };
+  /** Focus's Brief me (#259): `today`, everyone's tasks. */
+  | { kind: 'brief'; today: DateString };
 
 export interface SummaryRequest {
   /** "Echo Base", "Shield review", "note of Wed 21 Oct 2026". */
@@ -760,7 +760,7 @@ export function summaryRequest(
     case 'brief':
       return {
         label: briefLabel(target.today),
-        context: briefContext(state, target.today, target.assignee),
+        context: briefContext(state, target.today),
         projectId: null,
         meetingId: null,
         prompt: BRIEF_PROMPT,

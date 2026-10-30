@@ -98,23 +98,11 @@ test('its rows open what they name', async ({ page }) => {
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
 });
 
-test('Week shows the same; Mine narrows Closed and Added', async ({ page }) => {
+test('Week shows the same', async ({ page }) => {
   await openLive(page, '/?view=week');
   await expect(page.locator('[data-recap-line]')).toHaveText(
     `${label()}: 1 closed · 2 added · 1 meeting · 1 note`,
   );
-
-  await openLive(page, '/?view=week&who=mine');
-  // Leia is me: the ice caves are hers; nobody's blankets and tanks are not.
-  await expect(page.locator('[data-recap-line]')).toHaveText(
-    `${label()}: 1 added · 1 meeting · 1 note`,
-  );
-  await expect(
-    page.getByRole('list', { name: 'Added' }).getByRole('listitem'),
-  ).toHaveText([/Map the ice caves/]);
-  await expect(
-    recap(page).getByRole('heading', { name: /^Closed/ }),
-  ).toHaveCount(0);
 });
 
 test('it closes and stays closed', async ({ page }) => {

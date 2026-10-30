@@ -128,15 +128,6 @@ test('streams a brief of yesterday and today from Focus’s facts', async ({
   await expectAccessible(page);
 });
 
-test('the assignee filter narrows what it is sent', async ({ page }) => {
-  await fakeModel(page, ['Only yours.']);
-  await openLive(page, '/?who=mine');
-  await brief(page);
-  await expect(card(page).getByText('Only yours.')).toBeVisible();
-  const context = (await lastRequest(page))?.messages[1]?.content ?? '';
-  expect(context).toContain('Tasks are narrowed to my own tasks.');
-});
-
 test('Stop keeps what was written; Regenerate writes it again', async ({
   page,
 }) => {

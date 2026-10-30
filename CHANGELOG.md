@@ -29,7 +29,7 @@ changes the format says so here under **Export format**.
 - **Brief me on Focus** (#259): with summaries on, a Brief me button has
   the on-device model write a short paragraph about the last working day,
   one about today, and up to three things to do first, from what Focus
-  already shows (under its Assignee filter), so the names and counts are
+  already shows, so the names and counts are
   Datapad's. It streams into a card at the top of Focus with Stop,
   Regenerate, Save as note (a General note, "Brief · <day>") and dismiss,
   and stays on this device for the rest of the day, per space, without
@@ -41,7 +41,7 @@ changes the format says so here under **Export format**.
   meetings · 3 notes"); below it, tasks closed and added, meetings held
   with their topics covered, action items and notes, notes written, and
   the other activity lines (health, status, blocked, milestones, 5 per
-  project). The Assignee filter narrows Closed and Added; the section
+  project). The section
   closes and stays closed like the others.
 - **An age limit for the copies kept before a destructive change** (#242):
   set `BEFORE_COPIES_MAX_DAYS` in `wrangler.jsonc` and the nightly backup
@@ -124,6 +124,10 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Focus has no filters**: it always shows everyone's tasks, with no
+  Assignee filter and no `m` shortcut, and Brief me writes about
+  everyone's. Tasks keeps its Assignee filter, and a saved Assignee for
+  Focus is ignored.
 - **Compact notes on project, meeting and task pages** (#273): each note
   is a short row, its time and first two lines, that opens in place to
   the whole note. Edit, Pin, Make task, Summarize, Save as template and

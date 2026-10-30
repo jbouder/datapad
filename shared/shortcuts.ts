@@ -48,11 +48,6 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Anywhere',
   },
   {
-    keys: ['m'],
-    action: 'Show only my tasks, or everyone’s again',
-    scope: 'Focus',
-  },
-  {
     keys: ['j', 'k'],
     action: 'Next / previous task',
     scope: 'Task lists and tables',

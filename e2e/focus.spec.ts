@@ -2,13 +2,10 @@ import type { Page } from '@playwright/test';
 import { addDays, endOfWeek, formatDay } from '../shared/dates';
 import {
   briefingSeed,
-  closeFilters,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
-  isMobile,
-  openFilters,
   openLive,
   test,
   today,
@@ -179,45 +176,25 @@ test('closing a task takes it out of its group', async ({ page }) => {
   );
 });
 
-test('Mine narrows waiting on, follow-ups and due; n opens the new-task panel', async ({
+test('no filters: everyone’s tasks; n opens the new-task panel', async ({
   page,
 }) => {
-  await openLive(page);
+  // An old address with an assignee shows the same as a bare one.
+  await openLive(page, '/?who=mine');
+  const main = page.getByRole('main');
+  await expect(main.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Filters/ })).toHaveCount(0);
+  await expect(main.getByRole('button', { name: 'Clear filters' })).toHaveCount(
+    0,
+  );
+  // `m` does nothing here now.
   await page.locator('body').press('m');
   await expect(page).toHaveURL(/\?who=mine$/);
-  // The filter is in the list toolbar (#271): the phone's Filters (1)
-  // sheet; first on desktop, before the rows' assignee pickers.
-  const filters = await openFilters(page);
-  await expect(
-    filters.getByRole('combobox', { name: 'Assignee' }).first(),
-  ).toContainText('Mine');
-  await expectAccessible(page);
-  await closeFilters(page);
-  if (isMobile(page)) {
-    await expect(
-      page.getByRole('button', { name: 'Filters (1)' }),
-    ).toBeVisible();
-  } else {
-    // No Find: Focus is not a list.
-    await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
-  }
-  // Nothing blocked is Leia's; one action item and the overdue task are.
-  await expect(section(page, 'Waiting on')).toBeHidden();
-  await expect(
-    page
-      .getByRole('list', { name: 'Action items from Shield review' })
-      .getByRole('listitem'),
-  ).toHaveText([/Send the ridge survey/]);
-  await expect(group(page, 'High priority')).toContainText(
-    'Confirm shield generator delivery',
-  );
-  await expect(group(page, 'No priority')).toBeHidden();
-  // Attention, the agenda and the week are everyone's.
-  await expect(section(page, 'Attention')).toBeVisible();
-  await expect(agendaCard(page, 'e-1')).toBeVisible();
+  await expect(section(page, 'Waiting on')).toBeVisible();
   await expect(page.locator('[data-movement]')).toHaveText(
     '1 closed this week · 1 added · 1 overdue',
   );
+  await expectAccessible(page);
 
   // No quick-add: n opens the new-task panel.
   await page.locator('body').press('n');
@@ -232,14 +209,6 @@ test('Mine narrows waiting on, follow-ups and due; n opens the new-task panel', 
     '1 closed this week · 2 added · 1 overdue',
   );
   await expectSaved(page);
-
-  // Reloading keeps the filter; m again goes back to Anyone.
-  await page.reload();
-  await expect(group(page, 'High priority')).toBeVisible();
-  await expect(section(page, 'Waiting on')).toBeHidden();
-  await page.locator('body').press('m');
-  await expect(page).toHaveURL(/\/$/);
-  await expect(section(page, 'Waiting on')).toBeVisible();
 });
 
 test('Week widens the agenda and Due, and nothing else', async ({ page }) => {

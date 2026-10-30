@@ -9,7 +9,6 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { namesToTokens } from '#shared/mentions';
-import type { AssigneeFilter } from '#shared/select';
 import { briefLabel, briefNoteBody } from '#shared/summaries';
 import { Markdown } from '@/components/Markdown';
 import { ModelGate } from '@/components/summary/SummaryPanel';
@@ -37,13 +36,7 @@ function useBriefAvailable(): boolean {
 }
 
 /** Focus's header button: asks the model for today's brief (#259). */
-export function BriefMeButton({
-  today,
-  assignee,
-}: {
-  today: string;
-  assignee: AssigneeFilter;
-}) {
+export function BriefMeButton({ today }: { today: string }) {
   const { summarize } = useSummaries();
   if (!useBriefAvailable()) return null;
   return (
@@ -51,7 +44,7 @@ export function BriefMeButton({
       type="button"
       variant="outline"
       className={BUTTON}
-      onClick={() => summarize({ kind: 'brief', today, assignee })}
+      onClick={() => summarize({ kind: 'brief', today })}
     >
       <SparkleIcon />
       Brief me
@@ -67,13 +60,7 @@ export function BriefMeButton({
  * device per space and per day (`brief-cache.ts`), so it is still here
  * when Focus is opened again today. Leaving Focus stops a run.
  */
-export function BriefCard({
-  today,
-  assignee,
-}: {
-  today: string;
-  assignee: AssigneeFilter;
-}) {
+export function BriefCard({ today }: { today: string }) {
   const summaries = useSummaries();
   const live = useBrief();
   const { state, actions } = useDatapad();
@@ -118,8 +105,7 @@ export function BriefCard({
     !live || live.run.status === 'done' || live.run.status === 'error';
   const label = live?.request.label ?? briefLabel(today);
 
-  const regenerate = () =>
-    summaries.summarize({ kind: 'brief', today, assignee });
+  const regenerate = () => summaries.summarize({ kind: 'brief', today });
 
   const dismiss = () => {
     live?.close();
