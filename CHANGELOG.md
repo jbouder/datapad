@@ -17,6 +17,13 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Changed
+
+- Focus's Week shows tasks due in the next seven days, the same window as
+  its agenda, instead of stopping at Sunday: on a Friday you now see
+  Monday's. MCP `get_focus` returns them as `due.upcoming` (was
+  `due.thisWeek`).
+
 ## [0.2.0] — 2026-10-30
 
 Datapad as an MCP server, so Claude can read and add to it; a morning

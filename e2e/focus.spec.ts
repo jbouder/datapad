@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { addDays, endOfWeek, formatDay } from '../shared/dates';
+import { addDays, formatDay } from '../shared/dates';
 import {
   briefingSeed,
   expect,
@@ -10,9 +10,6 @@ import {
   test,
   today,
 } from './fixtures';
-
-/** Tomorrow is still this week unless today is Sunday. */
-const tomorrowInWeek = () => addDays(today(), 1) <= endOfWeek(today());
 
 const briefing = (page: Page) => page.getByRole('region', { name: 'Briefing' });
 /** One of Due's priority groups (#218): High priority … No priority. */
@@ -229,11 +226,11 @@ test('Week widens the agenda and Due, and nothing else', async ({ page }) => {
   await expect(agendaCard(page, 'e-6').locator('[data-prep]')).toHaveText(
     'no note yet',
   );
-  if (tomorrowInWeek()) {
-    await expect(group(page, 'Low priority')).toContainText(
-      'Renew the docking permit',
-    );
-  }
+  // Due tomorrow, whatever today is: Week looks seven days ahead (a
+  // Friday or a Sunday included), not to the end of the calendar week.
+  await expect(group(page, 'Low priority')).toContainText(
+    'Renew the docking permit',
+  );
   // Every agenda card is one height, whatever it holds (#218).
   const heights = await week
     .getByRole('listitem')

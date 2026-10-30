@@ -142,8 +142,7 @@ const actionItem = (id: string, title: string, fields: Doc): Doc => ({
  *   a Han 1:1 the day after tomorrow (Week only) has no note yet.
  * - Follow-ups: those 2 action items, one Leia's (due tomorrow).
  * - Due: the shield generator (Leia's, 3 days overdue), the tauntaun vet
- *   (today), the docking permit (tomorrow: This week, unless today is
- *   Sunday).
+ *   (today), the docking permit (tomorrow: Week only).
  * - The week: 1 closed (an action item, yesterday), 1 added (the tauntaun
  *   vet), 1 overdue.
  */

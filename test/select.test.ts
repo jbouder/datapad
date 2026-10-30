@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { addDays } from '#shared/dates';
 import {
   DEFAULT_PROJECT_FILTERS,
   projectMatches,
@@ -14,6 +15,7 @@ import {
   assigneeFromQuery,
   assigneeToQuery,
   byPriority,
+  FOCUS_DAYS,
   focusBuckets,
   GENERAL_KEY,
   meId,
@@ -79,14 +81,15 @@ describe('byPriority', () => {
 });
 
 describe('focusBuckets', () => {
-  // Friday 23 October 2026: this week ends on Sunday the 25th.
+  // Friday 23 October 2026: the next seven days run to Thursday the 29th.
   const today = '2026-10-23';
   const state = withTasks(
     { id: 'yesterday', due: '2026-10-22' },
     { id: 'today', due: '2026-10-23' },
     { id: 'tomorrow', due: '2026-10-24' },
-    { id: 'sunday', due: '2026-10-25' },
     { id: 'monday', due: '2026-10-26' },
+    { id: 'thursday', due: '2026-10-29' },
+    { id: 'friday', due: '2026-10-30' },
     { id: 'undated' },
   );
 
@@ -104,12 +107,13 @@ describe('focusBuckets', () => {
     expect(Object.keys(b)[0]).toBe('blocked');
   });
 
-  it('buckets at the day boundaries, this week through Sunday', () => {
+  it('buckets at the day boundaries, upcoming over the next seven days', () => {
     const b = focusBuckets(state.tasks, state.projects, today, null, anyone);
     expect(ids(b.overdue)).toEqual(['yesterday']);
     expect(ids(b.today)).toEqual(['today']);
-    expect(ids(b.thisWeek)).toEqual(['tomorrow', 'sunday']);
-    expect(ids(b.later)).toEqual(['monday']);
+    // A Friday sees next week's Monday, up to a week from today.
+    expect(ids(b.upcoming)).toEqual(['tomorrow', 'monday', 'thursday']);
+    expect(ids(b.later)).toEqual(['friday']);
     expect(ids(b.noDate)).toEqual(['undated']);
   });
 
@@ -123,20 +127,14 @@ describe('focusBuckets', () => {
     );
     expect(ids(b.overdue)).toEqual(['yesterday', 'today']);
     expect(ids(b.today)).toEqual(['tomorrow']);
-    expect(ids(b.thisWeek)).toEqual(['sunday']);
+    expect(ids(b.upcoming)).toEqual(['monday', 'thursday', 'friday']);
+    expect(ids(b.later)).toEqual([]);
   });
 
-  it('on a Sunday this week is empty; Monday starts a new week', () => {
-    const sunday = focusBuckets(
-      state.tasks,
-      state.projects,
-      '2026-10-25',
-      null,
-      anyone,
-    );
-    expect(ids(sunday.today)).toEqual(['sunday']);
-    expect(ids(sunday.thisWeek)).toEqual([]);
-    expect(ids(sunday.later)).toEqual(['monday']);
+  it('agrees with the agenda on how far ahead Week looks', () => {
+    const b = focusBuckets(state.tasks, state.projects, today, null, anyone);
+    expect(FOCUS_DAYS).toBe(7);
+    expect(b.upcoming.at(-1)?.due).toBe(addDays(today, FOCUS_DAYS - 1));
   });
 
   it('leaves out done tasks and archived projects, and filters by assignee', () => {

@@ -1,4 +1,4 @@
-import { addDays, dayOf, daysBetween, endOfWeek, formatDay } from './dates';
+import { addDays, dayOf, daysBetween, formatDay } from './dates';
 import { byWhen, previousMeeting } from './meetings';
 import { nextMilestone } from './milestones';
 import {
@@ -181,10 +181,13 @@ export function matchesAssignee(
   }
 }
 
+/** Focus's Week looks this many days ahead, today included. */
+export const FOCUS_DAYS = 7;
+
 /**
  * Every open task by when it is due. Focus's Due shows Overdue, Today and
- * This week (blocked tasks are in its Waiting on, `waitingOn`); the rail
- * counts them all.
+ * Upcoming in Week (blocked tasks are in its Waiting on, `waitingOn`); the
+ * rail counts them all.
  */
 export interface FocusBuckets {
   /** Waiting on someone, whatever the date. */
@@ -192,9 +195,12 @@ export interface FocusBuckets {
   /** Due before today. */
   overdue: Task[];
   today: Task[];
-  /** After today, up to and including this week's Sunday. */
-  thisWeek: Task[];
-  /** After this week's Sunday. */
+  /**
+   * After today, within `FOCUS_DAYS` of it: the same rolling window as
+   * the agenda, so a Friday sees Monday.
+   */
+  upcoming: Task[];
+  /** After that. */
   later: Task[];
   noDate: Task[];
 }
@@ -222,12 +228,12 @@ export const focusBuckets = lastCall(
     me: string | null,
     filter: AssigneeFilter,
   ): FocusBuckets => {
-    const sunday = endOfWeek(today);
+    const last = addDays(today, FOCUS_DAYS - 1);
     const buckets: FocusBuckets = {
       blocked: [],
       overdue: [],
       today: [],
-      thisWeek: [],
+      upcoming: [],
       later: [],
       noDate: [],
     };
@@ -239,7 +245,7 @@ export const focusBuckets = lastCall(
       else if (t.due === '') buckets.noDate.push(t);
       else if (t.due < today) buckets.overdue.push(t);
       else if (t.due === today) buckets.today.push(t);
-      else if (t.due <= sunday) buckets.thisWeek.push(t);
+      else if (t.due <= last) buckets.upcoming.push(t);
       else buckets.later.push(t);
     }
     for (const list of Object.values(buckets)) list.sort(byDueThenPriority);
@@ -307,7 +313,7 @@ export const agenda = lastCall(
     projects: Projects,
     today: DateString,
   ): AgendaItem[] => {
-    const last = addDays(today, 6);
+    const last = addDays(today, FOCUS_DAYS - 1);
     const soon = (date: DateString) => date >= today && date <= last;
     const items: AgendaItem[] = [];
     for (const m of Object.values(meetings)) {

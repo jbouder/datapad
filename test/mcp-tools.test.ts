@@ -262,7 +262,7 @@ describe('the read tools', () => {
     const ctx = await seeded();
     const out = await call(ctx, 'get_focus', { today: TODAY });
     expect(ids(out.due.overdue.items)).toEqual(['t-1']);
-    expect(ids(out.due.thisWeek.items)).toEqual(['t-5', 't-4']);
+    expect(ids(out.due.upcoming.items)).toEqual(['t-5', 't-4']);
     expect(out.due.noDate).toBe(1);
     expect(out.waitingOn).toHaveLength(1);
     expect(out.waitingOn[0].person).toEqual({ id: 'u-han', name: 'Han Solo' });
@@ -278,7 +278,7 @@ describe('the read tools', () => {
       assignee: 'Han Solo',
     });
     expect(ids(han.due.overdue.items)).toEqual([]);
-    expect(ids(han.due.thisWeek.items)).toEqual(['t-5']);
+    expect(ids(han.due.upcoming.items)).toEqual(['t-5']);
   });
 
   describe('get_recap (#260)', () => {
