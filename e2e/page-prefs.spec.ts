@@ -1,8 +1,11 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import {
+  chooseFilter,
+  closeFilters,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  openFilters,
   openLive,
   SEED,
   test,
@@ -36,8 +39,14 @@ async function expectStored(
     .toEqual(expected);
 }
 
-const groupBy = (page: Page) =>
-  page.getByRole('combobox', { name: 'Group by' });
+/** Tasks' Group by shows `text` (in the Filters sheet on phones). */
+async function expectGroupBy(page: Page, text: string) {
+  const filters = await openFilters(page);
+  await expect(
+    filters.getByRole('combobox', { name: 'Group by' }),
+  ).toContainText(text);
+  await closeFilters(page);
+}
 
 async function choose(page: Page, label: string, option: string) {
   await page.getByRole('combobox', { name: label }).click();
@@ -76,11 +85,13 @@ test('a change saves itself and comes back on reload and another device', async 
   email,
 }) => {
   await openLive(page, '/tasks');
-  await choose(page, 'Group by', 'Due date');
-  await page
-    .getByRole('group', { name: 'Show' })
+  await chooseFilter(page, 'Group by', 'Due date');
+  const filters = await openFilters(page);
+  await filters
+    .getByRole('group', { name: 'Status' })
     .locator('label', { hasText: 'All' })
     .click();
+  await closeFilters(page);
   await pickLayout(page, 'Board');
   await expect(page).toHaveURL(/group=due/);
   // The changes go out together, a moment after the last one.
@@ -92,23 +103,26 @@ test('a change saves itself and comes back on reload and another device', async 
 
   // A bare address shows them, without rewriting it.
   await page.goto('/tasks');
-  await expect(groupBy(page)).toContainText('Due date');
+  await expectGroupBy(page, 'Due date');
   await expect(
     layout(page).getByRole('radio', { name: 'Board' }),
   ).toBeChecked();
   await expect(page).toHaveURL(/\/tasks$/);
   await page.reload();
-  await expect(groupBy(page)).toContainText('Due date');
+  await expectGroupBy(page, 'Due date');
 
   // Another device (a fresh browser) opens the page the same way.
   const other = await otherDevice(browser, page, email);
   await other.goto('/tasks');
-  await expect(groupBy(other)).toContainText('Due date');
   await expect(
     layout(other).getByRole('radio', { name: 'Board' }),
   ).toBeChecked();
+  const otherFilters = await openFilters(other);
   await expect(
-    other.getByRole('group', { name: 'Show' }).getByRole('radio', {
+    otherFilters.getByRole('combobox', { name: 'Group by' }),
+  ).toContainText('Due date');
+  await expect(
+    otherFilters.getByRole('group', { name: 'Status' }).getByRole('radio', {
       name: 'All',
     }),
   ).toBeChecked();
@@ -120,12 +134,12 @@ test('the address wins; the search text is never saved', async ({
   request,
 }) => {
   await openLive(page, '/tasks');
-  await choose(page, 'Group by', 'Due date');
+  await chooseFilter(page, 'Group by', 'Due date');
   await expectStored(request, 'tasks', { group: 'due' });
 
   // A link that names its own grouping shows it, and saves nothing.
   await page.goto('/tasks?group=priority');
-  await expect(groupBy(page)).toContainText('Priority');
+  await expectGroupBy(page, 'Priority');
   await page.getByRole('searchbox', { name: 'Find' }).fill('tauntaun');
   await expect(page).toHaveURL(/q=tauntaun/);
   await page.waitForTimeout(800);
@@ -133,18 +147,18 @@ test('the address wins; the search text is never saved', async ({
 
   // Back to the default from a page that opened on a saved grouping.
   await page.goto('/tasks');
-  await expect(groupBy(page)).toContainText('Due date');
-  await choose(page, 'Group by', 'Project');
-  await expect(groupBy(page)).toContainText('Project');
+  await expectGroupBy(page, 'Due date');
+  await chooseFilter(page, 'Group by', 'Project');
+  await expectGroupBy(page, 'Project');
   await expect(page).toHaveURL(/\/tasks$/);
   // Back: the grouping the page opened with.
   await page.goBack();
-  await expect(groupBy(page)).toContainText('Due date');
+  await expectGroupBy(page, 'Due date');
   await expect
     .poll(async () => (await pages(request))?.tasks ?? null)
     .toBe(null);
   await page.goto('/tasks');
-  await expect(groupBy(page)).toContainText('Project');
+  await expectGroupBy(page, 'Project');
 });
 
 test('Back returns to what the page showed before a change', async ({
@@ -153,22 +167,25 @@ test('Back returns to what the page showed before a change', async ({
 }) => {
   await openLive(page, '/notes');
   await layout(page).locator('label', { hasText: 'Grid' }).click();
-  await page
+  await (await openFilters(page))
     .getByRole('group', { name: 'Show' })
     .locator('label', { hasText: 'Pinned' })
     .click();
+  await closeFilters(page);
   await expectStored(request, 'notes', {
     view: 'grid',
     filters: { pinned: '1' },
   });
   // Opened with Pinned saved; All is chosen, then Back.
   await page.goto('/notes');
-  const show = page.getByRole('group', { name: 'Show' });
+  let show = (await openFilters(page)).getByRole('group', { name: 'Show' });
   await expect(show.getByRole('radio', { name: 'Pinned' })).toBeChecked();
   await show.locator('label', { hasText: 'All' }).click();
   await expect(show.getByRole('radio', { name: 'All' })).toBeChecked();
   await expect(page).toHaveURL(/\/notes$/);
+  await closeFilters(page);
   await page.goBack();
+  show = (await openFilters(page)).getByRole('group', { name: 'Show' });
   await expect(show.getByRole('radio', { name: 'Pinned' })).toBeChecked();
 });
 
@@ -203,7 +220,7 @@ test('Settings → Pages edits and resets, with Undo', async ({
   request,
 }) => {
   await openLive(page, '/tasks');
-  await choose(page, 'Group by', 'Assignee');
+  await chooseFilter(page, 'Group by', 'Assignee');
   await expectStored(request, 'tasks', { group: 'assignee' });
   await openLive(page, '/projects/p-echo');
   await page.getByRole('button', { name: /^Notes/ }).click();
@@ -246,7 +263,7 @@ test('Settings → Pages edits and resets, with Undo', async ({
     });
 
   await page.goto('/tasks');
-  await expect(groupBy(page)).toContainText('Assignee');
+  await expectGroupBy(page, 'Assignee');
 });
 
 test('this browser’s earlier choices carry over once', async ({

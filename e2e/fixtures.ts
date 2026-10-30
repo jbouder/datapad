@@ -36,6 +36,7 @@ import {
 export {
   briefingSeed,
   expect,
+  type Locator,
   recapSeed,
   SEED,
   SEED_COUNTS,
@@ -141,6 +142,36 @@ export async function moreActions(page: Page): Promise<string[]> {
 export async function moreAction(page: Page, name: string) {
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
+/**
+ * A list page's filters (#269): in the toolbar on desktop, in the Filters
+ * sheet on phones (opened here). Returns where the controls are.
+ */
+export async function openFilters(page: Page): Promise<Locator> {
+  if (!isMobile(page)) return page.getByRole('main');
+  const sheet = page.getByRole('dialog', { name: 'Filters' });
+  if (!(await sheet.isVisible())) {
+    await page.getByRole('button', { name: /^Filters/ }).click();
+  }
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/** Close the phone's Filters sheet (Done); nothing on desktop. */
+export async function closeFilters(page: Page) {
+  if (!isMobile(page)) return;
+  const sheet = page.getByRole('dialog', { name: 'Filters' });
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(sheet).toBeHidden();
+}
+
+/** Pick `option` in a list page's filter or Sort select, wherever it is. */
+export async function chooseFilter(page: Page, label: string, option: string) {
+  const scope = await openFilters(page);
+  await scope.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+  await closeFilters(page);
 }
 
 /** The top bar's + menu: Add task or Write a note by default. */

@@ -116,6 +116,11 @@ changes the format says so here under **Export format**.
   whenever you leave it. Saving it is silent in Activity. It is also a
   General note, first in List and Grid and labelled Notepad; emptying it
   removes it.
+- **Find on People and Orgs** (#272): Settings → People finds by name,
+  role or an org that lists them as a contact, and Settings → Orgs by
+  name, kind or notes, in the same toolbar as Tasks and Notes (`?q=`,
+  `f`, Clear filters, "None match these filters."). Picking someone keeps
+  what you typed. The Default org picker stays where it was.
 
 ### Changed
 
@@ -129,6 +134,23 @@ changes the format says so here under **Export format**.
   first two lines and the ⋯ menu, opening in place. When Find matches a
   note past the lines its row shows, the row opens, so the match is in
   sight. The Notepad's row still opens its page; Grid keeps its cards.
+- **Projects and Archived on the list toolbar** (#270): Find on both
+  (name, org, tags or description), then Projects' Status, Health and
+  Org, then Sort; Archived gains a Sort, saved with the page as on
+  Projects, and its table's headers sort. Clear filters on Projects no
+  longer resets the sort. On phones the filters and Sort are in the
+  Filters sheet.
+- **One toolbar on Tasks and Notes** (#269): Find comes first, then the
+  filters, then Sort (new on Tasks, beside the column headers it matches),
+  then Clear filters whenever a filter is on or Find has words. Find on
+  Tasks now waits for a pause in typing, as on Notes, and has a clear
+  button on both; `f` goes to Find and Esc in it clears it, then leaves.
+  Clear filters leaves the layout, sort and grouping alone. Tasks says
+  "None match these filters." with Clear filters when filtered to
+  nothing, as Notes now does (it said "No notes match."). Tasks' Show is
+  now Status. On phones the toolbar is Find and a Filters (n) button that
+  opens a sheet with the rest, instead of every filter stacked above the
+  list.
 - **One set of header actions on detail pages**: a project's, a meeting's
   and a task's page now show the same few buttons, the state action when
   there is one (Close or Reopen on a task), Edit, then a More menu (⋯)

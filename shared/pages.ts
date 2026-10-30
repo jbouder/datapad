@@ -164,7 +164,22 @@ export const PROJECT_SORT_OPTIONS: readonly PrefOption[] = PROJECT_SORTS.map(
   (s) => ({ value: s, label: PROJECT_SORT_LABELS[s] }),
 );
 
-/** Tasks' Show filter. */
+/** Projects' and Archived's Sort by. */
+const projectSort: PrefField = {
+  key: 'sort',
+  label: 'Sort by',
+  def: 'updated',
+  options: PROJECT_SORT_OPTIONS,
+  control: 'select',
+};
+
+/** Tasks' sorts, by the column each one is. */
+export const TASK_SORT_OPTIONS: readonly PrefOption[] = TASK_SORTS.map((s) => ({
+  value: s,
+  label: TASK_SORT_LABELS[s],
+}));
+
+/** Tasks' Status filter. */
 export const TASK_STATUS_OPTIONS = [
   { value: 'open', label: 'Open' },
   { value: 'blocked', label: 'Blocked' },
@@ -225,19 +240,13 @@ export const PAGES: Record<PageKey, PageSpec> = {
         kind: 'org',
         control: 'select',
       },
-      {
-        key: 'sort',
-        label: 'Sort by',
-        def: 'updated',
-        options: PROJECT_SORT_OPTIONS,
-        control: 'select',
-      },
+      projectSort,
     ],
     sections: false,
   },
   archive: {
     label: 'Archived',
-    fields: [layout(PROJECT_LAYOUTS, 'cards')],
+    fields: [layout(PROJECT_LAYOUTS, 'cards'), projectSort],
     sections: false,
   },
   tasks: {
@@ -255,7 +264,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
       ),
       {
         key: 'status',
-        label: 'Show',
+        label: 'Status',
         def: 'open',
         options: TASK_STATUS_OPTIONS,
         control: 'segmented',
@@ -272,10 +281,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
         key: 'sort',
         label: 'Sort by',
         def: 'due',
-        options: TASK_SORTS.map((s) => ({
-          value: s,
-          label: TASK_SORT_LABELS[s],
-        })),
+        options: TASK_SORT_OPTIONS,
         control: 'select',
       },
       {
@@ -379,6 +385,62 @@ const OWN = ['view', 'sort', 'dir', 'group'] as const;
 type Own = (typeof OWN)[number];
 const isOwn = (key: string): key is Own =>
   (OWN as readonly string[]).includes(key);
+
+/**
+ * A page's filters (#269): the remembered fields that narrow what it
+ * lists. The layout, sort, direction and grouping arrange the list rather
+ * than narrow it, so they are not filters.
+ */
+export function filterFields(page: PageKey): PrefField[] {
+  return PAGES[page].fields.filter((f) => !isOwn(f.key));
+}
+
+/**
+ * How many of a page's filters are away from their defaults, in its query
+ * as the page reads it (`effectiveQuery`: the address over what is saved).
+ * Find and the sort are not counted. A value the page does not have reads
+ * as the default, as the page shows it.
+ */
+export function activeFilterCount(
+  page: PageKey,
+  query: URLSearchParams,
+): number {
+  let count = 0;
+  for (const field of filterFields(page)) {
+    const raw = query.get(field.key);
+    if (raw === null || raw === '' || raw === field.token) continue;
+    const value = currentName(field, raw);
+    if (field.options && !field.options.some((o) => o.value === value)) {
+      continue;
+    }
+    if (value !== field.def) count += 1;
+  }
+  return count;
+}
+
+/** The text in a list page's Find (`?q=`), never saved. */
+export function findText(query: URLSearchParams): string {
+  return query.get('q')?.trim() ?? '';
+}
+
+/**
+ * Whether a list page shows less than everything it would by default: a
+ * filter away from its default, or words in Find. The toolbar's Clear
+ * filters and the "None match these filters." empty state both follow it.
+ */
+export function isFiltered(page: PageKey, query: URLSearchParams): boolean {
+  return activeFilterCount(page, query) > 0 || findText(query) !== '';
+}
+
+/**
+ * The change Clear filters makes: every filter back to its default and
+ * Find emptied. The layout, sort and grouping stay as they are.
+ */
+export function clearFilters(page: PageKey): Record<string, null> {
+  const out: Record<string, null> = { q: null };
+  for (const field of filterFields(page)) out[field.key] = null;
+  return out;
+}
 
 /** One page's saved preferences, as stored (empty when none). */
 export function savedPrefs(

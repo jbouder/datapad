@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
   addTask,
+  closeFilters,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -8,12 +9,23 @@ import {
   isMobile,
   moreAction,
   moreActions,
+  openFilters,
   openLive,
   openPreferences,
   SEED,
   syncStatus,
   test,
 } from './fixtures';
+
+/** Projects' Status to All (in the Filters sheet on phones). */
+async function allStatuses(page: Page) {
+  const filters = await openFilters(page);
+  await filters
+    .getByRole('group', { name: 'Status' })
+    .locator('label', { hasText: 'All' })
+    .click();
+  await closeFilters(page);
+}
 
 const switcher = (page: Page) => page.getByRole('button', { name: /^Space: / });
 
@@ -303,7 +315,7 @@ test.describe('Moving a project', () => {
       page.getByRole('heading', { level: 1, name: 'Projects' }),
     ).toBeVisible();
     const main = page.getByRole('main');
-    await main.getByText('All', { exact: true }).click();
+    await allStatuses(page);
     await expect(main.getByText('Falcon hyperdrive refit')).toBeVisible();
     await expect(main.getByText('Echo Base relocation')).toHaveCount(0);
 
@@ -326,7 +338,7 @@ test.describe('Moving a project', () => {
     await switchTo(page, 'Main');
     await page.goto('/projects');
     await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
-    await main.getByText('All', { exact: true }).click();
+    await allStatuses(page);
     await expect(main.getByText('Falcon hyperdrive refit')).toBeVisible();
     await expect(main.getByText('Echo Base relocation')).toHaveCount(0);
   });

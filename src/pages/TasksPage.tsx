@@ -1,7 +1,11 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { localDate } from '#shared/dates';
-import { TASK_GROUP_OPTIONS, TASK_STATUS_OPTIONS } from '#shared/pages';
+import {
+  TASK_GROUP_OPTIONS,
+  TASK_SORT_OPTIONS,
+  TASK_STATUS_OPTIONS,
+} from '#shared/pages';
 import type { Op } from '#shared/protocol';
 import {
   assigneeFor,
@@ -18,9 +22,16 @@ import {
   undoTaskOps,
 } from '#shared/tasks';
 import type { Task } from '#shared/types';
+import { FindField } from '@/components/inputs/FindField';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import { SortField } from '@/components/inputs/SortField';
 import type { Selection } from '@/components/layouts/DataTable';
+import {
+  ListEmpty,
+  ListToolbar,
+  useListFilters,
+} from '@/components/layouts/ListToolbar';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { BulkBar } from '@/components/tasks/BulkBar';
 import {
@@ -34,7 +45,6 @@ import {
 } from '@/components/tasks/TaskLayouts';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -119,6 +129,7 @@ export function TasksPage() {
     },
     [active, changePage],
   );
+  const listFilters = useListFilters('tasks', query, changeQuery);
 
   const groups = useMemo(
     () => (state ? selectTasks(state, filters, today, me) : []),
@@ -221,15 +232,17 @@ export function TasksPage() {
     selectGroup: (ids) => setSelected((s) => new Set([...s, ...ids])),
   };
 
-  const sortBy = (column: string) => {
-    const same = filters.sort === column;
+  const sortTo = (sort: string, dir: 'asc' | 'desc') =>
     changeQuery(
       {
-        sort: column === DEFAULT_TASK_FILTERS.sort && !same ? null : column,
-        dir: same && filters.dir === 'asc' ? 'desc' : null,
+        sort: sort === DEFAULT_TASK_FILTERS.sort ? null : sort,
+        dir: dir === 'desc' ? 'desc' : null,
       },
       false,
     );
+  const sortBy = (column: string) => {
+    const same = filters.sort === column;
+    sortTo(column, same && filters.dir === 'asc' ? 'desc' : 'asc');
   };
 
   const assignTo = assigneeFor(filters.who, me);
@@ -271,49 +284,57 @@ export function TasksPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr]">
-        <Segmented
-          legend="Show"
-          value={filters.blocked ? 'blocked' : filters.status}
-          onChange={(v) => changeQuery({ status: v === 'open' ? null : v })}
-          options={[...TASK_STATUS_OPTIONS]}
-        />
-        <SelectField
-          label="Group by"
-          value={filters.group}
-          options={[...GROUPS]}
-          onChange={(v) => changeQuery({ group: v === 'project' ? null : v })}
-        />
-        <SelectField
-          label="Assignee"
-          value={assigneeToQuery(filters.who)}
-          options={[
-            { value: 'anyone', label: 'Anyone' },
-            ...(me ? [{ value: 'mine', label: 'Mine' }] : []),
-            { value: 'unassigned', label: 'Unassigned' },
-            ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
-          ]}
-          onChange={(v) => changeQuery({ who: v === 'anyone' ? null : v })}
-        />
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="task-find" className="text-xs font-medium">
-            Find
-          </label>
-          <Input
-            id="task-find"
-            type="search"
+      <ListToolbar
+        state={listFilters}
+        find={
+          <FindField
             value={filters.q}
             placeholder="Title, details or tag"
-            autoComplete="off"
-            onChange={(e) => changeQuery({ q: e.target.value || null }, false)}
-            className="h-11 text-base desk:h-8 desk:text-xs"
+            onChange={(q) => changeQuery({ q: q || null }, false)}
           />
-        </div>
-      </div>
+        }
+        filters={
+          <>
+            <Segmented
+              legend="Status"
+              value={filters.blocked ? 'blocked' : filters.status}
+              onChange={(v) => changeQuery({ status: v === 'open' ? null : v })}
+              options={[...TASK_STATUS_OPTIONS]}
+            />
+            <SelectField
+              label="Group by"
+              value={filters.group}
+              options={[...GROUPS]}
+              onChange={(v) =>
+                changeQuery({ group: v === 'project' ? null : v })
+              }
+            />
+            <SelectField
+              label="Assignee"
+              value={assigneeToQuery(filters.who)}
+              options={[
+                { value: 'anyone', label: 'Anyone' },
+                ...(me ? [{ value: 'mine', label: 'Mine' }] : []),
+                { value: 'unassigned', label: 'Unassigned' },
+                ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
+              ]}
+              onChange={(v) => changeQuery({ who: v === 'anyone' ? null : v })}
+            />
+          </>
+        }
+        sort={
+          <SortField
+            value={filters.sort}
+            options={[...TASK_SORT_OPTIONS]}
+            dir={filters.dir}
+            onChange={sortTo}
+          />
+        }
+      />
 
       <div ref={flipRoot}>
         {empty ? (
-          <p className="text-state">No tasks here.</p>
+          <ListEmpty state={listFilters}>No tasks here.</ListEmpty>
         ) : view === 'list' ? (
           <TaskListLayout {...layout} />
         ) : view === 'board' ? (
