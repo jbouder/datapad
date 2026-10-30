@@ -17,6 +17,15 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-30
+
+Focus looks a set number of days ahead (seven by default, or 3, 5, 10 or
+14) and shows every High priority task whatever its due date; new tasks
+can go to you by default (Settings → People → Assign new tasks to me),
+however they are added. MCP `get_focus` renames `due.thisWeek` to
+`due.upcoming`. The export format adds `settings.assignToMe`; the Durable
+Object's schema is still version 3.
+
 ### Changed
 
 - Focus's Week shows tasks due in the next seven days, the same window as
@@ -468,6 +477,7 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jbouder/datapad/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jbouder/datapad/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jbouder/datapad/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jbouder/datapad/releases/tag/v0.1.0
