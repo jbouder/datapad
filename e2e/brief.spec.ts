@@ -5,6 +5,7 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  isMobile,
   openLive,
   recapSeed,
   test,
@@ -235,4 +236,18 @@ test('works from the keyboard', async ({ page }) => {
   await dismiss.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-brief]')).toHaveCount(0);
+});
+
+test('Brief me is as tall as the layout switcher beside it', async ({
+  page,
+}) => {
+  await fakeModel(page, ['Unused.']);
+  await openLive(page);
+  await expect(button(page)).toBeVisible();
+  const switcher = page.getByRole('group', { name: /^Layout/ });
+  const height = async (l: typeof switcher) =>
+    Math.round((await l.boundingBox())?.height ?? 0);
+  // 44px on touch, 32 on desktop: the switcher's frame no longer adds 2.
+  await expect.poll(() => height(switcher)).toBe(isMobile(page) ? 44 : 32);
+  expect(await height(button(page))).toBe(await height(switcher));
 });
