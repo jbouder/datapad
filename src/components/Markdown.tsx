@@ -129,7 +129,7 @@ function lines(
 }
 
 /** `text` with every occurrence of `words` in a `<mark>`. */
-function marked(text: string, words: string[] | undefined): ReactNode {
+export function marked(text: string, words: string[] | undefined): ReactNode {
   if (!words) return text;
   const pattern = new RegExp(
     `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,

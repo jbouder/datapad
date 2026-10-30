@@ -221,6 +221,29 @@ export async function openNotes(page: Page, query = '', ids?: string[]) {
   }
 }
 
+/**
+ * A compact note row (#273: a project's, meeting's or task's notes, on
+ * the page or in the panel) holding `text`.
+ */
+export function noteRow(scope: Page | Locator, text: string | RegExp) {
+  return scope.locator('li[data-note-id]').filter({ hasText: text });
+}
+
+/** Open a note row in place (no-op when it is open). */
+export async function openNoteRow(row: Locator) {
+  const toggle = row.getByRole('button', { name: /^Note from / });
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
+/** One action from a note row's ⋯ menu (Edit, Pin, Make task…). */
+export async function noteAction(row: Locator, name: string) {
+  await row.getByRole('button', { name: /^More for note from / }).click();
+  await row.page().getByRole('menuitem', { name, exact: true }).click();
+}
+
 /** No sideways scrolling (WCAG 1.4.10 Reflow). */
 export async function expectNoSidewaysScroll(page: Page) {
   const overflow = await page.evaluate(

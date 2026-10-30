@@ -124,6 +124,11 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Compact notes on project, meeting and task pages** (#273): each note
+  is a short row, its time and first two lines, that opens in place to
+  the whole note. Edit, Pin, Make task, Summarize, Save as template and
+  Delete are in the row's ⋯ menu, on meeting and task notes too. A link
+  to a note (a task's "From note") opens its row. Notes keeps its cards.
 - **Projects and Archived on the list toolbar** (#270): Find on both
   (name, org, tags or description), then Projects' Status, Health and
   Org, then Sort; Archived gains a Sort, saved with the page as on

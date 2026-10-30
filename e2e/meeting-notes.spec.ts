@@ -6,7 +6,9 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   isMobile,
+  noteAction,
   openLive,
+  openNoteRow,
   openNotes,
   SEED,
   seedTime,
@@ -104,7 +106,7 @@ async function writeTwo(page: Page) {
     .click();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
   // One list, newest first, the seed's old Prep note (phase `pre`) last.
-  const items = linked(page).getByRole('listitem');
+  const items = linked(page).locator('li[data-note-id]');
   await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText('Ridge is clear');
   await expect(items.nth(1)).toContainText('Ask about the ridge');
@@ -191,7 +193,7 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   await openLive(page, '/meetings/e-1');
   const main = page.getByRole('main');
   const notes = linked(page);
-  const items = notes.getByRole('listitem');
+  const items = notes.locator('li[data-note-id]');
   // The seed's old Prep note (phase `pre`) is listed like any other.
   await expect(items).toHaveCount(1);
   await expect(items.nth(0)).toContainText('Bring the power budget');
@@ -214,13 +216,15 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   await expect(box).toBeHidden();
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('Shields hold at ninety');
+  // A compact row (#273): opened, the note is rendered.
+  await openNoteRow(items.nth(0));
   await expect(items.nth(0).locator('strong')).toHaveText('ninety');
 
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Edit in place.
-  await items.nth(0).getByRole('button', { name: /^Edit/ }).click();
+  // Edit in place, from the row's menu.
+  await noteAction(items.nth(0), 'Edit');
   const edit = main.getByRole('combobox', { name: 'Edit note' });
   await expect(edit).toBeFocused();
   await edit.fill('Shields hold at ninety-five');
@@ -229,10 +233,7 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   await expect(items.nth(0)).toContainText('edited');
 
   // Delete the old one, with Undo offered; Undo brings it back.
-  await items
-    .nth(1)
-    .getByRole('button', { name: /^Delete/ })
-    .click();
+  await noteAction(items.nth(1), 'Delete');
   await expect(items).toHaveCount(1);
   await page
     .locator('output.toast')
@@ -281,7 +282,7 @@ test('the page lists every note on the meeting, newest first', async ({
   }
   await request.post('/api/import', { data: seed });
   await openLive(page, '/meetings/e-1');
-  const items = linked(page).getByRole('listitem');
+  const items = linked(page).locator('li[data-note-id]');
   await expect(items).toHaveCount(4);
   await expect(items.nth(0)).toContainText('Extra 2');
   await expect(items.nth(2)).toContainText('Extra 0');

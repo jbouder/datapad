@@ -97,7 +97,10 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
   half: tokens resolved, the PNG on a canvas);
   `notes/LinkedNoteList` is the Notes section a task's page and panel and
-  a meeting's page and panel share), `pages/*` (`MeetingPage` is
+  a meeting's page and panel share; `notes/NoteRow` is the compact note
+  row it and the project page use, `notes/NoteCard` the card Notes uses,
+  and `notes/noteParts` what both share: the actions, editing in place,
+  Make task, `?note=`), `pages/*` (`MeetingPage` is
   `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
   `/projects/:id`; a task opens its page only from Tasks, its panel
   everywhere else).

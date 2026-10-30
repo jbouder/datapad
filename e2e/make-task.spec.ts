@@ -2,7 +2,10 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import {
   expect,
   expectSaved,
+  noteAction,
+  noteRow,
   openLive,
+  openNoteRow,
   openNotes,
   SEED,
   test,
@@ -39,7 +42,9 @@ test('select text, make a task, open it, follow the source link back', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  const prep = card(page, 'Bring the power budget');
+  // A project's notes are compact rows (#273): open it, then select.
+  const prep = noteRow(page, 'Bring the power budget');
+  await openNoteRow(prep);
   await prep.getByText('Bring the power budget').selectText();
   const make = prep.getByRole('button', { name: /^Make task “/ });
   await expect(make).toBeVisible();
@@ -67,7 +72,8 @@ test('select text, make a task, open it, follow the source link back', async ({
     'Added task "Prep: Shield review — 2026-10-27"',
   );
 
-  // Back to the note from the task's page: the card is focused and ringed.
+  // Back to the note from the task's page: the row is open, focused and
+  // ringed.
   await page.goto('/tasks');
   await page
     .getByRole('button', { name: 'Prep: Shield review — 2026-10-27' })
@@ -80,10 +86,12 @@ test('select text, make a task, open it, follow the source link back', async ({
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo\?note=n-2/);
   await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(card(page, 'Bring the power budget')).toBeFocused();
-  await expect(card(page, 'Bring the power budget')).toHaveAttribute(
-    'data-highlighted',
-  );
+  const back = noteRow(page, 'Bring the power budget');
+  await expect(back).toBeFocused();
+  await expect(back).toHaveAttribute('data-highlighted');
+  await expect(
+    back.getByRole('button', { name: /^Note from / }),
+  ).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('Esc dismisses the selection button', async ({ page }) => {
@@ -123,8 +131,7 @@ test('a deleted source note leaves the task, which says so', async ({
 }) => {
   await openLive(page, '/projects/p-echo');
   // t-4 was made from the Standup note.
-  const standup = card(page, 'Standup');
-  await standup.getByRole('button', { name: 'Delete note' }).click();
+  await noteAction(noteRow(page, 'Standup'), 'Delete');
   await page
     .getByRole('button', { name: 'Book the tauntaun vet' })
     .first()

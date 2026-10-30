@@ -267,9 +267,26 @@
 
 /* Arrived at from a link to it ("From note", the agenda, search). */
 .note-card[data-highlighted],
+.note-row[data-highlighted],
 .meeting-row[data-highlighted],
 .milestone-row[data-highlighted] {
   box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* A note row opening (NoteRow): the rendered note fades in where the
+   preview was. Opacity and transform only; the switches turn it off. */
+.note-row-body {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized);
+}
+@starting-style {
+  .note-row-body {
+    opacity: 0;
+    translate: 0 -4px;
+  }
 }
 
 /* Long notes stop at 12 lines (body size) until "Show more". */

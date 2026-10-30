@@ -253,7 +253,7 @@ export function MeetingPage({ id }: { id: string }) {
         <LinkedNoteList
           notes={notes}
           fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
-          people={state.people}
+          state={state}
           label={meetingNoteLabel(meeting)}
           draftKey={meetingDraftKey(meeting)}
           headingLevel={2}
