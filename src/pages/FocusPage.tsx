@@ -1,11 +1,10 @@
 import { CalendarDotIcon, CalendarDotsIcon } from '@phosphor-icons/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { formatDay } from '#shared/dates';
 import { buildRecap, recapEmpty } from '#shared/recap';
 import {
+  type AssigneeFilter,
   agenda,
-  assigneeFromQuery,
-  assigneeToQuery,
   attention,
   attentionLine,
   byPriority,
@@ -23,8 +22,6 @@ import {
 import { healthOf, type Task } from '#shared/types';
 import { BriefCard, BriefMeButton } from '@/components/focus/BriefMe';
 import { SinceYesterday } from '@/components/focus/SinceYesterday';
-import { SelectField } from '@/components/inputs/SelectField';
-import { ListToolbar, useListFilters } from '@/components/layouts/ListToolbar';
 import {
   useView,
   type ViewOption,
@@ -41,12 +38,8 @@ import { useFlip } from '@/hooks/useFlip';
 import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
-import { withViewTransition } from '@/lib/motion';
 import { linkProps } from '@/lib/router';
-import { shortcutAllowed } from '@/lib/shortcuts';
 import { useMotion } from '@/providers/MotionProvider';
-import { usePageQuery } from '@/providers/PagePrefsProvider';
-import { useToast } from '@/providers/ToastProvider';
 
 type FocusView = 'day' | 'week';
 type DueKey = Extract<keyof FocusBuckets, 'overdue' | 'today' | 'thisWeek'>;
@@ -55,6 +48,9 @@ export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
   { id: 'day', label: 'Day', icon: CalendarDotIcon },
   { id: 'week', label: 'Week', icon: CalendarDotsIcon },
 ];
+
+/** Focus has no filters: every task, whoever it is on. */
+const ANYONE: AssigneeFilter = { kind: 'anyone' };
 
 /** The buckets Due draws from in each view, grouped by priority. */
 const DUE: Record<FocusView, DueKey[]> = {
@@ -81,10 +77,9 @@ const GROUP_LINK =
  * quiet), Follow-ups (open action items from the last week's meetings)
  * and Due (overdue and today's tasks, plus the rest of the week's in
  * Week, grouped by priority, High first; #218). Since yesterday, Waiting
- * on, Attention and Follow-ups are sections remembered with the page. The
- * assignee filter (`m` toggles Mine), in the list toolbar with no Find
- * (#271), lives in the URL and narrows Since
- * yesterday's Closed and Added, Waiting on, Follow-ups and Due. Tasks are added from the + menu or `n` (the new-task panel).
+ * on, Attention and Follow-ups are sections remembered with the page.
+ * Focus has no filters: it shows everyone's tasks. Tasks are added from
+ * the + menu or `n` (the new-task panel).
  * Everything follows the local date and rolls over at midnight; rows FLIP
  * between groups when a priority changes and out when a task closes.
  */
@@ -94,47 +89,12 @@ export function FocusPage() {
   const { openTask } = useTaskPanels();
   const { toggle, isDone } = useTaskToggle();
   const { active } = useMotion();
-  const { show } = useToast();
   const flipRoot = useRef<HTMLElement>(null);
   useFlip(flipRoot, active);
 
   const [view, setView] = useView('focus', FOCUS_VIEWS, 'day');
   const today = useToday();
-  const [query, changePage] = usePageQuery('focus');
-  const whoParam = query.get('who');
-  const who = useMemo(() => assigneeFromQuery(whoParam), [whoParam]);
   const me = state ? meId(state.people) : null;
-
-  const changeQuery = useCallback(
-    (changes: Record<string, string | null>) =>
-      changePage(changes, {
-        transition: (update) => withViewTransition(update, active, 'filter'),
-      }),
-    [active, changePage],
-  );
-  const setWho = useCallback(
-    (value: string) => changeQuery({ who: value === 'anyone' ? null : value }),
-    [changeQuery],
-  );
-  const listFilters = useListFilters('focus', query, changeQuery);
-
-  // `m`: Mine, or back to Anyone.
-  const whoKind = who.kind;
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'm' || !shortcutAllowed(event)) return;
-      event.preventDefault();
-      if (whoKind === 'mine') {
-        setWho('anyone');
-      } else if (me) {
-        setWho('mine');
-      } else {
-        show('Mark yourself in Settings → People to use Mine.');
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [whoKind, me, setWho, show]);
 
   const onEdit = useCallback<NonNullable<TaskRowProps['onEdit']>>(
     (task, patch) => {
@@ -149,12 +109,18 @@ export function FocusPage() {
   }
 
   const movement = weekMovement(state.tasks, state.projects, today);
-  const recap = buildRecap(state, today, who);
+  const recap = buildRecap(state, today);
   const noRecap = recapEmpty(recap);
   const week = agenda(state.meetings, state.projects, today);
   const upcoming =
     view === 'day' ? week.filter((item) => item.date === today) : week;
-  const waiting = waitingOn(state.tasks, state.projects, state.people, me, who);
+  const waiting = waitingOn(
+    state.tasks,
+    state.projects,
+    state.people,
+    me,
+    ANYONE,
+  );
   const projects = attention(state.projects, today);
   const follow = followUps(
     state.meetings,
@@ -162,9 +128,9 @@ export function FocusPage() {
     state.projects,
     today,
     me,
-    who,
+    ANYONE,
   );
-  const buckets = focusBuckets(state.tasks, state.projects, today, me, who);
+  const buckets = focusBuckets(state.tasks, state.projects, today, me, ANYONE);
   // A task shows once: an action item under its meeting, not in Due too.
   const followed = new Set(follow.flatMap((g) => g.tasks.map((t) => t.id)));
   const due = byPriority(
@@ -187,9 +153,6 @@ export function FocusPage() {
     follow.length === 0 &&
     due.length === 0;
 
-  const people = Object.values(state.people).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
   const notes = taskNoteCounts(state.notes);
 
   const list = (tasks: Task[], label: string) => (
@@ -231,28 +194,11 @@ export function FocusPage() {
         </div>
         <div className="flex items-end gap-2">
           <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
-          <BriefMeButton today={today} assignee={who} />
+          <BriefMeButton today={today} />
         </div>
       </div>
 
-      <ListToolbar
-        state={listFilters}
-        filters={
-          <SelectField
-            label="Assignee"
-            value={assigneeToQuery(who)}
-            options={[
-              { value: 'anyone', label: 'Anyone' },
-              ...(me ? [{ value: 'mine', label: 'Mine' }] : []),
-              { value: 'unassigned', label: 'Unassigned' },
-              ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
-            ]}
-            onChange={setWho}
-          />
-        }
-      />
-
-      <BriefCard today={today} assignee={who} />
+      <BriefCard today={today} />
 
       {!noRecap && (
         <SinceYesterday

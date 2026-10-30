@@ -792,12 +792,7 @@ describe('briefContext', () => {
 
   it('is what Brief me sends, with its own prompt, saved as "Brief · <day>"', () => {
     const state = busy();
-    expect(
-      summaryRequest(
-        { kind: 'brief', today, assignee: { kind: 'anyone' } },
-        state,
-      ),
-    ).toEqual({
+    expect(summaryRequest({ kind: 'brief', today }, state)).toEqual({
       label: 'Brief · Wed 28 Oct 2026',
       context: briefContext(state, today),
       projectId: null,

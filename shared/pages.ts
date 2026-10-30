@@ -208,7 +208,6 @@ export const PAGES: Record<PageKey, PageSpec> = {
         ],
         'day',
       ),
-      who,
     ],
     sections: true,
     sectionKeys: FOCUS_SECTIONS,
