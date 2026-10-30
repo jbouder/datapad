@@ -693,16 +693,27 @@ html[data-vt="space"]::view-transition-new(rail) {
   transition: none;
 }
 
-/* Controls that name themselves (buttons, selects, toggles) take the
-   cards' edge, `--border`; the 3:1 `--input` edge is for text fields and
-   checkboxes, where it is what shows them (WCAG 1.4.11). Stock base-lyra
-   gives outline buttons the field's edge in Dark; this keeps them quiet
-   there too, outside `src/components/ui`. */
+/* Controls take the cards' edge, `--border`: buttons, selects, toggles
+   and, by the owner's call, text fields, which their visible labels name.
+   The 3:1 `--input` edge is for checkboxes, where it is all that shows an
+   unticked one (WCAG 1.4.11). Stock base-lyra gives outline buttons and
+   fields `--input`; these rules keep them quiet, outside
+   `src/components/ui`, while focus and errors keep their own colours. */
 .dark
   [data-slot="button"][class~="dark:border-input"]:not(
     :focus-visible,
     [aria-invalid="true"]
   ) {
+  border-color: var(--border);
+}
+:is([data-slot="input"], [data-slot="textarea"]):not(
+  :focus-visible,
+  [aria-invalid="true"]
+),
+[data-slot="input-group"]:not(
+  :has(:focus-visible),
+  :has([aria-invalid="true"])
+) {
   border-color: var(--border);
 }
 

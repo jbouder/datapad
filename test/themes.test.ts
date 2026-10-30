@@ -127,7 +127,8 @@ const NON_TEXT: [fg: string, bg: string][] = [
   ['ring/50', 'sidebar'],
   ['ring/50', 'accent'],
   ['sidebar-ring', 'sidebar'],
-  // A text field's edge is what shows it is one (WCAG 1.4.11).
+  // A checkbox's edge is what shows an unticked one (WCAG 1.4.11). Text
+  // fields take `--border` (src/index.css): their labels name them.
   ['input', 'background'],
   ['input', 'card'],
   ['input', 'popover'],

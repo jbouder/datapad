@@ -236,7 +236,12 @@ changes the format says so here under **Export format**.
   window now.
 - **Layout switchers and segmented filters line up with their
   neighbours**: they were 2px taller than the buttons and selects beside
-  them on phones (Brief me looked short next to Focus's switcher).
+  them on phones (Brief me looked short next to Focus's switcher); the
+  task panel's priority picker too.
+- **Text fields have the same quiet edge as the other controls**: Find,
+  and every text box and text area, now take the light border buttons and
+  selects have, rather than a darker one. Checkboxes keep the darker edge
+  that shows an unticked box.
 - **Brief me and Summarize no longer show `<think>`** at the top of their
   text: Qwen3 opens with an empty thinking block even with thinking off,
   and it is now left out as it streams, in saved notes and in a brief
