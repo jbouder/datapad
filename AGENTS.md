@@ -80,7 +80,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `lib/spaces.ts` (the active space key, per-space cache keys),
   `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`, PagePrefs),
   `components/*` (shared layouts in `components/layouts/`: ViewSwitcher,
-  DataTable, CardGrid, Board, Timeline, Calendar; `SpaceSwitcher`,
+  ListToolbar (with `inputs/FindField` and `inputs/SortField`; the list
+  pages' Find, filters, Sort and Clear filters), DataTable, CardGrid,
+  Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts,
   the topics (`MeetingTopics` on the meeting's page and in its panel,

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeFilterCount,
   applyPagePatch,
+  clearFilters,
   currentValues,
   effectiveQuery,
+  filterFields,
   hasPagePrefs,
+  isFiltered,
   legacyPrefs,
   mergePatches,
   optionsFor,
@@ -325,5 +329,75 @@ describe('carrying over this browser’s old keys', () => {
 
   it('finds nothing in a browser that never chose', () => {
     expect(legacyPrefs([['datapad:space', 'main']])).toEqual({});
+  });
+});
+
+describe('list filters (#269)', () => {
+  const q = (s: string) => new URLSearchParams(s);
+
+  it('are the remembered fields that narrow, not layout, sort or grouping', () => {
+    expect(filterFields('tasks').map((f) => f.key)).toEqual(['status', 'who']);
+    expect(filterFields('notes').map((f) => f.key)).toEqual([
+      'project',
+      'pinned',
+    ]);
+    expect(filterFields('projects').map((f) => f.key)).toEqual([
+      'status',
+      'health',
+      'org',
+    ]);
+    expect(filterFields('meetings').map((f) => f.key)).toEqual(['project']);
+    expect(filterFields('people')).toEqual([]);
+  });
+
+  it('count each filter away from its default, and nothing else', () => {
+    expect(activeFilterCount('tasks', q(''))).toBe(0);
+    expect(activeFilterCount('tasks', q('status=open&who=anyone'))).toBe(0);
+    expect(activeFilterCount('tasks', q('status=blocked'))).toBe(1);
+    expect(activeFilterCount('tasks', q('status=all&who=mine'))).toBe(2);
+    // Find, sort, direction, grouping and layout are not filters.
+    expect(
+      activeFilterCount(
+        'tasks',
+        q('q=vet&sort=title&dir=desc&group=none&view=board'),
+      ),
+    ).toBe(0);
+    expect(activeFilterCount('notes', q('project=p1&pinned=1'))).toBe(2);
+    expect(activeFilterCount('projects', q('status=all&health=red'))).toBe(2);
+    expect(activeFilterCount('projects', q('status=active'))).toBe(0);
+  });
+
+  it('read a spelled-out default or a value the page lacks as no filter', () => {
+    expect(activeFilterCount('notes', q('project=all&pinned=0'))).toBe(0);
+    expect(activeFilterCount('projects', q('health=any&org=all'))).toBe(0);
+    expect(activeFilterCount('tasks', q('status=someday'))).toBe(0);
+    expect(activeFilterCount('tasks', q('status='))).toBe(0);
+  });
+
+  it('are on with a filter or words in Find', () => {
+    expect(isFiltered('tasks', q(''))).toBe(false);
+    expect(isFiltered('tasks', q('sort=title&group=due'))).toBe(false);
+    expect(isFiltered('tasks', q('q=%20%20'))).toBe(false);
+    expect(isFiltered('tasks', q('q=vet'))).toBe(true);
+    expect(isFiltered('notes', q('pinned=1'))).toBe(true);
+  });
+
+  it('clear to the defaults and an empty Find, keeping sort and layout', () => {
+    expect(clearFilters('tasks')).toEqual({
+      q: null,
+      status: null,
+      who: null,
+    });
+    expect(clearFilters('notes')).toEqual({
+      q: null,
+      project: null,
+      pinned: null,
+    });
+    const change = planChange('tasks', clearFilters('tasks'), {
+      status: 'all',
+      sort: 'title',
+    });
+    expect(change.url).toEqual({ q: null, status: null, who: null });
+    expect(change.patch).toEqual({ filters: { status: null, who: null } });
   });
 });

@@ -124,6 +124,17 @@ changes the format says so here under **Export format**.
   the whole note. Edit, Pin, Make task, Summarize, Save as template and
   Delete are in the row's ⋯ menu, on meeting and task notes too. A link
   to a note (a task's "From note") opens its row. Notes keeps its cards.
+- **One toolbar on Tasks and Notes** (#269): Find comes first, then the
+  filters, then Sort (new on Tasks, beside the column headers it matches),
+  then Clear filters whenever a filter is on or Find has words. Find on
+  Tasks now waits for a pause in typing, as on Notes, and has a clear
+  button on both; `f` goes to Find and Esc in it clears it, then leaves.
+  Clear filters leaves the layout, sort and grouping alone. Tasks says
+  "None match these filters." with Clear filters when filtered to
+  nothing, as Notes now does (it said "No notes match."). Tasks' Show is
+  now Status. On phones the toolbar is Find and a Filters (n) button that
+  opens a sheet with the rest, instead of every filter stacked above the
+  list.
 - **One set of header actions on detail pages**: a project's, a meeting's
   and a task's page now show the same few buttons, the state action when
   there is one (Close or Reopen on a task), Edit, then a More menu (⋯)

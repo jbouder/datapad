@@ -22,9 +22,11 @@ import { gzipSync } from 'node:zlib';
  * from 385 to 390 with #268: DetailActions is shared by ProjectPage (in
  * the entry) and the lazy meeting and task pages, and Rolldown now splits
  * the entry into more chunks, which gzip less well than one; the
- * component itself is about 1 KB.
+ * component itself is about 1 KB. Then to 392 with #269: the shared list
+ * toolbar (Find, the Filters sheet, Sort, the filter count) is about
+ * 2 KB, and Tasks and Notes, which use it, are in the entry.
  */
-const BUDGET_KB = { js: 390, css: 28 };
+const BUDGET_KB = { js: 392, css: 28 };
 
 /**
  * Strings only WebLLM's own code holds: its TVM runtime and its cache's
