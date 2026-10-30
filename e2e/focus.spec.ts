@@ -2,10 +2,13 @@ import type { Page } from '@playwright/test';
 import { addDays, endOfWeek, formatDay } from '../shared/dates';
 import {
   briefingSeed,
+  closeFilters,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  isMobile,
+  openFilters,
   openLive,
   test,
   today,
@@ -182,10 +185,22 @@ test('Mine narrows waiting on, follow-ups and due; n opens the new-task panel', 
   await openLive(page);
   await page.locator('body').press('m');
   await expect(page).toHaveURL(/\?who=mine$/);
-  // The filter comes before the rows (whose assignee pickers share the name).
+  // The filter is in the list toolbar (#271): the phone's Filters (1)
+  // sheet; first on desktop, before the rows' assignee pickers.
+  const filters = await openFilters(page);
   await expect(
-    page.getByRole('combobox', { name: 'Assignee' }).first(),
+    filters.getByRole('combobox', { name: 'Assignee' }).first(),
   ).toContainText('Mine');
+  await expectAccessible(page);
+  await closeFilters(page);
+  if (isMobile(page)) {
+    await expect(
+      page.getByRole('button', { name: 'Filters (1)' }),
+    ).toBeVisible();
+  } else {
+    // No Find: Focus is not a list.
+    await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
+  }
   // Nothing blocked is Leia's; one action item and the overdue task are.
   await expect(section(page, 'Waiting on')).toBeHidden();
   await expect(

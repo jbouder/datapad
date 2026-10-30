@@ -24,6 +24,7 @@ import { healthOf, type Task } from '#shared/types';
 import { BriefCard, BriefMeButton } from '@/components/focus/BriefMe';
 import { SinceYesterday } from '@/components/focus/SinceYesterday';
 import { SelectField } from '@/components/inputs/SelectField';
+import { ListToolbar, useListFilters } from '@/components/layouts/ListToolbar';
 import {
   useView,
   type ViewOption,
@@ -81,7 +82,8 @@ const GROUP_LINK =
  * and Due (overdue and today's tasks, plus the rest of the week's in
  * Week, grouped by priority, High first; #218). Since yesterday, Waiting
  * on, Attention and Follow-ups are sections remembered with the page. The
- * assignee filter (`m` toggles Mine) lives in the URL and narrows Since
+ * assignee filter (`m` toggles Mine), in the list toolbar with no Find
+ * (#271), lives in the URL and narrows Since
  * yesterday's Closed and Added, Waiting on, Follow-ups and Due. Tasks are added from the + menu or `n` (the new-task panel).
  * Everything follows the local date and rolls over at midnight; rows FLIP
  * between groups when a priority changes and out when a task closes.
@@ -103,16 +105,18 @@ export function FocusPage() {
   const who = useMemo(() => assigneeFromQuery(whoParam), [whoParam]);
   const me = state ? meId(state.people) : null;
 
-  const setWho = useCallback(
-    (value: string) =>
-      changePage(
-        { who: value === 'anyone' ? null : value },
-        {
-          transition: (update) => withViewTransition(update, active, 'filter'),
-        },
-      ),
+  const changeQuery = useCallback(
+    (changes: Record<string, string | null>) =>
+      changePage(changes, {
+        transition: (update) => withViewTransition(update, active, 'filter'),
+      }),
     [active, changePage],
   );
+  const setWho = useCallback(
+    (value: string) => changeQuery({ who: value === 'anyone' ? null : value }),
+    [changeQuery],
+  );
+  const listFilters = useListFilters('focus', query, changeQuery);
 
   // `m`: Mine, or back to Anyone.
   const whoKind = who.kind;
@@ -225,7 +229,15 @@ export function FocusPage() {
             {movementLine(movement)}
           </p>
         </div>
-        <div className="flex min-w-0 flex-1 items-end justify-end gap-2 max-sm:basis-full">
+        <div className="flex items-end gap-2">
+          <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
+          <BriefMeButton today={today} assignee={who} />
+        </div>
+      </div>
+
+      <ListToolbar
+        state={listFilters}
+        filters={
           <SelectField
             label="Assignee"
             value={assigneeToQuery(who)}
@@ -236,12 +248,9 @@ export function FocusPage() {
               ...people.map((p) => ({ value: `p:${p.id}`, label: p.name })),
             ]}
             onChange={setWho}
-            className="min-w-0 flex-1 sm:max-w-56"
           />
-          <ViewSwitcher views={FOCUS_VIEWS} value={view} onChange={setView} />
-          <BriefMeButton today={today} assignee={who} />
-        </div>
-      </div>
+        }
+      />
 
       <BriefCard today={today} assignee={who} />
 

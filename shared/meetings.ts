@@ -1,5 +1,6 @@
 import { type Clock, formatDay, formatTimeRange } from './dates';
 import { LIMITS } from './limits';
+import { tokensToNames } from './mentions';
 import type { OpOf } from './protocol';
 import {
   type DateString,
@@ -18,6 +19,11 @@ import {
 export interface MeetingFilters {
   /** `''` every project, `general` General only, or a project id. */
   project: string;
+  /**
+   * Find (#271): every word must appear in the title, the agenda note, a
+   * topic's title or an attendee's name (mentions read as names).
+   */
+  q?: string;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -77,19 +83,40 @@ export function describeWhen(
   return range ? `${day}, ${range}` : day;
 }
 
+/** A meeting's words for Find: title, agenda, topics, attendees' names. */
+function meetingText(meeting: Meeting, people: Snapshot['people']): string {
+  return [
+    meeting.title,
+    meeting.note,
+    ...topicsOf(meeting).map((t) => t.title),
+    ...meeting.attendees.map((id) => people[id]?.name ?? ''),
+  ]
+    .map((text) => tokensToNames(text, people))
+    .join('\n')
+    .toLowerCase();
+}
+
 /**
  * Meetings for the Meetings view, soonest first. Unlike Focus's agenda,
  * the meetings of archived projects stay: they are shown under their
- * project.
+ * project. `people` names the attendees (and mentions) for Find.
  */
 export function selectMeetings(
   meetings: Snapshot['meetings'],
   filters: MeetingFilters,
+  people: Snapshot['people'] = {},
 ): Meeting[] {
+  const words = (filters.q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
   return Object.values(meetings)
     .filter((m) => {
-      if (filters.project === 'general') return m.projectId === null;
-      return !filters.project || m.projectId === filters.project;
+      if (filters.project === 'general') {
+        if (m.projectId !== null) return false;
+      } else if (filters.project && m.projectId !== filters.project) {
+        return false;
+      }
+      if (words.length === 0) return true;
+      const text = meetingText(m, people);
+      return words.every((w) => text.includes(w));
     })
     .sort(byWhen);
 }

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { addDays, longDay, weekday } from '../shared/dates';
 import {
+  chooseFilter,
   expect,
   expectNoSidewaysScroll,
   isMobile,
@@ -148,8 +149,7 @@ test('Timeline: a lane per project, meetings listed for assistive tech', async (
   await expect(page).toHaveURL(/view=timeline/);
 
   // The project filter applies here too.
-  await page.getByRole('combobox', { name: 'Project' }).click();
-  await page.getByRole('option', { name: 'General', exact: true }).click();
+  await chooseFilter(page, 'Project', 'General');
   await expect(page).toHaveURL(/project=general/);
   await expect(list).not.toContainText('Echo Base relocation');
   await expect(list).toContainText('Quarterly planning');

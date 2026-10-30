@@ -48,11 +48,6 @@ async function expectGroupBy(page: Page, text: string) {
   await closeFilters(page);
 }
 
-async function choose(page: Page, label: string, option: string) {
-  await page.getByRole('combobox', { name: label }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
-
 function layout(page: Page) {
   return page.getByRole('group', { name: 'Layout (press v to cycle)' });
 }
@@ -318,7 +313,7 @@ test('a saved value the page no longer has falls back to the default', async ({
   request,
 }) => {
   await openLive(page, '/meetings');
-  await choose(page, 'Project', 'Falcon hyperdrive refit');
+  await chooseFilter(page, 'Project', 'Falcon hyperdrive refit');
   await expectStored(request, 'meetings', {
     filters: { project: 'p-falcon' },
   });
@@ -337,8 +332,10 @@ test('a saved value the page no longer has falls back to the default', async ({
     },
   });
   await openLive(page, '/meetings');
-  await expect(page.getByRole('combobox', { name: 'Project' })).toContainText(
-    'All projects',
-  );
+  const filters = await openFilters(page);
+  await expect(
+    filters.getByRole('combobox', { name: 'Project' }),
+  ).toContainText('All projects');
+  await closeFilters(page);
   await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
 });

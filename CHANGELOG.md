@@ -130,6 +130,13 @@ changes the format says so here under **Export format**.
   now Status. On phones the toolbar is Find and a Filters (n) button that
   opens a sheet with the rest, instead of every filter stacked above the
   list.
+- **Meetings and Focus on the list toolbar** (#271): Meetings has Find
+  (a meeting's title, agenda, topics and attendees by name) beside its
+  Project filter, and when nothing matches, the List, Calendar and
+  Timeline each say "None match these filters." with Clear filters (the
+  List said "No meetings match."). Focus's Assignee filter moves out of
+  the title row into the same toolbar (on phones, the Filters sheet); `m`
+  still toggles Mine.
 - **One set of header actions on detail pages**: a project's, a meeting's
   and a task's page now show the same few buttons, the state action when
   there is one (Close or Reopen on a task), Edit, then a More menu (⋯)
