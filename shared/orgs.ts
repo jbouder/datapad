@@ -1,5 +1,7 @@
+import { tokensToNames } from './mentions';
+import { queryWords } from './notes';
 import { lastCall } from './select';
-import type { Org, OrgKind, Project, Snapshot } from './types';
+import type { Org, OrgKind, Person, Project, Snapshot } from './types';
 
 /**
  * Orgs as records (M7). A project's `org` text is still what shows and
@@ -89,3 +91,23 @@ export const orgProjects = lastCall(
     return out;
   },
 );
+
+/**
+ * Orgs' Find (#272): the orgs whose name, kind or notes (mentions read as
+ * names) hold every word typed, ignoring case, in the order given. No
+ * words, every org.
+ */
+export function findOrgs<T extends Pick<Org, 'name' | 'kind' | 'notes'>>(
+  orgs: readonly T[],
+  q: string,
+  people: Record<string, Person>,
+): T[] {
+  const words = queryWords(q);
+  if (words.length === 0) return [...orgs];
+  return orgs.filter((o) => {
+    const text = [o.name, o.kind, tokensToNames(o.notes, people)]
+      .join('\n')
+      .toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
+}

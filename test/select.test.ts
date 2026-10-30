@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PROJECT_FILTERS, selectProjects } from '#shared/projects';
+import {
+  DEFAULT_PROJECT_FILTERS,
+  projectMatches,
+  projectSortOf,
+  selectProjects,
+} from '#shared/projects';
 import { ExportSchema } from '#shared/protocol';
 import { reduce } from '#shared/reducer';
 import {
@@ -414,6 +419,67 @@ describe('project filters and sorts', () => {
       ids(selectProjects(s.projects, { ...all, org: 'Corellian Engineering' })),
     ).toEqual(['p-falcon']);
     expect(ids(selectProjects(s.projects, all, true))).toEqual(['p-yavin']);
+  });
+
+  it('finds by every word in the name, org, tags or description (#270)', () => {
+    const all = { ...DEFAULT_PROJECT_FILTERS, status: 'all' as const };
+    const base = s.projects['p-echo'];
+    const projects = {
+      a: {
+        ...base,
+        id: 'a',
+        name: 'Hoth Relay',
+        org: 'Rebel Alliance',
+        tags: ['comms'],
+        desc: 'Keep the **shield** up.',
+      },
+      b: {
+        ...base,
+        id: 'b',
+        name: 'Endor Moon',
+        org: 'Ewok Council',
+        tags: ['forest'],
+        desc: '',
+      },
+    } as typeof s.projects;
+    const find = (q: string) =>
+      ids(selectProjects(projects, { ...all, sort: 'name', q }));
+    expect(find('')).toEqual(['b', 'a']);
+    expect(find('  ')).toEqual(['b', 'a']);
+    expect(find('hoth')).toEqual(['a']);
+    expect(find('EWOK')).toEqual(['b']);
+    expect(find('forest')).toEqual(['b']);
+    expect(find('shield')).toEqual(['a']);
+    // Every word, from any of the fields.
+    expect(find('relay comms')).toEqual(['a']);
+    expect(find('relay forest')).toEqual([]);
+    expect(projectMatches(projects.a as Project, 'rebel shield')).toBe(true);
+  });
+
+  it('finds and sorts in the archive, ignoring the other filters', () => {
+    const base = s.projects['p-yavin'];
+    const projects = {
+      ...s.projects,
+      z: { ...base, id: 'z', name: 'Zeta Base', archived: true },
+    } as typeof s.projects;
+    const filters = {
+      ...DEFAULT_PROJECT_FILTERS,
+      status: 'paused' as const,
+      sort: 'name' as const,
+    };
+    expect(ids(selectProjects(projects, filters, true))).toEqual([
+      'p-yavin',
+      'z',
+    ]);
+    expect(
+      ids(selectProjects(projects, { ...filters, q: 'zeta' }, true)),
+    ).toEqual(['z']);
+  });
+
+  it('reads the sort from a query, else the default', () => {
+    expect(projectSortOf(new URLSearchParams('sort=name'))).toBe('name');
+    expect(projectSortOf(new URLSearchParams('sort=nope'))).toBe('updated');
+    expect(projectSortOf(new URLSearchParams())).toBe('updated');
   });
 
   it('filters by health; unset health matches no color', () => {

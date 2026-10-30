@@ -29,6 +29,8 @@ export interface ProjectFilters {
   /** Empty: every org. */
   org: string;
   sort: ProjectSort;
+  /** Find's words (#270): each in the name, org, tags or description. */
+  q?: string;
 }
 
 export const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
@@ -37,6 +39,14 @@ export const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
   org: '',
   sort: 'updated',
 };
+
+/** The sort a page's query names (`?sort=`), else the default. */
+export function projectSortOf(query: URLSearchParams): ProjectSort {
+  const sort = query.get('sort') ?? '';
+  return (PROJECT_SORTS as readonly string[]).includes(sort)
+    ? (sort as ProjectSort)
+    : DEFAULT_PROJECT_FILTERS.sort;
+}
 
 const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
 
@@ -75,7 +85,23 @@ function byDate(dateOf: (p: Project) => string) {
   };
 }
 
-/** The cards a page shows, archived or not, filtered and sorted. */
+/**
+ * Whether a project has every word of Find's text (#270), ignoring case,
+ * in its name, org, tags or description. No words matches everything.
+ */
+export function projectMatches(project: Project, q: string): boolean {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const text = [project.name, project.org, ...project.tags, project.desc]
+    .join('\n')
+    .toLowerCase();
+  return words.every((w) => text.includes(w));
+}
+
+/**
+ * The cards a page shows, archived or not, filtered and sorted. The
+ * archive ignores status, org and health but takes Find and the sort.
+ */
 export function selectProjects(
   projects: Record<string, Project>,
   filters: ProjectFilters,
@@ -88,7 +114,8 @@ export function selectProjects(
         p.archived === archived &&
         (archived || filters.status === 'all' || p.status === filters.status) &&
         (archived || !filters.org || p.org === filters.org) &&
-        (archived || !filters.health || healthOf(p) === filters.health),
+        (archived || !filters.health || healthOf(p) === filters.health) &&
+        projectMatches(p, filters.q ?? ''),
     )
-    .sort(compareProjects(archived ? 'updated' : filters.sort, today));
+    .sort(compareProjects(filters.sort, today));
 }

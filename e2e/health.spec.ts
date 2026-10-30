@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import {
+  chooseFilter,
   expect,
   expectAccessible,
   expectSaved,
@@ -44,14 +45,12 @@ test('set health in the header; the card says it in words and color', async ({
   await expectAccessible(page);
 
   // Filter: only Red.
-  await page.getByRole('combobox', { name: 'Health' }).click();
-  await page.getByRole('option', { name: 'Red' }).click();
+  await chooseFilter(page, 'Health', 'Red');
   await expect(page).toHaveURL(/health=red/);
   await expect(
     page.getByRole('main').getByRole('link', { name: /Echo Base relocation/ }),
   ).toBeVisible();
-  await page.getByRole('combobox', { name: 'Health' }).click();
-  await page.getByRole('option', { name: 'Green' }).click();
+  await chooseFilter(page, 'Health', 'Green');
   await expect(page.getByText('None match these filters.')).toBeVisible();
 });
 
