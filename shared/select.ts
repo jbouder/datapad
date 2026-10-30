@@ -259,6 +259,30 @@ export const focusBuckets = lastCall(
   },
 );
 
+/** The buckets Focus's Due draws from: Day's two, Week's three. */
+export type DueKey = Extract<
+  keyof FocusBuckets,
+  'overdue' | 'today' | 'upcoming'
+>;
+
+/**
+ * Focus's Due: the view's buckets, then every High priority task the
+ * view would leave out, whatever its date (due later or not at all), so
+ * the important work stays in sight. Blocked tasks stay in Waiting on.
+ */
+export function focusDue(
+  buckets: FocusBuckets,
+  keys: readonly DueKey[],
+): Task[] {
+  const rest = (['upcoming', 'later', 'noDate'] as const).filter(
+    (key) => !(keys as readonly string[]).includes(key),
+  );
+  return [
+    ...keys.flatMap((key) => buckets[key]),
+    ...rest.flatMap((key) => buckets[key].filter((t) => t.priority === 'high')),
+  ];
+}
+
 export interface PriorityGroup {
   priority: Priority;
   tasks: Task[];

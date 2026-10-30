@@ -9,9 +9,10 @@ import {
   attention,
   attentionLine,
   byPriority,
+  type DueKey,
   daysSince,
-  type FocusBuckets,
   focusBuckets,
+  focusDue,
   followUps,
   meId,
   movementLine,
@@ -44,7 +45,6 @@ import { useMotion } from '@/providers/MotionProvider';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
 
 type FocusView = 'day' | 'week';
-type DueKey = Extract<keyof FocusBuckets, 'overdue' | 'today' | 'upcoming'>;
 
 export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
   { id: 'day', label: 'Day', icon: CalendarDotIcon },
@@ -54,7 +54,10 @@ export const FOCUS_VIEWS: readonly ViewOption<FocusView>[] = [
 /** Focus has no filters: every task, whoever it is on. */
 const ANYONE: AssigneeFilter = { kind: 'anyone' };
 
-/** The buckets Due draws from in each view, grouped by priority. */
+/**
+ * The buckets Due draws from in each view, grouped by priority; High
+ * priority tasks show whatever their date (`focusDue`).
+ */
 const DUE: Record<FocusView, DueKey[]> = {
   day: ['overdue', 'today'],
   week: ['overdue', 'today', 'upcoming'],
@@ -79,7 +82,8 @@ const GROUP_LINK =
  * Attention (active projects off health, near or past their target, or
  * quiet), Follow-ups (open action items from the last week's meetings)
  * and Due (overdue and today's tasks, plus the next seven days' in
- * Week, grouped by priority, High first; #218). Since yesterday, Waiting
+ * Week, and every High priority task whatever its date, grouped by
+ * priority, High first; #218). Since yesterday, Waiting
  * on, Attention and Follow-ups are sections remembered with the page.
  * Focus has no filters: it shows everyone's tasks. Tasks are added from
  * the + menu or `n` (the new-task panel).
@@ -147,7 +151,7 @@ export function FocusPage() {
   // A task shows once: an action item under its meeting, not in Due too.
   const followed = new Set(follow.flatMap((g) => g.tasks.map((t) => t.id)));
   const due = byPriority(
-    DUE[view].flatMap((key) => buckets[key].filter((t) => !followed.has(t.id))),
+    focusDue(buckets, DUE[view]).filter((t) => !followed.has(t.id)),
   ).map(({ priority, tasks }) => ({
     key: priority,
     title:

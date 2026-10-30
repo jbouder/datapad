@@ -162,7 +162,7 @@ export const getFocus = defineTool({
   name: 'get_focus',
   title: 'Focus',
   description:
-    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the agenda of meetings and milestones over those `days` (seven unless the owner set Focus's Week to another number in Settings → Pages).",
+    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts, and their High priority ones as `high`, which Focus shows whatever their date), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the agenda of meetings and milestones over those `days` (seven unless the owner set Focus's Week to another number in Settings → Pages).",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -201,6 +201,12 @@ export const getFocus = defineTool({
         upcoming: tasks(buckets.upcoming),
         later: buckets.later.length,
         noDate: buckets.noDate.length,
+        // High priority past the window: Focus's Due shows them anyway.
+        high: tasks(
+          [...buckets.later, ...buckets.noDate].filter(
+            (t) => t.priority === 'high',
+          ),
+        ),
       },
       waitingOn: waitingOn(
         state.tasks,
