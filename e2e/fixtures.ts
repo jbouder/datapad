@@ -120,6 +120,28 @@ export async function openHelp(page: Page) {
   await page.getByRole('menuitem', { name: 'Help' }).click();
 }
 
+/**
+ * A detail page's More menu (a project's, a meeting's, a task's): the
+ * names it offers, closed again.
+ */
+export async function moreActions(page: Page): Promise<string[]> {
+  await page.getByRole('button', { name: 'More actions' }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  const names = (await menu.getByRole('menuitem').allInnerTexts()).map((n) =>
+    n.trim(),
+  );
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  return names;
+}
+
+/** One action from a detail page's More menu. */
+export async function moreAction(page: Page, name: string) {
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
 /** The top bar's + menu: Add task or Write a note by default. */
 export async function addFromTopBar(
   page: Page,

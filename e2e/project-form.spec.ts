@@ -1,5 +1,13 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, expectSaved, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectSaved,
+  moreAction,
+  moreActions,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 const panel = (page: Page) => page.getByRole('dialog');
 
@@ -161,11 +169,11 @@ test('archive with undo, then delete with the counts', async ({
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/projects/p-echo');
 
-  await page.getByRole('button', { name: 'Archive' }).click();
+  await moreAction(page, 'Archive');
   await expect(page.getByText('Archived Echo Base relocation')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Unarchive' })).toBeVisible();
+  expect(await moreActions(page)).toContain('Unarchive');
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByRole('button', { name: 'Archive' })).toBeVisible();
+  expect(await moreActions(page)).toContain('Archive');
   expect((await activity(request, 'p-echo')).slice(0, 2)).toEqual([
     'Unarchived project',
     'Archived project',

@@ -119,6 +119,12 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **One set of header actions on detail pages**: a project's, a meeting's
+  and a task's page now show the same few buttons, the state action when
+  there is one (Close or Reopen on a task), Edit, then a More menu (⋯)
+  with the rest: Summarize, Move to…, Save as template, Carry forward, and
+  Archive or Delete last. The meeting and task pages' buttons are 44px on
+  phones now, as the project page's were.
 - **All notes from the Notepad**: a link beside the Notepad's heading
   goes to Notes.
 - **Date pickers start the week on Sunday**: the calendar behind every

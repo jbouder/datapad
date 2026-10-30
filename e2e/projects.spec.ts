@@ -1,6 +1,14 @@
 import type { Page } from '@playwright/test';
 import { formatDay } from '../shared/dates';
-import { expect, openLive, SEED, seedDay, test, today } from './fixtures';
+import {
+  expect,
+  moreAction,
+  openLive,
+  SEED,
+  seedDay,
+  test,
+  today,
+} from './fixtures';
 
 const cards = (page: Page) =>
   page.getByRole('list', { name: 'Projects' }).getByRole('link');
@@ -71,7 +79,7 @@ test('create two, filter by org, sort by priority, archive one', async ({
 
   // Archive one from its page; it leaves Projects and shows in Archived.
   await cards(page).filter({ hasText: 'Bespin audit' }).click();
-  await page.getByRole('button', { name: 'Archive' }).click();
+  await moreAction(page, 'Archive');
   await page.goto('/projects');
   await expect(cards(page)).toHaveText([/Alderaan relief/]);
   await page.goto('/archive');

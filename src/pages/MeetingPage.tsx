@@ -2,7 +2,6 @@ import {
   ArrowBendDownRightIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  PencilSimpleIcon,
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
@@ -18,6 +17,7 @@ import {
 } from '#shared/meetings';
 import { notesOfMeeting } from '#shared/select';
 import type { Meeting, Person } from '#shared/types';
+import { DetailActions } from '@/components/DetailActions';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Initials } from '@/components/Initials';
 import { MeetingActionItems } from '@/components/meetings/MeetingActionItems';
@@ -45,9 +45,9 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One meeting, where it is run: the header with its project, day and
- * time, attendees, link and actions (Summarize, Edit in the panel, Carry
- * forward, Delete, which asks first and keeps the notes and action
- * items), the agenda, then Topics and Action items on the left and Notes
+ * time, attendees, link and actions (Edit in the panel; under More,
+ * Summarize, Carry forward and Delete, which asks first and keeps the
+ * notes and action items), the agenda, then Topics and Action items on the left and Notes
  * on the right (one column below 820px), and the previous and next
  * meeting of its series at the foot.
  */
@@ -147,40 +147,29 @@ export function MeetingPage({ id }: { id: string }) {
           >
             {meeting.title}
           </h1>
-          <div className="flex flex-wrap gap-1">
-            {summariesOn && (
-              <Button
-                variant="outline"
-                className="press"
-                onClick={() => summarize({ kind: 'meeting', id: meeting.id })}
-              >
-                <SparkleIcon />
-                Summarize
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="press"
-              onClick={() => openMeeting(meeting.id)}
-            >
-              <PencilSimpleIcon />
-              Edit
-            </Button>
-            {canCarry && (
-              <Button variant="outline" className="press" onClick={carry}>
-                <ArrowBendDownRightIcon />
-                Carry forward
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="press text-destructive"
-              onClick={() => setConfirming(true)}
-            >
-              <TrashIcon />
-              Delete
-            </Button>
-          </div>
+          <DetailActions
+            onEdit={() => openMeeting(meeting.id)}
+            menu={[
+              {
+                label: 'Summarize',
+                icon: <SparkleIcon />,
+                onSelect: () => summarize({ kind: 'meeting', id: meeting.id }),
+                hidden: !summariesOn,
+              },
+              {
+                label: 'Carry forward',
+                icon: <ArrowBendDownRightIcon />,
+                onSelect: carry,
+                hidden: !canCarry,
+              },
+              {
+                label: 'Delete',
+                icon: <TrashIcon />,
+                onSelect: () => setConfirming(true),
+                destructive: true,
+              },
+            ]}
+          />
         </div>
         {confirming && (
           <div

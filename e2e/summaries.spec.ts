@@ -3,6 +3,8 @@ import {
   expect,
   expectAccessible,
   expectSaved,
+  moreAction,
+  moreActions,
   openLive,
   openNotes,
   SEED,
@@ -58,7 +60,7 @@ function panel(page: Page, item: string) {
 
 async function summarizeProject(page: Page) {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Summarize', exact: true }).click();
+  await moreAction(page, 'Summarize');
   return panel(page, 'Echo Base relocation');
 }
 
@@ -253,8 +255,8 @@ test('Settings picks the model and removes the download', async ({ page }) => {
 
 /**
  * Every place that offers Summarize, by name: how many it shows on each.
- * The task panel opens from the project page; a meeting row's is in its
- * More menu.
+ * The task panel opens from the project page; a detail page's and a
+ * meeting row's are in their More menus.
  */
 async function summarizeOffers(page: Page): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
@@ -263,8 +265,11 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
     exact: true,
   });
 
+  const inMore = async () =>
+    (await moreActions(page)).filter((n) => n === 'Summarize').length;
+
   await openLive(page, '/projects/p-echo');
-  counts.project = await summarize.count();
+  counts.project = await inMore();
   await page.locator('[data-task-id] [data-task-title]').first().click();
   const taskPanel = page.getByRole('dialog');
   await expect(taskPanel).toBeVisible();
@@ -274,10 +279,10 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
   await page.keyboard.press('Escape');
 
   await openLive(page, '/tasks/t-2');
-  counts.taskPage = await summarize.count();
+  counts.taskPage = await inMore();
 
   await openLive(page, '/meetings/e-1');
-  counts.meetingPage = await summarize.count();
+  counts.meetingPage = await inMore();
 
   await openLive(page, '/meetings?view=list');
   await page

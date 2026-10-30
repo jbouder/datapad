@@ -3,7 +3,6 @@ import {
   ArrowsLeftRightIcon,
   ChalkboardSimpleIcon,
   CopySimpleIcon,
-  PencilSimpleIcon,
   PlusIcon,
   SparkleIcon,
 } from '@phosphor-icons/react';
@@ -14,6 +13,7 @@ import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { BoardPreview } from '@/components/board/BoardPreview';
+import { DetailActions } from '@/components/DetailActions';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Initials } from '@/components/Initials';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
@@ -52,7 +52,8 @@ import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One project, where most entry happens: the header with its facts and
- * actions (Save as template among them while it has open tasks), the
+ * actions (Edit; under More, Summarize, Move to…, Save as template while
+ * it has open tasks, and Archive), the
  * description, then Milestones, Tasks and Meetings on the left, Notes,
  * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
  * remember open or closed, one set for every project (#186).
@@ -200,54 +201,35 @@ export function ProjectPage({ id }: { id: string }) {
           >
             {project.name}
           </h1>
-          <div className="flex flex-wrap gap-1">
-            {summariesOn && (
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={() => summarize({ kind: 'project', id: project.id })}
-              >
-                <SparkleIcon />
-                Summarize
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="press h-11 desk:h-8"
-              onClick={() => openProjectForm(project.id)}
-            >
-              <PencilSimpleIcon />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              className="press h-11 desk:h-8"
-              onClick={toggleArchive}
-            >
-              <ArchiveIcon />
-              {project.archived ? 'Unarchive' : 'Archive'}
-            </Button>
-            {elsewhere.length > 0 && (
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={() => setMoveOpen(true)}
-              >
-                <ArrowsLeftRightIcon />
-                Move to…
-              </Button>
-            )}
-            {tasks.open.length > 0 && (
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={saveAsTemplate}
-              >
-                <CopySimpleIcon />
-                Save as template
-              </Button>
-            )}
-          </div>
+          <DetailActions
+            onEdit={() => openProjectForm(project.id)}
+            menu={[
+              {
+                label: 'Summarize',
+                icon: <SparkleIcon />,
+                onSelect: () => summarize({ kind: 'project', id: project.id }),
+                hidden: !summariesOn,
+              },
+              {
+                label: 'Move to…',
+                icon: <ArrowsLeftRightIcon />,
+                onSelect: () => setMoveOpen(true),
+                hidden: elsewhere.length === 0,
+              },
+              {
+                label: 'Save as template',
+                icon: <CopySimpleIcon />,
+                onSelect: saveAsTemplate,
+                hidden: tasks.open.length === 0,
+              },
+              {
+                label: project.archived ? 'Unarchive' : 'Archive',
+                icon: <ArchiveIcon />,
+                onSelect: toggleArchive,
+                end: true,
+              },
+            ]}
+          />
           <MoveProjectDialog
             open={moveOpen}
             onOpenChange={setMoveOpen}

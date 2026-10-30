@@ -3,6 +3,8 @@ import {
   expect,
   expectAccessible,
   expectSaved,
+  moreAction,
+  moreActions,
   openLive,
   SEED,
   test,
@@ -31,17 +33,11 @@ test('save a project’s tasks as a template, then start a project from it', asy
   await expect(
     page.getByRole('heading', { name: 'Yavin IV retrospective', level: 1 }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Save as template', exact: true }),
-  ).toHaveCount(0);
+  expect(await moreActions(page)).not.toContain('Save as template');
 
-  // In the header, beside Edit.
+  // In the header's More menu.
   await openLive(page, '/projects/p-echo');
-  await page
-    .getByRole('article', { name: 'Echo Base relocation' })
-    .locator('header')
-    .getByRole('button', { name: 'Save as template', exact: true })
-    .click();
+  await moreAction(page, 'Save as template');
 
   const panel = page.getByRole('dialog', { name: 'New template' });
   await expect(panel.getByRole('textbox', { name: 'Name' })).toHaveValue(

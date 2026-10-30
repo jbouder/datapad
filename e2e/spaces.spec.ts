@@ -6,6 +6,8 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   isMobile,
+  moreAction,
+  moreActions,
   openLive,
   openPreferences,
   SEED,
@@ -250,8 +252,6 @@ test('when the open space is deleted elsewhere, the first one opens', async ({
 test.describe('Moving a project', () => {
   const echo = (page: Page) =>
     page.getByRole('heading', { level: 1, name: 'Echo Base relocation' });
-  const moveButton = (page: Page) =>
-    page.getByRole('button', { name: 'Move to…' });
 
   test('only offered once there is another space', async ({
     page,
@@ -260,7 +260,7 @@ test.describe('Moving a project', () => {
     await request.post('/api/import', { data: SEED });
     await openLive(page, '/projects/p-echo');
     await expect(echo(page)).toBeVisible();
-    await expect(moveButton(page)).toHaveCount(0);
+    expect(await moreActions(page)).not.toContain('Move to…');
   });
 
   test('move a project to another space, then open it there', async ({
@@ -274,7 +274,7 @@ test.describe('Moving a project', () => {
     await expect(echo(page)).toBeVisible();
     if (isMobile(page)) await expectNoSidewaysScroll(page);
 
-    await moveButton(page).click();
+    await moreAction(page, 'Move to…');
     const dialog = page.getByRole('dialog', { name: 'Move to another space' });
     await expect(dialog).toBeVisible();
     // The other spaces, not this one; the first is picked.

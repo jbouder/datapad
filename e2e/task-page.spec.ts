@@ -5,6 +5,7 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   isMobile,
+  moreAction,
   openLive,
   SEED,
   test,
@@ -118,7 +119,7 @@ test('Close, Edit in the panel, Delete with Undo', async ({
   ).toBeVisible();
   await expect(page).toHaveTitle('Insulate the north hangar doors · Datapad');
 
-  await main.getByRole('button', { name: 'Delete', exact: true }).click();
+  await moreAction(page, 'Delete');
   await expect(page).toHaveURL(/\/tasks$/);
   const toast = page.getByText('Deleted “Insulate the north hangar doors”');
   await expect(toast).toBeVisible();

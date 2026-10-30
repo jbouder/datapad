@@ -2,7 +2,6 @@ import {
   ArrowCounterClockwiseIcon,
   CheckIcon,
   LockSimpleIcon,
-  PencilSimpleIcon,
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
@@ -10,6 +9,7 @@ import { useMemo } from 'react';
 import { formatTimestamp } from '#shared/dates';
 import { notesOfTask } from '#shared/select';
 import { blockedOf } from '#shared/types';
+import { DetailActions } from '@/components/DetailActions';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Markdown } from '@/components/Markdown';
 import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
@@ -20,7 +20,6 @@ import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
 import { FromMeeting } from '@/components/tasks/TaskPanel';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
-import { Button } from '@/components/ui/button';
 import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
@@ -34,7 +33,8 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * One task, opened from Tasks: the header with its project (and the
  * meeting it is an action item of) and actions
- * (Close or Reopen, Summarize, Edit in the panel, Delete with Undo), its
+ * (Close or Reopen, Edit in the panel; under More, Summarize and Delete
+ * with Undo), its
  * status, priority, due date, assignee, blocker, tags and links, then
  * the details on the left and its running notes on the right (one column
  * below 820px). Anywhere else a task opens in its panel.
@@ -122,42 +122,28 @@ export function TaskPage({ id }: { id: string }) {
           >
             {task.title}
           </h1>
-          <div className="flex flex-wrap gap-1">
-            <Button
-              variant="outline"
-              className="press"
-              onClick={() => toggle(task)}
-            >
-              {done ? <ArrowCounterClockwiseIcon /> : <CheckIcon />}
-              {done ? 'Reopen' : 'Close'}
-            </Button>
-            {summariesOn && (
-              <Button
-                variant="outline"
-                className="press"
-                onClick={() => summarize({ kind: 'task', id: task.id })}
-              >
-                <SparkleIcon />
-                Summarize
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="press"
-              onClick={() => openTask(task.id)}
-            >
-              <PencilSimpleIcon />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              className="press text-destructive"
-              onClick={remove}
-            >
-              <TrashIcon />
-              Delete
-            </Button>
-          </div>
+          <DetailActions
+            primary={{
+              label: done ? 'Reopen' : 'Close',
+              icon: done ? <ArrowCounterClockwiseIcon /> : <CheckIcon />,
+              onClick: () => toggle(task),
+            }}
+            onEdit={() => openTask(task.id)}
+            menu={[
+              {
+                label: 'Summarize',
+                icon: <SparkleIcon />,
+                onSelect: () => summarize({ kind: 'task', id: task.id }),
+                hidden: !summariesOn,
+              },
+              {
+                label: 'Delete',
+                icon: <TrashIcon />,
+                onSelect: remove,
+                destructive: true,
+              },
+            ]}
+          />
         </div>
         <ul
           aria-label="Details"
