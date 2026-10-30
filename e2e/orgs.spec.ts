@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import {
   expect,
   expectAccessible,
+  expectNoSidewaysScroll,
   expectSaved,
   openLive,
   SEED,
@@ -142,4 +143,44 @@ test('a new org from the project form becomes a record and is linked', async ({
   await expect(
     page.getByRole('heading', { name: 'Mon Cala Shipyards' }),
   ).toBeVisible();
+});
+
+test('Find narrows Orgs by name or kind, and Clear filters brings them back', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/settings/orgs');
+  await page
+    .getByRole('status')
+    .filter({ hasText: 'plain text' })
+    .getByRole('button', { name: 'Organize orgs' })
+    .click();
+  const items = page.getByRole('list', { name: 'Orgs' }).getByRole('listitem');
+  await expect(items).toHaveCount(2);
+
+  const find = page.getByRole('searchbox', { name: 'Find' });
+  await find.fill('corellian');
+  await expect(page).toHaveURL(/\/settings\/orgs\?q=corellian$/);
+  await expect(items).toHaveCount(1);
+  await expect(items).toContainText('Corellian Engineering');
+  // Kind is matched too: both are clients.
+  await find.fill('client');
+  await expect(items).toHaveCount(2);
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  await find.fill('vendor');
+  await expect(page.getByText('None match these filters.')).toBeVisible();
+  // The Default org picker is a setting, not a filter: still there.
+  await expect(page.getByText('Default org')).toBeVisible();
+  await expectAccessible(page);
+  await page
+    .getByRole('button', { name: 'Clear filters' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(find).toHaveValue('');
+  await expect(page).not.toHaveURL(/q=/);
+  await expect(items).toHaveCount(2);
 });

@@ -8,15 +8,22 @@ import {
 import {
   DEFAULT_PROJECT_FILTERS,
   type HealthFilter,
-  PROJECT_SORTS,
   type ProjectFilters,
   type ProjectSort,
+  projectSortOf,
   type StatusFilter,
   selectProjects,
 } from '#shared/projects';
 import { orgs } from '#shared/select';
+import { FindField } from '@/components/inputs/FindField';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import { SortField } from '@/components/inputs/SortField';
+import {
+  ListEmpty,
+  ListToolbar,
+  useListFilters,
+} from '@/components/layouts/ListToolbar';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import {
@@ -41,14 +48,18 @@ const HEALTHS = HEALTH_OPTIONS as unknown as Array<{
   label: string;
 }>;
 
+const SORTS = PROJECT_SORT_OPTIONS as unknown as Array<{
+  value: ProjectSort;
+  label: string;
+}>;
+
 /**
  * Filters from the query string, so Back restores them, over what is
- * saved for the page.
+ * saved for the page (never Find's text).
  */
 function projectFilters(query: URLSearchParams): ProjectFilters {
   const status = query.get('status');
   const health = query.get('health');
-  const sort = query.get('sort');
   return {
     status: STATUSES.some((s) => s.value === status)
       ? (status as StatusFilter)
@@ -57,17 +68,16 @@ function projectFilters(query: URLSearchParams): ProjectFilters {
       ? (health as HealthFilter)
       : DEFAULT_PROJECT_FILTERS.health,
     org: query.get('org') ?? '',
-    sort: (PROJECT_SORTS as readonly string[]).includes(sort ?? '')
-      ? (sort as ProjectSort)
-      : DEFAULT_PROJECT_FILTERS.sort,
+    sort: projectSortOf(query),
+    q: query.get('q') ?? '',
   };
 }
 
 /**
- * Every project that is not archived, as cards: filter by status (Active
- * by default) and org, sort five ways, all kept in the URL and saved for
- * the page (#186). Changing them
- * runs a `filter` view transition over the grid.
+ * Every project that is not archived, on the list toolbar (#270): Find,
+ * then Status (Active by default), Health and Org, then Sort, all kept in
+ * the URL and all but Find saved for the page (#186). Changing them runs
+ * a `filter` view transition over the grid.
  */
 export function ProjectsPage() {
   usePageTitle('Projects');
@@ -75,7 +85,11 @@ export function ProjectsPage() {
   const { openProjectForm } = useProjectForm();
   const { active } = useMotion();
   const [query, changePage] = usePageQuery('projects');
-  const filters = projectFilters(query);
+  const queryText = query.toString();
+  const filters = useMemo(
+    () => projectFilters(new URLSearchParams(queryText)),
+    [queryText],
+  );
   const [view, setView] = useView('projects', PROJECT_VIEWS, 'cards');
 
   const change = useCallback(
@@ -90,6 +104,14 @@ export function ProjectsPage() {
     },
     [active, changePage],
   );
+  const changeQuery = useCallback(
+    (changes: Record<string, string | null>) =>
+      changePage(changes, {
+        transition: (update) => withViewTransition(update, active, 'filter'),
+      }),
+    [active, changePage],
+  );
+  const listFilters = useListFilters('projects', query, changeQuery);
 
   const today = useToday();
   const projects = useMemo(
@@ -133,35 +155,45 @@ export function ProjectsPage() {
         )}
       </div>
 
-      {anyProjects && (
-        <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr]">
-          <Segmented
-            legend="Status"
-            value={filters.status}
-            onChange={(v) => change('status', v)}
-            options={STATUSES}
-            className="col-span-2 sm:col-span-1"
+      <ListToolbar
+        state={listFilters}
+        find={
+          <FindField
+            value={filters.q ?? ''}
+            placeholder="Name, org, tag or description"
+            onChange={(q) => changePage({ q: q || null }, { replace: true })}
           />
-          <SelectField
-            label="Health"
-            value={filters.health}
-            options={HEALTHS}
-            onChange={(v) => change('health', v)}
-          />
-          <SelectField
-            label="Org"
-            value={filters.org}
-            options={orgOptions}
-            onChange={(v) => change('org', v)}
-          />
-          <SelectField
-            label="Sort by"
+        }
+        filters={
+          <>
+            <Segmented
+              legend="Status"
+              value={filters.status}
+              onChange={(v) => change('status', v)}
+              options={STATUSES}
+            />
+            <SelectField
+              label="Health"
+              value={filters.health}
+              options={HEALTHS}
+              onChange={(v) => change('health', v)}
+            />
+            <SelectField
+              label="Org"
+              value={filters.org}
+              options={orgOptions}
+              onChange={(v) => change('org', v)}
+            />
+          </>
+        }
+        sort={
+          <SortField
             value={filters.sort}
-            options={[...PROJECT_SORT_OPTIONS]}
-            onChange={(v) => change('sort', v)}
+            options={SORTS}
+            onChange={(sort) => change('sort', sort)}
           />
-        </div>
-      )}
+        }
+      />
 
       {!state ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -179,24 +211,7 @@ export function ProjectsPage() {
           </Button>
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-state">None match these filters.</p>
-          <Button
-            variant="outline"
-            className="press"
-            onClick={() =>
-              changePage(
-                { status: null, health: null, org: null, sort: null },
-                {
-                  transition: (update) =>
-                    withViewTransition(update, active, 'filter'),
-                },
-              )
-            }
-          >
-            Clear filters
-          </Button>
-        </div>
+        <ListEmpty state={listFilters}>No projects here.</ListEmpty>
       ) : (
         <ProjectLayouts
           view={view}

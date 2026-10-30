@@ -164,6 +164,15 @@ export const PROJECT_SORT_OPTIONS: readonly PrefOption[] = PROJECT_SORTS.map(
   (s) => ({ value: s, label: PROJECT_SORT_LABELS[s] }),
 );
 
+/** Projects' and Archived's Sort by. */
+const projectSort: PrefField = {
+  key: 'sort',
+  label: 'Sort by',
+  def: 'updated',
+  options: PROJECT_SORT_OPTIONS,
+  control: 'select',
+};
+
 /** Tasks' sorts, by the column each one is. */
 export const TASK_SORT_OPTIONS: readonly PrefOption[] = TASK_SORTS.map((s) => ({
   value: s,
@@ -231,19 +240,13 @@ export const PAGES: Record<PageKey, PageSpec> = {
         kind: 'org',
         control: 'select',
       },
-      {
-        key: 'sort',
-        label: 'Sort by',
-        def: 'updated',
-        options: PROJECT_SORT_OPTIONS,
-        control: 'select',
-      },
+      projectSort,
     ],
     sections: false,
   },
   archive: {
     label: 'Archived',
-    fields: [layout(PROJECT_LAYOUTS, 'cards')],
+    fields: [layout(PROJECT_LAYOUTS, 'cards'), projectSort],
     sections: false,
   },
   tasks: {
