@@ -26,21 +26,21 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-function card(page: Page, text: string | RegExp) {
-  return page.locator('article[data-note-id]').filter({ hasText: text });
+/** A note's row in Notes' List (#218, the compact row since #274). */
+function row(page: Page, text: string | RegExp) {
+  return noteRow(page.getByRole('main'), text);
 }
 
-/** A note's row in Notes' List (#218). */
-function row(page: Page, text: string | RegExp) {
-  return page.locator('[data-note-row]').filter({ hasText: text });
+/** Every row in Notes' List. */
+function rows(page: Page) {
+  return page.getByRole('main').locator('li[data-note-id]');
 }
 
 /** Open a row in the List: its note, whole, in place. */
 async function openRow(page: Page, text: string | RegExp) {
-  const button = row(page, text).locator(':scope > button');
-  await button.click();
-  await expect(button).toHaveAttribute('aria-expanded', 'true');
-  return card(page, text);
+  const found = row(page, text);
+  await openNoteRow(found);
+  return found;
 }
 
 test.beforeEach(async ({ request }) => {
@@ -95,13 +95,13 @@ test('adds notes in two projects, filters by project and text', async ({
   // Filter by project, then by text (with mentions read as names).
   await chooseFilter(page, 'Project', 'Falcon hyperdrive refit');
   await expect(page).toHaveURL(/project=p-falcon/);
-  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(1);
   await chooseFilter(page, 'Project', 'All projects');
 
   await page.getByRole('searchbox', { name: 'Find' }).fill('chewba');
   await expect(page).toHaveURL(/q=chewba/);
   // The other note naming him is in an archived project.
-  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(1);
   const standup = await openRow(page, 'Standup');
   await expect(standup.locator('mark').first()).toHaveText(/chewba/i);
   await page.reload();
@@ -116,7 +116,7 @@ test('adds notes in two projects, filters by project and text', async ({
     .getByRole('button', { name: 'Clear filters' })
     .last()
     .click();
-  await expect(page.locator('[data-note-row]')).toHaveCount(5);
+  await expect(rows(page)).toHaveCount(5);
   await expect(page.getByRole('searchbox', { name: 'Find' })).toHaveValue('');
 });
 
@@ -135,7 +135,7 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   await expect(notes.first()).toContainText('Bring the power budget');
 
   await page.goto('/notes?view=list&pinned=1');
-  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(1);
   await page.goto('/projects/p-echo');
 
   // Edit: mentions come back as names, and are tokens again on save.
@@ -167,8 +167,8 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
 
 test('delete waits for Undo before it is logged', async ({ page, request }) => {
   await openNotes(page, '', ['n-3']);
-  const ideas = card(page, 'Ideas for the next quarter');
-  await ideas.getByRole('button', { name: 'Delete' }).click();
+  const ideas = row(page, 'Ideas for the next quarter');
+  await noteAction(ideas, 'Delete');
   await expect(ideas).toHaveCount(0);
   await page
     .locator('output.toast')
@@ -176,7 +176,7 @@ test('delete waits for Undo before it is logged', async ({ page, request }) => {
     .click();
   await expect(ideas).toBeVisible();
 
-  await ideas.getByRole('button', { name: 'Delete' }).click();
+  await noteAction(ideas, 'Delete');
   await expect(ideas).toHaveCount(0);
   // Not yet deleted, so not yet logged.
   expect((await stored(request)).notes['n-3']).toBeDefined();
@@ -191,25 +191,43 @@ test('delete waits for Undo before it is logged', async ({ page, request }) => {
   expect(data.activity.general?.events[0]?.text).toBe('Deleted a note');
 });
 
-test('long notes clamp with Show more', async ({ page, request }) => {
+test('Find opens a row whose match is past its two lines, and closes it after', async ({
+  page,
+  request,
+}) => {
   const seed = structuredClone(SEED);
   seed.notes['n-3'].body = Array.from(
     { length: 30 },
     (_, i) => `Line ${i + 1}`,
   ).join('\n');
   await request.post('/api/import', { data: seed });
-  await openNotes(page, '', ['n-3']);
-  const long = card(page, 'Line 1');
-  const more = long.getByRole('button', { name: 'Show more' });
-  await expect(more).toHaveAttribute('aria-expanded', 'false');
-  // Clamped: the body stops short of the text, which fades out.
-  const body = long.locator('[data-overflows]');
-  await expect(body).toHaveCount(1);
-  expect(
-    await body.evaluate((el) => el.scrollHeight > el.clientHeight + 100),
-  ).toBe(true);
-  await more.click();
-  await expect(long.getByRole('button', { name: 'Show less' })).toBeVisible();
+  await openNotes(page, '', []);
+  const long = page.locator('li[data-note-id="n-3"]');
+  const toggle = long.getByRole('button', { name: /^Note from / });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(long).not.toContainText('Line 30');
+
+  // A match in the first two lines: closed, marked in the preview.
+  const find = page.getByRole('searchbox', { name: 'Find' });
+  await find.fill('line 2');
+  await expect(page).toHaveURL(/q=line/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // Each word is marked on its own.
+  await expect(long.locator('[data-note-preview] mark').first()).toHaveText(
+    'Line',
+  );
+
+  // Past them: the row opens, the match in sight and marked.
+  await find.fill('line 30');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const mark = long.locator('mark').filter({ hasText: /^30$/ });
+  await expect(mark).toBeVisible();
+  await expectAccessible(page);
+
+  // Clearing Find closes it again.
+  await find.fill('');
+  await expect(page).not.toHaveURL(/q=/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('Add note on a project page opens the panel, preset to it', async ({

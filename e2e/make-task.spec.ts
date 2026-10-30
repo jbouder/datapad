@@ -29,8 +29,9 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
+/** A note's row on Notes (#274), opened by `openNotes`. */
 function card(page: Page, text: string) {
-  return page.locator('article[data-note-id]').filter({ hasText: text });
+  return noteRow(page.getByRole('main'), text);
 }
 
 test.beforeEach(async ({ request }) => {
@@ -110,7 +111,7 @@ test('the footer asks for the title, starting from the first line', async ({
 }) => {
   await openNotes(page, '', ['n-3']);
   const ideas = card(page, 'Ideas for the next quarter');
-  await ideas.getByRole('button', { name: 'Make task from note' }).click();
+  await noteAction(ideas, 'Make task');
   const title = ideas.getByRole('textbox', { name: 'Task title' });
   await expect(title).toHaveValue('Ideas for the next quarter:');
   await expect(title).toBeFocused();

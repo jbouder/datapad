@@ -293,10 +293,10 @@ test('a meeting’s note on Notes shows a chip that opens the meeting', async ({
   page,
 }) => {
   await openNotes(page, '', ['n-2']);
-  const card = page
-    .locator('article[data-note-id]')
+  const row = page
+    .locator('li[data-note-id]')
     .filter({ hasText: 'Bring the power budget' });
-  await card.getByRole('link', { name: 'Meeting: Shield review' }).click();
+  await row.getByRole('link', { name: 'Meeting: Shield review' }).click();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
   await expect(linked(page)).toContainText('Bring the power budget');
 });

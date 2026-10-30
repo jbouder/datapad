@@ -62,6 +62,7 @@ export function NoteRow({
   chips,
   when = 'relative',
   highlight,
+  reveal = false,
   className,
   style,
 }: {
@@ -72,13 +73,23 @@ export function NoteRow({
   when?: 'relative' | 'time';
   /** Words to mark (lower-case), in the preview and the opened note. */
   highlight?: string[];
+  /**
+   * Opens the row while true (Notes, when Find matches past the
+   * preview), and closes it again when it turns false.
+   */
+  reveal?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }) {
   const clock = useClock();
   const { actions } = useDatapad();
   const act = useNoteActions(note, state.people);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(reveal);
+  const [revealed, setRevealed] = useState(reveal);
+  if (revealed !== reveal) {
+    setRevealed(reveal);
+    setOpen(reveal);
+  }
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const row = useRef<HTMLLIElement>(null);

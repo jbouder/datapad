@@ -85,8 +85,8 @@ function useNoteFilters(query: URLSearchParams): NoteFilters {
 }
 
 /**
- * Notes as a List (the default: one compact row per note, newest first,
- * each opening in place) or a Grid (compact cards in masonry columns,
+ * Notes as a List (the default: the compact note row under day headings,
+ * newest first, each opening in place) or a Grid (compact cards in masonry columns,
  * pinned first, opening in place) (#218). The Notepad's note comes first
  * in both, and opens its own page, `/notepad` (#261). Add note opens the
  * new-note panel, preset to the filtered project (General otherwise), as
@@ -112,21 +112,6 @@ export function NotesPage() {
     }
   }, [target, padId]);
   const [open, setOpen] = useState<string | null>(null);
-  const [rows, setRows] = useState<ReadonlySet<string>>(
-    () => new Set(target ? [target] : []),
-  );
-  useEffect(() => {
-    if (target) setRows((r) => (r.has(target) ? r : new Set(r).add(target)));
-  }, [target]);
-  const toggleRow = useCallback(
-    (id: string) =>
-      setRows((r) => {
-        const next = new Set(r);
-        if (!next.delete(id)) next.add(id);
-        return next;
-      }),
-    [],
-  );
   const feed = useRef<HTMLDivElement>(null);
   useFlip(feed, active);
 
@@ -335,8 +320,6 @@ export function NotesPage() {
             state={state}
             today={today}
             highlight={words}
-            open={rows}
-            onToggle={toggleRow}
           />
         )}
       </div>

@@ -298,14 +298,17 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
     .count();
   await page.keyboard.press('Escape');
 
-  // List, with one note open as its full card.
+  // List: a note row's ⋯ menu (#274).
   await openNotes(page, '', ['n-3']);
-  await expect(
-    page.getByRole('button', { name: 'Edit note' }).first(),
-  ).toBeVisible();
+  await page
+    .locator('li[data-note-id="n-3"]')
+    .getByRole('button', { name: /^More for note from / })
+    .click();
+  await expect(page.getByRole('menuitem').first()).toBeVisible();
   counts.notes = await page
-    .getByRole('button', { name: 'Summarize note' })
+    .getByRole('menuitem', { name: 'Summarize' })
     .count();
+  await page.keyboard.press('Escape');
 
   await openLive(page, '/digest');
   counts.digest = await summarize.count();

@@ -4,7 +4,9 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   isMobile,
+  noteAction,
   openLive,
+  openNoteRow,
   SEED,
   seedTime,
   settle,
@@ -40,6 +42,11 @@ async function place(page: Page, id: string) {
 
 function card(page: Page, id: string) {
   return page.locator(`article[data-note-id="${id}"]`);
+}
+
+/** The List's rows (#274: the compact note row). */
+function listRows(page: Page) {
+  return page.getByRole('main').locator('li[data-note-id]');
 }
 
 test.beforeEach(async ({ request }) => {
@@ -118,7 +125,7 @@ test('filters apply to the Grid as well', async ({ page }) => {
     page.getByRole('list', { name: 'Notes' }).locator('article'),
   ).toHaveCount(1);
   await pick(page, 'List');
-  await expect(page.locator('[data-note-row]')).toHaveCount(1);
+  await expect(listRows(page)).toHaveCount(1);
 });
 
 test('List and Grid, List the default; the Notepad has its own page (#261)', async ({
@@ -140,47 +147,72 @@ test('List and Grid, List the default; the Notepad has its own page (#261)', asy
 test('an old Feed address reads as List', async ({ page }) => {
   await openLive(page, '/notes?view=feed');
   await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(page.locator('[data-note-row]')).toHaveCount(3);
+  await expect(listRows(page)).toHaveCount(3);
 });
 
-test('List: one compact row per note, each opening in place', async ({
+test('List: compact note rows under day headings, each opening in place', async ({
   page,
 }) => {
   await openLive(page, '/notes?view=list');
-  const rows = page.locator('[data-note-row]');
+  const rows = listRows(page);
   // Newest first; Yavin's note is in an archived project.
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('Prep: Shield review');
-  await expect(rows.nth(0)).toContainText('Echo Base relocation');
+  await expect(
+    rows.nth(0).getByRole('link', { name: 'Echo Base relocation' }),
+  ).toBeVisible();
+  await expect(
+    rows.nth(0).getByRole('link', { name: 'Meeting: Shield review' }),
+  ).toBeVisible();
   await expect(rows.nth(1)).toContainText('Standup');
   await expect(rows.nth(1)).toContainText('Pinned');
   await expect(rows.nth(2)).toContainText('Next quarter');
   await expect(rows.nth(2)).toContainText('General');
-  // Compact: one line on desktop, and no card until a row is opened.
+  // Under day headings, each list named by its day.
+  const days = page.getByRole('main').getByRole('heading', { level: 2 });
+  expect(await days.count()).toBeGreaterThan(0);
+  await expect(
+    page.getByRole('list', { name: (await days.first().textContent()) ?? '' }),
+  ).toBeVisible();
+  // Compact: no card, a closed row at most about three text lines, and
+  // the long note's later lines out of sight.
   await expect(page.locator('article[data-note-id]')).toHaveCount(0);
+  await expect(rows.nth(2)).not.toContainText('idea 14');
   if (!isMobile(page)) {
     const box = await rows.nth(1).boundingBox();
-    expect(box?.height ?? 0).toBeLessThan(48);
+    expect(box?.height ?? 0).toBeLessThan(100);
   }
 
-  const button = rows.nth(1).getByRole('button', { name: /^Standup/ });
-  await button.click();
-  await expect(button).toHaveAttribute('aria-expanded', 'true');
-  const standup = card(page, 'n-1');
+  const standup = rows.nth(1);
+  const toggle = standup.getByRole('button', { name: /^Note from / });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(
-    standup.getByRole('button', { name: 'Edit note' }),
+    standup.getByRole('checkbox', { name: 'Check the heaters' }),
   ).toBeVisible();
-  await expect(standup).toContainText('Check the heaters');
-  await button.click();
-  await expect(standup).toHaveCount(0);
+  await noteAction(standup, 'Edit');
+  await expect(
+    standup.getByRole('combobox', { name: 'Edit note' }),
+  ).toBeVisible();
+  await standup.getByRole('button', { name: 'Cancel' }).click();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    standup.getByRole('checkbox', { name: 'Check the heaters' }),
+  ).toHaveCount(0);
   await expectNoSidewaysScroll(page);
 });
 
 test('a link to one note opens it in the List', async ({ page }) => {
   await openLive(page, '/notes?note=n-3');
   await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(card(page, 'n-3')).toBeVisible();
-  await expect(card(page, 'n-3')).toBeFocused();
+  const row = page.locator('li[data-note-id="n-3"]');
+  await expect(row).toBeFocused();
+  await expect(row).toHaveAttribute('data-highlighted');
+  await expect(
+    row.getByRole('button', { name: /^Note from / }),
+  ).toHaveAttribute('aria-expanded', 'true');
+  await expect(row.getByText('idea 14')).toBeVisible();
 });
 
 test('Grid: masonry columns in reading order, one column on a phone', async ({
@@ -248,6 +280,13 @@ test('Grid: masonry columns in reading order, one column on a phone', async ({
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`${theme} theme`, () => {
     test.use({ theme, reducedMotion: 'reduce' });
+
+    test('the list and an open row are axe clean', async ({ page }) => {
+      await openLive(page, '/notes?view=list');
+      await expectAccessible(page);
+      await openNoteRow(page.locator('li[data-note-id="n-3"]'));
+      await expectAccessible(page);
+    });
 
     test('the grid and an open card are axe clean', async ({ page }) => {
       await openLive(page, '/notes?view=grid');

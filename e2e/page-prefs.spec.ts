@@ -288,7 +288,9 @@ test('a saved Feed on Notes reads as List (#218)', async ({
   });
   await openLive(page, '/notes');
   await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(page.locator('[data-note-row]').first()).toBeVisible();
+  await expect(
+    page.getByRole('main').locator('li[data-note-id]').first(),
+  ).toBeVisible();
 });
 
 test('a saved Notepad layout on Notes reads as List (#261)', async ({
@@ -305,7 +307,9 @@ test('a saved Notepad layout on Notes reads as List (#261)', async ({
   await openLive(page, '/notes');
   await expect(layout(page).getByRole('radio')).toHaveCount(2);
   await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(page.locator('[data-note-row]').first()).toBeVisible();
+  await expect(
+    page.getByRole('main').locator('li[data-note-id]').first(),
+  ).toBeVisible();
 });
 
 test('a saved value the page no longer has falls back to the default', async ({

@@ -129,6 +129,11 @@ changes the format says so here under **Export format**.
   the whole note. Edit, Pin, Make task, Summarize, Save as template and
   Delete are in the row's ⋯ menu, on meeting and task notes too. A link
   to a note (a task's "From note") opens its row. Notes keeps its cards.
+- **Notes' List uses the same compact rows** (#274): under day headings
+  again, each row with its time, project (or General) and meeting, its
+  first two lines and the ⋯ menu, opening in place. When Find matches a
+  note past the lines its row shows, the row opens, so the match is in
+  sight. The Notepad's row still opens its page; Grid keeps its cards.
 - **Projects and Archived on the list toolbar** (#270): Find on both
   (name, org, tags or description), then Projects' Status, Health and
   Org, then Sort; Archived gains a Sort, saved with the page as on

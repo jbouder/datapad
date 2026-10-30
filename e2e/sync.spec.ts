@@ -156,7 +156,8 @@ test('offline changes survive a reload and replay once, in order', async ({
   await expect(write).toBeHidden();
   await expect(
     page
-      .locator('[data-note-row]')
+      .getByRole('main')
+      .locator('li[data-note-id]')
       .filter({ hasText: 'Shield numbers look low' }),
   ).toBeVisible();
   await expect(status(page)).toContainText('Offline, 3 changes waiting');
