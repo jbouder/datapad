@@ -401,3 +401,27 @@ describe('list filters (#269)', () => {
     expect(change.patch).toEqual({ filters: { status: null, who: null } });
   });
 });
+
+describe('Projects and Archived on the list toolbar (#270)', () => {
+  const q = (s: string) => new URLSearchParams(s);
+
+  it('Clear filters keeps the sort on Projects', () => {
+    expect(clearFilters('projects')).toEqual({
+      q: null,
+      status: null,
+      health: null,
+      org: null,
+    });
+  });
+
+  it('Archived has Find and a saved sort, and no filters', () => {
+    expect(PAGES.archive.fields.map((f) => f.key)).toEqual(['view', 'sort']);
+    expect(filterFields('archive')).toEqual([]);
+    expect(isFiltered('archive', q('sort=name'))).toBe(false);
+    expect(isFiltered('archive', q('q=hoth'))).toBe(true);
+    expect(clearFilters('archive')).toEqual({ q: null });
+    expect(planChange('archive', { sort: 'name' }, {}).patch).toEqual({
+      sort: 'name',
+    });
+  });
+});

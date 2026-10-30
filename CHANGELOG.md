@@ -119,6 +119,12 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Projects and Archived on the list toolbar** (#270): Find on both
+  (name, org, tags or description), then Projects' Status, Health and
+  Org, then Sort; Archived gains a Sort, saved with the page as on
+  Projects, and its table's headers sort. Clear filters on Projects no
+  longer resets the sort. On phones the filters and Sort are in the
+  Filters sheet.
 - **One toolbar on Tasks and Notes** (#269): Find comes first, then the
   filters, then Sort (new on Tasks, beside the column headers it matches),
   then Clear filters whenever a filter is on or Find has words. Find on

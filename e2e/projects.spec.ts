@@ -1,8 +1,13 @@
 import type { Page } from '@playwright/test';
 import { formatDay } from '../shared/dates';
 import {
+  chooseFilter,
+  closeFilters,
   expect,
+  expectAccessible,
+  isMobile,
   moreAction,
+  openFilters,
   openLive,
   SEED,
   seedDay,
@@ -40,11 +45,6 @@ async function newProject(
   await page.goto('/projects');
 }
 
-async function choose(page: Page, label: string, option: string) {
-  await page.getByRole('combobox', { name: label }).click();
-  await page.getByRole('option', { name: option, exact: true }).click();
-}
-
 test('create two, filter by org, sort by priority, archive one', async ({
   page,
 }) => {
@@ -61,15 +61,15 @@ test('create two, filter by org, sort by priority, archive one', async ({
   // Default: Active, recently updated first.
   await expect(cards(page)).toHaveText([/Bespin audit/, /Alderaan relief/]);
 
-  await choose(page, 'Org', 'Rebel Alliance');
+  await chooseFilter(page, 'Org', 'Rebel Alliance');
   await expect(page).toHaveURL(/org=Rebel\+Alliance/);
   await expect(cards(page)).toHaveText([/Alderaan relief/]);
 
-  await choose(page, 'Org', 'All orgs');
-  await choose(page, 'Sort by', 'Name');
+  await chooseFilter(page, 'Org', 'All orgs');
+  await chooseFilter(page, 'Sort', 'Name');
   await expect(page).toHaveURL(/sort=name/);
   await expect(cards(page)).toHaveText([/Alderaan relief/, /Bespin audit/]);
-  await choose(page, 'Sort by', 'Priority');
+  await chooseFilter(page, 'Sort', 'Priority');
   await expect(cards(page)).toHaveText([/Bespin audit/, /Alderaan relief/]);
 
   // Back restores the previous filters.
@@ -129,16 +129,125 @@ test('cards carry org, status, state, counts, target, next marker and members', 
   await expect(echo).toHaveAttribute('href', '/projects/p-echo');
 });
 
-test('empty filters say so and clear', async ({ page, request }) => {
+test('empty filters say so and clear, keeping the sort', async ({
+  page,
+  request,
+}) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/projects?status=done');
+  await openLive(page, '/projects?status=done&sort=name');
   await expect(page.getByText('None match these filters.')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Clear filters' })
+    .first()
+    .click();
+  // Clear filters leaves the sort alone (#270).
+  await expect(page).toHaveURL(/\/projects\?sort=name$/);
   await expect(cards(page)).toHaveText([/Echo Base relocation/]);
+});
+
+test('Find matches name, org, tags and description', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/projects?status=all');
+  await expect(cards(page)).toHaveCount(2);
+  const find = page.getByRole('searchbox', { name: 'Find' });
+  await find.fill('corellian');
+  await expect(page).toHaveURL(/q=corellian/);
+  await expect(cards(page)).toHaveText([/Falcon hyperdrive refit/]);
+  // A tag, then a word from the description.
+  await find.fill('vendor');
+  await expect(cards(page)).toHaveText([/Falcon hyperdrive refit/]);
+  await find.fill('tauntaun');
+  await expect(cards(page)).toHaveText([/Echo Base relocation/]);
+  await find.fill('nothing like it');
+  await expect(page.getByText('None match these filters.')).toBeVisible();
+  await expectAccessible(page);
+  // Esc clears Find; the filters stay.
+  await find.press('Escape');
+  await expect(find).toHaveValue('');
+  await expect(page).toHaveURL(/\/projects\?status=all$/);
+  await expect(cards(page)).toHaveCount(2);
+
+  // On phones the filters are in the sheet, counted on its button.
+  if (isMobile(page)) {
+    await expect(
+      page.getByRole('button', { name: 'Filters (1)' }),
+    ).toBeVisible();
+    const sheet = await openFilters(page);
+    await expect(sheet.getByRole('group', { name: 'Status' })).toBeVisible();
+    await expect(sheet.getByRole('combobox', { name: 'Sort' })).toBeVisible();
+    await expectAccessible(page);
+    await closeFilters(page);
+  }
 });
 
 test('Archived says so when empty', async ({ page }) => {
   await openLive(page, '/archive');
   await expect(page.getByText('Nothing archived.')).toBeVisible();
+});
+
+test('Archived has Find and Sort, and the sort is saved', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', {
+    data: {
+      ...SEED,
+      projects: {
+        ...SEED.projects,
+        'p-alderaan': {
+          ...SEED.projects['p-yavin'],
+          id: 'p-alderaan',
+          name: 'Alderaan memorial',
+          org: 'Royal House',
+          tags: ['memorial'],
+          desc: '',
+        },
+      },
+    },
+  });
+  await openLive(page, '/archive');
+  const archived = page
+    .getByRole('list', { name: 'Archived projects' })
+    .getByRole('link');
+  await expect(archived).toHaveCount(2);
+
+  await chooseFilter(page, 'Sort', 'Name');
+  await expect(page).toHaveURL(/sort=name/);
+  await expect(archived).toHaveText([
+    /Alderaan memorial/,
+    /Yavin IV retrospective/,
+  ]);
+
+  const find = page.getByRole('searchbox', { name: 'Find' });
+  await find.fill('yavin');
+  await expect(page).toHaveURL(/q=yavin/);
+  await expect(archived).toHaveText([/Yavin IV retrospective/]);
+  await find.fill('hoth');
+  await expect(page.getByText('None match these filters.')).toBeVisible();
+  await expectAccessible(page);
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Clear filters' })
+    .first()
+    .click();
+  await expect(find).toHaveValue('');
+  await expect(archived).toHaveCount(2);
+
+  // The sort is saved for the page; Find is not.
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get('/api/export.json')).json()).settings?.user
+          ?.pages?.archive ?? null,
+    )
+    .toEqual({ sort: 'name' });
+  await openLive(page, '/archive');
+  await expect(archived).toHaveText([
+    /Alderaan memorial/,
+    /Yavin IV retrospective/,
+  ]);
 });
