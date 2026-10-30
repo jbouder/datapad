@@ -72,11 +72,13 @@ test('a failed backup, and an overdue one, show in warn', async ({
     backups: [{ day: day(old), bytes: 2048, at: old }],
     hour: 3,
     timeZone: 'America/New_York',
-    failedAt: hoursAgo(2),
+    // Minutes, not hours: "2 h ago" is "yesterday" just after midnight.
+    // The page's clock ticks by the minute, so it may say 4 or 5.
+    failedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
   };
   await openLive(page, '/settings/data');
   const failed = page.getByText(
-    /^Last backup: .+\. The latest attempt failed 2 h ago and is retried on its own\.$/,
+    /^Last backup: .+\. The latest attempt failed \d+ min ago and is retried on its own\.$/,
   );
   await expect(failed).toBeVisible();
   await expect(failed).toHaveClass(/text-warn/);

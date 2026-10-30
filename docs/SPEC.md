@@ -191,7 +191,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **New note panel** (Write a note in the top bar's + menu, Shift+N, New note in ⌘K, or Add note on Notes and on a project page): a **Template** picker (only when the space has note templates; choosing one fills the composer, replacing what is there while it is empty or untouched since the last template, otherwise adding below it), the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
 
-**Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header.
+**Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header's More menu.
 
 **Current state line (retired).** Projects used to carry a one-line "current state" under the header and on the card. It is no longer shown, edited, searched, summarized or in the digest; the field and the `setState` op remain so old data and old clients still load.
 
@@ -284,10 +284,14 @@ Display rules:
 
 Meetings are created from a project page (project fixed) or the Meetings page (project picker, General allowed). Required: title and date. Editing re-opens the same form; deleting asks for confirmation. Creating, editing, and deleting log activity on the meeting's project (or General).
 
+### Detail page actions
+
+A project's, a meeting's and a task's page put their actions in the header the same way (`DetailActions`): the page's state action when it has one (a task's **Close** / **Reopen**), **Edit** (the item's panel), then **More** (⋯, "More actions") with the rest, the less common first and **Archive** or **Delete** last after a rule (Delete in the destructive color). An action that does not apply is left out of the menu. A project's More holds **Summarize**, **Move to…** (with another space), **Save as template** (with open tasks) and **Archive** / **Unarchive**. Every header button and menu row is 44px on touch. The panels keep their footers.
+
 ### Meeting page
 
 Each meeting has a page of its own at `/meetings/<id>`, as a project does, under Meetings in the nav and titled with the meeting's title. Everything that opens a meeting goes there: the title on a row (Meetings page, project page, a calendar day's popover), a calendar chip, a timeline point, an agenda card on Focus, ⌘K, a note's meeting chip and an org's meetings. `/meetings?meeting=<id>` and `/events?event=<id>`, the addresses that used to open the row, redirect to it.
-- **Header**: the project (a link) or General; the title; **Summarize**, **Edit** (the meeting's panel), **Carry forward** (when it applies; see below) and **Delete** (asks in place, keeps the notes and the action items, then goes to Meetings); then the day and times, the attendees and the link; then the agenda note.
+- **Header**: the project (a link) or General; the title; **Edit** (the meeting's panel) and **More** (⋯): **Summarize**, **Carry forward** (when it applies; see below) and, after a rule, **Delete** (asks in place, keeps the notes and the action items, then goes to Meetings); then the day and times, the attendees and the link; then the agenda note.
 - **Body**: **Topics** and **Action items** on the left and **Notes** on the right (3:2 above 820px, one column below), the same sections as the meeting's panel.
 - **Series**: at the foot, **Previous** and **Next** link to the neighbouring meetings of its series, by day.
 - An unknown id shows Not found with Back to Meetings.
@@ -295,7 +299,7 @@ Each meeting has a page of its own at `/meetings/<id>`, as a project does, under
 ### Task page
 
 A task opened from the Tasks page (its title in any layout, a board card, a timeline bar, `e` on a row) goes to its page at `/tasks/<id>`, under Tasks in the nav and titled with the task's title. Anywhere else (Focus, a project page, a person, a note's task chip, ⌘K) a task opens in its panel, and adding a task always uses the new-task panel.
-- **Header**: the project (a link) or General; "From <meeting>" when it is an action item; the title (struck through when done); **Close** / **Reopen** (with Undo), **Summarize**, **Edit** (the task's panel) and **Delete** (with Undo, then goes to Tasks); then its status, priority, due date, assignee, blocker (which edits it), tags and links.
+- **Header**: the project (a link) or General; "From <meeting>" when it is an action item; the title (struck through when done); **Close** / **Reopen** (with Undo), **Edit** (the task's panel) and **More** (⋯): **Summarize** and, after a rule, **Delete** (with Undo, then goes to Tasks); then its status, priority, due date, assignee, blocker (which edits it), tags and links.
 - **Body**: **Details** (the markdown) and the note it was made from on the left, **Notes** on the right (3:2 above 820px, one column below), the same Notes section as the task's panel; created and closed times at the foot.
 - An unknown id shows Not found with Back to Tasks. Switching spaces on a task or meeting page goes to Tasks or Meetings.
 
@@ -331,7 +335,7 @@ Every project has a whiteboard (the project page's Whiteboard section previews i
 
 ## Claude summaries
 
-A **Summarize** action exists on four item types: project (header), task (panel footer), meeting (row), note (footer). It is hidden when no model is available. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
+A **Summarize** action exists on four item types: project (header's More menu), task (panel footer and page's More menu), meeting (row), note (footer). It is hidden when no model is available. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
 
 **Flow.** Click opens the side panel titled `Summary · <item>` showing "Thinking…", with Stop, Copy (disabled until text arrives), and Save as note. Output streams in and is rendered with the markdown subset. On completion Stop is disabled and Copy / Save enable. Closing the panel aborts the request. Errors: `not_granted` hides the feature for the session; `canceled` keeps partial text and appends "Stopped."; `rate_limited` shows a toast; anything else shows partial text or a one-line failure message.
 

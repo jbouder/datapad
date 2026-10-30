@@ -4,6 +4,7 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  moreAction,
   openLive,
   SEED,
   test,
@@ -205,7 +206,7 @@ test('Make a task from a topic links it; deleting the meeting keeps it', async (
   expect(made).toMatchObject({ projectId: 'p-echo', meetingId: 'e-1' });
 
   // Delete says the action item is kept, and it is, unlinked.
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await moreAction(page, 'Delete');
   await expect(page.getByRole('alertdialog')).toContainText(
     'Its note and action item are kept.',
   );

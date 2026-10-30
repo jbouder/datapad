@@ -6,6 +6,8 @@ import {
   expectNoSidewaysScroll,
   expectSaved,
   isMobile,
+  moreAction,
+  moreActions,
   openLive,
   SEED,
   test,
@@ -108,7 +110,7 @@ test('previous and next in the series, and Carry forward', async ({
   const series = page.getByRole('navigation', { name: 'This series' });
   await expect(series.getByRole('link', { name: /^Previous/ })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Carry forward' }).click();
+  await moreAction(page, 'Carry forward');
   await expect(
     page.getByText(`Carried 2 topics to ${formatDay(nextWeek(), today())}`),
   ).toBeVisible();
@@ -116,9 +118,7 @@ test('previous and next in the series, and Carry forward', async ({
     page.getByRole('main').locator('[data-topic-outcome]'),
   ).toHaveText(['Approved', 'Carried forward', 'Carried forward']);
   // Nothing left to carry.
-  await expect(page.getByRole('button', { name: 'Carry forward' })).toHaveCount(
-    0,
-  );
+  expect(await moreActions(page)).not.toContain('Carry forward');
 
   await series
     .getByRole('link', { name: `Next: ${formatDay(nextWeek(), today())}` })
@@ -162,11 +162,7 @@ test('Edit opens the panel; Delete asks, keeps the notes, goes to Meetings', asy
   ).toBeVisible();
   await expect(page).toHaveTitle('Shield and ridge review · Datapad');
 
-  // The header's (each note has a Delete too).
-  await page
-    .getByRole('button', { name: 'Delete', exact: true })
-    .first()
-    .click();
+  await moreAction(page, 'Delete');
   const ask = page.getByRole('alertdialog');
   await expect(ask).toContainText('Its note is kept.');
   await expect(ask.getByRole('button', { name: 'Keep it' })).toBeFocused();
