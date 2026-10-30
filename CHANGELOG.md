@@ -23,6 +23,9 @@ changes the format says so here under **Export format**.
   its agenda, instead of stopping at Sunday: on a Friday you now see
   Monday's. MCP `get_focus` returns them as `due.upcoming` (was
   `due.thisWeek`).
+- Focus's Due shows every open High priority task, whatever its due
+  date: one due after the window, or with no date, is in High priority
+  too, in Day and Week. MCP `get_focus` returns those as `due.high`.
 
 ### Added
 

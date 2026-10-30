@@ -103,9 +103,10 @@ export function HelpPage({ section }: { section?: string }) {
             tasks by who they wait on, and for how long; projects off health,
             near or past their target, or quiet for two weeks; open action items
             from the last week’s meetings; and what is overdue and due today
-            (and in those days, in Week), by priority. With summaries on, Brief
-            me turns that into a short paragraph about yesterday and today.{' '}
-            <Key>v</Key> switches Day and Week.
+            (and in those days, in Week), with every High priority task whatever
+            its date, by priority. With summaries on, Brief me turns that into a
+            short paragraph about yesterday and today. <Key>v</Key> switches Day
+            and Week.
           </Term>
           <Term name="Projects" to={{ name: 'projects' }}>
             Every active project as cards, a table or a timeline. A project page

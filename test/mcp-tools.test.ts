@@ -301,6 +301,34 @@ describe('the read tools', () => {
     expect(ids(long.due.upcoming.items)).toEqual(['t-5', 't-4']);
   });
 
+  it('get_focus lists High priority past the window, whatever its date', async () => {
+    const ctx = await seeded();
+    const { sourceNoteId: _, ...plain } = fixture.tasks['t-4'];
+    const task = (id: string, fields: Record<string, unknown>) => ({
+      ...plain,
+      id,
+      title: `Important ${id}`,
+      ...fields,
+    });
+    const added = await ctx.datapad.import(MAIN_SPACE, {
+      tasks: {
+        'h-1': task('h-1', { priority: 'high', due: '2026-12-01' }),
+        'h-2': task('h-2', { priority: 'high', due: '' }),
+        'h-3': task('h-3', { priority: 'med', due: '' }),
+        'h-4': task('h-4', {
+          priority: 'high',
+          due: '',
+          blocked: { on: null, note: '' },
+        }),
+      },
+    });
+    expect(added.ok).toBe(true);
+    const out = await call(ctx, 'get_focus', { today: TODAY });
+    expect(ids(out.due.high.items)).toEqual(['h-1', 'h-2']);
+    expect(out.due.later).toBe(1);
+    expect(out.due.noDate).toBe(3);
+  });
+
   describe('get_recap (#260)', () => {
     const { sourceNoteId: _, ...plain } = fixture.tasks['t-4'];
     const task = (id: string, fields: Record<string, unknown>) => ({

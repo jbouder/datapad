@@ -282,6 +282,44 @@ test('Settings → Pages sets how many days Week shows', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Next 7 days' })).toBeVisible();
 });
 
+test('High priority shows whatever its date, in Day and Week', async ({
+  page,
+  request,
+}) => {
+  const base = briefingSeed().tasks['t-4'];
+  const task = (id: string, title: string, fields: object) => ({
+    ...base,
+    id,
+    title,
+    ...fields,
+  });
+  await request.post('/api/import', {
+    data: {
+      tasks: {
+        'h-1': task('h-1', 'Rebuild the shield array', {
+          priority: 'high',
+          due: addDays(today(), 30),
+        }),
+        'h-2': task('h-2', 'Evacuation plan', { priority: 'high', due: '' }),
+        'h-3': task('h-3', 'Repaint the hangar', { priority: 'med', due: '' }),
+      },
+    },
+  });
+  await openLive(page);
+  const high = group(page, 'High priority');
+  await expect(high.locator('[data-task-id]')).toHaveText([
+    /Confirm shield generator delivery/,
+    /Rebuild the shield array/,
+    /Evacuation plan/,
+  ]);
+  await expect(briefing(page).getByText('Repaint the hangar')).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+
+  await openLive(page, '/?view=week');
+  await expect(high.locator('[data-task-id]')).toHaveCount(3);
+  await expect(briefing(page).getByText('Repaint the hangar')).toHaveCount(0);
+});
+
 test('each agenda card links to its meeting', async ({ page }) => {
   await openLive(page, '/?view=week');
   const agenda = page.getByRole('region', { name: 'Next 7 days' });

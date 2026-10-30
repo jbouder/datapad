@@ -16,7 +16,9 @@ import {
   assigneeToQuery,
   byPriority,
   FOCUS_DAYS,
+  type FocusBuckets,
   focusBuckets,
+  focusDue,
   GENERAL_KEY,
   meId,
   mentionsOf,
@@ -77,6 +79,37 @@ describe('byPriority', () => {
       ['none', ['c']],
     ]);
     expect(byPriority([])).toEqual([]);
+  });
+});
+
+describe('focusDue', () => {
+  const t = (id: string, priority: Task['priority']) =>
+    ({ id, priority }) as Task;
+  const buckets: FocusBuckets = {
+    blocked: [t('blocked', 'high')],
+    overdue: [t('overdue', 'low')],
+    today: [t('today', 'none')],
+    upcoming: [t('soon', 'high'), t('soon-low', 'low')],
+    later: [t('later', 'high'), t('later-med', 'med')],
+    noDate: [t('undated', 'high'), t('undated-none', 'none')],
+  };
+
+  it('adds High priority whatever its date to the view’s buckets', () => {
+    expect(ids(focusDue(buckets, ['overdue', 'today']))).toEqual([
+      'overdue',
+      'today',
+      'soon',
+      'later',
+      'undated',
+    ]);
+    expect(ids(focusDue(buckets, ['overdue', 'today', 'upcoming']))).toEqual([
+      'overdue',
+      'today',
+      'soon',
+      'soon-low',
+      'later',
+      'undated',
+    ]);
   });
 });
 
