@@ -24,6 +24,13 @@ changes the format says so here under **Export format**.
   Monday's. MCP `get_focus` returns them as `due.upcoming` (was
   `due.thisWeek`).
 
+### Added
+
+- Settings → Pages → Focus → **Week shows**: how many days Focus's Week
+  looks ahead, 3, 5, 7, 10 or 14 (7 by default), for both the agenda and
+  Due. It is saved with the space, and MCP `get_focus` follows it (and
+  says which, as `days`).
+
 ## [0.2.0] — 2026-10-30
 
 Datapad as an MCP server, so Claude can read and add to it; a morning

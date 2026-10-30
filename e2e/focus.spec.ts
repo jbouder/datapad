@@ -254,6 +254,34 @@ test('Week widens the agenda and Due, and nothing else', async ({ page }) => {
   await expect(group(page, 'Low priority')).toBeHidden();
 });
 
+test('Settings → Pages sets how many days Week shows', async ({ page }) => {
+  await openLive(page, '/settings/pages');
+  const focus = page.getByRole('region', { name: 'Focus', exact: true });
+  const days = focus.getByRole('combobox', { name: 'Week shows' });
+  await expect(days).toContainText('7 days');
+  await days.click();
+  await page.getByRole('option', { name: '3 days', exact: true }).click();
+  await expect(focus.getByText('Saved', { exact: true })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
+  // The agenda and Due both look three days ahead: the Han 1:1 (the day
+  // after tomorrow) and the docking permit (tomorrow) are just inside.
+  await openLive(page, '/?view=week');
+  const week = page.getByRole('region', { name: 'Next 3 days' });
+  await expect(week.getByRole('listitem')).toHaveCount(2);
+  await expect(group(page, 'Low priority')).toContainText(
+    'Renew the docking permit',
+  );
+  await expect(page).toHaveURL(/\?view=week$/);
+
+  // Reset puts Week back to seven days.
+  await openLive(page, '/settings/pages');
+  await page.getByRole('button', { name: 'Reset Focus' }).click();
+  await expect(days).toContainText('7 days');
+  await openLive(page, '/?view=week');
+  await expect(page.getByRole('region', { name: 'Next 7 days' })).toBeVisible();
+});
+
 test('each agenda card links to its meeting', async ({ page }) => {
   await openLive(page, '/?view=week');
   const agenda = page.getByRole('region', { name: 'Next 7 days' });
