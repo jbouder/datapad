@@ -415,7 +415,6 @@ export function TaskPanel({
 export function NewTaskPanel({
   projectId,
   title = '',
-  assignee,
   meetingId,
   open,
   onClose,
@@ -424,11 +423,6 @@ export function NewTaskPanel({
   projectId: string | null;
   /** Prefilled (a meeting topic's Make a task). */
   title?: string;
-  /**
-   * Preset (Tasks filtered to someone, or to nobody: ''). Absent, it is
-   * `defaultAssignee()`: you, when Settings → People says so.
-   */
-  assignee?: string;
   /**
    * An action item of this meeting (a topic's Make a task): it goes in
    * the meeting's project, so there is no project to pick.
@@ -447,7 +441,9 @@ export function NewTaskPanel({
     projectId,
     priority: 'none' as Priority,
     due: '',
-    assignee: assignee ?? (state ? defaultAssignee(state) : ''),
+    // Every new task starts with the default assignee: you, when
+    // Settings → People says so.
+    assignee: state ? defaultAssignee(state) : '',
     desc: '',
   }));
   const [values, setValues] = useState(initial);

@@ -7,12 +7,7 @@ import {
   TASK_STATUS_OPTIONS,
 } from '#shared/pages';
 import type { Op } from '#shared/protocol';
-import {
-  assigneeFor,
-  assigneeFromQuery,
-  assigneeToQuery,
-  meId,
-} from '#shared/select';
+import { assigneeFromQuery, assigneeToQuery, meId } from '#shared/select';
 import {
   DEFAULT_TASK_FILTERS,
   selectTasks,
@@ -245,7 +240,6 @@ export function TasksPage() {
     sortTo(column, same && filters.dir === 'asc' ? 'desc' : 'asc');
   };
 
-  const assignTo = assigneeFor(filters.who, me);
   const people = Object.values(state.people).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
@@ -277,12 +271,8 @@ export function TasksPage() {
         <ViewSwitcher views={TASK_VIEWS} value={view} onChange={setView} />
         <Button
           className="press h-11 desk:h-8"
-          onClick={() =>
-            // Unfiltered, the panel prefills the default assignee.
-            newTask(null, {
-              assignee: filters.who.kind === 'anyone' ? undefined : assignTo,
-            })
-          }
+          // The panel prefills the default assignee, whatever the filter.
+          onClick={() => newTask(null)}
         >
           <PlusIcon />
           Add task

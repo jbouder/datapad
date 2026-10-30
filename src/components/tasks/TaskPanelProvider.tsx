@@ -22,14 +22,13 @@ type Session =
 /** What a new task starts with besides its project. */
 export interface NewTaskPreset {
   title?: string;
-  assignee?: string;
   /** An action item of this meeting (in the meeting's project). */
   meetingId?: string;
 }
 
 interface TaskPanels {
   openTask: (id: string) => void;
-  /** A new task in the project, its title and assignee prefilled when given. */
+  /** A new task in the project, its title prefilled when given. */
   newTask: (projectId: string | null, preset?: NewTaskPreset) => void;
 }
 
@@ -76,7 +75,6 @@ export function TaskPanelProvider({ children }: { children: ReactNode }) {
           key={session.key}
           projectId={session.projectId}
           title={session.preset.title}
-          assignee={session.preset.assignee}
           meetingId={session.preset.meetingId}
           open={session.open}
           onClose={close}
