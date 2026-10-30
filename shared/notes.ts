@@ -203,3 +203,33 @@ export function notePreview(body: string, people: Snapshot['people']): string {
   }
   return out.join('\n');
 }
+
+/**
+ * About how many characters one line of a closed row holds on a phone,
+ * the narrowest it gets; erring short opens a row whose match might just
+ * have shown.
+ */
+const ROW_LINE_CHARS = 40;
+
+/**
+ * Whether Find's words (lower-case, as `queryWords` gives them) reach
+ * past what a closed row shows of the note: its preview's first two
+ * lines, wrapped at `ROW_LINE_CHARS`. Notes opens those rows, so every
+ * match is in sight (#274).
+ */
+export function matchBeyondPreview(
+  body: string,
+  people: Snapshot['people'],
+  words: string[],
+): boolean {
+  if (words.length === 0) return false;
+  let room = 2;
+  const shown: string[] = [];
+  for (const line of notePreview(body, people).toLowerCase().split('\n')) {
+    if (room <= 0) break;
+    shown.push(line.slice(0, room * ROW_LINE_CHARS));
+    room -= Math.max(1, Math.ceil(line.length / ROW_LINE_CHARS));
+  }
+  const text = shown.join('\n');
+  return words.some((w) => !text.includes(w));
+}

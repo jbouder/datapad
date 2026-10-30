@@ -177,17 +177,11 @@ export async function openNotes(page: Page, query = '', ids?: string[]) {
   const params = new URLSearchParams(query);
   if (!params.has('view')) params.set('view', 'list');
   await openLive(page, `/notes?${params}`);
-  const list = page.getByRole('list', { name: 'Notes' });
+  const list = page.getByRole('main');
   const rows = ids
-    ? ids.map((id) => list.locator(`[data-note-row="${id}"]`))
-    : await list.locator('[data-note-row]').all();
-  for (const row of rows) {
-    const button = row.locator(':scope > button');
-    if ((await button.getAttribute('aria-expanded')) === 'false') {
-      await button.click();
-    }
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
-  }
+    ? ids.map((id) => list.locator(`li[data-note-id="${id}"]`))
+    : await list.locator('li[data-note-id]:has(button)').all();
+  for (const row of rows) await openNoteRow(row);
 }
 
 /**

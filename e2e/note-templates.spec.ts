@@ -5,7 +5,10 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  noteAction,
+  noteRow,
   openLive,
+  openNoteRow,
   openNotes,
   SEED,
   test,
@@ -20,8 +23,9 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
+/** A note's row on Notes (#274). */
 function card(page: Page, text: string | RegExp) {
-  return page.locator('article[data-note-id]').filter({ hasText: text });
+  return noteRow(page.getByRole('main'), text);
 }
 
 test.beforeEach(async ({ request }) => {
@@ -69,17 +73,11 @@ test('make a note template in Settings, start a note from it, then /template', a
   await note.getByRole('button', { name: 'Add note' }).click();
   await expect(note).toBeHidden();
   // The newest row: its note opens in place.
-  await page
-    .locator('[data-note-row]')
-    .first()
-    .locator(':scope > button')
-    .click();
+  await openNoteRow(card(page, 'Wins'));
   await expect(card(page, 'Hangar heaters')).toBeVisible();
 
   // `/template` in a note's editor puts it in at the caret.
-  await card(page, 'Hangar heaters')
-    .getByRole('button', { name: 'Edit note' })
-    .click();
+  await noteAction(card(page, 'Hangar heaters'), 'Edit');
   const edit = card(page, 'Hangar heaters').getByRole('combobox', {
     name: 'Edit note',
   });
@@ -118,9 +116,7 @@ test('save a note as a template, mentions and all', async ({
   request,
 }) => {
   await openNotes(page, '', ['n-1']);
-  await card(page, 'Tauntauns fed')
-    .getByRole('button', { name: 'Save as template from note' })
-    .click();
+  await noteAction(card(page, 'Tauntauns fed'), 'Save as template');
   const panel = page.getByRole('dialog', { name: 'New note template' });
   await expect(panel.getByRole('textbox', { name: 'Name' })).toHaveValue(
     'Standup',

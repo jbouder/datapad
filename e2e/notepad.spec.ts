@@ -126,7 +126,7 @@ test('the Notepad is one note, first in List and Grid, opening its page, and on 
   await expect(
     page.getByRole('heading', { level: 1, name: 'Notes' }),
   ).toBeVisible();
-  const first = page.locator('[data-note-row]').first();
+  const first = page.getByRole('main').locator('li[data-note-id]').first();
   await expect(first).toContainText('Shield frequencies, rotated');
   await expect(first).toContainText('Notepad');
   await expectAccessible(page);

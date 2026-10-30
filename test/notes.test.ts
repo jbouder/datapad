@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NOTE_FILTERS,
   groupByDay,
+  matchBeyondPreview,
   notePreview,
   projectNotes,
   queryWords,
@@ -151,5 +152,43 @@ describe('notePreview', () => {
     );
     const many = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
     expect(notePreview(many, people).split('\n')).toHaveLength(6);
+  });
+});
+
+describe('matchBeyondPreview', () => {
+  const people = state.people;
+  it('is false with no words, or when every word is in the first two lines', () => {
+    expect(matchBeyondPreview('anything', people, [])).toBe(false);
+    expect(
+      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
+        'standup',
+        'shields',
+      ]),
+    ).toBe(false);
+  });
+
+  it('is true when a word is only past the second line', () => {
+    expect(
+      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
+        'standup',
+        'heaters',
+      ]),
+    ).toBe(true);
+    // Past the six lines a preview keeps, too.
+    const long = Array.from({ length: 9 }, (_, i) => `- idea ${i + 1}`);
+    expect(matchBeyondPreview(long.join('\n'), people, ['idea 9'])).toBe(true);
+  });
+
+  it('counts a long line as the lines it wraps to', () => {
+    const line = `${'word '.repeat(20)}needle`;
+    expect(matchBeyondPreview(line, people, ['needle'])).toBe(true);
+    expect(matchBeyondPreview(`${line}\nsecond`, people, ['second'])).toBe(
+      true,
+    );
+    expect(matchBeyondPreview('short\nsecond', people, ['second'])).toBe(false);
+  });
+
+  it('finds a mention by the name it shows', () => {
+    expect(matchBeyondPreview('Ask @{leia}', people, ['leia'])).toBe(false);
   });
 });
