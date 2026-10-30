@@ -15,8 +15,14 @@ import {
   selectNotes,
 } from '#shared/notes';
 import type { Note } from '#shared/types';
+import { FindField } from '@/components/inputs/FindField';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import {
+  ListEmpty,
+  ListToolbar,
+  useListFilters,
+} from '@/components/layouts/ListToolbar';
 import {
   useView,
   type ViewOption,
@@ -26,13 +32,12 @@ import { NoteCard } from '@/components/notes/NoteCard';
 import { NoteList } from '@/components/notes/NoteList';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { useMasonry } from '@/hooks/useMasonry';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { withLayoutTransition, withViewTransition } from '@/lib/motion';
-import { navigate, setQuery, useQuery } from '@/lib/router';
+import { navigate, useQuery } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
 
@@ -62,9 +67,6 @@ function ordered(notes: Note[], pinnedFirst: boolean): Note[] {
 export function notesPreset(project: string | null | undefined): string | null {
   return project && project !== 'general' ? project : null;
 }
-
-/** How long typing in Find waits before filtering. */
-const FIND_DEBOUNCE_MS = 150;
 
 /**
  * The view's controls, from the URL so Back restores them, over what is
@@ -125,20 +127,8 @@ export function NotesPage() {
       }),
     [],
   );
-  const [find, setFind] = useState(filters.q);
   const feed = useRef<HTMLDivElement>(null);
   useFlip(feed, active);
-
-  // Find follows the URL (Back), and the URL follows Find after a pause.
-  useEffect(() => setFind(filters.q), [filters.q]);
-  useEffect(() => {
-    if (find === filters.q) return;
-    const timer = window.setTimeout(
-      () => setQuery({ q: find || null }, { replace: true }),
-      FIND_DEBOUNCE_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [find, filters.q]);
 
   const changeQuery = useCallback(
     (changes: Record<string, string | null>) =>
@@ -147,6 +137,7 @@ export function NotesPage() {
       }),
     [active, changePage],
   );
+  const listFilters = useListFilters('notes', query, changeQuery);
 
   const notes = useMemo(
     () => (state ? selectNotes(state, filters, hidden) : []),
@@ -228,7 +219,6 @@ export function NotesPage() {
     (a, b) =>
       Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name),
   );
-  const filtered = Boolean(filters.project || filters.pinned || filters.q);
   const any = Object.keys(state.notes).length > hidden.size;
   const filterProject = notesPreset(filters.project);
 
@@ -251,66 +241,52 @@ export function NotesPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-        <SelectField
-          label="Project"
-          value={filters.project || 'all'}
-          options={[
-            { value: 'all', label: 'All projects' },
-            { value: 'general', label: 'General' },
-            ...projects.map((p) => ({
-              value: p.id,
-              label: p.archived ? `${p.name} (archived)` : p.name,
-            })),
-          ]}
-          onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
-        />
-        <Segmented
-          legend="Show"
-          value={filters.pinned ? 'pinned' : 'all'}
-          onChange={(v) => changeQuery({ pinned: v === 'pinned' ? '1' : null })}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'pinned', label: 'Pinned' },
-          ]}
-        />
-        <div className="flex flex-col gap-1.5 sm:col-span-2 desk:col-span-1">
-          <label htmlFor="note-find" className="text-xs font-medium">
-            Find
-          </label>
-          <Input
-            id="note-find"
-            type="search"
-            value={find}
+      <ListToolbar
+        state={listFilters}
+        find={
+          <FindField
+            value={filters.q}
             placeholder="Words in a note, or a name"
-            autoComplete="off"
-            onChange={(e) => setFind(e.target.value)}
-            className="h-11 text-base desk:h-8 desk:text-xs"
+            onChange={(q) => changePage({ q: q || null }, { replace: true })}
           />
-        </div>
-      </div>
+        }
+        filters={
+          <>
+            <SelectField
+              label="Project"
+              value={filters.project || 'all'}
+              options={[
+                { value: 'all', label: 'All projects' },
+                { value: 'general', label: 'General' },
+                ...projects.map((p) => ({
+                  value: p.id,
+                  label: p.archived ? `${p.name} (archived)` : p.name,
+                })),
+              ]}
+              onChange={(v) => changeQuery({ project: v === 'all' ? null : v })}
+            />
+            <Segmented
+              legend="Show"
+              value={filters.pinned ? 'pinned' : 'all'}
+              onChange={(v) =>
+                changeQuery({ pinned: v === 'pinned' ? '1' : null })
+              }
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'pinned', label: 'Pinned' },
+              ]}
+            />
+          </>
+        }
+      />
 
       <div ref={feed} className="vt-list flex flex-col gap-6">
         {notes.length === 0 ? (
-          any && filtered ? (
-            <div className="flex flex-col items-start gap-2">
-              <p className="text-state">No notes match.</p>
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={() => {
-                  setFind('');
-                  changeQuery({ project: null, pinned: null, q: null });
-                }}
-              >
-                Clear the filters
-              </Button>
-            </div>
-          ) : (
-            <p className="text-state">
-              No notes yet. Add note writes one, or write in the Notepad.
-            </p>
-          )
+          <ListEmpty
+            state={any ? listFilters : { ...listFilters, filtered: false }}
+          >
+            No notes yet. Add note writes one, or write in the Notepad.
+          </ListEmpty>
         ) : view === 'grid' ? (
           <ul
             ref={gridRef}
