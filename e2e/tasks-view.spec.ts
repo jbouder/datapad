@@ -216,3 +216,28 @@ test('a thousand tasks render promptly', async ({ page, request }) => {
   // failOnFlakyTests one slow first try fails the run.
   expect(Date.now() - started).toBeLessThan(12_000);
 });
+
+test('the selection bar stays at the foot of the window', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/tasks');
+  await page
+    .getByRole('checkbox', { name: /^Select “/ })
+    .first()
+    .click();
+  const bar = page.getByRole('toolbar', { name: 'Selected tasks' });
+  await expect(bar.getByRole('status')).toHaveText('1 task selected');
+  // The window's foot (above the tab bar on phones), not the page's: the
+  // page's entrance leaves a translate on it, which would hold a fixed bar
+  // below a long list.
+  const height = page.viewportSize()?.height ?? 0;
+  const tabBar = isMobile(page) ? 56 : 0;
+  await expect
+    .poll(async () => {
+      const box = await bar.boundingBox();
+      return box ? Math.round(height - tabBar - (box.y + box.height)) : -1;
+    })
+    .toBe(16);
+});

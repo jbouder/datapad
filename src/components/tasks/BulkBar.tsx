@@ -8,6 +8,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Op } from '#shared/protocol';
 import { undoTaskOps } from '#shared/tasks';
 import type { Task } from '#shared/types';
@@ -30,6 +31,10 @@ const plural = (n: number) => (n === 1 ? '1 task' : `${n} tasks`);
  * the due date, delete. Each action is one `batch` op (all or nothing),
  * and its toast's Undo puts back what it changed, through the same
  * checked ops (`undoTaskOps`), so an edit made since is kept.
+ *
+ * It renders on `document.body`: the page's `.enter` leaves a `translate`
+ * on it, which would pin a `fixed` bar to the page's foot (below a long
+ * list) instead of the window's.
  */
 export function BulkBar({
   tasks,
@@ -60,7 +65,7 @@ export function BulkBar({
   const openOnes = tasks.filter((t) => t.status === 'open');
   const doneOnes = tasks.filter((t) => t.status === 'done');
 
-  return (
+  return createPortal(
     <div
       role="toolbar"
       aria-label="Selected tasks"
@@ -210,6 +215,7 @@ export function BulkBar({
         <XIcon />
         <span className="sr-only">Clear selection (Esc)</span>
       </Button>
-    </div>
+    </div>,
+    document.body,
   );
 }
