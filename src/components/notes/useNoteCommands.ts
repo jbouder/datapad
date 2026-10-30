@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { TemplateChoice } from '#shared/composer';
 import { tokensToNames } from '#shared/mentions';
+import { defaultAssignee } from '#shared/tasks';
 import { templatesOf } from '#shared/templates';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
@@ -29,12 +30,15 @@ export function useNoteCommands(projectId: string | null): {
   onTask: (title: string) => boolean;
   templates: TemplateChoice[];
 } {
-  const { actions } = useDatapad();
+  const { state, actions } = useDatapad();
   const { show } = useToast();
   const templates = useNoteTemplates();
   return {
     onTask: (title) => {
-      if (actions.addTask({ projectId, title }) === null) return false;
+      const assignee = state ? defaultAssignee(state) : '';
+      if (actions.addTask({ projectId, title, assignee }) === null) {
+        return false;
+      }
       show(`Added “${title}”`);
       return true;
     },

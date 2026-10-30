@@ -277,7 +277,12 @@ export function TasksPage() {
         <ViewSwitcher views={TASK_VIEWS} value={view} onChange={setView} />
         <Button
           className="press h-11 desk:h-8"
-          onClick={() => newTask(null, { assignee: assignTo })}
+          onClick={() =>
+            // Unfiltered, the panel prefills the default assignee.
+            newTask(null, {
+              assignee: filters.who.kind === 'anyone' ? undefined : assignTo,
+            })
+          }
         >
           <PlusIcon />
           Add task

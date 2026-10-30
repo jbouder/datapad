@@ -112,8 +112,8 @@ const cases = {
     invalid: { events: [{ t: 'yesterday', text: 'Created project' }] },
   },
   settings: {
-    valid: { defaultOrg: 'Rebel Alliance' },
-    invalid: { defaultOrg: 'x'.repeat(LIMITS.nameMax + 1) },
+    valid: { defaultOrg: 'Rebel Alliance', assignToMe: true },
+    invalid: { defaultOrg: 'Rebel Alliance', assignToMe: 'yes' },
   },
   templates: {
     valid: {

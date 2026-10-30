@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from '#shared/limits';
 import type { BaseOp } from '#shared/protocol';
+import { defaultAssignee } from '#shared/tasks';
 import { PRIORITIES, type Task } from '#shared/types';
 import {
   defineTool,
@@ -65,7 +66,9 @@ export const addTask = defineTool({
     meeting: MeetingArg.optional().describe(
       'A meeting id or title: the task is its action item, in its project (`project` is then ignored).',
     ),
-    assignee: AssigneeArg.optional(),
+    assignee: AssigneeArg.optional().describe(
+      'A person id or name (ignoring case), "me" for the person marked as you, or "unassigned". Omitted, the task goes to the person marked as you when the owner’s "Assign new tasks to me" setting is on, else to nobody.',
+    ),
     due: DayOrNoneText.optional(),
     priority: z.enum(PRIORITIES).optional().describe('Defaults to "none".'),
     desc: MarkdownArg.optional(),
@@ -86,6 +89,10 @@ export const addTask = defineTool({
         ? null
         : resolveProject(state, args.project);
     const id = await docId(args.requestId);
+    const assignee =
+      args.assignee !== undefined
+        ? resolveAssignee(state, args.assignee)
+        : defaultAssignee(state);
     const written = await write(
       ctx,
       space,
@@ -103,9 +110,7 @@ export const addTask = defineTool({
             ? { desc: tokens(state, args.desc) }
             : {}),
           ...(args.tags ? { tags: args.tags } : {}),
-          ...(args.assignee !== undefined
-            ? { assignee: resolveAssignee(state, args.assignee) }
-            : {}),
+          ...(assignee ? { assignee } : {}),
           ...(meetingId ? { meetingId } : {}),
         },
       ],

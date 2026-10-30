@@ -2268,6 +2268,25 @@ describe('settings', () => {
     });
     expect(settingsOf(cleared.state).defaultOrg).toBe('');
   });
+
+  it('stores "Assign new tasks to me" and keeps the default org', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const { state: on, changed } = at(state, {
+      type: 'setSettings',
+      patch: { assignToMe: true },
+    });
+    expect(settingsOf(on)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      assignToMe: true,
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(on.activity).toBe(state.activity);
+    const off = run(on, { type: 'setSettings', patch: { assignToMe: false } });
+    expect(settingsOf(off).assignToMe).toBe(false);
+  });
 });
 
 describe('page preferences (#186)', () => {

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { defaultAssignee } from '#shared/tasks';
 import type { Note, Snapshot } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -11,7 +12,7 @@ import { useToast } from '@/providers/ToastProvider';
  * not changed. Returns whether the task was made.
  */
 export function useMakeTask(): (note: Note, title: string) => boolean {
-  const { actions } = useDatapad();
+  const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { show } = useToast();
   return useCallback(
@@ -22,6 +23,7 @@ export function useMakeTask(): (note: Note, title: string) => boolean {
         projectId: note.projectId,
         title: clean,
         sourceNoteId: note.id,
+        assignee: state ? defaultAssignee(state) : '',
       });
       if (id === null) return false;
       show(`Added “${clean}”`, undefined, {
@@ -30,7 +32,7 @@ export function useMakeTask(): (note: Note, title: string) => boolean {
       });
       return true;
     },
-    [actions, openTask, show],
+    [state, actions, openTask, show],
   );
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ExportSchema } from '#shared/protocol';
 import {
   DEFAULT_TASK_FILTERS,
+  defaultAssignee,
   dueBucket,
   dueForBucket,
   selectTasks,
@@ -15,6 +16,33 @@ function seeded(): Snapshot {
   return state;
 }
 const ids = (rows: Task[]) => rows.map((t) => t.id);
+
+describe('defaultAssignee', () => {
+  const s = seeded();
+  const meIn = Object.values(s.people).find((p) => p.me)?.id;
+  const withSetting = (assignToMe: boolean | undefined) => ({
+    ...s,
+    settings: { user: { defaultOrg: '', assignToMe } },
+  });
+
+  it('is nobody until the setting is on', () => {
+    expect(meIn).toBeTruthy();
+    expect(defaultAssignee(s)).toBe('');
+    expect(defaultAssignee(withSetting(undefined))).toBe('');
+    expect(defaultAssignee(withSetting(false))).toBe('');
+  });
+
+  it('is the person marked as you when it is on', () => {
+    expect(defaultAssignee(withSetting(true))).toBe(meIn);
+  });
+
+  it('is nobody when on but nobody is marked as you', () => {
+    const people = Object.fromEntries(
+      Object.entries(s.people).map(([id, p]) => [id, { ...p, me: false }]),
+    );
+    expect(defaultAssignee({ ...withSetting(true), people })).toBe('');
+  });
+});
 
 describe('selectTasks', () => {
   const s = seeded();
