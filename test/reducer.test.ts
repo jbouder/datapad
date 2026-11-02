@@ -1334,6 +1334,126 @@ describe('milestones', () => {
   });
 });
 
+describe('ideas (#293)', () => {
+  it('addIdea adds one to General and logs it there', () => {
+    const { state, changed } = at(base(), {
+      type: 'addIdea',
+      id: 'i1',
+      title: 'Snowspeeder tow cables',
+      description: 'Ask @{u1}',
+    });
+    expect(state.ideas.i1).toEqual({
+      id: 'i1',
+      title: 'Snowspeeder tow cables',
+      description: 'Ask @{u1}',
+      createdAt: T1,
+      updatedAt: T1,
+    });
+    expect(lastLog(state, GENERAL)).toBe(
+      'Added the idea "Snowspeeder tow cables"',
+    );
+    // It belongs to no project: none is touched.
+    expect(state.projects.p1).toEqual(base().projects.p1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: GENERAL },
+      { col: 'ideas', id: 'i1' },
+    ]);
+  });
+
+  it('addIdea defaults the description and trims the title', () => {
+    const op = OpSchema.parse({
+      type: 'addIdea',
+      id: 'i1',
+      title: '  Tauntauns  ',
+    });
+    const { state } = at(base(), op);
+    expect(state.ideas.i1).toMatchObject({
+      title: 'Tauntauns',
+      description: '',
+    });
+  });
+
+  it('editIdea changes it and bumps updatedAt, without a log line', () => {
+    const state = run(base(), {
+      type: 'addIdea',
+      id: 'i1',
+      title: 'Tauntauns',
+    });
+    const before = state.activity[GENERAL];
+    const T2 = '2026-10-23T11:00:00.000Z';
+    const { state: next, changed } = reduce(
+      state,
+      {
+        type: 'editIdea',
+        id: 'i1',
+        patch: { title: 'Tauntaun shelters', description: 'Warmer' },
+      },
+      T2,
+    );
+    expect(next.ideas.i1).toMatchObject({
+      title: 'Tauntaun shelters',
+      description: 'Warmer',
+      updatedAt: T2,
+    });
+    expect(next.ideas.i1?.createdAt).not.toBe(T2);
+    expect(next.activity[GENERAL]).toBe(before);
+    expect(changed).toEqual([{ col: 'ideas', id: 'i1' }]);
+  });
+
+  it('deleteIdea removes it and logs it in General', () => {
+    const state = run(base(), {
+      type: 'addIdea',
+      id: 'i1',
+      title: 'Tauntauns',
+    });
+    const { state: next, changed } = at(state, {
+      type: 'deleteIdea',
+      id: 'i1',
+    });
+    expect(next.ideas).toEqual({});
+    expect(lastLog(next, GENERAL)).toBe('Deleted the idea "Tauntauns"');
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: GENERAL },
+      { col: 'ideas', id: 'i1', deleted: true },
+    ]);
+  });
+
+  it('refuses a duplicate id, a missing idea and an empty title', () => {
+    const state = run(base(), { type: 'addIdea', id: 'i1', title: 'One' });
+    expect(() =>
+      at(state, { type: 'addIdea', id: 'i1', title: 'Again' }),
+    ).toThrow('That idea already exists');
+    expect(() =>
+      at(state, { type: 'editIdea', id: 'i9', patch: { title: 'x' } }),
+    ).toThrow('That idea no longer exists');
+    expect(() => at(state, { type: 'deleteIdea', id: 'i9' })).toThrow(
+      'That idea no longer exists',
+    );
+    expect(
+      OpSchema.safeParse({ type: 'addIdea', id: 'i2', title: '   ' }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({ type: 'editIdea', id: 'i1', patch: {} }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'addIdea',
+        id: 'i2',
+        title: 'x'.repeat(LIMITS.titleMax + 1),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('leaves ideas alone when a project is deleted', () => {
+    const state = run(
+      base(),
+      { type: 'addIdea', id: 'i1', title: 'Tauntauns' },
+      { type: 'deleteProject', id: 'p1' },
+    );
+    expect(Object.keys(state.ideas)).toEqual(['i1']);
+  });
+});
+
 describe('whiteboards', () => {
   const item = (id: string, overrides: Partial<BoardItem> = {}): BoardItem => ({
     id,
@@ -2540,6 +2660,22 @@ describe('merge (import)', () => {
     expect(merged.notes.pad1?.scratch).toBe(true);
     expect(merged.notes.pad9).toMatchObject({ body: 'Theirs' });
     expect(merged.notes.pad9).not.toHaveProperty('scratch');
+  });
+
+  it('round-trips ideas, and an export from before them imports unchanged', () => {
+    const state = run(base(), {
+      type: 'addIdea',
+      id: 'i1',
+      title: 'Tauntauns',
+      description: 'Ask @{u1}',
+    });
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(next.ideas).toEqual(state.ideas);
+
+    const { ideas: _, ...before } = file;
+    const { state: old } = merge(state, ExportSchema.parse(before));
+    expect(old.ideas).toEqual(state.ideas);
   });
 
   it('adds new documents and replaces same ids', () => {

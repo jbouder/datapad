@@ -276,6 +276,19 @@ export interface BoardItem {
   points: number[];
 }
 
+/**
+ * Something worth keeping that is not a task, a note or a project yet
+ * (#293). It belongs to no project.
+ */
+export interface Idea {
+  id: string;
+  title: string;
+  /** Markdown; mentions stored as `@{personId}`. */
+  description: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 /** A client, an internal team, a vendor or a partner, with its contacts. */
 export interface Org {
   id: string;
@@ -366,7 +379,7 @@ export const GENERAL = 'general';
 
 /**
  * A space: a complete, separate Datapad (its own projects, tasks, notes,
- * meetings, decisions, people, orgs, templates, settings and activity) under
+ * meetings, decisions, ideas, people, orgs, templates, settings and activity) under
  * the one signed-in email. The Durable Object keeps the list; `position`
  * is its order in the switcher, so a reorder never touches `createdAt`.
  */
@@ -485,6 +498,7 @@ export interface Collections {
   orgs: Org;
   templates: Template;
   boardItems: BoardItem;
+  ideas: Idea;
   activity: Activity;
   settings: Settings;
 }
@@ -501,6 +515,7 @@ export const COLLECTIONS = [
   'orgs',
   'templates',
   'boardItems',
+  'ideas',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -518,6 +533,7 @@ export const DOC_COLLECTIONS = [
   'orgs',
   'templates',
   'boardItems',
+  'ideas',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -536,6 +552,7 @@ export function emptySnapshot(): Snapshot {
     orgs: {},
     templates: {},
     boardItems: {},
+    ideas: {},
     activity: {},
     settings: {},
   };
@@ -547,8 +564,11 @@ export function emptySnapshot(): Snapshot {
  * so in CHANGELOG.md under **Export format**. A file without `format` is
  * legacy (before 1), migrated by shape (`shared/migrate.ts`); a file with
  * a higher one than this is refused, never half-read.
+ *
+ * 2 adds `ideas` (#293): a format 1 Datapad would drop them without a
+ * word, so it refuses the file instead. Every format 1 file reads as is.
  */
-export const EXPORT_FORMAT = 1;
+export const EXPORT_FORMAT = 2;
 
 /** The JSON file Export writes and Import reads (the artifact's format). */
 export type ExportFile = {

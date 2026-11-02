@@ -862,6 +862,7 @@ describe('export and import', () => {
         orgs: 0,
         templates: 0,
         boardItems: 0,
+        ideas: 0,
       },
     });
     const exported = await get(email, '/api/export.json');
@@ -887,6 +888,7 @@ describe('export and import', () => {
       'orgs',
       'templates',
       'boardItems',
+      'ideas',
     ]);
     const { format, exportedAt, ...back } = file;
     expect(format).toBe(EXPORT_FORMAT);
@@ -899,7 +901,38 @@ describe('export and import', () => {
       orgs: {},
       templates: {},
       boardItems: {},
+      ideas: {},
     });
+  });
+
+  it('round-trips ideas through export and import (#293)', async () => {
+    const email = 'ideas-kept@example.com';
+    const ideas = {
+      'i-1': {
+        id: 'i-1',
+        title: 'Shield generator drills',
+        description: 'Run them with @{u-mon} before winter.',
+        createdAt: '2026-10-01T09:00:00.000Z',
+        updatedAt: '2026-10-02T09:00:00.000Z',
+      },
+    };
+    const response = await post(email, '/api/import', { ...fixture, ideas });
+    expect(response.status).toBe(200);
+    const imported = (await response.json()) as {
+      imported: Record<string, number>;
+    };
+    expect(imported.imported.ideas).toBe(1);
+    const file = (await (
+      await get(email, '/api/export.json')
+    ).json()) as Snapshot & { format: number };
+    expect(file.format).toBe(EXPORT_FORMAT);
+    expect(file.ideas).toEqual(ideas);
+    const again = 'ideas-kept-again@example.com';
+    expect((await post(again, '/api/import', file)).status).toBe(200);
+    const back = (await (
+      await get(again, '/api/export.json')
+    ).json()) as Snapshot;
+    expect(back.ideas).toEqual(ideas);
   });
 
   it('keeps decisions through import and export, though they are retired', async () => {

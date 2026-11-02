@@ -541,6 +541,32 @@ describe('removeSubtree', () => {
   });
 });
 
+describe('moving a project leaves ideas alone (#293)', () => {
+  it('carries none and deletes none', () => {
+    const state = source();
+    const idea = {
+      id: 'i-1',
+      title: 'Ion cannon drills',
+      description: '',
+      createdAt: later,
+      updatedAt: later,
+    };
+    state.ideas = { 'i-1': idea };
+    const subtree = projectSubtree(
+      state,
+      'p-echo',
+      emptySnapshot(),
+      arrival,
+    ) as ParsedExport;
+    expect(subtree.ideas).toEqual({});
+    const { state: next, changed } = removeSubtree(state, subtree);
+    expect(next.ideas).toBe(state.ideas);
+    expect(changed.some((c) => c.col === 'ideas')).toBe(false);
+    const target = merge(emptySnapshot(), subtree).state;
+    expect(target.ideas).toEqual({});
+  });
+});
+
 describe('spaceCounts', () => {
   it('counts an empty space as nothing', () => {
     expect(spaceCounts(emptySnapshot())).toEqual({

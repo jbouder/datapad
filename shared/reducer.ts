@@ -933,6 +933,31 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
 
+    /* ideas (#293): they belong to no project, so their lines are General's */
+    case 'addIdea': {
+      fresh(d, 'ideas', op.id, 'idea');
+      d.set('ideas', op.id, {
+        id: op.id,
+        title: op.title,
+        description: op.description ?? '',
+        createdAt: now,
+        updatedAt: now,
+      });
+      log(d, null, `Added the idea "${op.title}"`, now);
+      return;
+    }
+    case 'editIdea': {
+      const i = d.get('ideas', op.id) ?? fail('That idea no longer exists');
+      d.set('ideas', i.id, { ...i, ...op.patch, updatedAt: now });
+      return;
+    }
+    case 'deleteIdea': {
+      const i = d.get('ideas', op.id) ?? fail('That idea no longer exists');
+      d.delete('ideas', i.id);
+      log(d, null, `Deleted the idea "${i.title}"`, now);
+      return;
+    }
+
     /* decisions: retired (#183), kept so old clients' ops still apply */
     case 'addDecision': {
       fresh(d, 'decisions', op.id, 'decision');

@@ -17,7 +17,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 
 ## Layout
 
-- `shared/` — the domain, used by both sides. `types.ts` (the eleven
+- `shared/` — the domain, used by both sides. `types.ts` (the twelve
   collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`

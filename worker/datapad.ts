@@ -1094,6 +1094,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       orgs,
       templates,
       boardItems,
+      ideas,
     } = this.space(space).state;
     // The artifact's order, then what Datapad adds.
     return {
@@ -1110,6 +1111,7 @@ export class DatapadObject extends DurableObject<Bindings> {
       orgs,
       templates,
       boardItems,
+      ideas,
     };
   }
 

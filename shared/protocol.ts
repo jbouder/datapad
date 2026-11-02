@@ -14,6 +14,7 @@ import {
   DOC_COLLECTIONS,
   EXPORT_FORMAT,
   type ExportFile,
+  type Idea,
   type Link,
   type Meeting,
   type Milestone,
@@ -272,6 +273,14 @@ export const OrgSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Org, unknown>;
 
+export const IdeaSchema = z.object({
+  id,
+  title: z.string().min(1).max(LIMITS.titleMax),
+  description: text(LIMITS.bodyMax).default(''),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}) satisfies z.ZodType<Idea, unknown>;
+
 const decisionStatus = z.enum(DECISION_STATUSES);
 
 export const DecisionSchema = z.object({
@@ -460,6 +469,7 @@ export const DocumentSchemas = {
   orgs: OrgSchema,
   templates: TemplateSchema,
   boardItems: BoardItemSchema,
+  ideas: IdeaSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -589,6 +599,8 @@ export const ExportSchema = z.preprocess(
       templates: collectionOf(TemplateSchema),
       /** Datapad only (M12); older files have no whiteboards. */
       boardItems: collectionOf(BoardItemSchema),
+      /** Datapad only (#293, format 2); older files have no ideas. */
+      ideas: collectionOf(IdeaSchema),
       activity: keyedCollection(ActivitySchema),
       settings: keyedCollection(SettingsSchema),
     })
@@ -651,6 +663,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     orgs: Object.keys(snapshot.orgs).length,
     templates: Object.keys(snapshot.templates).length,
     boardItems: Object.keys(snapshot.boardItems).length,
+    ideas: Object.keys(snapshot.ideas).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -821,6 +834,11 @@ const orgFields = {
   archived: z.boolean(),
 };
 
+const ideaFields = {
+  title: required(LIMITS.titleMax),
+  description: text(LIMITS.bodyMax),
+};
+
 const decisionFields = {
   projectId: nullableId,
   title: required(LIMITS.titleMax),
@@ -907,6 +925,11 @@ const PutSchema = z.discriminatedUnion('col', [
     type: z.literal('put'),
     col: z.literal('boardItems'),
     doc: BoardItemSchema,
+  }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('ideas'),
+    doc: IdeaSchema,
   }),
 ]);
 
@@ -1163,6 +1186,19 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       )
       .max(LIMITS.batchMax),
   }),
+
+  /* ideas (#293): General, never on a project */
+  /** Logs "Added the idea "<title>"". */
+  z.object({
+    type: z.literal('addIdea'),
+    id,
+    title: ideaFields.title,
+    description: ideaFields.description.optional(),
+  }),
+  /** Not logged. */
+  z.object({ type: z.literal('editIdea'), id, patch: patch(ideaFields) }),
+  /** Logs "Deleted the idea "<title>"". */
+  z.object({ type: z.literal('deleteIdea'), id }),
 
   /* decisions: retired (#183); kept so old clients' queued ops still apply */
   /** Logs "Proposed "<title>"" or "Decided "<title>"". */

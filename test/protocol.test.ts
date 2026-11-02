@@ -200,6 +200,22 @@ const cases = {
       points: [0, 0, 1],
     },
   },
+  ideas: {
+    valid: {
+      id: 'i-1',
+      title: 'A trench run simulator for new pilots',
+      description: 'Ask @{u-1} about the targeting computer.',
+      createdAt: at,
+      updatedAt: at,
+    },
+    invalid: {
+      id: 'i-1',
+      title: '',
+      description: '',
+      createdAt: at,
+      updatedAt: at,
+    },
+  },
 } as const;
 
 describe('document schemas', () => {
@@ -219,7 +235,8 @@ describe('document schemas', () => {
         c !== 'decisions' &&
         c !== 'orgs' &&
         c !== 'templates' &&
-        c !== 'boardItems',
+        c !== 'boardItems' &&
+        c !== 'ideas',
     )) {
       const docs = fixture[col] as Record<string, unknown>;
       expect(Object.keys(docs).length).toBeGreaterThan(0);
@@ -380,6 +397,28 @@ describe('the export format (#240)', () => {
     const parsed = ExportSchema.parse({ ...fixture, format: EXPORT_FORMAT });
     expect(parsed).not.toHaveProperty('format');
     expect(parsed).toEqual(ExportSchema.parse(fixture));
+  });
+
+  it('reads a format 1 file, from before ideas, with no ideas (#293)', () => {
+    const parsed = ExportSchema.parse({ ...fixture, format: 1 });
+    expect(parsed.ideas).toEqual({});
+    expect(parsed).toEqual(ExportSchema.parse(fixture));
+  });
+
+  it('reads ideas, keyed by id or as an array', () => {
+    const idea = cases.ideas.valid;
+    const keyed = ExportSchema.parse({
+      format: EXPORT_FORMAT,
+      ideas: { [idea.id]: idea },
+    });
+    expect(keyed.ideas).toEqual({ [idea.id]: idea });
+    const listed = ExportSchema.parse({ format: EXPORT_FORMAT, ideas: [idea] });
+    expect(listed.ideas).toEqual({ [idea.id]: idea });
+    const { description: _, ...bare } = idea;
+    expect(
+      ExportSchema.parse({ ideas: { [idea.id]: bare } }).ideas[idea.id]
+        ?.description,
+    ).toBe('');
   });
 
   it('reads a file without one as legacy, migrated by its shape', () => {

@@ -17,6 +17,25 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- **Ideas, the data** (#293): a new collection for things worth keeping
+  that are not a task, a note or a project yet. An idea is a title and a
+  Markdown description, and belongs to no project. Adding and deleting
+  one log a line in General's activity. Nothing in the app shows them
+  yet; the Ideas page, quick add, search and MCP follow (#294 to #296).
+
+### Export format
+
+- **Format 2** (#293): exports and backups now write `"format": 2` and may
+  carry `ideas`, a map by id of `{ id, title, description, createdAt,
+  updatedAt }`. A Datapad that reads format 1 drops keys it does not know,
+  so it would import such a file and lose its ideas without a word; with
+  the bump it refuses the file and says to update instead. Every format 1
+  file, and every legacy one, imports unchanged, with no ideas. The
+  Durable Object's schema is still version 3: ideas are stored like every
+  other document.
+
 ## [0.3.0] — 2026-10-30
 
 Focus looks a set number of days ahead (seven by default, or 3, 5, 10 or

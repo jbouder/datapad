@@ -77,6 +77,7 @@ const CREATES = {
   addDecision: true,
   addOrg: true,
   addTemplate: true,
+  addIdea: true,
   writeNotepad: true,
 } as const;
 type CreateType = keyof typeof CREATES;
@@ -143,6 +144,9 @@ const OP_TYPES = {
   editOrg: true,
   deleteOrg: true,
   organizeOrgs: true,
+  addIdea: true,
+  editIdea: true,
+  deleteIdea: true,
   addTemplate: true,
   editTemplate: true,
   deleteTemplate: true,

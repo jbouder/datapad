@@ -79,7 +79,10 @@ export interface Arrival {
   at: string;
 }
 
-/** The collections a moved project takes with it (and leaves behind). */
+/**
+ * The collections a moved project takes with it (and leaves behind).
+ * Not ideas: they belong to no project, so a move never touches them.
+ */
 const CARRIED = [
   'projects',
   'tasks',
@@ -128,6 +131,8 @@ export function projectSubtree(
     orgs: {},
     templates: {},
     boardItems: {},
+    // Ideas belong to no project, so none go with it (#293).
+    ideas: {},
     activity: {},
     settings: {},
   };

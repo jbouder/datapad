@@ -151,9 +151,21 @@ One thing on a whiteboard. A board has no document of its own: `boardId` is a pr
 
 A board holds at most 2 000 items (`boardItemsMax`), an ink stroke at most 1 000 coordinates (`inkPointsMax`; the client simplifies first). An arrow end lying on a sticky's or rect's border is attached to it and follows it; the model stores nothing more.
 
+### Idea
+
+Something worth keeping that is not a task, a note or a project yet (#293). It belongs to no project; adding and deleting one log a line in General's activity, editing one does not.
+
+| Field       | Type      | Notes                                                    |
+| ----------- | --------- | -------------------------------------------------------- |
+| id          | string    |                                                          |
+| title       | string    | required, trimmed, at most 200                           |
+| description | string    | Markdown with `@{personId}` mentions; empty when not set |
+| createdAt   | timestamp |                                                          |
+| updatedAt   | timestamp | bumps on every edit                                      |
+
 ### Relationships
 
-task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting or task (optional, not both); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes, and so does deleting a task. Moving a task to another project moves its notes with it. Deleting a person leaves mentions rendering as "@unknown".
+task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting or task (optional, not both); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes, and so does deleting a task. Moving a task to another project moves its notes with it. Deleting a person leaves mentions rendering as "@unknown". Ideas refer to nothing but the people they mention: deleting or moving a project leaves them alone.
 
 ## Views
 

@@ -68,7 +68,7 @@ test('a malformed file is refused with its first problem, and nothing is written
   await importFile(page, 'future.json', { ...SEED, format: 99 });
   await expect(
     page.getByText(
-      'Not imported. This file is from a newer version of Datapad (export format 99; this one reads up to 1). Update Datapad, then try again.',
+      'Not imported. This file is from a newer version of Datapad (export format 99; this one reads up to 2). Update Datapad, then try again.',
     ),
   ).toBeVisible();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -99,7 +99,7 @@ test('export downloads every document as datapad-<date>.json', async ({
   const { exportedAt: _, ...seed } = SEED;
   // The file says its format (#240): the first key, a whole number.
   expect(Object.keys(saved)[0]).toBe('format');
-  expect(format).toBe(1);
+  expect(format).toBe(2);
   expect(Date.parse(exportedAt)).not.toBeNaN();
   expect(documents).toEqual({
     ...seed,
@@ -108,5 +108,6 @@ test('export downloads every document as datapad-<date>.json', async ({
     orgs: {},
     templates: {},
     boardItems: {},
+    ideas: {},
   });
 });
