@@ -11,7 +11,7 @@ export const LIMITS = {
   spacesMax: 12,
   /** A space's name: short, it sits in the switcher. */
   spaceNameMax: 40,
-  /** Task, meeting and milestone titles. */
+  /** Task, meeting, milestone and list titles, and a list item's text. */
   titleMax: 200,
   /** Note bodies and markdown descriptions. */
   bodyMax: 20_000,
@@ -29,6 +29,8 @@ export const LIMITS = {
   topicOutcomeMax: 300,
   /** Milestones on one project. */
   milestonesMax: 50,
+  /** Items on one list (their text uses `titleMax`). */
+  listItemsMax: 200,
   /** Items on one whiteboard. */
   boardItemsMax: 2_000,
   /** A sticky's, a text's or a rect's text. */

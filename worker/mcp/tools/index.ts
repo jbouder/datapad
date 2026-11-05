@@ -1,10 +1,12 @@
 import type { McpTool } from '../tool';
 import { getDigest, searchTool } from './digest';
+import { getList, listLists } from './lists';
 import { listMeetings, listNotes } from './notes';
 import { listOrgs, listPeople } from './people';
 import { getOverview, getProject, listProjects } from './projects';
 import { listSpaces, whoami } from './spaces';
 import { getFocus, getRecap, listTasks } from './tasks';
+import { addList, addListItem, checkListItem } from './write-lists';
 import { addMeeting, addNote, addTopic, coverTopic } from './write-meetings';
 import {
   addMilestone,
@@ -39,6 +41,8 @@ export const TOOLS: readonly McpTool[] = [
   listMeetings,
   listPeople,
   listOrgs,
+  listLists,
+  getList,
   getDigest,
   searchTool,
   addTask,
@@ -54,4 +58,7 @@ export const TOOLS: readonly McpTool[] = [
   setProjectStatus,
   setProjectHealth,
   addMilestone,
+  addList,
+  addListItem,
+  checkListItem,
 ];

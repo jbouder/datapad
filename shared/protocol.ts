@@ -15,6 +15,8 @@ import {
   EXPORT_FORMAT,
   type ExportFile,
   type Link,
+  type List,
+  type ListItem,
   type Meeting,
   type Milestone,
   NOTE_PHASES,
@@ -272,6 +274,23 @@ export const OrgSchema = z.object({
   updatedAt: timestamp,
 }) satisfies z.ZodType<Org, unknown>;
 
+export const ListItemSchema = z.object({
+  id,
+  text: z.string().min(1).max(LIMITS.titleMax),
+  done: z.boolean().default(false),
+  createdAt: timestamp,
+  doneAt: timestamp.nullable().default(null),
+}) satisfies z.ZodType<ListItem, unknown>;
+
+export const ListSchema = z.object({
+  id,
+  projectId: nullableId.default(null),
+  title: z.string().min(1).max(LIMITS.titleMax),
+  items: z.array(ListItemSchema).max(LIMITS.listItemsMax).default([]),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}) satisfies z.ZodType<List, unknown>;
+
 const decisionStatus = z.enum(DECISION_STATUSES);
 
 export const DecisionSchema = z.object({
@@ -460,6 +479,7 @@ export const DocumentSchemas = {
   orgs: OrgSchema,
   templates: TemplateSchema,
   boardItems: BoardItemSchema,
+  lists: ListSchema,
   activity: ActivitySchema,
   settings: SettingsSchema,
 } as const;
@@ -589,6 +609,8 @@ export const ExportSchema = z.preprocess(
       templates: collectionOf(TemplateSchema),
       /** Datapad only (M12); older files have no whiteboards. */
       boardItems: collectionOf(BoardItemSchema),
+      /** Datapad only (#298, format 2); older files have no lists. */
+      lists: collectionOf(ListSchema),
       activity: keyedCollection(ActivitySchema),
       settings: keyedCollection(SettingsSchema),
     })
@@ -651,6 +673,7 @@ export function countDocuments(snapshot: Snapshot): Counts {
     orgs: Object.keys(snapshot.orgs).length,
     templates: Object.keys(snapshot.templates).length,
     boardItems: Object.keys(snapshot.boardItems).length,
+    lists: Object.keys(snapshot.lists).length,
     activity: Object.keys(snapshot.activity).length,
     settings: Object.keys(snapshot.settings).length,
   };
@@ -812,6 +835,9 @@ const milestoneFields = {
   date,
 };
 
+/** A list's title and an item's text: one line, trimmed, required. */
+const listLine = required(LIMITS.titleMax);
+
 const orgFields = {
   name: required(LIMITS.nameMax),
   kind: orgKind,
@@ -907,6 +933,11 @@ const PutSchema = z.discriminatedUnion('col', [
     type: z.literal('put'),
     col: z.literal('boardItems'),
     doc: BoardItemSchema,
+  }),
+  z.object({
+    type: z.literal('put'),
+    col: z.literal('lists'),
+    doc: ListSchema,
   }),
 ]);
 
@@ -1111,6 +1142,53 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     patch: patch(milestoneFields),
   }),
   z.object({ type: z.literal('deleteMilestone'), projectId: id, id }),
+
+  /*
+   * lists (#298): items live on their list. Adding and deleting a list
+   * log; editing it and every item op do not.
+   */
+  /** Logs "Added the list "<title>"" in its project's log, or General's. */
+  z.object({
+    type: z.literal('addList'),
+    id,
+    title: listLine,
+    projectId: nullableId,
+  }),
+  z.object({
+    type: z.literal('editList'),
+    id,
+    title: listLine,
+    projectId: nullableId,
+  }),
+  /** Logs "Deleted the list "<title>"". */
+  z.object({ type: z.literal('deleteList'), id }),
+  /** Appended last. */
+  z.object({
+    type: z.literal('addListItem'),
+    listId: id,
+    id,
+    text: listLine,
+  }),
+  z.object({
+    type: z.literal('editListItem'),
+    listId: id,
+    id,
+    text: listLine,
+  }),
+  /** Done or not. Says the outcome, so it is idempotent. */
+  z.object({
+    type: z.literal('setListItemDone'),
+    listId: id,
+    id,
+    done: z.boolean(),
+  }),
+  z.object({ type: z.literal('deleteListItem'), listId: id, id }),
+  /** Every item id of the list, each once, in the new order. */
+  z.object({
+    type: z.literal('reorderListItems'),
+    listId: id,
+    ids: z.array(id).max(LIMITS.listItemsMax),
+  }),
 
   /* templates (not logged: they are not project work) */
   z.object({
@@ -1342,6 +1420,9 @@ export const MCP_OP_TYPES: ReadonlySet<BaseOp['type']> = new Set<
   'setStatus',
   'setHealth',
   'addMilestone',
+  'addList',
+  'addListItem',
+  'setListItemDone',
 ]);
 
 /* ---------- socket messages ---------- */
@@ -1398,6 +1479,7 @@ const LABELS: Record<string, string> = {
   meetingId: 'Meeting',
   taskId: 'Task',
   topics: 'Topics',
+  listId: 'List',
   boardId: 'Board',
   boardItems: 'Whiteboard items',
   w: 'Width',

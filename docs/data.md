@@ -25,7 +25,7 @@ commit `.dev.vars`.
 | Brief me's text for the day              | `localStorage` (`datapad:brief`, `:<id>` for other spaces) in each browser, until the next day, Regenerate or dismiss                                                                                | That browser profile                                 |
 
 **Spaces.** Your object holds one or more spaces, each a complete,
-separate Datapad: its own projects, tasks, notes, meetings, people, orgs,
+separate Datapad: its own projects, tasks, notes, meetings, lists, people, orgs,
 decisions, templates, whiteboards, settings and activity. Nothing is shared between
 them. Everyone starts with one, Main (id `main`); data from before spaces
 is in it. You can have up to 12. Each browser remembers which space it
@@ -80,7 +80,7 @@ as it is (migrated on the way in, below):
 
 ```json
 {
-  "format": 1,
+  "format": 2,
   "exportedAt": "2026-10-23T12:00:00.000Z",
   "projects": { "<id>": { "id": "<id>", "name": "…", … } },
   "tasks": { … },
@@ -92,22 +92,26 @@ as it is (migrated on the way in, below):
   "decisions": { "<id>": { "id": "<id>", "title": "…", "status": "decided", … } },
   "orgs": { "<id>": { "id": "<id>", "name": "…", "kind": "client", … } },
   "templates": { "<id>": { "id": "<id>", "name": "…", "tasks": [{ "title": "…", "priority": "high", "tags": [] }], "defaultTags": [] } },
-  "boardItems": { "<id>": { "id": "<id>", "boardId": "<projectId>", "kind": "sticky", "x": 0, "y": 0, "w": 200, "h": 200, "z": 0, "color": "warn", "text": "…", "points": [] } }
+  "boardItems": { "<id>": { "id": "<id>", "boardId": "<projectId>", "kind": "sticky", "x": 0, "y": 0, "w": 200, "h": 200, "z": 0, "color": "warn", "text": "…", "points": [] } },
+  "lists": { "<id>": { "id": "<id>", "projectId": "<projectId>", "title": "…", "items": [{ "id": "<id>", "text": "…", "done": false, "createdAt": "…", "doneAt": null }], "createdAt": "…", "updatedAt": "…" } }
 }
 ```
 
-- `format` (#240) is the file's format version, `1` today
+- `format` (#240) is the file's format version, `2` today
   (`EXPORT_FORMAT` in [`shared/types.ts`](../shared/types.ts)); every
   export and nightly backup writes it. A file without it (the
   artifact's, or Datapad's from before #240) is legacy, read as before
   and migrated by its shape (below). A file with a higher `format` than this Datapad knows is
   from a newer version: Import and restoring a backup refuse it whole,
   before reading anything else, with "This file is from a newer version
-  of Datapad (export format 2; this one reads up to 1). Update Datapad,
+  of Datapad (export format 3; this one reads up to 2). Update Datapad,
   then try again." A `format` that is not a whole number from 1 is
   refused as invalid. The number goes up only when a change would be
   misread by an older Datapad, and CHANGELOG.md says so under **Export
-  format**.
+  format**. Format 2 (#298) adds `lists`: a format 1 Datapad drops
+  unknown keys, so it would import such a file and lose its lists
+  without a word. With `2` it refuses the file instead, and says to
+  update. Every format 1 file reads as it is, with no lists.
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
@@ -152,6 +156,20 @@ as it is (migrated on the way in, below):
   (1 000) coordinates in one ink stroke (the client simplifies a stroke
   until it fits). Board ops are silent in Activity, except the first item
   on a project's board each day ("Drew on the whiteboard").
+- `lists` is Datapad's own (#298): titled checklists. Each has a
+  `title` (required, 200 characters at most), a `projectId` (null for
+  General), its `items` in the order chosen and its timestamps. An item
+  is `{ id, text, done, createdAt, doneAt }`: one line of `text` (200
+  characters at most), `done`, and `doneAt`, when it was checked (null
+  while open). A list holds at most `listItemsMax` (200) items. Adding
+  and deleting a list log a line in its project's activity, or
+  General's ("Added the list "…"", "Deleted the list "…""); renaming or
+  moving it and every item change are not logged, and each bumps the
+  list's `updatedAt` and its project's. Deleting a project deletes its
+  lists; moving one takes them along. A file without them imports with
+  none. They are stored like every other document, one row each in the
+  object's `docs` table keyed `(space, col, id)`, so they needed no
+  schema change: the object's schema is still version 3.
 - A whiteboard's own **Download as PNG / SVG** (its ⋯ menu) is a picture,
   not data: it is made in the browser from the items with the theme's
   colors resolved, and never sent anywhere. The JSON export above is the
@@ -280,7 +298,7 @@ the `/api/spaces` list.
 ## Moving a project to another space
 
 With more than one space, a project page's menu has **Move to…**. The
-project goes with its tasks (action items keep `meetingId` when their meeting goes too), notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, decisions and
+project goes with its tasks (action items keep `meetingId` when their meeting goes too), notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, lists (and their items), decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it
 refers to (members, assignees, who its tasks are blocked on, meeting

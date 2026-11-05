@@ -16,6 +16,8 @@ import {
   GENERAL,
   GENERAL_BOARD,
   healthOf,
+  type List,
+  type ListItem,
   type Meeting,
   type Milestone,
   milestonesOf,
@@ -177,6 +179,64 @@ function setMilestones(d: Draft, p: Project, list: Milestone[], now: string) {
   });
 }
 
+function list(d: Draft, id: string): List {
+  return d.get('lists', id) ?? fail('That list no longer exists');
+}
+
+function item(items: ListItem[], id: string): ListItem {
+  return items.find((i) => i.id === id) ?? fail('That item no longer exists');
+}
+
+/** A list's items changed: bump it and its project. */
+function setItems(d: Draft, l: List, items: ListItem[], now: string) {
+  d.set('lists', l.id, { ...l, items, updatedAt: now });
+  touch(d, l.projectId, now);
+}
+
+/**
+ * Change one item of a list: `next` returns it as it is (nothing
+ * changes), changed, or null to delete it.
+ */
+function changeItem(
+  d: Draft,
+  op: { listId: string; id: string },
+  now: string,
+  next: (i: ListItem) => ListItem | null,
+) {
+  const l = list(d, op.listId);
+  const i = item(l.items, op.id);
+  const changed = next(i);
+  if (changed === i) return;
+  setItems(
+    d,
+    l,
+    l.items.flatMap((x) => (x === i ? (changed ?? []) : x)),
+    now,
+  );
+}
+
+/**
+ * `list` in the order `ids` names, which must be every id in it exactly
+ * once (else refused: it changed under the client); null when that is the
+ * order it already has.
+ */
+function reordered<T extends { id: string }>(
+  list: T[],
+  ids: string[],
+  what: string,
+): T[] | null {
+  const byId = new Map(list.map((x) => [x.id, x]));
+  if (
+    ids.length !== list.length ||
+    new Set(ids).size !== ids.length ||
+    ids.some((id) => !byId.has(id))
+  ) {
+    fail(`The ${what} changed; try again`);
+  }
+  if (ids.every((id, i) => list[i]?.id === id)) return null;
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
 /** A target project for new or moved things: null (General) or one that exists. */
 function checkProject(d: Draft, projectId: string | null) {
   if (projectId !== null) {
@@ -255,8 +315,8 @@ function onlyNotepad(d: Draft) {
 }
 
 /**
- * Deletes a project's tasks, notes and log (its milestones live on it and
- * go with it); its meetings and decisions move to General.
+ * Deletes a project's tasks, notes, lists and log (its milestones live on
+ * it and go with it); its meetings and decisions move to General.
  */
 function cascadeProject(d: Draft, id: string, now: string) {
   for (const t of d.all('tasks')) {
@@ -276,6 +336,9 @@ function cascadeProject(d: Draft, id: string, now: string) {
     if (x.projectId === id) {
       d.set('decisions', x.id, { ...x, projectId: null, updatedAt: now });
     }
+  }
+  for (const l of d.all('lists')) {
+    if (l.projectId === id) d.delete('lists', l.id);
   }
   // Its whiteboard goes with it.
   for (const b of d.all('boardItems')) {
@@ -765,22 +828,8 @@ function apply(d: Draft, op: Op, now: string) {
     }
     case 'reorderTopics': {
       const m = meeting(d, op.meetingId);
-      const list = topicsOf(m);
-      const byId = new Map(list.map((t) => [t.id, t]));
-      if (
-        op.ids.length !== list.length ||
-        new Set(op.ids).size !== op.ids.length ||
-        op.ids.some((id) => !byId.has(id))
-      ) {
-        fail('The topics changed; try again');
-      }
-      if (op.ids.every((id, i) => list[i]?.id === id)) return;
-      setTopics(
-        d,
-        m,
-        op.ids.flatMap((id) => byId.get(id) ?? []),
-        now,
-      );
+      const next = reordered(topicsOf(m), op.ids, 'topics');
+      if (next) setTopics(d, m, next, now);
       return;
     }
     case 'deleteTopic': {
@@ -841,6 +890,85 @@ function apply(d: Draft, op: Op, now: string) {
         now,
       );
       log(d, p.id, `Deleted milestone "${m.title}"`, now);
+      return;
+    }
+
+    /*
+     * lists (#298): on a project or General. Items live on the list, so
+     * each item op bumps its `updatedAt` and its project's. Adding and
+     * deleting a list log; edits and item ops do not, as topic edits.
+     */
+    case 'addList': {
+      fresh(d, 'lists', op.id, 'list');
+      checkProject(d, op.projectId);
+      d.set('lists', op.id, {
+        id: op.id,
+        projectId: op.projectId,
+        title: op.title,
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      });
+      log(d, op.projectId, `Added the list "${op.title}"`, now);
+      touch(d, op.projectId, now);
+      return;
+    }
+    case 'editList': {
+      const l = list(d, op.id);
+      checkProject(d, op.projectId);
+      if (l.title === op.title && l.projectId === op.projectId) return;
+      d.set('lists', l.id, {
+        ...l,
+        title: op.title,
+        projectId: op.projectId,
+        updatedAt: now,
+      });
+      touch(d, l.projectId, now);
+      touch(d, op.projectId, now);
+      return;
+    }
+    case 'deleteList': {
+      const l = list(d, op.id);
+      d.delete('lists', l.id);
+      log(d, l.projectId, `Deleted the list "${l.title}"`, now);
+      touch(d, l.projectId, now);
+      return;
+    }
+    case 'addListItem': {
+      const l = list(d, op.listId);
+      if (l.items.some((i) => i.id === op.id)) fail('That item already exists');
+      if (l.items.length >= LIMITS.listItemsMax) {
+        fail(`A list has ${LIMITS.listItemsMax} items at most`);
+      }
+      const added: ListItem = {
+        id: op.id,
+        text: op.text,
+        done: false,
+        createdAt: now,
+        doneAt: null,
+      };
+      setItems(d, l, [...l.items, added], now);
+      return;
+    }
+    case 'editListItem':
+      changeItem(d, op, now, (i) =>
+        i.text === op.text ? i : { ...i, text: op.text },
+      );
+      return;
+    case 'setListItemDone':
+      changeItem(d, op, now, (i) =>
+        i.done === op.done
+          ? i
+          : { ...i, done: op.done, doneAt: op.done ? now : null },
+      );
+      return;
+    case 'deleteListItem':
+      changeItem(d, op, now, () => null);
+      return;
+    case 'reorderListItems': {
+      const l = list(d, op.listId);
+      const next = reordered(l.items, op.ids, 'items');
+      if (next) setItems(d, l, next, now);
       return;
     }
 

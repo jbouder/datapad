@@ -200,6 +200,39 @@ const cases = {
       points: [0, 0, 1],
     },
   },
+  lists: {
+    valid: {
+      id: 'l-1',
+      projectId: 'p-1',
+      title: 'Questions for the council',
+      items: [
+        {
+          id: 'li-1',
+          text: 'Who holds the north ridge?',
+          done: true,
+          createdAt: at,
+          doneAt: at,
+        },
+        {
+          id: 'li-2',
+          text: 'How many transports are ready?',
+          done: false,
+          createdAt: at,
+          doneAt: null,
+        },
+      ],
+      createdAt: at,
+      updatedAt: at,
+    },
+    invalid: {
+      id: 'l-1',
+      projectId: null,
+      title: 'Questions',
+      items: [{ id: 'li-1', text: '', done: false, createdAt: at }],
+      createdAt: at,
+      updatedAt: at,
+    },
+  },
 } as const;
 
 describe('document schemas', () => {
@@ -219,7 +252,8 @@ describe('document schemas', () => {
         c !== 'decisions' &&
         c !== 'orgs' &&
         c !== 'templates' &&
-        c !== 'boardItems',
+        c !== 'boardItems' &&
+        c !== 'lists',
     )) {
       const docs = fixture[col] as Record<string, unknown>;
       expect(Object.keys(docs).length).toBeGreaterThan(0);
@@ -380,6 +414,55 @@ describe('the export format (#240)', () => {
     const parsed = ExportSchema.parse({ ...fixture, format: EXPORT_FORMAT });
     expect(parsed).not.toHaveProperty('format');
     expect(parsed).toEqual(ExportSchema.parse(fixture));
+  });
+
+  it('is 2 since lists (#298): a format 1 file reads as it is, with no lists', () => {
+    expect(EXPORT_FORMAT).toBe(2);
+    const parsed = ExportSchema.parse({ ...fixture, format: 1 });
+    expect(parsed.lists).toEqual({});
+    expect(parsed).toEqual(ExportSchema.parse(fixture));
+  });
+
+  it('reads lists, keyed by id or as an array, with defaults filled in', () => {
+    const list = cases.lists.valid;
+    const keyed = ExportSchema.parse({
+      format: EXPORT_FORMAT,
+      lists: { [list.id]: list },
+    });
+    expect(keyed.lists).toEqual({ [list.id]: list });
+    const listed = ExportSchema.parse({ format: EXPORT_FORMAT, lists: [list] });
+    expect(listed.lists).toEqual({ [list.id]: list });
+    const bare = ExportSchema.parse({
+      lists: {
+        'l-2': {
+          title: 'Bare',
+          items: [{ id: 'x', text: 'One', createdAt: at }],
+          createdAt: at,
+          updatedAt: at,
+        },
+      },
+    }).lists['l-2'];
+    expect(bare).toEqual({
+      id: 'l-2',
+      projectId: null,
+      title: 'Bare',
+      items: [
+        { id: 'x', text: 'One', done: false, createdAt: at, doneAt: null },
+      ],
+      createdAt: at,
+      updatedAt: at,
+    });
+  });
+
+  it('refuses a list with more items than a list holds', () => {
+    const item = cases.lists.valid.items[1];
+    const items = Array.from({ length: LIMITS.listItemsMax + 1 }, (_, i) => ({
+      ...item,
+      id: `li-${i}`,
+    }));
+    expect(
+      DocumentSchemas.lists.safeParse({ ...cases.lists.valid, items }).success,
+    ).toBe(false);
   });
 
   it('reads a file without one as legacy, migrated by its shape', () => {
