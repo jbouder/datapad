@@ -177,7 +177,12 @@ export async function chooseFilter(page: Page, label: string, option: string) {
 /** The top bar's + menu: Add task or Write a note by default. */
 export async function addFromTopBar(
   page: Page,
-  item: 'Add task' | 'Write a note' | 'Add meeting' | 'Add project',
+  item:
+    | 'Add task'
+    | 'Write a note'
+    | 'New list'
+    | 'Add meeting'
+    | 'Add project',
 ) {
   await page
     .getByRole('banner')

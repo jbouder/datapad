@@ -1585,6 +1585,29 @@ describe('the list tools', () => {
     expect(overview.counts.listsInProgress).toBe(2);
   });
 
+  it('search finds a list by its title and by an item, the item as the snippet', async () => {
+    const ctx = await withLists();
+    const byItem = await call(ctx, 'search', {
+      query: 'ion cannon',
+      kinds: ['list'],
+    });
+    expect(byItem.hits).toEqual([
+      {
+        kind: 'list',
+        id: 'l-evac',
+        title: 'Evacuation checklist',
+        snippet: 'Arm the ion cannon',
+        project: { id: 'p-echo', name: 'Echo Base relocation' },
+        archived: false,
+      },
+    ]);
+    const byTitle = await call(ctx, 'search', { query: 'books' });
+    expect(byTitle.counts.list).toBe(1);
+    expect(
+      byTitle.hits.find((h: { kind: string }) => h.kind === 'list'),
+    ).toMatchObject({ id: 'l-books', snippet: '' });
+  });
+
   it('add_list, add_list_item and check_list_item write through apply()', async () => {
     const ctx = await withLists(true);
     const added = await call(ctx, 'add_list', {

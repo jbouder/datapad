@@ -18,7 +18,7 @@ import {
 } from '@/components/layouts/ListToolbar';
 import { useView, ViewSwitcher } from '@/components/layouts/ViewSwitcher';
 import { LIST_VIEWS, ListLayouts } from '@/components/lists/ListLayouts';
-import { useListPanel } from '@/components/lists/ListPanel';
+import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -46,7 +46,7 @@ export function ListsPage() {
   usePageTitle('Lists');
   const { state } = useDatapad();
   const { active } = useMotion();
-  const { openPanel, panel } = useListPanel();
+  const { openPanel } = useListPanel();
   const [query, changePage] = usePageQuery('lists');
   const queryText = query.toString();
   const filters = useMemo(
@@ -175,7 +175,6 @@ export function ListsPage() {
           }
         />
       )}
-      {panel}
     </section>
   );
 }

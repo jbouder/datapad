@@ -6,6 +6,7 @@ import {
   SignedOutPage,
 } from '@/components/ErrorBoundary';
 import { ImportExportProvider } from '@/components/ImportExport';
+import { ListPanelProvider } from '@/components/lists/ListPanelProvider';
 import { MeetingFormProvider } from '@/components/meetings/MeetingFormProvider';
 import { NotesProvider } from '@/components/notes/NotesProvider';
 import { ProjectFormProvider } from '@/components/projects/ProjectFormProvider';
@@ -40,7 +41,9 @@ export default function App() {
                               <NotesProvider>
                                 <TaskPanelProvider>
                                   <MeetingFormProvider>
-                                    <Shell />
+                                    <ListPanelProvider>
+                                      <Shell />
+                                    </ListPanelProvider>
                                   </MeetingFormProvider>
                                 </TaskPanelProvider>
                               </NotesProvider>

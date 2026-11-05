@@ -37,6 +37,18 @@ changes the format says so here under **Export format**.
   the phone's tab bar by default, so the tab bar does not change; the
   account menu has it on a phone, as it now has any shown section the
   tab bar leaves out.
+- **Lists from anywhere** (#300): New list joins the top bar's + (hidden
+  until shown in Settings → Navigation, so + does not change), ⌘K has
+  New list, and Shift+L opens the new-list panel (on a list's page, it
+  opens Add an item). Hiding the Lists section takes New list out of +
+  and ⌘K too. ⌘K and the MCP `search` tool find lists by their title
+  and by any item's text; a hit on an item shows that item.
+- **Lists on the project page; Make task from an item** (#301): a Lists
+  section between Milestones and Tasks, with Add list and a row per
+  list (progress and its next open item; done lists last and muted),
+  collapsible and remembered. An item's menu has Make task, which opens
+  the new-task panel with the item's text and the list's project; the
+  toast offers Open, and the item stays as it was.
 - **MCP list tools** (#302): `list_lists` and `get_list` read lists (by
   project, in progress or done, or text; one by id or title with its
   items in order). With the write scope, `add_list`, `add_list_item` and

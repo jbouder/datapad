@@ -126,7 +126,7 @@ Object's `snapshot(space)` RPC: read-only, no socket).
 | `list_lists`    | `space`, `project`, `state` (`all`, `in-progress`, `done`), `query`, `limit`                             | Lists, most recently updated first, each with its project and progress (`done`, `total`, `"3 of 8"`) but not its items; in progress includes empty lists; `query` matches the title or an item |
 | `get_list`      | `space`, `list`                                                                                          | One list by id or title: its project, progress and every item (`id`, `text`, `done`, `createdAt`, `doneAt`) in the order chosen                                                              |
 | `get_digest`    | `space`, `weekEnding`                                                                                    | The weekly digest for the seven days ending that day: per project what closed, was added, changed, met and is due, with totals and the Digest page's Markdown                                |
-| `search`        | `space`, `query`, `kinds`, `limit`                                                                       | The ⌘K search over projects, tasks, notes, meetings and their topics, orgs, people and whiteboard text, ranked as the palette ranks, with a count per kind                                   |
+| `search`        | `space`, `query`, `kinds`, `limit`                                                                       | The ⌘K search over projects, tasks, notes, meetings and their topics, lists and their items, orgs, people and whiteboard text, ranked as the palette ranks, with a count per kind |
 
 The rules every tool keeps:
 - **`space`** is an id or a name (ignoring case); `main` when omitted. An

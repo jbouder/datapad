@@ -133,6 +133,12 @@ export const QUICK_ADD_ITEMS: Record<QuickAddAction, QuickAddItem> = {
     icon: NotePencilIcon,
     shortcut: { label: '⇧N', keys: 'Shift+N' },
   },
+  list: {
+    name: 'list',
+    label: 'New list',
+    icon: ListChecksIcon,
+    shortcut: { label: '⇧L', keys: 'Shift+L' },
+  },
   meeting: { name: 'meeting', label: 'Add meeting', icon: CalendarPlusIcon },
   project: { name: 'project', label: 'Add project', icon: FolderPlusIcon },
 };

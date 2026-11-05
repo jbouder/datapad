@@ -13,6 +13,7 @@ export const SEARCH_KINDS = [
   'task',
   'note',
   'meeting',
+  'list',
   'org',
   'person',
   'whiteboard',
@@ -60,6 +61,7 @@ export const searchIndex = lastCall(
     people: Snapshot['people'],
     orgs: Snapshot['orgs'],
     boardItems: Snapshot['boardItems'],
+    lists: Snapshot['lists'],
   ): SearchIndex => {
     const archived = (projectId: string | null) =>
       projectId !== null && projects[projectId]?.archived === true;
@@ -132,6 +134,18 @@ export const searchIndex = lastCall(
             .join(' '),
         ),
       ),
+      // A list's items are found through it: its body is one item a line.
+      list: Object.values(lists).map((l) =>
+        entry({
+          kind: 'list',
+          id: l.id,
+          title: l.title,
+          body: l.items.map((item) => flat(item.text)).join('\n'),
+          projectId: l.projectId,
+          archived: archived(l.projectId),
+          updatedAt: l.updatedAt,
+        }),
+      ),
       org: Object.values(orgs).map((o) =>
         entry(
           {
@@ -200,6 +214,27 @@ function excerpt(text: string, at: number, length: number, around = 50) {
   return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`;
 }
 
+/**
+ * A list hit's snippet: the item that holds the most of the words the
+ * title does not (the first such item on a tie), whole, or empty when the
+ * title alone matched.
+ */
+function itemSnippet(entry: SearchEntry, words: string[]): string {
+  const rest = words.filter((w) => !entry.key.includes(w));
+  if (rest.length === 0 || !entry.body) return '';
+  let best = '';
+  let most = 0;
+  for (const item of entry.body.split('\n')) {
+    const lower = item.toLowerCase();
+    const count = rest.filter((w) => lower.includes(w)).length;
+    if (count > most) {
+      best = item;
+      most = count;
+    }
+  }
+  return best;
+}
+
 function rank(entry: SearchEntry, first: string): number {
   if (entry.key.startsWith(first)) return 0;
   if (entry.key.includes(first)) return 1;
@@ -247,6 +282,7 @@ export function search(
       if (kind === 'person' || kind === 'project' || kind === 'org') {
         return { entry, snippet: entry.body };
       }
+      if (kind === 'list') return { entry, snippet: itemSnippet(entry, words) };
       const word = words.find((w) => !entry.key.includes(w)) ?? first;
       const at = entry.body.toLowerCase().indexOf(word);
       return {

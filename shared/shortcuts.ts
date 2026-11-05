@@ -36,6 +36,11 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Anywhere',
   },
   { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },
+  {
+    keys: ['Shift+L'],
+    action: 'New list (on a list’s page: add an item to it)',
+    scope: 'Anywhere',
+  },
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
   {
     keys: ['⌘K', 'Ctrl+K', '/'],

@@ -253,18 +253,23 @@ export function navExtrasOf(
 /**
  * What the top bar's + can offer (#201), in their default order. Each
  * opens what it opens elsewhere: the new-task panel, the new-note panel,
- * the meeting form, the project form.
+ * the new-list panel (#300), the meeting form, the project form.
  */
 export const QUICK_ADD_ACTIONS = [
   'task',
   'note',
+  'list',
   'meeting',
   'project',
 ] as const;
 export type QuickAddAction = (typeof QUICK_ADD_ACTIONS)[number];
 
 /** Hidden until shown: + is Add task and Write a note by default. */
-const QUICK_ADD_HIDDEN: readonly QuickAddAction[] = ['meeting', 'project'];
+const QUICK_ADD_HIDDEN: readonly QuickAddAction[] = [
+  'list',
+  'meeting',
+  'project',
+];
 
 export function isQuickAddAction(name: unknown): name is QuickAddAction {
   return (QUICK_ADD_ACTIONS as readonly unknown[]).includes(name);
@@ -300,9 +305,26 @@ export function quickAddHiddenOf(prefs: QuickAddPrefs): Set<QuickAddAction> {
   return hidden;
 }
 
-/** The shown actions, in order: what + offers (one: what it does). */
+/**
+ * Whether New list is offered anywhere (+, ⌘K, `Shift+L`): only while the
+ * Lists section is shown, so its one switch turns lists off everywhere.
+ */
+export function listsShown(settings: Pick<Settings, 'nav'>): boolean {
+  return navOf(settings).includes('lists');
+}
+
+/**
+ * The shown actions, in order: what + offers (one: what it does). New
+ * list stays out while the Lists section is hidden; if it was the only
+ * one shown, the first other action in the order takes its place.
+ */
 export function quickAddOf(settings: Pick<Settings, 'nav'>): QuickAddAction[] {
   const prefs = settings.nav?.quickAdd;
   const hidden = quickAddHiddenOf(prefs);
-  return quickAddOrderOf(prefs).filter((name) => !hidden.has(name));
+  const order = quickAddOrderOf(prefs);
+  if (listsShown(settings)) return order.filter((name) => !hidden.has(name));
+  const shown = order.filter((name) => name !== 'list' && !hidden.has(name));
+  return shown.length > 0
+    ? shown
+    : order.filter((name) => name !== 'list').slice(0, 1);
 }

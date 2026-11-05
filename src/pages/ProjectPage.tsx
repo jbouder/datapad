@@ -6,7 +6,7 @@ import {
   PlusIcon,
   SparkleIcon,
 } from '@phosphor-icons/react';
-import { useMemo, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { itemsOf } from '#shared/board';
 import { formatDay, localDate } from '#shared/dates';
 import { projectMeetings } from '#shared/meetings';
@@ -45,6 +45,7 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { moveProject } from '@/lib/api';
 import { linkProps, navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
+import { ProjectLists } from '@/pages/lazy';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
@@ -54,7 +55,7 @@ import { useToast } from '@/providers/ToastProvider';
  * One project, where most entry happens: the header with its facts and
  * actions (Edit; under More, Summarize, Move to…, Save as template while
  * it has open tasks, and Archive), the
- * description, then Milestones, Tasks and Meetings on the left, Notes,
+ * description, then Milestones, Lists, Tasks and Meetings on the left, Notes,
  * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
  * remember open or closed, one set for every project (#186).
  */
@@ -310,6 +311,13 @@ export function ProjectPage({ id }: { id: string }) {
             today={today}
             remember={key('milestones')}
           />
+          <Suspense fallback={null}>
+            <ProjectLists
+              projectId={id}
+              lists={state.lists}
+              remember={key('lists')}
+            />
+          </Suspense>
           <Section
             title="Tasks"
             count={tasks.open.length}

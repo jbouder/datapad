@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { List } from '#shared/types';
 import { Field } from '@/components/Field';
@@ -96,35 +96,4 @@ export function ListPanel({
       </Field>
     </SidePanel>
   );
-}
-
-/**
- * The list panel's state for a page: `openPanel` opens it for a new list
- * or one to edit, and `panel` is the element to render (null when shut).
- * Each opening is a fresh form.
- */
-export function useListPanel(): {
-  openPanel: (of: ListPanelFor) => void;
-  panel: React.ReactNode;
-} {
-  const [session, setSession] = useState<{
-    key: number;
-    of: ListPanelFor;
-    open: boolean;
-  } | null>(null);
-  const openPanel = useCallback(
-    (of: ListPanelFor) =>
-      setSession((s) => ({ key: (s?.key ?? 0) + 1, of, open: true })),
-    [],
-  );
-  const panel = session && (
-    <ListPanel
-      key={session.key}
-      of={session.of}
-      open={session.open}
-      onClose={() => setSession((s) => (s ? { ...s, open: false } : s))}
-      onExited={() => setSession((s) => (s?.open ? s : null))}
-    />
-  );
-  return { openPanel, panel };
 }

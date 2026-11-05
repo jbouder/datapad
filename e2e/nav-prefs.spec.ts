@@ -298,6 +298,7 @@ test('the + menu offers what Quick add shows, in its order, after a reload and o
   await expect(group.getByRole('listitem')).toHaveText([
     /Add task/,
     /Write a note/,
+    /New list\s*Hidden/,
     /Add meeting\s*Hidden/,
     /Add project\s*Hidden/,
   ]);
@@ -308,6 +309,7 @@ test('the + menu offers what Quick add shows, in its order, after a reload and o
   const up = page.getByRole('button', { name: 'Move Add meeting up' });
   await up.click();
   await expect(up).toBeFocused();
+  await up.click();
   await up.click();
   await page.getByRole('switch', { name: 'Show Add project' }).click();
   await expect

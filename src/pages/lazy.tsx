@@ -60,6 +60,13 @@ export const ListPage = lazyPage(() =>
 export const ListsPage = lazyPage(() =>
   import('@/pages/ListsPage').then((m) => m.ListsPage),
 );
+/**
+ * Not a page: the project page's Lists section (#301), kept out of the
+ * entry. Opening a project loads it with the page (`project` below).
+ */
+export const ProjectLists = lazyPage(() =>
+  import('@/components/lists/ProjectLists').then((m) => m.ProjectLists),
+);
 export const MeetingPage = lazyPage(() =>
   import('@/pages/MeetingPage').then((m) => m.MeetingPage),
 );
@@ -81,6 +88,7 @@ const LAZY: Partial<
   list: ListPage,
   lists: ListsPage,
   meeting: MeetingPage,
+  project: ProjectLists,
   settings: SettingsPage,
   people: SettingsPage,
   orgs: SettingsPage,

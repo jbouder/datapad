@@ -25,6 +25,7 @@ const indexOf = (s: Snapshot) =>
     s.people,
     s.orgs,
     s.boardItems,
+    s.lists,
   );
 
 const ids = (hits: { entry: { id: string } }[]) => hits.map((h) => h.entry.id);
@@ -189,6 +190,52 @@ describe('search', () => {
     const coolant = search(index, 'coolant').whiteboard;
     expect(ids(coolant)).toEqual(['w1']);
     expect(coolant[0]?.snippet).toContain('Check the coolant');
+  });
+
+  it('finds a list by its title and by its items, the item as the snippet', () => {
+    const s = seeded();
+    const item = (id: string, text: string, done = false) => ({
+      id,
+      text,
+      done,
+      createdAt: '2026-10-20T09:00:00.000Z',
+      doneAt: done ? '2026-10-21T09:00:00.000Z' : null,
+    });
+    s.lists = {
+      'l-kit': {
+        id: 'l-kit',
+        projectId: 'p-yavin',
+        title: 'Hangar kit',
+        items: [
+          item('li-1', 'Hydrospanners'),
+          item('li-2', 'Spare **power** couplings', true),
+          item('li-3', 'Power cells'),
+        ],
+        createdAt: '2026-10-20T09:00:00.000Z',
+        updatedAt: '2026-10-22T09:00:00.000Z',
+      },
+    };
+    const index = indexOf(s);
+    // By an item: that item, marks gone, is the snippet.
+    const byItem = search(index, 'couplings');
+    expect(ids(byItem.list)).toEqual(['l-kit']);
+    expect(byItem.list[0]?.snippet).toBe('Spare power couplings');
+    // The item holding the most of the words wins; the first on a tie.
+    expect(search(index, 'power cells').list[0]?.snippet).toBe('Power cells');
+    expect(search(index, 'power').list[0]?.snippet).toBe(
+      'Spare power couplings',
+    );
+    // By its title: no snippet, unless another word is in an item.
+    expect(search(index, 'hangar').list[0]?.snippet).toBe('');
+    expect(search(index, 'hangar hydro').list[0]?.snippet).toBe(
+      'Hydrospanners',
+    );
+    // In its project, archived with it; and not found by words it lacks.
+    expect(byItem.list[0]?.entry).toMatchObject({
+      projectId: 'p-yavin',
+      archived: true,
+    });
+    expect(search(index, 'hangar droids').list).toEqual([]);
   });
 
   it('answers within a frame for 5 000 documents, index rebuilt once', () => {
