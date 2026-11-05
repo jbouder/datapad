@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { listCounts, listProgress } from '#shared/lists';
 import { tokensToNames } from '#shared/mentions';
 import { orgName } from '#shared/orgs';
 import { zonedDay } from '#shared/schedule';
 import {
   blockedOf,
   type DateString,
+  type List,
   type Meeting,
   type Note,
   type Snapshot,
@@ -160,6 +162,23 @@ export function resolveMeeting(state: Snapshot, asked: string): string {
   ).id;
 }
 
+export const ListArg = z
+  .string()
+  .min(1)
+  .max(200)
+  .describe('A list id or title (ignoring case, or a unique part of it).');
+
+export function resolveList(state: Snapshot, asked: string): List {
+  return resolveByName(
+    state.lists,
+    asked,
+    'list',
+    (l) => l.title,
+    (l) =>
+      `${l.title}, ${l.projectId ? (state.projects[l.projectId]?.name ?? 'a project') : 'General'}`,
+  );
+}
+
 /* ---- How documents read out ---------------------------------------------- */
 
 export interface Ref {
@@ -252,6 +271,35 @@ export function meetingOut(state: Snapshot, m: Meeting) {
       done: t.done,
       outcome: t.outcome,
       carriedFrom: t.carriedFrom ?? null,
+    })),
+  };
+}
+
+/** A list's summary: its title, project and progress, no items. */
+export function listRow(state: Snapshot, l: List) {
+  const { done, total } = listCounts(l);
+  return {
+    id: l.id,
+    title: l.title,
+    project: projectRef(state, l.projectId),
+    done,
+    total,
+    progress: listProgress(l),
+    createdAt: l.createdAt,
+    updatedAt: l.updatedAt,
+  };
+}
+
+/** A list in full: its summary and its items in the order chosen. */
+export function listOut(state: Snapshot, l: List) {
+  return {
+    ...listRow(state, l),
+    items: l.items.map((i) => ({
+      id: i.id,
+      text: i.text,
+      done: i.done,
+      createdAt: i.createdAt,
+      doneAt: i.doneAt,
     })),
   };
 }

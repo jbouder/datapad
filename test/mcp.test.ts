@@ -748,6 +748,8 @@ describe('the /mcp endpoint', () => {
         'list_meetings',
         'list_people',
         'list_orgs',
+        'list_lists',
+        'get_list',
         'get_digest',
         'search',
       ]);
@@ -805,6 +807,8 @@ describe('the /mcp endpoint', () => {
         'list_meetings',
         'list_people',
         'list_orgs',
+        'list_lists',
+        'get_list',
         'get_digest',
         'search',
         'add_task',
@@ -820,6 +824,9 @@ describe('the /mcp endpoint', () => {
         'set_project_status',
         'set_project_health',
         'add_milestone',
+        'add_list',
+        'add_list_item',
+        'check_list_item',
       ]);
       const added = await client.callTool({
         name: 'add_task',

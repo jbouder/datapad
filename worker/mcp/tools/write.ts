@@ -114,6 +114,12 @@ function landed(state: Snapshot, op: BaseOp): boolean {
       const m = state.meetings[op.meetingId];
       return Boolean(m && topicsOf(m).some((t) => t.id === op.id));
     }
+    case 'addList':
+      return Boolean(state.lists[op.id]);
+    case 'addListItem': {
+      const l = state.lists[op.listId];
+      return Boolean(l?.items.some((i) => i.id === op.id));
+    }
     default:
       return true;
   }

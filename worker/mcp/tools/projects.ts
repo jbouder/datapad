@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isListDone, selectLists } from '#shared/lists';
 import { projectMeetings } from '#shared/meetings';
 import { byDate, nextMilestone } from '#shared/milestones';
 import { projectNotes } from '#shared/notes';
@@ -25,6 +26,7 @@ import {
 import { defineTool, READ_ONLY, SpaceArg } from '../tool';
 import {
   cap,
+  listRow,
   meetingOut,
   noteOut,
   ProjectArg,
@@ -100,7 +102,7 @@ export const getOverview = defineTool({
   name: 'get_overview',
   title: 'Overview',
   description:
-    "A space at a glance: its counts, the week's movement, and every project outside the archive (most recently updated first) with status, health, next milestone, and open and blocked task counts. Start here after list_spaces.",
+    "A space at a glance: its counts (lists in progress among them), the week's movement, and every project outside the archive (most recently updated first) with status, health, next milestone, and open and blocked task counts. Start here after list_spaces.",
   scope: 'read',
   input: z.object({ space: SpaceArg, today: TodayArg }),
   annotations: READ_ONLY,
@@ -116,7 +118,12 @@ export const getOverview = defineTool({
     return {
       space,
       today,
-      counts: spaceCounts(state),
+      counts: {
+        ...spaceCounts(state),
+        listsInProgress: Object.values(state.lists).filter(
+          (l) => !isListDone(l),
+        ).length,
+      },
       week: { ...week, line: movementLine(week) },
       general: {
         openTasks: open.get(GENERAL_KEY) ?? 0,
@@ -198,7 +205,7 @@ export const getProject = defineTool({
   name: 'get_project',
   title: 'Get a project',
   description:
-    'One project in full, as its page shows it: details, members, links and milestones; its open tasks in order; its recent notes (pinned first); its upcoming and recent meetings with topics; and the last 25 lines of its activity.',
+    'One project in full, as its page shows it: details, members, links and milestones; its open tasks in order; its recent notes (pinned first); its upcoming and recent meetings with topics; its lists with their progress (get_list for the items); and the last 25 lines of its activity.',
   scope: 'read',
   input: z.object({ space: SpaceArg, project: ProjectArg, today: TodayArg }),
   annotations: READ_ONLY,
@@ -262,6 +269,11 @@ export const getProject = defineTool({
           .map((m) => meetingOut(state, m)),
         MEETINGS_EACH_WAY,
       ),
+      lists: cap(
+        selectLists(state.lists, { projectId: id }).map((l) =>
+          listRow(state, l),
+        ),
+      ),
       activity: cap(state.activity[id]?.events ?? [], ACTIVITY_LINES),
     };
   },
@@ -292,6 +304,11 @@ function generalPage(space: string, state: Snapshot, today: DateString) {
         .reverse()
         .map((m) => meetingOut(state, m)),
       MEETINGS_EACH_WAY,
+    ),
+    lists: cap(
+      selectLists(state.lists, { projectId: null }).map((l) =>
+        listRow(state, l),
+      ),
     ),
     activity: cap(state.activity[GENERAL]?.events ?? [], ACTIVITY_LINES),
   };

@@ -783,6 +783,7 @@ describe('the conventions', () => {
       const args: Record<string, unknown> = { space: 'dagobah' };
       if (name === 'get_project') args.project = 'p-echo';
       if (name === 'search') args.query = 'x';
+      if (name === 'get_list') args.list = 'x';
       expect(await fails(ctx, name, args), name).toBe(
         'There is no space "dagobah". Call list_spaces for the ids.',
       );
@@ -791,7 +792,7 @@ describe('the conventions', () => {
 
   it('every read tool is read-only and needs only the read scope', () => {
     const reads = TOOLS.filter((t) => t.scope === 'read');
-    expect(reads).toHaveLength(14);
+    expect(reads).toHaveLength(16);
     for (const t of reads) {
       expect(t.scope, t.name).toBe('read');
       expect(t.annotations.readOnlyHint, t.name).toBe(true);
@@ -1386,6 +1387,12 @@ describe('the write tools', () => {
       date: '+1w',
       today: TODAY,
     });
+    const list = await run('add_list', { title: 'Hangar kit' });
+    await run('add_list_item', { list: list.list.id, text: 'Hydrospanners' });
+    await run('check_list_item', {
+      list: list.list.id,
+      item: 'hydrospanners',
+    });
     // Every write tool ran, and each op it sent is on the list.
     expect([...used].sort()).toEqual(
       TOOLS.filter((t) => t.scope === 'write')
@@ -1415,7 +1422,7 @@ describe('the write tools', () => {
       ).json()) as Json;
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toHaveLength(14);
+    expect(names).toHaveLength(16);
     expect(names).not.toContain('add_task');
     const refused = await post({
       jsonrpc: '2.0',
@@ -1446,6 +1453,9 @@ describe('the write tools', () => {
       'set_project_status',
       'set_project_health',
       'add_milestone',
+      'add_list',
+      'add_list_item',
+      'check_list_item',
     ]);
     for (const t of writes) {
       expect(t.annotations.readOnlyHint, t.name).toBe(false);
@@ -1455,6 +1465,196 @@ describe('the write tools', () => {
       );
       expect(t.name, t.name).not.toMatch(/delete|remove|erase|archive|import/);
     }
+  });
+});
+
+/* ---- Lists (#302) --------------------------------------------------------- */
+
+const LT = '2026-10-21T09:00:00.000Z';
+const item = (id: string, text: string, done = false) => ({
+  id,
+  text,
+  done,
+  createdAt: LT,
+  doneAt: done ? LT : null,
+});
+
+/** `seeded()` with three lists: two on Echo Base, one in General. */
+async function withLists(write = false): Promise<McpToolContext> {
+  const ctx = write ? await writer() : await seeded();
+  const lists = {
+    'l-evac': {
+      id: 'l-evac',
+      projectId: 'p-echo',
+      title: 'Evacuation checklist',
+      items: [
+        item('li-1', 'Load the transports', true),
+        item('li-2', 'Arm the ion cannon'),
+        item('li-3', 'Brief the pilots'),
+      ],
+      createdAt: LT,
+      updatedAt: '2026-10-22T09:00:00.000Z',
+    },
+    'l-done': {
+      id: 'l-done',
+      projectId: 'p-echo',
+      title: 'Evacuation drills',
+      items: [item('li-4', 'Run the drill', true)],
+      createdAt: LT,
+      updatedAt: '2026-10-21T09:00:00.000Z',
+    },
+    'l-books': {
+      id: 'l-books',
+      projectId: null,
+      title: 'Books to read',
+      items: [],
+      createdAt: LT,
+      updatedAt: '2026-10-23T09:00:00.000Z',
+    },
+  };
+  expect((await ctx.datapad.import(MAIN_SPACE, { lists })).ok).toBe(true);
+  return ctx;
+}
+
+describe('the list tools', () => {
+  it('list_lists: newest first, with progress, filtered by project, state and text', async () => {
+    const ctx = await withLists();
+    const all = await call(ctx, 'list_lists', {});
+    expect(ids(all.lists.items)).toEqual(['l-books', 'l-evac', 'l-done']);
+    expect(all.lists).toMatchObject({ count: 3, truncated: false });
+    expect(all.lists.items[1]).toEqual({
+      id: 'l-evac',
+      title: 'Evacuation checklist',
+      project: { id: 'p-echo', name: 'Echo Base relocation' },
+      done: 1,
+      total: 3,
+      progress: '1 of 3',
+      createdAt: LT,
+      updatedAt: '2026-10-22T09:00:00.000Z',
+    });
+    expect(all.lists.items[1]).not.toHaveProperty('items');
+
+    const echo = await call(ctx, 'list_lists', { project: 'echo base' });
+    expect(ids(echo.lists.items)).toEqual(['l-evac', 'l-done']);
+    const general = await call(ctx, 'list_lists', { project: 'general' });
+    expect(ids(general.lists.items)).toEqual(['l-books']);
+    const open = await call(ctx, 'list_lists', { state: 'in-progress' });
+    expect(ids(open.lists.items)).toEqual(['l-books', 'l-evac']);
+    const done = await call(ctx, 'list_lists', { state: 'done' });
+    expect(ids(done.lists.items)).toEqual(['l-done']);
+    const text = await call(ctx, 'list_lists', { query: 'ION cannon' });
+    expect(ids(text.lists.items)).toEqual(['l-evac']);
+    const capped = await call(ctx, 'list_lists', { limit: 1 });
+    expect(capped.lists).toMatchObject({ count: 3, truncated: true });
+    expect(capped.lists.items).toHaveLength(1);
+  });
+
+  it('get_list: by id or title, items in order; a shared name lists the candidates', async () => {
+    const ctx = await withLists();
+    const out = await call(ctx, 'get_list', { list: 'books to read' });
+    expect(out.list).toMatchObject({ id: 'l-books', items: [] });
+    const evac = await call(ctx, 'get_list', { list: 'l-evac' });
+    expect(evac.list.progress).toBe('1 of 3');
+    expect(evac.list.items).toEqual([
+      item('li-1', 'Load the transports', true),
+      item('li-2', 'Arm the ion cannon'),
+      item('li-3', 'Brief the pilots'),
+    ]);
+    expect(await fails(ctx, 'get_list', { list: 'evacuation' })).toBe(
+      '"evacuation" matches 2 lists; pass one of these ids: l-evac (Evacuation checklist, Echo Base relocation); l-done (Evacuation drills, Echo Base relocation).',
+    );
+    expect(await fails(ctx, 'get_list', { list: 'Groceries' })).toBe(
+      'No list matches "Groceries".',
+    );
+  });
+
+  it('get_project lists the project’s lists; get_overview counts those in progress', async () => {
+    const ctx = await withLists();
+    const project = await call(ctx, 'get_project', {
+      project: 'p-echo',
+      today: TODAY,
+    });
+    expect(ids(project.lists.items)).toEqual(['l-evac', 'l-done']);
+    expect(project.lists.items[0].progress).toBe('1 of 3');
+    const general = await call(ctx, 'get_project', {
+      project: 'general',
+      today: TODAY,
+    });
+    expect(ids(general.lists.items)).toEqual(['l-books']);
+    const overview = await call(ctx, 'get_overview', { today: TODAY });
+    expect(overview.counts.listsInProgress).toBe(2);
+  });
+
+  it('add_list, add_list_item and check_list_item write through apply()', async () => {
+    const ctx = await withLists(true);
+    const added = await call(ctx, 'add_list', {
+      title: 'Offsite',
+      project: 'Echo Base',
+    });
+    expect(added.list).toMatchObject({
+      title: 'Offsite',
+      project: { id: 'p-echo' },
+      items: [],
+      progress: '0 of 0',
+    });
+    expect(lines(added)).toEqual(['Added the list "Offsite"']);
+    const general = await call(ctx, 'add_list', { title: 'Errands' });
+    expect(general.list.project).toBeNull();
+    expect(general.activity[0].project).toBeNull();
+
+    const one = await call(ctx, 'add_list_item', {
+      list: 'offsite',
+      text: 'Book the venue',
+    });
+    expect(one.item).toMatchObject({ text: 'Book the venue', done: false });
+    expect(one.activity).toEqual([]);
+    await call(ctx, 'add_list_item', { list: 'offsite', text: 'Book travel' });
+
+    const checked = await call(ctx, 'check_list_item', {
+      list: 'offsite',
+      item: 'venue',
+    });
+    expect(checked.item).toMatchObject({ text: 'Book the venue', done: true });
+    expect(checked.item.doneAt).toEqual(expect.any(String));
+    expect(checked.list.progress).toBe('1 of 2');
+    expect(checked.activity).toEqual([]);
+    const unchecked = await call(ctx, 'check_list_item', {
+      list: added.list.id,
+      item: one.item.id,
+      done: false,
+    });
+    expect(unchecked.item).toMatchObject({ done: false, doneAt: null });
+
+    expect(
+      await fails(ctx, 'check_list_item', { list: 'offsite', item: 'book' }),
+    ).toMatch(/^"book" matches 2 items; pass one of these ids: /);
+    expect(
+      await fails(ctx, 'add_list_item', { list: 'evacuation', text: 'X' }),
+    ).toMatch(/^"evacuation" matches 2 lists/);
+    expect(await fails(ctx, 'add_list', { title: '  ' })).toMatch(
+      /^Invalid arguments: title/,
+    );
+  });
+
+  it('add_list and add_list_item with a requestId do not repeat on a retry', async () => {
+    const ctx = await withLists(true);
+    const requestId = crypto.randomUUID();
+    const first = await call(ctx, 'add_list', { title: 'Retry', requestId });
+    const again = await call(ctx, 'add_list', { title: 'Retry', requestId });
+    expect(again.list.id).toBe(first.list.id);
+    const itemId = crypto.randomUUID();
+    const a = await call(ctx, 'add_list_item', {
+      list: first.list.id,
+      text: 'Once',
+      requestId: itemId,
+    });
+    const b = await call(ctx, 'add_list_item', {
+      list: first.list.id,
+      text: 'Once',
+      requestId: itemId,
+    });
+    expect(b.item.id).toBe(a.item.id);
+    expect(b.list.total).toBe(1);
   });
 });
 

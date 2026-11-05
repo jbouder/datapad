@@ -105,7 +105,7 @@ not reset the count.
 
 Every read tool is read-only and needs the `read` scope. Each is a thin façade
 over the `shared/` selectors the app's pages use (`select.ts`, `tasks.ts`,
-`projects.ts`, `notes.ts`, `meetings.ts`, `orgs.ts`, `recap.ts`,
+`projects.ts`, `notes.ts`, `meetings.ts`, `orgs.ts`, `lists.ts`, `recap.ts`,
 `digest.ts`, `search.ts`), run in the Worker over one space's snapshot (the Durable
 Object's `snapshot(space)` RPC: read-only, no socket).
 
@@ -113,16 +113,18 @@ Object's `snapshot(space)` RPC: read-only, no socket).
 | --------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `whoami`        | none                                                                                                     | The email this connection acts for, its scopes, and every space with its counts (projects, archived projects, tasks, open tasks, notes, meetings, people)                                    |
 | `list_spaces`   | none                                                                                                     | Every space (id, name, position, created) in the order the app shows them                                                                                                                    |
-| `get_overview`  | `space`, `today`                                                                                         | The space's counts, the week's movement (closed, added, overdue), and each project outside the archive with status, health, priority, dates, next milestone, open and blocked counts         |
+| `get_overview`  | `space`, `today`                                                                                         | The space's counts (with `listsInProgress`: lists not every item of which is done), the week's movement (closed, added, overdue), and each project outside the archive with status, health, priority, dates, next milestone, open and blocked counts         |
 | `get_focus`     | `space`, `assignee`, `today`                                                                             | Focus: open tasks due overdue, today and upcoming (the next `days`, 7 unless Settings → Pages sets Focus's Week otherwise; later and undated as counts, their High priority ones in full as `high`), waiting on whom, the last week's meetings' open action items, projects needing attention, the agenda over those days |
 | `get_recap`     | `space`, `date`, `assignee`                                                                              | Focus's Since yesterday for the working day before `date` (Friday to Sunday on a Monday): tasks closed and added, meetings held with action items and notes, notes written, other activity   |
 | `list_projects` | `space`, `status`, `health`, `org`, `archived`, `sort`, `today`                                          | Projects as the Projects page selects them (by default every status outside the archive, most recently updated first), each as on `get_overview`                                             |
-| `get_project`   | `space`, `project`, `today`                                                                              | One project (or `general`): details, members, links, milestones, open tasks in order, the 10 latest notes (pinned first), 5 upcoming and 5 recent meetings with topics, 25 activity lines    |
+| `get_project`   | `space`, `project`, `today`                                                                              | One project (or `general`): details, members, links, milestones, open tasks in order, the 10 latest notes (pinned first), 5 upcoming and 5 recent meetings with topics, its lists with their progress, 25 activity lines    |
 | `list_tasks`    | `space`, `project`, `status`, `assignee`, `due`, `blocked`, `meeting`, `query`, `sort`, `limit`, `today` | Tasks as the Tasks page selects them, soonest due first; `due` is a Focus bucket: `overdue`, `today`, `week`, `later`, `none`                                                                |
 | `list_notes`    | `space`, `project`, `meeting`, `pinned`, `query`, `limit`                                                | Notes as the Notes page selects them, newest first (50 by default); the space's Notepad is a General note with `notepad: true`                                                                                                                           |
 | `list_meetings` | `space`, `project`, `from`, `to`, `limit`                                                                | Meetings soonest first with attendees, topics (done, outcome, carried from) and counts of notes and open and done action items                                                               |
 | `list_people`   | `space`                                                                                                  | Everyone by name: role, whether it is you, their projects, their open tasks and the open tasks waiting on them                                                                               |
 | `list_orgs`     | `space`, `archived`                                                                                      | Orgs by name: kind, contacts, links, notes and projects                                                                                                                                      |
+| `list_lists`    | `space`, `project`, `state` (`all`, `in-progress`, `done`), `query`, `limit`                             | Lists, most recently updated first, each with its project and progress (`done`, `total`, `"3 of 8"`) but not its items; in progress includes empty lists; `query` matches the title or an item |
+| `get_list`      | `space`, `list`                                                                                          | One list by id or title: its project, progress and every item (`id`, `text`, `done`, `createdAt`, `doneAt`) in the order chosen                                                              |
 | `get_digest`    | `space`, `weekEnding`                                                                                    | The weekly digest for the seven days ending that day: per project what closed, was added, changed, met and is due, with totals and the Digest page's Markdown                                |
 | `search`        | `space`, `query`, `kinds`, `limit`                                                                       | The ⌘K search over projects, tasks, notes, meetings and their topics, orgs, people and whiteboard text, ranked as the palette ranks, with a count per kind                                   |
 
@@ -130,7 +132,7 @@ The rules every tool keeps:
 - **`space`** is an id or a name (ignoring case); `main` when omitted. An
   unknown space is an error naming `list_spaces`.
 - **Names for ids.** Where a tool takes a `project`, `assignee` (also `me`
-  and `unassigned`), `org` or `meeting`, an id works, or a name: equal
+  and `unassigned`), `org`, `meeting` or `list` (by title), an id works, or a name: equal
   ignoring case, else the one name that contains it. A name that matches
   several returns the candidates' ids and names instead of a guess.
   `project: "general"` is General, the work in no project.
@@ -177,12 +179,18 @@ now is and the activity lines the change wrote (`{ project, text }`,
 | `set_project_status` | `space`, `project`, `status`                                                                                           | `setStatus`                                       |
 | `set_project_health` | `space`, `project`, `health`                                                                                           | `setHealth`                                       |
 | `add_milestone`      | `space`, `project`, `title`, `date`, `today`                                                                           | `addMilestone`                                    |
+| `add_list`           | `space`, `title`, `project`                                                                                            | `addList`                                         |
+| `add_list_item`      | `space`, `list`, `text`                                                                                                | `addListItem` (appended last)                     |
+| `check_list_item`    | `space`, `list`, `item`, `done` (default true)                                                                         | `setListItemDone`                                 |
 
 A `task` is an id or a title (ignoring case, or a unique part of it);
 ids from `list_tasks` are safest. `add_task` without an `assignee`
 follows Settings → People's **Assign new tasks to me**: on, the task goes
 to the person marked as you; off (the default), to nobody. An
-`assignee`, `unassigned` included, always wins.
+`assignee`, `unassigned` included, always wins. A `list` is an id or a
+title, and a list's `item` an id or its text, by the same rule. Lists
+are only added to and checked off here: no tool renames, moves, reorders
+or deletes a list or an item (#302).
 
 **Retries** (#244). Every write tool also takes an optional `requestId`:
 8 to 60 letters, digits, `-` or `_` (a UUID will do). The op goes to the
@@ -204,7 +212,7 @@ world, and only `edit_task` is `destructiveHint: true`: its `desc`, `title`
 and `tags` replace what is there and the old text is not kept, so it is
 marked destructive as a whole (annotations are fixed per tool, not per
 call) and its description says to read the task first. `complete_task`,
-`reopen_task`, `edit_task`, `set_blocked`, `cover_topic` and the project
+`reopen_task`, `edit_task`, `set_blocked`, `cover_topic`, `check_list_item` and the project
 setters are idempotent; the adds are not, unless given a `requestId`.
 
 **How a write lands.** The tool builds the op with ids it makes
@@ -251,7 +259,7 @@ Durable Object, written at most once a minute.
 - Without the `write` scope it cannot change anything.
 - With it, it can only add and edit through the write tools above. By
   design it **cannot**: delete anything (a task, note, meeting, topic,
-  milestone, project, person or org), archive a project, erase a space,
+  milestone, list, list item, project, person or org), archive a project, erase a space,
   import, restore or list backups, create, rename, reorder or delete
   spaces, move a project between spaces, or change settings, navigation
   or page preferences. Those stay in the app. The object enforces it, not
