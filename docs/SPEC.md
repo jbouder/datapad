@@ -112,6 +112,38 @@ Topic ops (each names its `meetingId`, and each bumps the meeting's and its proj
 
 Deleting a meeting takes its topics with it; they live on the document.
 
+### List
+
+A titled checklist of one-line items, each done or not, in an order you choose (#298). Between a note and a set of tasks: items have no due date, assignee or priority, and they are structured, checkable and reorderable. The data only so far; the page, quick add, search and the project page follow (#299 to #301).
+
+| Field     | Type           | Notes                                                       |
+| --------- | -------------- | ----------------------------------------------------------- |
+| id        | string         |                                                             |
+| projectId | string \| null | null = General                                              |
+| title     | string         | required, trimmed, at most 200                              |
+| items     | ListItem[]     | embedded, in the order chosen; at most 200 (`listItemsMax`) |
+| createdAt | timestamp      |                                                             |
+| updatedAt | timestamp      | bumps on every edit, items included                         |
+
+### ListItem (embedded in lists)
+
+`{id: string, text: string, done: boolean, createdAt: timestamp, doneAt: timestamp | null}`: one line (required, trimmed, at most 200), whether it is done, and when it was checked (null while open).
+
+List ops (item ops name their `listId`; each bumps the list's and its project's `updatedAt`):
+
+| Op                 | Fields                       | Behavior                                                                                                                                                  |
+| ------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `addList`          | `id`, `title`, `projectId`   | Logs "Added the list "…"" in its project's log, or General's                                                                                              |
+| `editList`         | `id`, `title`, `projectId`   | Renames or moves it; not logged                                                                                                                           |
+| `deleteList`       | `id`                         | Takes its items with it; logs "Deleted the list "…""                                                                                                      |
+| `addListItem`      | `listId`, `id`, `text`       | Appended last; refused for an id already there, or a list that has 200 items; not logged                                                                  |
+| `editListItem`     | `listId`, `id`, `text`       | Not logged                                                                                                                                                |
+| `setListItemDone`  | `listId`, `id`, `done`       | Sets `doneAt` to now, or null; states the result, so repeating it changes nothing; not logged                                                             |
+| `deleteListItem`   | `listId`, `id`               | Not logged                                                                                                                                                |
+| `reorderListItems` | `listId`, `ids`              | Every item id exactly once, in the new order; a list that omits, repeats or invents one is refused ("The items changed; try again") and nothing changes |
+
+An unknown list or item id is refused.
+
 ### Person
 
 | Field | Type    | Notes                                                 |
@@ -153,7 +185,7 @@ A board holds at most 2 000 items (`boardItemsMax`), an ink stroke at most 1 000
 
 ### Relationships
 
-task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting or task (optional, not both); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded). Deleting a project deletes its tasks, notes, milestones and activity; its meetings move to General. Deleting a meeting keeps its notes, and so does deleting a task. Moving a task to another project moves its notes with it. Deleting a person leaves mentions rendering as "@unknown".
+task → project (optional), task → assignee, task → source note; note → project (optional), note → meeting or task (optional, not both); meeting → project (optional), meeting → attendees; project → members, project → milestones (embedded); list → project (optional), list → items (embedded). Deleting a project deletes its tasks, notes, lists, milestones and activity; its meetings move to General. Moving a project to another space takes its lists. Deleting a meeting keeps its notes, and so does deleting a task. Moving a task to another project moves its notes with it. Deleting a person leaves mentions rendering as "@unknown".
 
 ## Views
 

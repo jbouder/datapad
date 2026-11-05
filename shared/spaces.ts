@@ -87,12 +87,13 @@ const CARRIED = [
   'meetings',
   'decisions',
   'boardItems',
+  'lists',
   'activity',
 ] as const satisfies readonly Collection[];
 
 /**
  * Everything a project takes to another space, as an import of it: the
- * project (its milestones inside it), its tasks, notes, meetings,
+ * project (its milestones inside it), its tasks, notes, meetings, lists,
  * whiteboard items and decisions (unlike deleting, its meetings and decisions go with it rather
  * than to General), its log with
  * "Moved from <space>" on top, and copies of the people and org it
@@ -128,6 +129,7 @@ export function projectSubtree(
     orgs: {},
     templates: {},
     boardItems: {},
+    lists: {},
     activity: {},
     settings: {},
   };
@@ -164,6 +166,9 @@ export function projectSubtree(
     for (const p of x.deciders) people.add(p);
     texts.push(x.rationale);
   }
+
+  // Its lists, items and all (#298).
+  for (const [id, l] of mine(state.lists)) out.lists[id] = l;
 
   // Its whiteboard, every item as it is.
   for (const [id, b] of Object.entries(state.boardItems)) {
@@ -218,7 +223,7 @@ export function projectSubtree(
 /**
  * The source's side of a move: `state` without the documents `subtree`
  * carries away (the project, its tasks, notes, meetings, decisions,
- * whiteboard items and log). People and orgs stay: other projects may still need them.
+ * lists, whiteboard items and log). People and orgs stay: other projects may still need them.
  * Returns every row it deleted (and any action item it unlinked from a
  * meeting that went), for the Durable Object to write. Pure,
  * and the counterpart of `merge()` on the target, which is why it is not

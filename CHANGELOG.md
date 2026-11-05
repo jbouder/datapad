@@ -17,6 +17,35 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- **Lists, the data** (#298): a new collection for titled checklists of
+  one-line items, each done or not, in an order you choose, on a project
+  or in General. Adding and deleting a list log a line in its project's
+  activity (or General's); renaming it and every item change do not.
+  Deleting a project deletes its lists, and moving one to another space
+  takes them along. Nothing in the app shows lists yet; the page, quick
+  add, search and the project page follow (#299 to #301).
+- **MCP list tools** (#302): `list_lists` and `get_list` read lists (by
+  project, in progress or done, or text; one by id or title with its
+  items in order). With the write scope, `add_list`, `add_list_item` and
+  `check_list_item` add a list, add an item and check one off. Nothing
+  renames, reorders or deletes a list from MCP. `get_project` shows the
+  project's lists with their progress, and `get_overview` counts lists in
+  progress (`counts.listsInProgress`).
+
+### Export format
+
+- **Format 2** (#298): exports and backups now write `"format": 2` and may
+  carry `lists`, a map by id of `{ id, projectId, title, items,
+  createdAt, updatedAt }`, each item `{ id, text, done, createdAt, doneAt
+  }`. A Datapad that reads format 1 drops keys it does not know, so it
+  would import such a file and lose its lists without a word; with the
+  bump it refuses the file and says to update instead. Every format 1
+  file, and every legacy one, imports unchanged, with no lists. The
+  Durable Object's schema is still version 3: lists are stored like every
+  other document.
+
 ## [0.3.0] — 2026-10-30
 
 Focus looks a set number of days ahead (seven by default, or 3, 5, 10 or

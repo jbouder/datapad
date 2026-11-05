@@ -1334,6 +1334,333 @@ describe('milestones', () => {
   });
 });
 
+describe('lists (#298)', () => {
+  const T2 = '2026-10-23T11:00:00.000Z';
+  /** A list `l1` on p1 with items i1, i2, i3, added at T1. */
+  const withList = (): Snapshot =>
+    [
+      { type: 'addList', id: 'l1', title: 'Offsite', projectId: 'p1' },
+      { type: 'addListItem', listId: 'l1', id: 'i1', text: 'Venue' },
+      { type: 'addListItem', listId: 'l1', id: 'i2', text: 'Agenda' },
+      { type: 'addListItem', listId: 'l1', id: 'i3', text: 'Dinner' },
+    ].reduce((s, op) => reduce(s, op as Op, T1).state, base());
+
+  it('addList adds an empty list to its project and logs it there', () => {
+    const { state, changed } = at(base(), {
+      type: 'addList',
+      id: 'l1',
+      title: 'Offsite',
+      projectId: 'p1',
+    });
+    expect(state.lists.l1).toEqual({
+      id: 'l1',
+      projectId: 'p1',
+      title: 'Offsite',
+      items: [],
+      createdAt: T1,
+      updatedAt: T1,
+    });
+    expect(lastLog(state, 'p1')).toBe('Added the list "Offsite"');
+    expect(state.projects.p1?.updatedAt).toBe(T1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'lists', id: 'l1' },
+      { col: 'projects', id: 'p1' },
+    ]);
+  });
+
+  it('addList in General logs in General, and trims the title', () => {
+    const op = OpSchema.parse({
+      type: 'addList',
+      id: 'l1',
+      title: '  Books to read  ',
+      projectId: null,
+    });
+    const { state } = at(base(), op);
+    expect(state.lists.l1).toMatchObject({
+      projectId: null,
+      title: 'Books to read',
+    });
+    expect(lastLog(state, GENERAL)).toBe('Added the list "Books to read"');
+  });
+
+  it('editList renames and moves it, silently, and bumps both projects', () => {
+    const state = run(withList(), {
+      type: 'createProject',
+      id: 'p2',
+      name: 'Falcon',
+    });
+    const before = state.activity;
+    const { state: next, changed } = reduce(
+      state,
+      { type: 'editList', id: 'l1', title: 'Retreat', projectId: 'p2' },
+      T2,
+    );
+    expect(next.lists.l1).toMatchObject({
+      title: 'Retreat',
+      projectId: 'p2',
+      createdAt: T1,
+      updatedAt: T2,
+    });
+    expect(next.lists.l1?.items).toEqual(state.lists.l1?.items);
+    expect(next.activity).toBe(before);
+    expect(next.projects.p1?.updatedAt).toBe(T2);
+    expect(next.projects.p2?.updatedAt).toBe(T2);
+    expect(sorted(changed)).toEqual([
+      { col: 'lists', id: 'l1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'projects', id: 'p2' },
+    ]);
+    // The same title and project again change nothing.
+    expect(
+      reduce(
+        next,
+        { type: 'editList', id: 'l1', title: 'Retreat', projectId: 'p2' },
+        T2,
+      ).changed,
+    ).toEqual([]);
+  });
+
+  it('deleteList removes it with its items and logs it in its project', () => {
+    const { state, changed } = reduce(
+      freeze(withList()),
+      { type: 'deleteList', id: 'l1' },
+      T2,
+    );
+    expect(state.lists).toEqual({});
+    expect(lastLog(state, 'p1')).toBe('Deleted the list "Offsite"');
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'lists', id: 'l1', deleted: true },
+      { col: 'projects', id: 'p1' },
+    ]);
+  });
+
+  it('addListItem appends, open, and bumps the list without a log line', () => {
+    const state = withList();
+    const before = state.activity;
+    const { state: next, changed } = reduce(
+      state,
+      { type: 'addListItem', listId: 'l1', id: 'i4', text: 'Travel' },
+      T2,
+    );
+    expect(next.lists.l1?.items.map((i) => i.id)).toEqual([
+      'i1',
+      'i2',
+      'i3',
+      'i4',
+    ]);
+    expect(next.lists.l1?.items[3]).toEqual({
+      id: 'i4',
+      text: 'Travel',
+      done: false,
+      createdAt: T2,
+      doneAt: null,
+    });
+    expect(next.lists.l1?.updatedAt).toBe(T2);
+    expect(next.projects.p1?.updatedAt).toBe(T2);
+    expect(next.activity).toBe(before);
+    expect(sorted(changed)).toEqual([
+      { col: 'lists', id: 'l1' },
+      { col: 'projects', id: 'p1' },
+    ]);
+  });
+
+  it('editListItem changes the text, silently', () => {
+    const state = withList();
+    const { state: next } = reduce(
+      state,
+      { type: 'editListItem', listId: 'l1', id: 'i2', text: 'Agenda draft' },
+      T2,
+    );
+    expect(next.lists.l1?.items[1]).toMatchObject({
+      id: 'i2',
+      text: 'Agenda draft',
+    });
+    expect(next.lists.l1?.updatedAt).toBe(T2);
+    expect(next.activity).toBe(state.activity);
+  });
+
+  it('setListItemDone checks and unchecks, setting doneAt, and is idempotent', () => {
+    const state = withList();
+    const done = reduce(
+      state,
+      { type: 'setListItemDone', listId: 'l1', id: 'i1', done: true },
+      T2,
+    );
+    expect(done.state.lists.l1?.items[0]).toMatchObject({
+      done: true,
+      doneAt: T2,
+    });
+    expect(done.state.lists.l1?.updatedAt).toBe(T2);
+    expect(done.state.activity).toBe(state.activity);
+    expect(
+      reduce(
+        done.state,
+        { type: 'setListItemDone', listId: 'l1', id: 'i1', done: true },
+        T2,
+      ).changed,
+    ).toEqual([]);
+    const open = reduce(
+      done.state,
+      { type: 'setListItemDone', listId: 'l1', id: 'i1', done: false },
+      T2,
+    ).state;
+    expect(open.lists.l1?.items[0]).toMatchObject({
+      done: false,
+      doneAt: null,
+    });
+  });
+
+  it('deleteListItem removes one item, silently', () => {
+    const state = withList();
+    const { state: next } = reduce(
+      state,
+      { type: 'deleteListItem', listId: 'l1', id: 'i2' },
+      T2,
+    );
+    expect(next.lists.l1?.items.map((i) => i.id)).toEqual(['i1', 'i3']);
+    expect(next.lists.l1?.updatedAt).toBe(T2);
+    expect(next.activity).toBe(state.activity);
+  });
+
+  it('reorderListItems takes every item once, in the new order', () => {
+    const state = withList();
+    const { state: next } = reduce(
+      state,
+      { type: 'reorderListItems', listId: 'l1', ids: ['i3', 'i1', 'i2'] },
+      T2,
+    );
+    expect(next.lists.l1?.items.map((i) => i.id)).toEqual(['i3', 'i1', 'i2']);
+    expect(next.lists.l1?.updatedAt).toBe(T2);
+    expect(next.activity).toBe(state.activity);
+    // The order it already has changes nothing.
+    expect(
+      reduce(
+        next,
+        { type: 'reorderListItems', listId: 'l1', ids: ['i3', 'i1', 'i2'] },
+        T2,
+      ).changed,
+    ).toEqual([]);
+  });
+
+  it('refuses a reorder that omits, repeats or invents an item, changing nothing', () => {
+    const state = freeze(withList());
+    for (const ids of [
+      ['i1', 'i2'],
+      ['i1', 'i1', 'i2'],
+      ['i1', 'i2', 'i3', 'i3'],
+      ['i1', 'i2', 'i9'],
+    ]) {
+      expect(
+        () =>
+          reduce(state, { type: 'reorderListItems', listId: 'l1', ids }, T2),
+        ids.join(','),
+      ).toThrow('The items changed; try again');
+    }
+  });
+
+  it('refuses unknown lists and items, and duplicate ids', () => {
+    const state = withList();
+    expect(() =>
+      at(state, { type: 'addList', id: 'l1', title: 'Again', projectId: null }),
+    ).toThrow('That list already exists');
+    expect(() =>
+      at(state, { type: 'addList', id: 'l2', title: 'X', projectId: 'p9' }),
+    ).toThrow('That project no longer exists');
+    expect(() =>
+      at(state, { type: 'editList', id: 'l9', title: 'X', projectId: null }),
+    ).toThrow('That list no longer exists');
+    expect(() =>
+      at(state, { type: 'editList', id: 'l1', title: 'X', projectId: 'p9' }),
+    ).toThrow('That project no longer exists');
+    expect(() => at(state, { type: 'deleteList', id: 'l9' })).toThrow(
+      'That list no longer exists',
+    );
+    for (const op of [
+      { type: 'addListItem', listId: 'l9', id: 'i9', text: 'X' },
+      { type: 'editListItem', listId: 'l9', id: 'i1', text: 'X' },
+      { type: 'setListItemDone', listId: 'l9', id: 'i1', done: true },
+      { type: 'deleteListItem', listId: 'l9', id: 'i1' },
+      { type: 'reorderListItems', listId: 'l9', ids: [] },
+    ] as Op[]) {
+      expect(() => at(state, op), op.type).toThrow(
+        'That list no longer exists',
+      );
+    }
+    for (const op of [
+      { type: 'editListItem', listId: 'l1', id: 'i9', text: 'X' },
+      { type: 'setListItemDone', listId: 'l1', id: 'i9', done: true },
+      { type: 'deleteListItem', listId: 'l1', id: 'i9' },
+    ] as Op[]) {
+      expect(() => at(state, op), op.type).toThrow(
+        'That item no longer exists',
+      );
+    }
+    expect(() =>
+      at(state, { type: 'addListItem', listId: 'l1', id: 'i1', text: 'X' }),
+    ).toThrow('That item already exists');
+  });
+
+  it('requires a title and text, trimmed and at most titleMax', () => {
+    for (const op of [
+      { type: 'addList', id: 'l2', title: '   ', projectId: null },
+      { type: 'editList', id: 'l1', title: '', projectId: null },
+      { type: 'addListItem', listId: 'l1', id: 'i9', text: '  ' },
+      { type: 'editListItem', listId: 'l1', id: 'i1', text: '' },
+      {
+        type: 'addListItem',
+        listId: 'l1',
+        id: 'i9',
+        text: 'x'.repeat(LIMITS.titleMax + 1),
+      },
+      {
+        type: 'addList',
+        id: 'l2',
+        title: 'x'.repeat(LIMITS.titleMax + 1),
+        projectId: null,
+      },
+    ]) {
+      expect(OpSchema.safeParse(op).success, JSON.stringify(op)).toBe(false);
+    }
+    const op = OpSchema.parse({
+      type: 'addListItem',
+      listId: 'l1',
+      id: 'i9',
+      text: '  Snacks ',
+    }) as OpOf<'addListItem'>;
+    expect(op.text).toBe('Snacks');
+  });
+
+  it(`caps a list at ${LIMITS.listItemsMax} items`, () => {
+    let state = run(base(), {
+      type: 'addList',
+      id: 'l1',
+      title: 'Long',
+      projectId: null,
+    });
+    for (let i = 0; i < LIMITS.listItemsMax; i += 1) {
+      state = reduce(
+        state,
+        { type: 'addListItem', listId: 'l1', id: `i${i}`, text: `Item ${i}` },
+        T1,
+      ).state;
+    }
+    expect(() =>
+      at(state, { type: 'addListItem', listId: 'l1', id: 'more', text: 'X' }),
+    ).toThrow(`A list has ${LIMITS.listItemsMax} items at most`);
+  });
+
+  it('deleting a project deletes its lists, and leaves General’s', () => {
+    const state = run(
+      withList(),
+      { type: 'addList', id: 'l2', title: 'Books', projectId: null },
+      { type: 'deleteProject', id: 'p1' },
+    );
+    expect(Object.keys(state.lists)).toEqual(['l2']);
+  });
+});
+
 describe('whiteboards', () => {
   const item = (id: string, overrides: Partial<BoardItem> = {}): BoardItem => ({
     id,
@@ -2453,6 +2780,22 @@ describe('page preferences (#186)', () => {
 });
 
 describe('merge (import)', () => {
+  it('round-trips lists, and an export from before them imports unchanged', () => {
+    const state = run(
+      base(),
+      { type: 'addList', id: 'l1', title: 'Offsite', projectId: 'p1' },
+      { type: 'addListItem', listId: 'l1', id: 'i1', text: 'Venue' },
+      { type: 'setListItemDone', listId: 'l1', id: 'i1', done: true },
+    );
+    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
+    expect(next.lists).toEqual(state.lists);
+
+    const { lists: _, ...before } = file;
+    const { state: old } = merge(state, ExportSchema.parse(before));
+    expect(old.lists).toEqual(state.lists);
+  });
+
   it('round-trips a task’s notes, and leaves a note without taskId as it was', () => {
     const state = run(
       base(),

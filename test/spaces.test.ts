@@ -14,6 +14,7 @@ import {
   type BoardItem,
   type Decision,
   emptySnapshot,
+  type List,
   MAIN_SPACE,
   type Note,
   type Person,
@@ -538,6 +539,51 @@ describe('removeSubtree', () => {
     // The input is left alone.
     expect(state.projects['p-echo']).toBeDefined();
     expect(Object.keys(state.tasks)).toHaveLength(7);
+  });
+});
+
+describe('moving a project carries its lists (#298)', () => {
+  const list = (id: string, projectId: string | null): List => ({
+    id,
+    projectId,
+    title: `List ${id}`,
+    items: [
+      { id: `${id}-a`, text: 'Shields', done: true, createdAt: at, doneAt: at },
+      {
+        id: `${id}-b`,
+        text: 'Ion cannon',
+        done: false,
+        createdAt: at,
+        doneAt: null,
+      },
+    ],
+    createdAt: at,
+    updatedAt: at,
+  });
+
+  it('takes the project’s lists, items and all, and leaves the rest', () => {
+    const state = source();
+    state.lists = {
+      'l-echo': list('l-echo', 'p-echo'),
+      'l-falcon': list('l-falcon', 'p-falcon'),
+      'l-general': list('l-general', null),
+    };
+    const subtree = projectSubtree(
+      state,
+      'p-echo',
+      emptySnapshot(),
+      arrival,
+    ) as ParsedExport;
+    expect(subtree.lists).toEqual({ 'l-echo': state.lists['l-echo'] });
+    const { state: next, changed } = removeSubtree(state, subtree);
+    expect(Object.keys(next.lists).sort()).toEqual(['l-falcon', 'l-general']);
+    expect(changed).toContainEqual({
+      col: 'lists',
+      id: 'l-echo',
+      deleted: true,
+    });
+    const target = merge(emptySnapshot(), subtree).state;
+    expect(target.lists).toEqual({ 'l-echo': state.lists['l-echo'] });
   });
 });
 

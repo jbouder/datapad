@@ -276,6 +276,32 @@ export interface BoardItem {
   points: number[];
 }
 
+/**
+ * A titled checklist of one-line items, each done or not, in an order you
+ * choose (#298). Items are embedded, as milestones are on a project.
+ */
+export interface List {
+  id: string;
+  /** null = General. */
+  projectId: string | null;
+  title: string;
+  /** In the order you chose. */
+  items: ListItem[];
+  createdAt: Timestamp;
+  /** Bumps on every edit, items included. */
+  updatedAt: Timestamp;
+}
+
+/** One line on a list: done or not. */
+export interface ListItem {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: Timestamp;
+  /** When it was checked; null while open. */
+  doneAt: Timestamp | null;
+}
+
 /** A client, an internal team, a vendor or a partner, with its contacts. */
 export interface Org {
   id: string;
@@ -366,7 +392,7 @@ export const GENERAL = 'general';
 
 /**
  * A space: a complete, separate Datapad (its own projects, tasks, notes,
- * meetings, decisions, people, orgs, templates, settings and activity) under
+ * meetings, decisions, lists, people, orgs, templates, settings and activity) under
  * the one signed-in email. The Durable Object keeps the list; `position`
  * is its order in the switcher, so a reorder never touches `createdAt`.
  */
@@ -485,6 +511,7 @@ export interface Collections {
   orgs: Org;
   templates: Template;
   boardItems: BoardItem;
+  lists: List;
   activity: Activity;
   settings: Settings;
 }
@@ -501,6 +528,7 @@ export const COLLECTIONS = [
   'orgs',
   'templates',
   'boardItems',
+  'lists',
   'activity',
   'settings',
 ] as const satisfies readonly Collection[];
@@ -518,6 +546,7 @@ export const DOC_COLLECTIONS = [
   'orgs',
   'templates',
   'boardItems',
+  'lists',
 ] as const satisfies readonly DocCollection[];
 
 /** Everything one user has: every collection as a map by id. */
@@ -536,6 +565,7 @@ export function emptySnapshot(): Snapshot {
     orgs: {},
     templates: {},
     boardItems: {},
+    lists: {},
     activity: {},
     settings: {},
   };
@@ -547,8 +577,11 @@ export function emptySnapshot(): Snapshot {
  * so in CHANGELOG.md under **Export format**. A file without `format` is
  * legacy (before 1), migrated by shape (`shared/migrate.ts`); a file with
  * a higher one than this is refused, never half-read.
+ *
+ * 2 adds `lists` (#298): a format 1 Datapad would drop them without a
+ * word, so it refuses the file instead. Every format 1 file reads as is.
  */
-export const EXPORT_FORMAT = 1;
+export const EXPORT_FORMAT = 2;
 
 /** The JSON file Export writes and Import reads (the artifact's format). */
 export type ExportFile = {

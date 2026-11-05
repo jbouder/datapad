@@ -862,6 +862,7 @@ describe('export and import', () => {
         orgs: 0,
         templates: 0,
         boardItems: 0,
+        lists: 0,
       },
     });
     const exported = await get(email, '/api/export.json');
@@ -887,6 +888,7 @@ describe('export and import', () => {
       'orgs',
       'templates',
       'boardItems',
+      'lists',
     ]);
     const { format, exportedAt, ...back } = file;
     expect(format).toBe(EXPORT_FORMAT);
@@ -899,7 +901,54 @@ describe('export and import', () => {
       orgs: {},
       templates: {},
       boardItems: {},
+      lists: {},
     });
+  });
+
+  it('round-trips lists through export and import (#298)', async () => {
+    const email = 'lists-kept@example.com';
+    const lists = {
+      'l-1': {
+        id: 'l-1',
+        projectId: 'p-echo',
+        title: 'Evacuation checklist',
+        items: [
+          {
+            id: 'li-1',
+            text: 'Load the transports',
+            done: true,
+            createdAt: '2026-10-01T09:00:00.000Z',
+            doneAt: '2026-10-02T09:00:00.000Z',
+          },
+          {
+            id: 'li-2',
+            text: 'Arm the ion cannon',
+            done: false,
+            createdAt: '2026-10-01T09:05:00.000Z',
+            doneAt: null,
+          },
+        ],
+        createdAt: '2026-10-01T09:00:00.000Z',
+        updatedAt: '2026-10-02T09:00:00.000Z',
+      },
+    };
+    const response = await post(email, '/api/import', { ...fixture, lists });
+    expect(response.status).toBe(200);
+    const imported = (await response.json()) as {
+      imported: Record<string, number>;
+    };
+    expect(imported.imported.lists).toBe(1);
+    const file = (await (
+      await get(email, '/api/export.json')
+    ).json()) as Snapshot & { format: number };
+    expect(file.format).toBe(EXPORT_FORMAT);
+    expect(file.lists).toEqual(lists);
+    const again = 'lists-kept-again@example.com';
+    expect((await post(again, '/api/import', file)).status).toBe(200);
+    const back = (await (
+      await get(again, '/api/export.json')
+    ).json()) as Snapshot;
+    expect(back.lists).toEqual(lists);
   });
 
   it('keeps decisions through import and export, though they are retired', async () => {

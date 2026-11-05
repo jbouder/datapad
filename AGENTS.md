@@ -17,8 +17,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 
 ## Layout
 
-- `shared/` — the domain, used by both sides. `types.ts` (the eleven
-  collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic` in `Meeting`), `protocol.ts` (zod schemas for documents, the export file,
+- `shared/` — the domain, used by both sides. `types.ts` (the twelve
+  collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic` in `Meeting`, `ListItem` in `List`), `protocol.ts` (zod schemas for documents, the export file,
   ops and socket messages), `reducer.ts` (**the only place state
   changes**; also `merge()` for imports), `limits.ts`, `select.ts`
   (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
@@ -48,7 +48,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   the formatting keys, list continuation; Help's tables come from it),
   `mentions.ts` (`@{id}` tokens ↔ `@Name`), `notes.ts`, `tasks.ts`,
   `projects.ts` (each view's filters, sorts and selection), `people.ts`
-  and `orgs.ts` (records by name, inline add), `templates.ts` (project
+  and `orgs.ts` (records by name, inline add), `lists.ts` (a list's
+  progress, its items' order, its project, which lists a filter keeps),
+  `templates.ts` (project
   and note templates), `digest.ts` (the weekly digest and its Markdown).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
