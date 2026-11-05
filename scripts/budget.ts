@@ -27,9 +27,11 @@ import { gzipSync } from 'node:zlib';
  * 2 KB, and Tasks and Notes, which use it, are in the entry. Then to
  * 393 with #273: the compact note row and its plain-text preview, on the
  * project page in the entry (about 1 KB, half of it offset by sharing
- * NoteCard's parts).
+ * NoteCard's parts). Then to 394 with #298: the lists collection's
+ * schemas and its eight ops, which the client needs to validate imports
+ * and apply ops (about 0.55 KB, from 392.47 to 393.02).
  */
-const BUDGET_KB = { js: 393, css: 28 };
+const BUDGET_KB = { js: 394, css: 28 };
 
 /**
  * Strings only WebLLM's own code holds: its TVM runtime and its cache's
