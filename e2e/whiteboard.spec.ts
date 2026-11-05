@@ -224,6 +224,10 @@ test('opens from the project page, the rail or account menu, and ⌘K', async ({
 
   // ⌘K: on a project, its board.
   await page.goto('/projects/p-falcon');
+  // The page first: a key pressed before it renders goes nowhere.
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Falcon hyperdrive refit' }),
+  ).toBeVisible();
   await page.keyboard.press('ControlOrMeta+k');
   await page.getByRole('combobox').fill('open whiteboard');
   await page.getByRole('option', { name: 'Open whiteboard' }).click();

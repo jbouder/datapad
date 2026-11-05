@@ -74,7 +74,8 @@ test('a sticky found with ⌘K opens its board, selected and centred', async ({
   page,
 }) => {
   await openLive(page);
-  const results = await searchFor(page, 'coolant');
+  // Not just "coolant": a seeded list's item has that word too.
+  const results = await searchFor(page, 'reactor coolant');
   await expect(results.getByRole('option')).toHaveCount(1);
   const option = results.getByRole('option');
   await expect(option).toContainText('Reactor coolant');
