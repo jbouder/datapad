@@ -54,6 +54,12 @@ export const DigestPage = lazyPage(() =>
 export const HelpPage = lazyPage(() =>
   import('@/pages/HelpPage').then((m) => m.HelpPage),
 );
+export const ListPage = lazyPage(() =>
+  import('@/pages/ListPage').then((m) => m.ListPage),
+);
+export const ListsPage = lazyPage(() =>
+  import('@/pages/ListsPage').then((m) => m.ListsPage),
+);
 export const MeetingPage = lazyPage(() =>
   import('@/pages/MeetingPage').then((m) => m.MeetingPage),
 );
@@ -72,6 +78,8 @@ const LAZY: Partial<
 > = {
   digest: DigestPage,
   help: HelpPage,
+  list: ListPage,
+  lists: ListsPage,
   meeting: MeetingPage,
   settings: SettingsPage,
   people: SettingsPage,

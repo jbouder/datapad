@@ -1,12 +1,71 @@
 import { addDays, daysBetween, localDate } from '../shared/dates';
-import fixture from '../test/fixtures/export.json' with { type: 'json' };
+import exported from '../test/fixtures/export.json' with { type: 'json' };
 
 /** Whole calendar days between two dates (`shared/dates.ts`). */
 export { daysBetween };
 
+const item = (id: string, text: string, done: boolean, at: string) => ({
+  id,
+  text,
+  done,
+  createdAt: at,
+  doneAt: done ? at : null,
+});
+
+/**
+ * Three lists (#299), beside the export the unit tests use: one General,
+ * one on a project with items open and done, one with every item done.
+ * Fictional, like the rest.
+ */
+const SEED_LISTS = {
+  'l-reading': {
+    id: 'l-reading',
+    projectId: null,
+    title: 'Reading list',
+    items: [
+      item('li-r1', 'Rebel field manual', false, '2026-10-20T09:00:00.000Z'),
+      item(
+        'li-r2',
+        'Shield generator specs',
+        false,
+        '2026-10-20T09:00:00.000Z',
+      ),
+      item('li-r3', 'Tauntaun care guide', true, '2026-10-21T09:00:00.000Z'),
+    ],
+    createdAt: '2026-10-20T09:00:00.000Z',
+    updatedAt: '2026-10-21T09:00:00.000Z',
+  },
+  'l-evac': {
+    id: 'l-evac',
+    projectId: 'p-echo',
+    title: 'Evacuation checklist',
+    items: [
+      item('li-e1', 'Charge the ion cannon', true, '2026-10-22T10:00:00.000Z'),
+      item('li-e2', 'Load the transports', false, '2026-10-22T10:00:00.000Z'),
+      item('li-e3', 'Brief the pilots', false, '2026-10-22T10:00:00.000Z'),
+      item('li-e4', 'Seal the hangar doors', false, '2026-10-22T10:00:00.000Z'),
+    ],
+    createdAt: '2026-10-22T10:00:00.000Z',
+    updatedAt: '2026-10-22T11:00:00.000Z',
+  },
+  'l-parts': {
+    id: 'l-parts',
+    projectId: 'p-falcon',
+    title: 'Hyperdrive parts',
+    items: [
+      item('li-p1', 'Motivator', true, '2026-10-19T08:00:00.000Z'),
+      item('li-p2', 'Coolant line', true, '2026-10-19T08:00:00.000Z'),
+    ],
+    createdAt: '2026-10-18T08:00:00.000Z',
+    updatedAt: '2026-10-19T08:00:00.000Z',
+  },
+};
+
+const fixture = { ...exported, lists: SEED_LISTS };
+
 /**
  * A populated tracker for specs that need one: the fictional export the
- * unit tests use, posted to `/api/import`. The repository is public and
+ * unit tests use, and three lists, posted to `/api/import`. The repository is public and
  * never holds real data.
  *
  * The export's dates were written around {@link SEED_ANCHOR}. Every run
@@ -101,7 +160,7 @@ export const SEED_COUNTS = {
   orgs: 0,
   templates: 0,
   boardItems: 0,
-  lists: 0,
+  lists: Object.keys(fixture.lists).length,
 };
 
 /** Noon on `day` in the local zone, as an ISO timestamp. */

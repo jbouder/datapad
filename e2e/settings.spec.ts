@@ -34,8 +34,11 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'System',
     'Light',
     'Dark',
-    // The tools (#261): the rail has them on desktop.
-    ...(isMobile(page) ? ['Notepad', 'Whiteboard', 'Weekly digest'] : []),
+    // Lists (#299), off the tab bar, and the tools (#261): the rail has
+    // them on desktop.
+    ...(isMobile(page)
+      ? ['Lists', 'Notepad', 'Whiteboard', 'Weekly digest']
+      : []),
     'Refresh',
     'Help',
     'Settings',

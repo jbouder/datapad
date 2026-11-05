@@ -1,4 +1,5 @@
 import { LIMITS } from './limits';
+import { LIST_SORTS } from './lists';
 import { PROJECT_SORTS } from './projects';
 import type { PagePrefsPatch } from './protocol';
 import { FOCUS_DAY_CHOICES, FOCUS_DAYS, meId, orgs } from './select';
@@ -214,6 +215,25 @@ export const TASK_GROUP_OPTIONS = [
   { value: 'none', label: 'Nothing' },
 ] as const;
 
+const LIST_SORT_LABELS: Record<(typeof LIST_SORTS)[number], string> = {
+  updated: 'Recently updated',
+  created: 'Created',
+  title: 'Title',
+};
+
+/** Lists' Sort by (#299). */
+export const LIST_SORT_OPTIONS: readonly PrefOption[] = LIST_SORTS.map((s) => ({
+  value: s,
+  label: LIST_SORT_LABELS[s],
+}));
+
+/** Lists' Show filter: how far along. */
+export const LIST_SHOW_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'in-progress', label: 'In progress' },
+  { value: 'done', label: 'Done' },
+] as const;
+
 /** What each page remembers, in the order Settings → Pages shows them. */
 export const PAGES: Record<PageKey, PageSpec> = {
   focus: {
@@ -355,6 +375,34 @@ export const PAGES: Record<PageKey, PageSpec> = {
           { value: '1', label: 'Pinned' },
         ],
         control: 'segmented',
+      },
+    ],
+    sections: false,
+  },
+  lists: {
+    label: 'Lists',
+    fields: [
+      layout(
+        [
+          { value: 'cards', label: 'Cards' },
+          { value: 'table', label: 'Table' },
+        ],
+        'cards',
+      ),
+      project,
+      {
+        key: 'show',
+        label: 'Show',
+        def: 'all',
+        options: LIST_SHOW_OPTIONS,
+        control: 'segmented',
+      },
+      {
+        key: 'sort',
+        label: 'Sort by',
+        def: 'updated',
+        options: LIST_SORT_OPTIONS,
+        control: 'select',
       },
     ],
     sections: false,

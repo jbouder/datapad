@@ -16,6 +16,7 @@ export const NAV_SECTIONS = [
   'tasks',
   'meetings',
   'notes',
+  'lists',
 ] as const;
 export type SectionName = (typeof NAV_SECTIONS)[number];
 
@@ -91,12 +92,26 @@ export function navOf(settings: Pick<Settings, 'nav'>): SectionName[] {
 }
 
 /**
- * The sections the phone's tab bar leaves out, among the shown ones (every
- * section is on it by default). At least one shown section stays on the
- * phone, the first in the order.
+ * Off the phone's tab bar until switched on (#299): Lists, a sixth
+ * section, would fill it and push every tool to the account menu.
+ */
+const PHONE_HIDDEN: readonly SectionName[] = ['lists'];
+
+/**
+ * The sections the phone's tab bar leaves out, among the shown ones
+ * (every section but Lists is on it by default). Settings saves the order
+ * with the phone's list, so a section the saved order never names (a
+ * later release's) keeps its default. At least one shown section stays
+ * on the phone, the first in the order.
  */
 export function navPhoneHiddenOf(nav: NavPrefs | undefined): Set<SectionName> {
-  const hidden = new Set((nav?.phoneHidden ?? []).filter(isSectionName));
+  const saved = new Set(nav?.phoneHidden ?? []);
+  const known = new Set([...(nav?.order ?? []), ...saved]);
+  const hidden = new Set(
+    NAV_SECTIONS.filter((name) =>
+      known.has(name) ? saved.has(name) : PHONE_HIDDEN.includes(name),
+    ),
+  );
   const shown = navOf({ nav });
   if (shown.every((name) => hidden.has(name))) hidden.delete(shown[0]);
   return hidden;
@@ -106,6 +121,17 @@ export function navPhoneHiddenOf(nav: NavPrefs | undefined): Set<SectionName> {
 export function navPhoneOf(settings: Pick<Settings, 'nav'>): SectionName[] {
   const hidden = navPhoneHiddenOf(settings.nav);
   return navOf(settings).filter((name) => !hidden.has(name));
+}
+
+/**
+ * The shown sections the phone's tab bar leaves out (Lists, by default):
+ * the account menu has them on a phone.
+ */
+export function navMenuSectionsOf(
+  settings: Pick<Settings, 'nav'>,
+): SectionName[] {
+  const tabs = navPhoneOf(settings);
+  return navOf(settings).filter((name) => !tabs.includes(name));
 }
 
 /** Every tool in the saved order (see `orderOf`). */

@@ -30,15 +30,15 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then the shown tools the phone's tab
- * bar leaves out (#261: all of them, by default; the rail has them on
- * desktop), Refresh, Help, Settings and Sign out.
+ * quick Motion and Theme switches, then the shown sections and tools the
+ * phone's tab bar leaves out (Lists and every tool, by default; the rail
+ * has them on desktop), Refresh, Help, Settings and Sign out.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const { spaces, current, switchSpace } = useSpaces();
-  const { menuTools } = useNav();
+  const { menuItems } = useNav();
 
   return (
     <DropdownMenu>
@@ -116,7 +116,7 @@ export function PreferencesMenu({ email }: { email: string | null }) {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           {/* The rail has them on desktop; the tab bar can. */}
-          {menuTools.map(({ name, route, label, icon: ToolIcon }) => (
+          {menuItems.map(({ name, route, label, icon: ToolIcon }) => (
             <DropdownMenuItem
               key={name}
               className="desk:hidden"

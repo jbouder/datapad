@@ -58,17 +58,34 @@ export function listProject(
 export const LIST_STATES = ['all', 'in-progress', 'done'] as const;
 export type ListState = (typeof LIST_STATES)[number];
 
+/** How the Lists page orders them (#299). */
+export const LIST_SORTS = ['updated', 'created', 'title'] as const;
+export type ListSort = (typeof LIST_SORTS)[number];
+
 export interface ListFilters {
   /** A project's id, null for General, undefined for every list. */
   projectId?: string | null;
   state?: ListState;
   /** Every word must be in the title or an item's text. */
   q?: string;
+  /** Recently updated (the default), newest created, or by title. */
+  sort?: ListSort;
 }
 
+const byTitle = (a: List, b: List) =>
+  a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }) ||
+  a.id.localeCompare(b.id);
+
+const COMPARE: Record<ListSort, (a: List, b: List) => number> = {
+  updated: (a, b) => b.updatedAt.localeCompare(a.updatedAt) || byTitle(a, b),
+  created: (a, b) => b.createdAt.localeCompare(a.createdAt) || byTitle(a, b),
+  title: byTitle,
+};
+
 /**
- * The lists that pass `filters`, most recently updated first (then by
- * title). In progress is every list not done, empty ones included.
+ * The lists that pass `filters`, in `sort`'s order: most recently updated
+ * first by default (then by title). In progress is every list not done,
+ * empty ones included.
  */
 export function selectLists(
   lists: Record<string, List>,
@@ -87,9 +104,48 @@ export function selectLists(
         .toLowerCase();
       return words.every((w) => text.includes(w));
     })
-    .sort(
-      (a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt) ||
-        a.title.localeCompare(b.title),
-    );
+    .sort(COMPARE[filters.sort ?? 'updated']);
+}
+
+/**
+ * The Lists page's controls from its query (`?project=`, `?show=`,
+ * `?sort=`, `?q=`), as `selectLists` takes them: `general` is General, a
+ * value the page does not have reads as its default.
+ */
+export function listFiltersOf(query: URLSearchParams): ListFilters {
+  const project = query.get('project');
+  const show = query.get('show');
+  const sort = query.get('sort');
+  return {
+    ...(project ? { projectId: project === 'general' ? null : project } : {}),
+    state: LIST_STATES.find((s) => s === show) ?? 'all',
+    sort: LIST_SORTS.find((s) => s === sort) ?? 'updated',
+    q: query.get('q') ?? '',
+  };
+}
+
+/** The first `n` open items, in order: what a list's card shows. */
+export function previewItems(list: Pick<List, 'items'>, n = 3): ListItem[] {
+  return list.items.filter((i) => !i.done).slice(0, n);
+}
+
+/**
+ * Every item id of `list` in the order after moving the open item `id`
+ * to place `to` among the open ones (0 is the top). The done items keep
+ * their places, so ticking one off again puts it back where it was. Null
+ * when nothing would move. `reorderListItems` takes the result.
+ */
+export function moveOpenItem(
+  list: Pick<List, 'items'>,
+  id: string,
+  to: number,
+): string[] | null {
+  const open = list.items.filter((i) => !i.done).map((i) => i.id);
+  const from = open.indexOf(id);
+  const at = Math.max(0, Math.min(to, open.length - 1));
+  if (from < 0 || from === at) return null;
+  open.splice(from, 1);
+  open.splice(at, 0, id);
+  let next = 0;
+  return list.items.map((i) => (i.done ? i.id : (open[next++] ?? i.id)));
 }

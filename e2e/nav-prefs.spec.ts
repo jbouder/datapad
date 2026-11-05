@@ -80,6 +80,8 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
+    // Lists (#299) is off the phone's tab bar by default.
+    ...(isMobile(page) ? [] : [/Lists/]),
   ]);
   if (isMobile(page)) {
     // Four even columns, each still a 44px target.
@@ -104,6 +106,8 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
+    // Lists (#299) is off the phone's tab bar by default.
+    ...(isMobile(page) ? [] : [/Lists/]),
   ]);
 
   // A hidden section still opens from its address and ⌘K, and nothing in
@@ -138,6 +142,7 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
+    ...(isMobile(page) ? [] : [/Lists/]),
   ]);
   await other.close();
 });
@@ -146,7 +151,7 @@ test('the last section stays, and Reset puts the default back with Undo', async 
   page,
 }) => {
   await openLive(page, '/settings/navigation');
-  for (const label of ['Focus', 'Projects', 'Tasks', 'Meetings']) {
+  for (const label of ['Focus', 'Projects', 'Tasks', 'Meetings', 'Lists']) {
     await page
       .getByRole('switch', { name: `Show ${label}`, exact: true })
       .click();
@@ -164,6 +169,7 @@ test('the last section stays, and Reset puts the default back with Undo', async 
     /Tasks/,
     /Meetings/,
     /Notes/,
+    ...(isMobile(page) ? [] : [/Lists/]),
   ]);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(sections(page)).toHaveText([/Notes/]);
@@ -245,12 +251,13 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
     const nav = rail.getByRole('navigation');
     const links = await nav.getByRole('link').allInnerTexts();
     const names = links.map((t) => t.split('\n')[0].trim());
-    expect(names.slice(0, 8)).toEqual([
+    expect(names.slice(0, 9)).toEqual([
       'Focus',
       'Projects',
       'Tasks',
       'Meetings',
       'Notes',
+      'Lists',
       'Notepad',
       'Whiteboard',
       'Weekly digest',

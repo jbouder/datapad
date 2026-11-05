@@ -7,6 +7,7 @@ import {
   FolderPlusIcon,
   FoldersIcon,
   type Icon,
+  ListChecksIcon,
   NewspaperIcon,
   NoteIcon,
   NotePencilIcon,
@@ -17,6 +18,7 @@ import {
   NAV_TOOLS,
   type NavExtra,
   navExtrasOf,
+  navMenuSectionsOf,
   navMenuToolsOf,
   navOf,
   navPhoneOf,
@@ -69,6 +71,12 @@ export const NAV_ITEMS: Record<SectionName, NavItem> = {
     route: { name: 'notes' },
     label: 'Notes',
     icon: NoteIcon,
+  },
+  lists: {
+    name: 'lists',
+    route: { name: 'lists' },
+    label: 'Lists',
+    icon: ListChecksIcon,
   },
 };
 
@@ -139,7 +147,8 @@ export function useNav(): {
   items: NavItem[];
   tools: NavItem[];
   phoneItems: NavItem[];
-  menuTools: NavItem[];
+  /** The shown sections and tools the tab bar leaves to the account menu. */
+  menuItems: NavItem[];
   extras: Record<NavExtra, boolean>;
   quickAdd: QuickAddItem[];
 } {
@@ -153,7 +162,10 @@ export function useNav(): {
         ...navPhoneOf(stored).map((name) => NAV_ITEMS[name]),
         ...navPhoneToolsOf(stored).map((name) => TOOL_ITEMS[name]),
       ],
-      menuTools: navMenuToolsOf(stored).map((name) => TOOL_ITEMS[name]),
+      menuItems: [
+        ...navMenuSectionsOf(stored).map((name) => NAV_ITEMS[name]),
+        ...navMenuToolsOf(stored).map((name) => TOOL_ITEMS[name]),
+      ],
       extras: navExtrasOf(stored),
       quickAdd: quickAddOf(stored).map((name) => QUICK_ADD_ITEMS[name]),
     }),

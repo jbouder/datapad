@@ -130,7 +130,9 @@ as it is (migrated on the way in, below):
   Every key is optional and `nav` is absent until you change something, so
   a file without it imports unchanged. Section names are kept as written
   and checked when read: an unknown one is ignored, and a section missing
-  from `order` shows at its default place. `pages` (#186), also absent
+  from `order` shows at its default place. `lists` (#299) is off the
+  phone's tab bar until `order` names it (Settings writes `order` with
+  `phoneHidden`), so a file from before it keeps its tab bar. `pages` (#186), also absent
   until something is saved, holds each page's layout, sort, grouping,
   filters and sections as you left them (never the search text); a file
   without it imports unchanged, and a value a page no longer has is

@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   isListDone,
   listCounts,
+  listFiltersOf,
   listProgress,
   listProject,
+  moveOpenItem,
   orderedItems,
+  previewItems,
   selectLists,
 } from '#shared/lists';
 import type { List, ListItem, Project } from '#shared/types';
@@ -86,5 +89,71 @@ describe('lists (#298)', () => {
     expect(ids(selectLists(lists, { state: 'done' }))).toEqual(['l3']);
     expect(ids(selectLists(lists, { q: 'offsite DINNER' }))).toEqual(['l1']);
     expect(ids(selectLists(lists, { q: 'offsite books' }))).toEqual([]);
+  });
+
+  it('sorts by updated, created or title', () => {
+    const lists = {
+      l1: { ...list('l1', 'banana', []), createdAt: '2026-10-01T00:00:00Z' },
+      l2: {
+        ...list('l2', 'Apple', [], null, '2026-10-25T00:00:00Z'),
+        createdAt: '2026-10-03T00:00:00Z',
+      },
+      l3: { ...list('l3', 'cherry', []), createdAt: '2026-10-02T00:00:00Z' },
+    };
+    const ids = (out: List[]) => out.map((l) => l.id);
+    expect(ids(selectLists(lists, { sort: 'updated' }))).toEqual([
+      'l2',
+      'l1',
+      'l3',
+    ]);
+    expect(ids(selectLists(lists, { sort: 'created' }))).toEqual([
+      'l2',
+      'l3',
+      'l1',
+    ]);
+    // Ignoring case.
+    expect(ids(selectLists(lists, { sort: 'title' }))).toEqual([
+      'l2',
+      'l1',
+      'l3',
+    ]);
+  });
+
+  it('reads the Lists page’s query, unknown values as the defaults', () => {
+    expect(listFiltersOf(new URLSearchParams())).toEqual({
+      state: 'all',
+      sort: 'updated',
+      q: '',
+    });
+    expect(
+      listFiltersOf(
+        new URLSearchParams('project=general&show=done&sort=title&q=x'),
+      ),
+    ).toEqual({ projectId: null, state: 'done', sort: 'title', q: 'x' });
+    expect(
+      listFiltersOf(new URLSearchParams('project=p1&show=nope&sort=nope')),
+    ).toEqual({ projectId: 'p1', state: 'all', sort: 'updated', q: '' });
+  });
+
+  it('previews the first open items', () => {
+    expect(previewItems(offsite).map((i) => i.id)).toEqual(['b', 'd']);
+    expect(previewItems(offsite, 1).map((i) => i.id)).toEqual(['b']);
+  });
+
+  it('moves an open item among the open ones, the done ones staying put', () => {
+    const l = list('l', 'L', [
+      item('a', 'A'),
+      item('x', 'X', true),
+      item('b', 'B'),
+      item('c', 'C'),
+    ]);
+    // C to the top: the open slots (0, 2, 3) now hold C, A, B.
+    expect(moveOpenItem(l, 'c', 0)).toEqual(['c', 'x', 'a', 'b']);
+    expect(moveOpenItem(l, 'a', 1)).toEqual(['b', 'x', 'a', 'c']);
+    // Past the end is the end; nothing to move is null.
+    expect(moveOpenItem(l, 'a', 9)).toEqual(['b', 'x', 'c', 'a']);
+    expect(moveOpenItem(l, 'a', 0)).toBeNull();
+    expect(moveOpenItem(l, 'x', 0)).toBeNull();
+    expect(moveOpenItem(l, 'gone', 0)).toBeNull();
   });
 });

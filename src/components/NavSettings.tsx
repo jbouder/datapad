@@ -126,7 +126,9 @@ export function NavSettings() {
     const next = moved(order, name, by);
     if (!next) return;
     refocus.current = { name, by };
-    setSections({ order: next });
+    // With the phone's list: a section the saved order names reads its
+    // Phone switch from it, so Lists keeps its default (off) when moved.
+    setSections({ order: next, phoneHidden: [...phoneHidden] });
   };
 
   // The tools are saved whole, every list each time, so a tool a later
