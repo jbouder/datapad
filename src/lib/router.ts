@@ -41,9 +41,10 @@ export function pathFor(route: Route): string {
 }
 
 /**
- * Two routes are the same page (same name, same project, task or meeting). Settings
- * sections, People and Orgs among them, are one page, so moving between
- * them is no page transition; so is picking another person or org.
+ * Two routes are the same page (same name, same project, task, meeting or
+ * list). Settings sections, People and Orgs among them, are one page, so
+ * moving between them is no page transition; so is picking another person
+ * or org.
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
@@ -56,7 +57,10 @@ export function samePage(a: Route, b: Route): boolean {
   }
   return (
     a.name === b.name &&
-    ((a.name !== 'project' && a.name !== 'task' && a.name !== 'meeting') ||
+    ((a.name !== 'project' &&
+      a.name !== 'task' &&
+      a.name !== 'meeting' &&
+      a.name !== 'list') ||
       a.id === (b as { id: string }).id)
   );
 }

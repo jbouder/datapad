@@ -18,6 +18,10 @@ export type Route =
   /** The space's Notepad (#261), a tool: its one running note. */
   | { name: 'notepad' }
   | { name: 'meetings' }
+  /** Every list (#299). */
+  | { name: 'lists' }
+  /** One list's page (`/lists/:id`), where its items are ticked. */
+  | { name: 'list'; id: string }
   /** One meeting's page (`/meetings/:id`). */
   | { name: 'meeting'; id: string }
   | { name: 'digest' }
@@ -69,6 +73,7 @@ const SIMPLE = new Set<RouteName>([
   'notes',
   'notepad',
   'meetings',
+  'lists',
   'digest',
   'whiteboard',
 ]);
@@ -168,6 +173,10 @@ export function parseRoute(
   if (meeting?.[1]) {
     return { name: 'meeting', id: decodeURIComponent(meeting[1]) };
   }
+  const list = /^\/lists\/([^/]+)$/.exec(clean);
+  if (list?.[1]) {
+    return { name: 'list', id: decodeURIComponent(list[1]) };
+  }
   const name = clean.slice(1) as RouteName;
   if (SIMPLE.has(name)) {
     return { name } as Route;
@@ -202,6 +211,8 @@ export function routePath(route: Route): string | null {
       return `/tasks/${encodeURIComponent(route.id)}`;
     case 'meeting':
       return `/meetings/${encodeURIComponent(route.id)}`;
+    case 'list':
+      return `/lists/${encodeURIComponent(route.id)}`;
     case 'help':
       return route.section
         ? `/help#${encodeURIComponent(route.section)}`
@@ -275,6 +286,7 @@ export function sectionOf(route: Route): RouteName {
   if (route.name === 'whiteboard' && route.project) return 'projects';
   if (route.name === 'task') return 'tasks';
   if (route.name === 'meeting') return 'meetings';
+  if (route.name === 'list') return 'lists';
   if (route.name === 'people' || route.name === 'orgs') return 'settings';
   return route.name;
 }
@@ -301,6 +313,7 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notes: 'Notes',
   notepad: 'Notepad',
   meetings: 'Meetings',
+  lists: 'Lists',
   digest: 'Weekly digest',
   whiteboard: 'Whiteboard',
   people: 'People',
@@ -311,10 +324,14 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notFound: 'Not found',
 };
 
-/** The top bar's title; a project, task or meeting page passes its name. */
+/**
+ * The top bar's title; a project, task, meeting or list page passes its
+ * name.
+ */
 export function titleOf(route: Route, name?: string): string {
   if (route.name === 'project') return name ?? 'Project';
   if (route.name === 'task') return name ?? 'Task';
   if (route.name === 'meeting') return name ?? 'Meeting';
+  if (route.name === 'list') return name ?? 'List';
   return TITLES[route.name] ?? 'Datapad';
 }

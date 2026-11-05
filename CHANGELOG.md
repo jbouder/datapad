@@ -26,6 +26,17 @@ changes the format says so here under **Export format**.
   Deleting a project deletes its lists, and moving one to another space
   takes them along. Nothing in the app shows lists yet; the page, quick
   add, search and the project page follow (#299 to #301).
+- **Lists pages** (#299): a Lists section in the rail after Notes, with
+  `/lists` (Cards or Table; Find, Project, Show and Sort, saved per space)
+  and a page for each list at `/lists/<id>`. New list asks for a title
+  and a project and opens the new list. On a list's page, add items,
+  tick them off (done ones fold under Done (n)), edit them in place,
+  reorder them by dragging, Alt+↑ / Alt+↓ or the item's menu, and delete
+  them with Undo; Edit renames or moves the list, and More → Delete asks
+  first and offers Undo. Settings → Navigation can hide Lists. It is off
+  the phone's tab bar by default, so the tab bar does not change; the
+  account menu has it on a phone, as it now has any shown section the
+  tab bar leaves out.
 - **MCP list tools** (#302): `list_lists` and `get_list` read lists (by
   project, in progress or done, or text; one by id or title with its
   items in order). With the write scope, `add_list`, `add_list_item` and

@@ -130,6 +130,12 @@ export function HelpPage({ section }: { section?: string }) {
             first and opens the Notepad. <strong>Add note</strong> opens a new
             note in the project you have filtered to, or General.
           </Term>
+          <Term name="Lists" to={{ name: 'lists' }}>
+            Checklists of short items, for a project or General, as cards or a
+            table. A list’s page is where items are added, ticked, edited and
+            reordered (drag, <Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> or the
+            item’s menu); done items fold under Done.
+          </Term>
           <Term name="Notepad" to={{ name: 'notepad' }}>
             A tool: one running note for the space, saved as you type. It is a
             General note too, so Notes lists it.

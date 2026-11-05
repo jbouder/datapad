@@ -116,6 +116,19 @@ describe('routePath', () => {
     expect(routePath(parseRoute('/events'))).toBe('/meetings');
   });
 
+  it('puts Lists at /lists, and each list under it (#299)', () => {
+    expect(parseRoute('/lists')).toEqual({ name: 'lists' });
+    expect(routePath({ name: 'lists' })).toBe('/lists');
+    expect(routePath({ name: 'list', id: 'l 1' })).toBe('/lists/l%201');
+    expect(parseRoute('/lists/l%201/')).toEqual({ name: 'list', id: 'l 1' });
+    expect(parseRoute('/lists/l-1/items')).toEqual({ name: 'notFound' });
+    expect(sectionOf({ name: 'list', id: 'l-1' })).toBe('lists');
+    expect(sectionOf({ name: 'lists' })).toBe('lists');
+    expect(titleOf({ name: 'lists' })).toBe('Lists');
+    expect(titleOf({ name: 'list', id: 'l-1' }, 'Offsite')).toBe('Offsite');
+    expect(titleOf({ name: 'list', id: 'l-1' })).toBe('List');
+  });
+
   it('puts each task under Tasks', () => {
     expect(routePath({ name: 'task', id: 't-1' })).toBe('/tasks/t-1');
     expect(parseRoute('/tasks/t-1/')).toEqual({ name: 'task', id: 't-1' });

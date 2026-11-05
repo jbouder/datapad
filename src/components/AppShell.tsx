@@ -40,6 +40,8 @@ import { FocusPage } from '@/pages/FocusPage';
 import {
   DigestPage,
   HelpPage,
+  ListPage,
+  ListsPage,
   MeetingPage,
   preloadPages,
   SettingsPage,
@@ -86,7 +88,9 @@ export function AppShell() {
         ? state?.tasks[route.id]?.title
         : route.name === 'meeting'
           ? state?.meetings[route.id]?.title
-          : undefined;
+          : route.name === 'list'
+            ? state?.lists[route.id]?.title
+            : undefined;
 
   // Add task opens the new-task panel, preset to the project you are on.
   const currentProject =
@@ -277,6 +281,7 @@ function pageKey(route: Route): string {
   if (route.name === 'project') return `project:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
+  if (route.name === 'list') return `list:${route.id}`;
   if (route.name === 'whiteboard') return `whiteboard:${route.project ?? ''}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
@@ -306,6 +311,10 @@ function Page({ route }: { route: Route }) {
       return <MeetingsPage />;
     case 'meeting':
       return <MeetingPage id={route.id} />;
+    case 'lists':
+      return <ListsPage />;
+    case 'list':
+      return <ListPage id={route.id} />;
     case 'digest':
       return <DigestPage />;
     case 'whiteboard':

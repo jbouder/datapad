@@ -66,6 +66,50 @@ describe('the registry', () => {
   });
 });
 
+describe('Lists (#299)', () => {
+  it('remembers Cards or Table, Project, Show and Sort, Cards by default', () => {
+    expect(PAGES.lists.fields.map((f) => f.key)).toEqual([
+      'view',
+      'project',
+      'show',
+      'sort',
+    ]);
+    expect(PAGES.lists.fields[0]?.def).toBe('cards');
+  });
+
+  it('saves a change and reads it back over a bare address', () => {
+    const { url, patch } = planChange(
+      'lists',
+      { view: 'table', show: 'done', sort: 'title' },
+      {},
+    );
+    expect(url).toEqual({ view: 'table', show: 'done', sort: 'title' });
+    expect(patch).toEqual({
+      view: 'table',
+      sort: 'title',
+      filters: { show: 'done' },
+    });
+    const saved = currentValues(
+      'lists',
+      {
+        view: 'table',
+        sort: 'title',
+        filters: { show: 'done', project: 'p1' },
+      },
+      state(),
+    );
+    const read = effectiveQuery('lists', q(''), saved);
+    expect(read.get('view')).toBe('table');
+    expect(read.get('show')).toBe('done');
+    expect(read.get('project')).toBe('p1');
+    expect(activeFilterCount('lists', read)).toBe(2);
+    // The defaults save nothing.
+    expect(planChange('lists', { show: 'all' }, {}).patch).toEqual({
+      filters: { show: null },
+    });
+  });
+});
+
 describe('how far Focus’s Week looks ahead', () => {
   it('is seven days unless a choice is saved', () => {
     expect(focusDays(undefined)).toBe(7);
