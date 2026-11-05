@@ -4,6 +4,7 @@ import {
   ArrowUpIcon,
   CaretRightIcon,
   CheckIcon,
+  CheckSquareOffsetIcon,
   DotsSixVerticalIcon,
   DotsThreeIcon,
   PencilSimpleIcon,
@@ -16,6 +17,7 @@ import { moveOpenItem } from '#shared/lists';
 import { restoredOrder } from '#shared/meetings';
 import type { Op } from '#shared/protocol';
 import type { List, ListItem } from '#shared/types';
+import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -43,8 +45,8 @@ const INLINE_INPUT =
  * A list's items (#299), on its page: the open ones first, in their
  * order, then the done ones struck through under Done (n), collapsed.
  * Each has a checkbox, its text (click or Enter to edit in place; Enter
- * saves, Escape cancels) and a menu: Edit, Move up, Move down, Move to
- * top and Delete (Undo in the toast). Drag the handle to reorder with a
+ * saves, Escape cancels) and a menu: Edit, Make task (#301), Move up,
+ * Move down, Move to top and Delete (Undo in the toast). Drag the handle to reorder with a
  * mouse; Alt+↑ / Alt+↓ on a row and the menu are the keyboard and touch
  * ways. Add an item opens a field at the end that stays open for the next
  * after Enter; Escape closes it.
@@ -185,6 +187,7 @@ export function ListItems({ list }: { list: List }) {
         <Button
           ref={addButton}
           type="button"
+          data-add-item
           variant="outline"
           className="press h-11 desk:h-7"
           aria-expanded={adding}
@@ -369,6 +372,7 @@ function ItemRow({
   onRemove: () => void;
 }) {
   const { actions } = useDatapad();
+  const { makeTask } = useListPanel();
   const [editing, setEditing] = useState(false);
   const textButton = useRef<HTMLButtonElement>(null);
   /**
@@ -503,6 +507,17 @@ function ItemRow({
           >
             <PencilSimpleIcon />
             Edit
+          </DropdownMenuItem>
+          {/* The new-task panel, preset; the item stays as it is. */}
+          <DropdownMenuItem
+            className="min-h-11 desk:min-h-0"
+            onClick={() => {
+              noReturn.current = true;
+              makeTask(item.text, list.projectId);
+            }}
+          >
+            <CheckSquareOffsetIcon />
+            Make task
           </DropdownMenuItem>
           {!item.done && count > 1 && (
             <>

@@ -66,7 +66,7 @@ export const searchTool = defineTool({
   name: 'search',
   title: 'Search',
   description:
-    'Search everything as ⌘K does: projects, tasks, notes, meetings (and their topics), orgs, people and whiteboard text. Every word must match; each kind is ranked best first (title starts with the first word, then title contains it, then text; outside the archive first; then most recent). Get the full item with the matching list_ or get_ tool.',
+    'Search everything as ⌘K does: projects, tasks, notes, meetings (and their topics), lists (and their items: a hit on an item has its text as the snippet), orgs, people and whiteboard text. Every word must match; each kind is ranked best first (title starts with the first word, then title contains it, then text; outside the archive first; then most recent). Get the full item with the matching list_ or get_ tool.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -95,6 +95,7 @@ export const searchTool = defineTool({
       state.people,
       state.orgs,
       state.boardItems,
+      state.lists,
     );
     const per = args.limit ?? DEFAULT_PER_KIND;
     // Every match, so the counts are true; each kind is then cut to `per`.

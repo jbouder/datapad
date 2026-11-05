@@ -9,6 +9,7 @@ import {
   DownloadSimpleIcon,
   FolderIcon,
   type Icon,
+  ListChecksIcon,
   MagnifyingGlassIcon,
   NoteIcon,
   PlusIcon,
@@ -40,6 +41,7 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
   { kind: 'meeting', heading: 'Meetings', icon: CalendarBlankIcon },
+  { kind: 'list', heading: 'Lists', icon: ListChecksIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
   { kind: 'whiteboard', heading: 'Whiteboard', icon: ChalkboardSimpleIcon },
@@ -67,11 +69,14 @@ export function Palette({
   open,
   onOpenChange,
   currentProject,
+  onNewList,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** New task and New note start here. */
   currentProject: string | null;
+  /** New list, offered while the Lists section is shown. */
+  onNewList?: () => void;
 }) {
   const { state } = useDatapad();
   const { openTask, newTask } = useTaskPanels();
@@ -96,6 +101,7 @@ export function Palette({
         state.people,
         state.orgs,
         state.boardItems,
+        state.lists,
       )
     : null;
   const results = useMemo(
@@ -118,6 +124,16 @@ export function Palette({
         icon: PlusIcon,
         run: () => newNote(currentProject),
       },
+      ...(onNewList
+        ? [
+            {
+              id: 'new-list',
+              label: 'New list',
+              icon: PlusIcon,
+              run: onNewList,
+            },
+          ]
+        : []),
       {
         id: 'new-meeting',
         label: 'New meeting',
@@ -194,6 +210,7 @@ export function Palette({
     openNewSpace,
     newTask,
     newNote,
+    onNewList,
     currentProject,
     newMeeting,
     openProjectForm,
@@ -226,6 +243,8 @@ export function Palette({
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));
+      case 'list':
+        return choose(() => navigate({ name: 'list', id }));
       case 'org':
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
@@ -275,8 +294,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, meetings, orgs, people, whiteboards and
-            actions. Arrow keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, meetings, lists, orgs, people, whiteboards
+            and actions. Arrow keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

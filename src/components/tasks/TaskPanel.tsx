@@ -416,18 +416,21 @@ export function NewTaskPanel({
   projectId,
   title = '',
   meetingId,
+  onOpen,
   open,
   onClose,
   onExited,
 }: {
   projectId: string | null;
-  /** Prefilled (a meeting topic's Make a task). */
+  /** Prefilled (a meeting topic's or a list item's Make task). */
   title?: string;
   /**
    * An action item of this meeting (a topic's Make a task): it goes in
    * the meeting's project, so there is no project to pick.
    */
   meetingId?: string;
+  /** Given: the toast after saving offers Open, which calls it. */
+  onOpen?: (id: string) => void;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
@@ -485,7 +488,11 @@ export function NewTaskPanel({
     const where = values.projectId
       ? state?.projects[values.projectId]?.name
       : 'General';
-    show(`Added “${title}” to ${where ?? 'General'}`);
+    show(
+      `Added “${title}” to ${where ?? 'General'}`,
+      undefined,
+      onOpen && { label: 'Open', run: () => onOpen(id) },
+    );
   };
 
   return (

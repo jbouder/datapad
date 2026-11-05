@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  listsShown,
   NAV_SECTIONS,
   NAV_TOOLS,
   navExtrasOf,
@@ -331,6 +332,47 @@ describe('quickAddOf', () => {
         nav: { quickAdd: { order: ['note', 'meeting'], hidden: [] } },
       }),
     ).toEqual(['task', 'note', 'meeting']);
+  });
+
+  it('offers New list after Write a note once shown, while Lists is', () => {
+    const quickAdd = { order: [...QUICK_ADD_ACTIONS], hidden: [] };
+    expect(QUICK_ADD_ACTIONS.indexOf('list')).toBe(
+      QUICK_ADD_ACTIONS.indexOf('note') + 1,
+    );
+    expect(quickAddOf({ nav: { quickAdd } })).toEqual([
+      'task',
+      'note',
+      'list',
+      'meeting',
+      'project',
+    ]);
+    // Saved before lists: hidden, as by default.
+    expect(
+      quickAddOf({
+        nav: { quickAdd: { order: ['task', 'note', 'meeting'], hidden: [] } },
+      }),
+    ).toEqual(['task', 'note', 'meeting']);
+    // Hiding the Lists section leaves it out of +.
+    expect(quickAddOf({ nav: { quickAdd, hidden: ['lists'] } })).toEqual([
+      'task',
+      'note',
+      'meeting',
+      'project',
+    ]);
+    expect(listsShown({})).toBe(true);
+    expect(listsShown({ nav: { hidden: ['lists'] } })).toBe(false);
+    // Were it the only one shown, the next action takes its place.
+    expect(
+      quickAddOf({
+        nav: {
+          hidden: ['lists'],
+          quickAdd: {
+            order: ['list', 'meeting', 'task', 'note', 'project'],
+            hidden: ['meeting', 'task', 'note', 'project'],
+          },
+        },
+      }),
+    ).toEqual(['meeting']);
   });
 
   it('keeps at least one action shown', () => {

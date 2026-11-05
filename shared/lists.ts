@@ -149,3 +149,19 @@ export function moveOpenItem(
   let next = 0;
   return list.items.map((i) => (i.done ? i.id : (open[next++] ?? i.id)));
 }
+
+/**
+ * A project's lists as its page shows them (#301): the ones in progress
+ * (empty ones included) most recently updated first, then the done ones
+ * the same way.
+ */
+export function projectLists(
+  lists: Record<string, List>,
+  projectId: string,
+): List[] {
+  const all = selectLists(lists, { projectId });
+  return [
+    ...all.filter((l) => !isListDone(l)),
+    ...all.filter((l) => isListDone(l)),
+  ];
+}

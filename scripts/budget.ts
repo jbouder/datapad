@@ -29,9 +29,16 @@ import { gzipSync } from 'node:zlib';
  * project page in the entry (about 1 KB, half of it offset by sharing
  * NoteCard's parts). Then to 394 with #298: the lists collection's
  * schemas and its eight ops, which the client needs to validate imports
- * and apply ops (about 0.55 KB, from 392.47 to 393.02).
+ * and apply ops (about 0.55 KB, from 392.47 to 393.02). Then to 396
+ * with #300 and #301: the list panel moves into the entry (+, ⌘K and
+ * `Shift+L` open it from anywhere), lists join the search index, and
+ * New list joins + and ⌘K (about 1.8 KB, from 393.6 to 395.4). The
+ * project page's Lists section is a lazy chunk, loaded with the page,
+ * and Make task goes through the list panel's provider: imported from
+ * the list page's chunk, the task panel's provider splits out of the
+ * entry and costs several KB more.
  */
-const BUDGET_KB = { js: 394, css: 28 };
+const BUDGET_KB = { js: 396, css: 28 };
 
 /**
  * Strings only WebLLM's own code holds: its TVM runtime and its cache's

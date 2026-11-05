@@ -51,6 +51,18 @@ describe('the shortcut suppression rule', () => {
     }
   });
 
+  it('lists Shift+L for New list, anywhere, and on a list’s page an item', () => {
+    const list = SHORTCUTS.filter((s) => s.keys.includes('Shift+L'));
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({
+      scope: 'Anywhere',
+      action: 'New list (on a list’s page: add an item to it)',
+    });
+    // The same rule as `n` and `N`: no letter while typing or in a panel.
+    expect(allowsShortcut({ ...base, tag: 'INPUT' })).toBe(false);
+    expect(allowsShortcut({ ...base, overlay: true })).toBe(false);
+  });
+
   it('lists the whiteboard’s resize keys and their steps', () => {
     const resize = SHORTCUTS.find(
       (s) => s.scope === 'Whiteboard' && s.keys.includes('Alt+→'),

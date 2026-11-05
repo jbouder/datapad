@@ -4,7 +4,7 @@ import { listProject } from '#shared/lists';
 import { DetailActions } from '@/components/DetailActions';
 import { ListItems } from '@/components/lists/ListItems';
 import { ProjectChip, progressText } from '@/components/lists/ListLayouts';
-import { useListPanel } from '@/components/lists/ListPanel';
+import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -21,7 +21,7 @@ import { useToast } from '@/providers/ToastProvider';
 export function ListPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
-  const { openPanel, panel } = useListPanel();
+  const { openPanel } = useListPanel();
   const list = state?.lists[id];
   usePageTitle(list?.title ?? (state ? 'Not found' : 'List'));
   const [confirming, setConfirming] = useState(false);
@@ -132,7 +132,6 @@ export function ListPage({ id }: { id: string }) {
       </header>
 
       <ListItems list={list} />
-      {panel}
     </article>
   );
 }

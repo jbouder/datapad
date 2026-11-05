@@ -24,6 +24,8 @@ export interface NewTaskPreset {
   title?: string;
   /** An action item of this meeting (in the meeting's project). */
   meetingId?: string;
+  /** The toast after saving offers Open (a list item's Make task). */
+  offerOpen?: boolean;
 }
 
 interface TaskPanels {
@@ -76,6 +78,7 @@ export function TaskPanelProvider({ children }: { children: ReactNode }) {
           projectId={session.projectId}
           title={session.preset.title}
           meetingId={session.preset.meetingId}
+          onOpen={session.preset.offerOpen ? openTask : undefined}
           open={session.open}
           onClose={close}
           onExited={exited}

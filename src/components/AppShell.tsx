@@ -6,12 +6,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { QuickAddAction } from '#shared/nav';
+import { listsShown, type QuickAddAction } from '#shared/nav';
+import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
 import {
   CrashForTests,
   ErrorBoundary,
   PageError,
 } from '@/components/ErrorBoundary';
+import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
@@ -74,7 +76,9 @@ export function AppShell() {
   const { newNote } = useNotes();
   const { newMeeting } = useMeetingForm();
   const { openProjectForm } = useProjectForm();
+  const { openPanel: openListPanel } = useListPanel();
   const { quickAdd } = useNav();
+  const listsOn = listsShown(state?.settings[SETTINGS_ID] ?? DEFAULT_SETTINGS);
   usePreloadPages();
 
   useEffect(() => {
@@ -109,21 +113,26 @@ export function AppShell() {
   const addNote = useCallback(() => {
     newNote(noteProject);
   }, [newNote, noteProject]);
+  const addList = useCallback(() => {
+    openListPanel({ kind: 'new', projectId: currentProject });
+  }, [openListPanel, currentProject]);
   // The top bar's +: whichever actions Settings → Navigation shows.
   const onQuickAdd = useCallback(
     (name: QuickAddAction) => {
       if (name === 'task') addTask();
       else if (name === 'note') addNote();
+      else if (name === 'list') addList();
       else if (name === 'meeting') newMeeting({ projectId: currentProject });
       else openProjectForm();
     },
-    [addTask, addNote, newMeeting, openProjectForm, currentProject],
+    [addTask, addNote, addList, newMeeting, openProjectForm, currentProject],
   );
 
   // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
-  // task, `N` a note,
-  // `?` shows the sheet, and the row keys work on whatever list or table
-  // the page shows, starting from its first row when none is focused.
+  // task, `N` a note, `L` a list (on a list's page, an item to it; not
+  // while the Lists section is hidden), `?` shows the sheet, and the row
+  // keys work on whatever list or table the page shows, starting from its
+  // first row when none is focused.
   const [sheet, setSheet] = useState(false);
   const [palette, setPalette] = useState(false);
   useEffect(() => {
@@ -156,6 +165,15 @@ export function AppShell() {
         newNote(noteProject);
         return;
       }
+      if (event.key === 'L' && listsOn) {
+        event.preventDefault();
+        const addItem = document.querySelector<HTMLElement>(
+          '#main [data-add-item]',
+        );
+        if (addItem) addItem.click();
+        else addList();
+        return;
+      }
       if (event.key === '?') {
         event.preventDefault();
         setSheet(true);
@@ -181,7 +199,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, newNote, currentProject, noteProject]);
+  }, [newTask, newNote, addList, listsOn, currentProject, noteProject]);
 
   // A link inside the page took focus away with the old page: give it to
   // the new one, so the next Tab goes on from there, not from the top. A
@@ -250,6 +268,7 @@ export function AppShell() {
         open={palette}
         onOpenChange={setPalette}
         currentProject={currentProject}
+        onNewList={listsOn ? addList : undefined}
       />
     </div>
   );

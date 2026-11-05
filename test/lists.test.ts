@@ -8,6 +8,7 @@ import {
   moveOpenItem,
   orderedItems,
   previewItems,
+  projectLists,
   selectLists,
 } from '#shared/lists';
 import type { List, ListItem, Project } from '#shared/types';
@@ -70,6 +71,34 @@ describe('lists (#298)', () => {
     expect(listProject({ projectId: 'p1' }, { p1: p })).toBe(p);
     expect(listProject({ projectId: null }, { p1: p })).toBeNull();
     expect(listProject({ projectId: 'p9' }, { p1: p })).toBeNull();
+  });
+
+  it('gives a project’s lists, in progress first, done ones last', () => {
+    const lists = {
+      l1: list(
+        'l1',
+        'Done new',
+        [item('a', 'A', true)],
+        'p1',
+        '2026-10-25T00:00:00Z',
+      ),
+      l2: list(
+        'l2',
+        'Open old',
+        [item('a', 'A')],
+        'p1',
+        '2026-10-20T00:00:00Z',
+      ),
+      l3: list('l3', 'Empty', [], 'p1', '2026-10-21T00:00:00Z'),
+      l4: list('l4', 'Elsewhere', [], 'p2'),
+      l5: list('l5', 'General', [], null),
+    };
+    expect(projectLists(lists, 'p1').map((l) => l.id)).toEqual([
+      'l3',
+      'l2',
+      'l1',
+    ]);
+    expect(projectLists(lists, 'p9')).toEqual([]);
   });
 
   it('selects by project, state and words, most recently updated first', () => {
