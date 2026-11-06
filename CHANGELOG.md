@@ -17,6 +17,22 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- **Page settings, the groundwork** (#310): saved page preferences can
+  now hide a page's sections, put them in your own order, and hold
+  settings that never go in the address. Settings → Pages gets a Show
+  switch and Move up / Move down for each section of a page that has
+  them, with Reset and Undo; at least one section stays shown. Focus and
+  the project, task, meeting and list pages adopt it next. Settings →
+  Pages lists a page only once it has something to set.
+
+### Export format
+
+- `settings.user.pages` may carry `hidden` and `order` (lists of section
+  keys) on any page, and the page keys `task`, `meeting` and `list`
+  (#310). Additive: older files import unchanged.
+
 ### Changed
 
 - **People and Orgs are sections**: in the rail after Lists, and in

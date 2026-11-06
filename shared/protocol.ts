@@ -411,6 +411,15 @@ function atMost(max: number, what: string) {
   ] as const;
 }
 
+/**
+ * Section keys a page hides, or shows in this order (#310): each at most
+ * once, `LIMITS.prefSectionsMax` at most.
+ */
+const sectionList = z
+  .array(prefKey)
+  .max(LIMITS.prefSectionsMax)
+  .refine((keys) => new Set(keys).size === keys.length, 'Each section once');
+
 export const PagePrefsSchema = z.object({
   view: prefValue.optional(),
   sort: prefValue.optional(),
@@ -424,6 +433,8 @@ export const PagePrefsSchema = z.object({
     .record(prefKey, z.boolean())
     .refine(...atMost(LIMITS.prefSectionsMax, 'sections'))
     .optional(),
+  hidden: sectionList.optional(),
+  order: sectionList.optional(),
 }) satisfies z.ZodType<PagePrefs, unknown>;
 
 /** Every page's preferences; a page this version does not know is dropped. */
@@ -441,7 +452,8 @@ const PagesSchema = z
 
 /**
  * A change to one page's preferences: a value sets, `null` clears (back to
- * the page's default). `filters` and `sections` merge key by key.
+ * the page's default). `filters` and `sections` merge key by key; `hidden`
+ * and `order` (#310) are replaced whole.
  */
 export const PagePrefsPatchSchema = z
   .object({
@@ -455,6 +467,8 @@ export const PagePrefsPatchSchema = z
     sections: z
       .record(prefKey, z.boolean().nullable())
       .refine(...atMost(LIMITS.prefSectionsMax, 'sections')),
+    hidden: sectionList.nullable(),
+    order: sectionList.nullable(),
   })
   .partial()
   .refine((p) => Object.keys(p).length > 0, 'Nothing to change');

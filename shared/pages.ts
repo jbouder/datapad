@@ -17,8 +17,11 @@ import {
  * Saved page preferences (#186), the pure half: which settings each page
  * remembers, how a page's address and its saved settings combine (the URL
  * wins, then what is saved, then the page's defaults), what a change saves,
- * and the one-time carry-over from the per-browser keys used before.
- * `src/providers/PagePrefsProvider.tsx` holds the debounced saving.
+ * which sections a page shows and in what order (#310), and the one-time
+ * carry-over from the per-browser keys used before.
+ * `src/providers/PagePrefsProvider.tsx` holds the debounced saving and the
+ * hooks pages read them with (`usePageQuery`, `usePageSections`,
+ * `usePageSetting`).
  */
 
 export interface PrefOption {
@@ -54,19 +57,44 @@ export interface PrefField {
   kind?: PrefKind;
   /** The control the page uses for it, which Settings → Pages reuses. */
   control: 'segmented' | 'select';
+  /**
+   * Set in Settings → Pages only, never in the address (#310): a threshold
+   * or a display choice with no business in a link. Saved under `filters`
+   * like any other key and read with `currentValues()` (or the
+   * `usePageSetting()` hook); `effectiveQuery()` and `planChange()` leave
+   * the address alone for it, and it is not a filter (`filterFields()`).
+   */
+  settingsOnly?: true;
+}
+
+/** A section a page can hide and move (#310), and its name in Settings. */
+export interface PageSection {
+  key: string;
+  label: string;
 }
 
 export interface PageSpec {
   label: string;
-  /** The layout first, then the page's other remembered controls. */
+  /**
+   * The layout first, when the page has one, then the page's other
+   * remembered controls.
+   */
   fields: readonly PrefField[];
   /** Whether the page has sections that remember open or closed. */
   sections: boolean;
   /**
    * The keys of those sections, when the page names them: a saved key
-   * that is not one (a section an older release had) is ignored.
+   * that is not one (a section an older release had) is ignored when
+   * Settings → Pages counts them.
    */
-  sectionKeys?: readonly string[];
+  collapsible?: readonly string[];
+  /**
+   * The sections the page can hide and put in another order (#310), in
+   * their default order, each with its label for Settings → Pages. Set
+   * once the page renders them through `usePageSections()`; a saved key
+   * that is not one is ignored.
+   */
+  sectionKeys?: readonly PageSection[];
 }
 
 /**
@@ -249,7 +277,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
       focusDaysField,
     ],
     sections: true,
-    sectionKeys: FOCUS_SECTIONS,
+    collapsible: FOCUS_SECTIONS,
   },
   projects: {
     label: 'Projects',
@@ -434,7 +462,39 @@ export const PAGES: Record<PageKey, PageSpec> = {
     ],
     sections: true,
   },
+  // The other detail pages (#310): nothing to set yet, so Settings → Pages
+  // leaves them out (`hasPageSettings`); #312 and #313 add their fields
+  // and sections.
+  task: {
+    label: 'Task page',
+    fields: [],
+    sections: false,
+  },
+  meeting: {
+    label: 'Meeting page',
+    fields: [],
+    sections: false,
+  },
+  list: {
+    label: 'List page',
+    fields: [],
+    sections: false,
+  },
 };
+
+/**
+ * Whether a page has anything to set in Settings → Pages: a remembered
+ * field, sections that remember open or closed, or sections to hide and
+ * move.
+ */
+export function hasPageSettings(page: PageKey): boolean {
+  const spec = PAGES[page];
+  return (
+    spec.fields.length > 0 ||
+    spec.sections ||
+    (spec.sectionKeys?.length ?? 0) > 0
+  );
+}
 
 /** Defaults that depend on the device (Tasks' layout), by query key. */
 export type PrefDefaults = Partial<Record<string, string>>;
@@ -458,7 +518,7 @@ const isOwn = (key: string): key is Own =>
  * than narrow it, so they are not filters.
  */
 export function filterFields(page: PageKey): PrefField[] {
-  return PAGES[page].fields.filter((f) => !isOwn(f.key));
+  return PAGES[page].fields.filter((f) => !isOwn(f.key) && !f.settingsOnly);
 }
 
 /**
@@ -642,6 +702,11 @@ export function effectiveQuery(
 ): URLSearchParams {
   const out = new URLSearchParams(url);
   for (const field of PAGES[page].fields) {
+    // Never read from the address (#310): the page reads what is saved.
+    if (field.settingsOnly) {
+      out.delete(field.key);
+      continue;
+    }
     const value = saved[field.key];
     if (value !== undefined && !out.has(field.key)) out.set(field.key, value);
     // An old name in the address (`view=feed`) reads as the new one.
@@ -696,6 +761,8 @@ export function planChange(
         ? def
         : raw;
     saved[key] = value === def ? null : value;
+    // Saved only: the address and Back never carry it (#310).
+    if (field.settingsOnly) continue;
     url[key] = value === def ? null : value;
     const before = shown[key] ?? def;
     const spelled = before === '' ? field.token : before;
@@ -727,10 +794,15 @@ export function prefsAsPatch(prefs: PagePrefs): PagePrefsPatch {
   if (prefs.sections && Object.keys(prefs.sections).length > 0) {
     patch.sections = { ...prefs.sections };
   }
+  if (prefs.hidden && prefs.hidden.length > 0) patch.hidden = [...prefs.hidden];
+  if (prefs.order && prefs.order.length > 0) patch.order = [...prefs.order];
   return patch;
 }
 
-/** Two patches as one: the later wins key by key (coalescing quick changes). */
+/**
+ * Two patches as one: the later wins key by key (coalescing quick
+ * changes); `hidden` and `order` are whole lists, so the later one wins.
+ */
 export function mergePatches(
   a: PagePrefsPatch,
   b: PagePrefsPatch,
@@ -745,7 +817,8 @@ export function mergePatches(
 
 /**
  * A page's preferences after `patch`: values set, `null`s cleared, maps
- * merged key by key; `undefined` when nothing is left.
+ * merged key by key, `hidden` and `order` replaced whole (an empty list
+ * clears too); `undefined` when nothing is left.
  */
 export function applyPagePatch(
   prefs: PagePrefs | undefined,
@@ -776,6 +849,12 @@ export function applyPagePatch(
     if (Object.keys(sections).length > 0) next.sections = sections;
     else delete next.sections;
   }
+  for (const key of ['hidden', 'order'] as const) {
+    const value = patch[key];
+    if (value === undefined) continue;
+    if (value === null || value.length === 0) delete next[key];
+    else next[key] = [...value];
+  }
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
@@ -797,6 +876,121 @@ export function sectionCounts(
     closed: values.filter((v) => !v).length,
     open: values.filter(Boolean).length,
   };
+}
+
+/* ---------- hiding and ordering sections (#310) ---------- */
+
+/**
+ * A page, or a list of section keys in their default order: the helpers
+ * below take either, so a page's rules and a test's list read the same.
+ */
+export type SectionSource = PageKey | readonly string[];
+
+function keysOf(source: SectionSource): readonly string[] {
+  return typeof source === 'string'
+    ? (PAGES[source].sectionKeys ?? []).map((s) => s.key)
+    : source;
+}
+
+/** A section's label in Settings → Pages; the key when it has none. */
+export function sectionLabel(page: PageKey, key: string): string {
+  return PAGES[page].sectionKeys?.find((s) => s.key === key)?.label ?? key;
+}
+
+/**
+ * Every section the page has, shown or hidden, in the order it shows them:
+ * the saved `order` first (keys the page does not have dropped, each once),
+ * then each section the order does not name in its default place, right
+ * after the one that comes before it by default (so a section a later
+ * release adds lands where that release put it).
+ */
+export function sectionOrder(
+  source: SectionSource,
+  prefs: Pick<PagePrefs, 'order'>,
+): string[] {
+  const keys = keysOf(source);
+  const known = new Set(keys);
+  const out: string[] = [];
+  for (const key of prefs.order ?? []) {
+    if (known.has(key) && !out.includes(key)) out.push(key);
+  }
+  keys.forEach((key, i) => {
+    if (out.includes(key)) return;
+    const before = i === 0 ? -1 : out.indexOf(keys[i - 1] as string);
+    out.splice(before + 1, 0, key);
+  });
+  return out;
+}
+
+/**
+ * The sections a page renders, in order: `sectionOrder()` without the
+ * hidden ones. Hiding every section is refused: a saved `hidden` that
+ * names them all is ignored, and the page shows everything.
+ */
+export function visibleSections(
+  source: SectionSource,
+  prefs: Pick<PagePrefs, 'order' | 'hidden'>,
+): string[] {
+  const all = sectionOrder(source, prefs);
+  const hidden = new Set(prefs.hidden ?? []);
+  const shown = all.filter((key) => !hidden.has(key));
+  return shown.length > 0 ? shown : all;
+}
+
+/** The sections the page leaves out, as it reads them (`visibleSections`). */
+export function hiddenSections(
+  source: SectionSource,
+  prefs: Pick<PagePrefs, 'order' | 'hidden'>,
+): Set<string> {
+  const shown = new Set(visibleSections(source, prefs));
+  return new Set(sectionOrder(source, prefs).filter((k) => !shown.has(k)));
+}
+
+/**
+ * The change that shows or hides one section, as a `setPagePrefs` patch
+ * (`hidden` saved whole, in the default order, only keys the page has;
+ * `null` when nothing is left hidden), or `null` when there is nothing to
+ * change: a key the page does not have, no change, or hiding the last
+ * section shown.
+ */
+export function toggleSection(
+  source: SectionSource,
+  prefs: Pick<PagePrefs, 'order' | 'hidden'>,
+  key: string,
+  shown: boolean,
+): PagePrefsPatch | null {
+  const all = sectionOrder(source, prefs);
+  if (!all.includes(key)) return null;
+  const hidden = hiddenSections(source, prefs);
+  if (hidden.has(key) === !shown) return null;
+  if (shown) hidden.delete(key);
+  else hidden.add(key);
+  if (hidden.size >= all.length) return null;
+  const next = keysOf(source).filter((k) => hidden.has(k));
+  return { hidden: next.length > 0 ? next : null };
+}
+
+/**
+ * The change that moves one section a place up (`-1`) or down (`1`)
+ * among every section, hidden ones too (as Settings lists them), as a
+ * patch saving `order` whole (`null` when it is back to the default), or
+ * `null` at either end or for a key the page does not have.
+ */
+export function moveSection(
+  source: SectionSource,
+  prefs: Pick<PagePrefs, 'order'>,
+  key: string,
+  by: -1 | 1,
+): PagePrefsPatch | null {
+  const order = sectionOrder(source, prefs);
+  const from = order.indexOf(key);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= order.length) return null;
+  order.splice(from, 1);
+  order.splice(to, 0, key);
+  const keys = keysOf(source);
+  const isDefault = order.every((k, i) => k === keys[i]);
+  return { order: isDefault ? null : order };
 }
 
 /* ---------- carrying over the per-browser keys ---------- */

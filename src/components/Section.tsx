@@ -1,9 +1,13 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
-import { type ReactNode, useId, useState } from 'react';
+import { Fragment, type ReactNode, useId, useState } from 'react';
 import type { PageKey } from '#shared/types';
 import { holdFlip } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { useOpening, usePagePrefs } from '@/providers/PagePrefsProvider';
+import {
+  useOpening,
+  usePagePrefs,
+  usePageSections,
+} from '@/providers/PagePrefsProvider';
 
 /** Where a section's open or closed is saved: its page's preferences. */
 export interface RememberSection {
@@ -113,4 +117,21 @@ export function Section({
       </div>
     </section>
   );
+}
+
+/**
+ * A page's hideable, movable sections (#310), rendered in the saved order
+ * without the hidden ones: `sections` maps each key in the page's
+ * `sectionKeys` to what it renders (`null` for one with nothing to show
+ * right now). A key with no entry renders nothing.
+ */
+export function OrderedSections({
+  page,
+  sections,
+}: {
+  page: PageKey;
+  sections: Partial<Record<string, ReactNode>>;
+}) {
+  const { visible } = usePageSections(page);
+  return visible.map((key) => <Fragment key={key}>{sections[key]}</Fragment>);
 }

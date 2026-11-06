@@ -13,11 +13,17 @@ import {
   currentValues,
   effectiveQuery,
   hasPagePrefs,
+  hiddenSections,
   legacyPrefs,
   mergePatches,
+  moveSection,
   type PrefDefaults,
+  pageField,
   planChange,
   savedPrefs,
+  sectionOrder,
+  toggleSection,
+  visibleSections,
 } from '#shared/pages';
 import { type PagePrefsPatch, PagePrefsPatchSchema } from '#shared/protocol';
 import { PAGE_KEYS, type PageKey, type PagePrefs } from '#shared/types';
@@ -269,6 +275,77 @@ export function usePageQuery(
     [page, save],
   );
   return [query, change];
+}
+
+/** What `usePageSections()` returns. */
+export interface PageSectionsApi {
+  /** The sections to render, in order (`visibleSections`). */
+  visible: string[];
+  /** Every section, hidden ones too, in order (`sectionOrder`). */
+  order: string[];
+  /** The sections left out. */
+  hidden: ReadonlySet<string>;
+  /** Show or hide one; false when refused (the last one shown). */
+  setShown: (key: string, shown: boolean) => boolean;
+  /** Move one a place up (-1) or down (1); false at either end. */
+  move: (key: string, by: -1 | 1) => boolean;
+}
+
+/**
+ * A page's sections (#310): which to render and in what order, from what
+ * the page saved as it opened (Settings → Pages sets them), and setters
+ * that save through the debounced `save` and show at once. A page with no
+ * `sectionKeys` gets empty lists. Render with `<OrderedSections>`
+ * (`src/components/Section.tsx`) or map `visible` yourself.
+ */
+export function usePageSections(page: PageKey): PageSectionsApi {
+  const { save } = usePagePrefs();
+  const opening = useOpening(({ read }) => {
+    const { hidden, order } = read(page);
+    return { hidden, order };
+  });
+  /** This visit's own changes, over what it opened with. */
+  const [own, setOwn] = useState<PagePrefsPatch>({});
+  const prefs = applyPagePatch(opening, own) ?? {};
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
+  const apply = useCallback(
+    (patch: PagePrefsPatch | null) => {
+      if (!patch) return false;
+      setOwn((before) => mergePatches(before, patch));
+      prefsRef.current = applyPagePatch(prefsRef.current, patch) ?? {};
+      save(page, patch);
+      return true;
+    },
+    [page, save],
+  );
+  const setShown = useCallback(
+    (key: string, shown: boolean) =>
+      apply(toggleSection(page, prefsRef.current, key, shown)),
+    [apply, page],
+  );
+  const move = useCallback(
+    (key: string, by: -1 | 1) =>
+      apply(moveSection(page, prefsRef.current, key, by)),
+    [apply, page],
+  );
+  return {
+    visible: visibleSections(page, prefs),
+    order: sectionOrder(page, prefs),
+    hidden: hiddenSections(page, prefs),
+    setShown,
+    move,
+  };
+}
+
+/**
+ * A `settingsOnly` field's value (#310), as the page opened: what is
+ * saved, if the page still has it, else the field's default. Set in
+ * Settings → Pages only; never in the address.
+ */
+export function usePageSetting(page: PageKey, key: string): string {
+  const values = useOpeningValues(page);
+  return values[key] ?? pageField(page, key)?.def ?? '';
 }
 
 function withChanges(
