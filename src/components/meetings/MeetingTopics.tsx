@@ -13,7 +13,12 @@ import {
 import { type Ref, useId, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
-import { restoredOrder, topicCount } from '#shared/meetings';
+import {
+  allCoveredText,
+  moveAmongShown,
+  restoredOrder,
+  topicCount,
+} from '#shared/meetings';
 import type { Op } from '#shared/protocol';
 import { type Meeting, type Topic, topicsOf } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -28,7 +33,7 @@ import {
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { useToday } from '@/hooks/useNow';
-import { dropIndex, moveItem } from '@/lib/reorder';
+import { dropIndex } from '@/lib/reorder';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
@@ -53,19 +58,27 @@ const INLINE_INPUT =
  * section has Add note: the field shows only once it is pressed, stays
  * open for the next title after Enter, and Escape closes it. Every change
  * is an op at once.
+ *
+ * `hideCovered` leaves the covered ones out (#313), and moves step past
+ * the next shown topic: the meeting page passes its saved setting; the
+ * panel shows them all. The heading's count still counts every topic.
  */
 export function MeetingTopics({
   meeting,
   headingLevel = 3,
+  hideCovered = false,
 }: {
   meeting: Meeting;
   /** 2 on the meeting's page; 3 in its panel. */
   headingLevel?: 2 | 3;
+  hideCovered?: boolean;
 }) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const { active } = useMotion();
-  const topics = topicsOf(meeting);
+  const all = topicsOf(meeting);
+  /** The topics on screen; `move` and the drop indexes are among these. */
+  const topics = hideCovered ? all.filter((t) => !t.done) : all;
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
   const headingId = useId();
@@ -82,7 +95,7 @@ export function MeetingTopics({
 
   // What was there at first stays still; anything added later enters.
   const seen = useRef<Set<string> | null>(null);
-  if (seen.current === null) seen.current = new Set(topics.map((t) => t.id));
+  if (seen.current === null) seen.current = new Set(all.map((t) => t.id));
 
   const open = () => {
     if (adding) addRef.current?.focus();
@@ -106,12 +119,13 @@ export function MeetingTopics({
     if (to < 0 || to >= topics.length || from === to) return;
     const topic = topics[from];
     if (!topic) return;
-    const ids = moveItem(
+    const ids = moveAmongShown(
+      all.map((t) => t.id),
       topics.map((t) => t.id),
       from,
       to,
     );
-    if (actions.reorderTopics({ meetingId: meeting.id, ids })) {
+    if (ids && actions.reorderTopics({ meetingId: meeting.id, ids })) {
       setAnnouncement(
         `Moved “${topic.title}” to position ${to + 1} of ${topics.length}`,
       );
@@ -119,7 +133,7 @@ export function MeetingTopics({
   };
 
   const remove = (topic: Topic) => {
-    const before = topics.map((t) => t.id);
+    const before = all.map((t) => t.id);
     if (!actions.deleteTopic({ meetingId: meeting.id, id: topic.id })) return;
     show(`Removed “${topic.title}”`, () => {
       const now = latest.current?.meetings[meeting.id];
@@ -172,14 +186,16 @@ export function MeetingTopics({
       <TopicsHeading
         id={headingId}
         title={meeting.title}
-        count={topicCount(topics)}
+        count={topicCount(all)}
         adding={adding}
         onAdd={open}
         buttonRef={addButton}
         level={headingLevel}
       />
       {topics.length === 0 && !adding && (
-        <p className="text-sm text-muted-foreground">No topics yet</p>
+        <p className="text-sm text-muted-foreground">
+          {all.length > 0 ? allCoveredText(all.length) : 'No topics yet'}
+        </p>
       )}
       {topics.length > 0 && (
         <ul

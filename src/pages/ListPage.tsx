@@ -1,6 +1,7 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { listProject } from '#shared/lists';
+import { listDoneMode } from '#shared/pages';
 import { DetailActions } from '@/components/DetailActions';
 import { ListItems } from '@/components/lists/ListItems';
 import { ProjectChip, progressText } from '@/components/lists/ListLayouts';
@@ -10,16 +11,19 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { linkProps, navigate } from '@/lib/router';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { usePageSetting } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
  * One list (#299), where its items are ticked: the header with its
  * project (or General), progress and actions (Edit in the panel; under
  * More, Delete, which asks first in place and offers Undo), then the
- * items. One column at every width.
+ * items, their done ones as Settings → Pages says (#313). One column at
+ * every width.
  */
 export function ListPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
+  const done = listDoneMode(usePageSetting('list', 'done'));
   const { show } = useToast();
   const { openPanel } = useListPanel();
   const list = state?.lists[id];
@@ -131,7 +135,7 @@ export function ListPage({ id }: { id: string }) {
         )}
       </header>
 
-      <ListItems list={list} />
+      <ListItems list={list} done={done} />
     </article>
   );
 }

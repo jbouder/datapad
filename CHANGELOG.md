@@ -26,6 +26,13 @@ changes the format says so here under **Export format**.
   them, with Reset and Undo; at least one section stays shown. Focus and
   the project, task, meeting and list pages adopt it next. Settings →
   Pages lists a page only once it has something to set.
+- **Meeting and list page settings** (#313): in Settings → Pages, the
+  meeting page can hide and reorder Topics, Action items, Notes and
+  Series, and hide covered topics and done action items, with one line
+  in their place when every one is hidden. The list page shows its done
+  items collapsed under Done (n), as before, expanded, or hidden with
+  "n done" in their place. The meeting panel shows everything, as
+  before.
 
 ### Export format
 

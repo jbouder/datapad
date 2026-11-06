@@ -145,6 +145,10 @@ as it is (migrated on the way in, below):
   section `order` does not name shown in its default place, and a
   `hidden` that names every section read as none. Settings kept out of
   the address (a threshold, say) are saved under `filters` like the rest.
+  The meeting page's sections are `topics`, `actions`, `notes` and
+  `series`, and its settings `covered` and `doneActions` (`show` or
+  `hide`); the list page's setting is `done` (`collapsed`, `expanded` or
+  `hidden`) (#313).
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and templates. A template with `body`
   (Markdown, mentions as `@{personId}`) is a note template, with empty

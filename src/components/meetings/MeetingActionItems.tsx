@@ -1,6 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
+import { allDoneActionsText } from '#shared/meetings';
 import { taskNoteCounts, tasksOfMeeting } from '#shared/select';
 import { defaultAssignee } from '#shared/tasks';
 import type { Meeting } from '#shared/types';
@@ -24,14 +25,19 @@ import { useMotion } from '@/providers/MotionProvider';
  * The heading has the open count and Add an action item, as Topics has
  * Add topic: the field shows once it is pressed, stays open for the next
  * title after Enter, and Escape closes it.
+ *
+ * `hideDone` leaves the done ones out (#313): the meeting page passes its
+ * saved setting; the panel shows them all.
  */
 export function MeetingActionItems({
   meeting,
   headingLevel = 3,
+  hideDone = false,
 }: {
   meeting: Meeting;
   /** 2 on the meeting's page; 3 in its panel. */
   headingLevel?: 2 | 3;
+  hideDone?: boolean;
 }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const { state, actions } = useDatapad();
@@ -53,7 +59,7 @@ export function MeetingActionItems({
     () => tasksOfMeeting(tasks ?? {}, meeting.id),
     [tasks, meeting.id],
   );
-  const items = [...open, ...done];
+  const items = hideDone ? open : [...open, ...done];
 
   // What was there at first stays still; anything added later enters.
   const seen = useRef<Set<string> | null>(null);
@@ -129,7 +135,11 @@ export function MeetingActionItems({
         </Button>
       </div>
       {items.length === 0 && !adding && (
-        <p className="text-sm text-muted-foreground">No action items yet</p>
+        <p className="text-sm text-muted-foreground">
+          {done.length > 0
+            ? allDoneActionsText(done.length)
+            : 'No action items yet'}
+        </p>
       )}
       {items.length > 0 && (
         <ul

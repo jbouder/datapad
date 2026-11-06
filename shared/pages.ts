@@ -262,6 +262,52 @@ export const LIST_SHOW_OPTIONS = [
   { value: 'done', label: 'Done' },
 ] as const;
 
+/**
+ * The meeting page's sections (#313), in today's order: Topics and
+ * Action items on the left, Notes on the right, the series links at the
+ * foot.
+ */
+export const MEETING_SECTIONS: readonly PageSection[] = [
+  { key: 'topics', label: 'Topics' },
+  { key: 'actions', label: 'Action items' },
+  { key: 'notes', label: 'Notes' },
+  { key: 'series', label: 'Series' },
+];
+
+/** A Show · Hide choice set in Settings → Pages only (#313). */
+function showHide(key: string, label: string): PrefField {
+  return {
+    key,
+    label,
+    def: 'show',
+    options: [
+      { value: 'show', label: 'Show' },
+      { value: 'hide', label: 'Hide' },
+    ],
+    control: 'segmented',
+    settingsOnly: true,
+  };
+}
+
+/**
+ * How the list page shows its done items (#313): under a collapsed
+ * Done (n), as before; under it, open; or left out, with "n done" in
+ * their place.
+ */
+export const LIST_DONE_OPTIONS = [
+  { value: 'collapsed', label: 'Collapsed' },
+  { value: 'expanded', label: 'Expanded' },
+  { value: 'hidden', label: 'Hidden' },
+] as const;
+
+/** How the list page shows its done items. */
+export type ListDoneMode = (typeof LIST_DONE_OPTIONS)[number]['value'];
+
+/** A saved Done items value as a mode; anything else is the default. */
+export function listDoneMode(value: string): ListDoneMode {
+  return value === 'expanded' || value === 'hidden' ? value : 'collapsed';
+}
+
 /** What each page remembers, in the order Settings → Pages shows them. */
 export const PAGES: Record<PageKey, PageSpec> = {
   focus: {
@@ -463,8 +509,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: true,
   },
   // The other detail pages (#310): nothing to set yet, so Settings → Pages
-  // leaves them out (`hasPageSettings`); #312 and #313 add their fields
-  // and sections.
+  // leaves them out (`hasPageSettings`); #312 adds the task page's.
   task: {
     label: 'Task page',
     fields: [],
@@ -472,12 +517,25 @@ export const PAGES: Record<PageKey, PageSpec> = {
   },
   meeting: {
     label: 'Meeting page',
-    fields: [],
+    fields: [
+      showHide('covered', 'Covered topics'),
+      showHide('doneActions', 'Done action items'),
+    ],
     sections: false,
+    sectionKeys: MEETING_SECTIONS,
   },
   list: {
     label: 'List page',
-    fields: [],
+    fields: [
+      {
+        key: 'done',
+        label: 'Done items',
+        def: 'collapsed',
+        options: LIST_DONE_OPTIONS,
+        control: 'segmented',
+        settingsOnly: true,
+      },
+    ],
     sections: false,
   },
 };
