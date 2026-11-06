@@ -2,7 +2,17 @@ import { LIMITS } from './limits';
 import { LIST_SORTS } from './lists';
 import { PROJECT_SORTS } from './projects';
 import type { PagePrefsPatch } from './protocol';
-import { FOCUS_DAY_CHOICES, FOCUS_DAYS, meId, orgs } from './select';
+import {
+  ATTENTION_QUIET_CHOICES,
+  ATTENTION_TARGET_CHOICES,
+  FOCUS_DAY_CHOICES,
+  FOCUS_DAYS,
+  FOCUS_DEFAULTS,
+  FOLLOW_UP_CHOICES,
+  type FocusOptions,
+  meId,
+  orgs,
+} from './select';
 import { TASK_SORTS } from './tasks';
 import {
   GENERAL,
@@ -29,8 +39,11 @@ export interface PrefOption {
   label: string;
 }
 
-/** A list that comes from the data rather than the page. */
-export type PrefKind = 'who' | 'project' | 'org';
+/**
+ * A list that comes from the data rather than the page: `me` is Anyone,
+ * and Mine when a person is marked as me (Focus's Tasks for, #311).
+ */
+export type PrefKind = 'who' | 'me' | 'project' | 'org';
 
 export interface PrefField {
   /**
@@ -152,8 +165,121 @@ const focusDaysField: PrefField = {
 
 /** Focus's Week window from a page query or saved values (`?days=`). */
 export function focusDays(value: string | null | undefined): number {
+  return choice(value, FOCUS_DAY_CHOICES, FOCUS_DAYS);
+}
+
+/** `value` as one of `choices`, else `def`. */
+function choice(
+  value: string | null | undefined,
+  choices: readonly number[],
+  def: number,
+): number {
   const n = Number(value);
-  return FOCUS_DAY_CHOICES.some((c) => c === n) ? n : FOCUS_DAYS;
+  return value && choices.includes(n) ? n : def;
+}
+
+const dayOptions = (choices: readonly number[]): PrefOption[] =>
+  choices.map((n) => ({ value: String(n), label: `${n} days` }));
+
+/**
+ * Focus's other settings (#311): whose tasks it shows and how Due is
+ * grouped (both in the address, `?who=` and `?group=`), and the rules
+ * behind Attention and Follow-ups (Settings → Pages only).
+ */
+const focusFields: readonly PrefField[] = [
+  {
+    key: 'who',
+    label: 'Tasks for',
+    def: 'anyone',
+    kind: 'me',
+    control: 'select',
+  },
+  {
+    key: 'group',
+    label: 'Group Due by',
+    def: 'priority',
+    options: [
+      { value: 'priority', label: 'Priority' },
+      { value: 'date', label: 'Date' },
+    ],
+    control: 'segmented',
+  },
+  {
+    key: 'target',
+    label: 'Attention: target within',
+    def: String(FOCUS_DEFAULTS.targetDays),
+    options: dayOptions(ATTENTION_TARGET_CHOICES),
+    control: 'select',
+    settingsOnly: true,
+  },
+  {
+    key: 'quiet',
+    label: 'Attention: quiet after',
+    def: String(FOCUS_DEFAULTS.quietDays),
+    options: [
+      ...dayOptions(ATTENTION_QUIET_CHOICES),
+      { value: 'off', label: 'Off' },
+    ],
+    control: 'select',
+    settingsOnly: true,
+  },
+  {
+    key: 'yellow',
+    label: 'Attention: yellow health',
+    def: 'include',
+    options: [
+      { value: 'include', label: 'Include' },
+      { value: 'leave', label: 'Leave out' },
+    ],
+    control: 'segmented',
+    settingsOnly: true,
+  },
+  {
+    key: 'followDays',
+    label: 'Follow-ups from the last',
+    def: String(FOCUS_DEFAULTS.followUpDays),
+    options: dayOptions(FOLLOW_UP_CHOICES),
+    control: 'segmented',
+    settingsOnly: true,
+  },
+];
+
+/**
+ * Focus's settings (#311) from values by query key: the page's address
+ * over what it saved (`?who=`, `?group=`, `?days=`) and its settings-only
+ * values, or just what is saved (`savedFocusOptions`). A value Focus does
+ * not have reads as the default; Mine reads as Anyone when nobody in
+ * `people` is marked as me. One copy of the rules: the page, Brief me and
+ * MCP all read them here.
+ */
+export function focusOptions(
+  values: Readonly<Record<string, string | null | undefined>>,
+  people: Snapshot['people'],
+): FocusOptions {
+  const d = FOCUS_DEFAULTS;
+  return {
+    who:
+      values.who === 'mine' && meId(people) !== null ? { kind: 'mine' } : d.who,
+    group: values.group === 'date' ? 'date' : d.group,
+    days: focusDays(values.days),
+    targetDays: choice(values.target, ATTENTION_TARGET_CHOICES, d.targetDays),
+    quietDays:
+      values.quiet === 'off'
+        ? null
+        : choice(values.quiet, ATTENTION_QUIET_CHOICES, d.quietDays ?? 0),
+    yellow: values.yellow !== 'leave',
+    followUpDays: choice(values.followDays, FOLLOW_UP_CHOICES, d.followUpDays),
+  };
+}
+
+/** Focus's settings as saved for the space (MCP's `get_focus`, `get_recap`). */
+export function savedFocusOptions(
+  snapshot: Pick<Snapshot, 'settings' | 'people' | 'projects' | 'orgs'>,
+): FocusOptions {
+  return focusOptions(
+    currentValues('focus', savedPrefs(snapshot, 'focus'), snapshot),
+    snapshot.people,
+  );
 }
 
 const who: PrefField = {
@@ -275,9 +401,18 @@ export const PAGES: Record<PageKey, PageSpec> = {
         'day',
       ),
       focusDaysField,
+      ...focusFields,
     ],
     sections: true,
     collapsible: FOCUS_SECTIONS,
+    sectionKeys: [
+      { key: 'recap', label: 'Since yesterday' },
+      { key: 'agenda', label: 'Agenda' },
+      { key: 'waiting', label: 'Waiting on' },
+      { key: 'attention', label: 'Attention' },
+      { key: 'followUps', label: 'Follow-ups' },
+      { key: 'due', label: 'Due' },
+    ],
   },
   projects: {
     label: 'Projects',
@@ -609,6 +744,11 @@ export function optionsFor(
           .map((p) => ({ value: `p:${p.id}`, label: p.name })),
       ];
     }
+    case 'me':
+      return [
+        { value: 'anyone', label: 'Anyone' },
+        ...(meId(state.people) ? [{ value: 'mine', label: 'Mine' }] : []),
+      ];
     case 'project':
       return [
         { value: '', label: 'All projects' },
@@ -655,6 +795,10 @@ export function isCurrent(
         value === 'mine' ||
         value === 'unassigned' ||
         (value.startsWith('p:') && Boolean(state.people[value.slice(2)]))
+      );
+    case 'me':
+      return (
+        value === 'anyone' || (value === 'mine' && meId(state.people) !== null)
       );
     case 'project':
       return value === GENERAL || Boolean(state.projects[value]);

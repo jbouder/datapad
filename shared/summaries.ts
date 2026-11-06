@@ -11,6 +11,8 @@ import {
   attention,
   attentionLine,
   daysSince,
+  FOCUS_DEFAULTS,
+  type FocusOptions,
   focusBuckets,
   meId,
   prepLine,
@@ -524,14 +526,17 @@ function filterLabel(state: Lookup, filter: AssigneeFilter): string {
  * What Brief me sends: the last working day (`buildRecap`, #258), then
  * today's Agenda (each meeting with its prep line), Due (overdue and
  * today, not blocked), Waiting on and Attention, selected the way Focus
- * selects them (archived projects out, `assignee` narrowing the tasks).
- * Mentions are names; every section is capped (`BRIEF_LIMITS`).
+ * selects them (archived projects out, Focus's settings applied: `who`
+ * narrowing the tasks, Attention's rules; #311). A section hidden on
+ * Focus is still sent. Mentions are names; every section is capped
+ * (`BRIEF_LIMITS`).
  */
 export function briefContext(
   state: Snapshot,
   today: DateString,
-  assignee: AssigneeFilter = { kind: 'anyone' },
+  options: FocusOptions = FOCUS_DEFAULTS,
 ): string {
+  const assignee = options.who;
   const me = meId(state.people);
   const where = (id: string | null) => clipName(projectName(state, id));
   const group = (project: { name: string } | null) =>
@@ -612,7 +617,13 @@ export function briefContext(
     me,
     assignee,
   );
-  const projects = attention(state.projects, today);
+  const projects = attention(
+    state.projects,
+    today,
+    options.targetDays,
+    options.quietDays,
+    options.yellow,
+  );
 
   lines.push(
     '',
@@ -692,8 +703,11 @@ export type SummaryTarget =
   | { kind: 'note'; id: string }
   /** The seven days ending `toDay` (the Digest page). */
   | { kind: 'digest'; toDay: string }
-  /** Focus's Brief me (#259): `today`, everyone's tasks. */
-  | { kind: 'brief'; today: DateString };
+  /**
+   * Focus's Brief me (#259): `today`, with Focus's settings as the page
+   * reads them (#311); everyone's tasks and the default rules without.
+   */
+  | { kind: 'brief'; today: DateString; options?: FocusOptions };
 
 export interface SummaryRequest {
   /** "Echo Base", "Shield review", "note of Wed 21 Oct 2026". */
@@ -760,7 +774,7 @@ export function summaryRequest(
     case 'brief':
       return {
         label: briefLabel(target.today),
-        context: briefContext(state, target.today),
+        context: briefContext(state, target.today, target.options),
         projectId: null,
         meetingId: null,
         prompt: BRIEF_PROMPT,

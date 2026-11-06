@@ -26,6 +26,16 @@ changes the format says so here under **Export format**.
   them, with Reset and Undo; at least one section stays shown. Focus and
   the project, task, meeting and list pages adopt it next. Settings →
   Pages lists a page only once it has something to set.
+- **Focus settings** (#311): in Settings → Pages, hide Focus's sections
+  (Since yesterday, Agenda, Waiting on, Attention, Follow-ups, Due) and
+  put them in your own order. **Tasks for: Mine** (also a switch in
+  Focus's header, and `?who=mine`) narrows Due, Waiting on, Follow-ups
+  and Since yesterday to your tasks. **Group Due by: Date** shows Overdue,
+  Today and Upcoming. Attention's rules (target within 7, 14 or 30 days;
+  quiet after 7, 14 or 30 days, or off; yellow health in or out) and how
+  far back Follow-ups looks (7 or 14 days) are yours to set. Brief me
+  and the MCP tools `get_focus` and `get_recap` follow the same settings;
+  a hidden section still feeds Brief me.
 
 ### Export format
 

@@ -301,6 +301,42 @@ describe('the read tools', () => {
     expect(ids(long.due.upcoming.items)).toEqual(['t-5', 't-4']);
   });
 
+  it('get_focus and get_recap follow Focus’s other settings (#311)', async () => {
+    const ctx = await seeded();
+    const before = await call(ctx, 'get_focus', { today: TODAY });
+    const attending = (out: Json) =>
+      out.attention.map((a: Json) => [a.project.id, a.reasons]);
+    expect(attending(before)).not.toContainEqual([
+      'p-echo',
+      'target in 18 days',
+    ]);
+    const saved = await ctx.datapad.import(MAIN_SPACE, {
+      settings: {
+        user: {
+          defaultOrg: '',
+          pages: {
+            focus: { filters: { who: 'mine', target: '30', quiet: 'off' } },
+          },
+        },
+      },
+    });
+    expect(saved.ok).toBe(true);
+    const out = await call(ctx, 'get_focus', { today: TODAY });
+    // Tasks for: Mine (Leia Organa is marked as me).
+    expect(ids(out.due.overdue.items)).toEqual(['t-1']);
+    expect(ids(out.due.upcoming.items)).toEqual([]);
+    expect(out.waitingOn).toEqual([]);
+    // A target within 30 days, and nothing quiet.
+    expect(attending(out)).toContainEqual(['p-echo', 'target in 18 days']);
+    for (const a of out.attention) expect(a.reasons).not.toMatch(/quiet/);
+    // An assignee given here wins.
+    const han = await call(ctx, 'get_focus', {
+      today: TODAY,
+      assignee: 'Han Solo',
+    });
+    expect(ids(han.due.upcoming.items)).toEqual(['t-5']);
+  });
+
   it('get_focus lists High priority past the window, whatever its date', async () => {
     const ctx = await seeded();
     const { sourceNoteId: _, ...plain } = fixture.tasks['t-4'];
@@ -530,6 +566,29 @@ describe('the read tools', () => {
         'r-2',
       ]);
       expect(ids(me.added.items)).toEqual(['r-5']);
+    });
+
+    it('follows Focus’s Tasks for when no assignee is given (#311)', async () => {
+      const ctx = await weekend();
+      const saved = await ctx.datapad.import(MAIN_SPACE, {
+        settings: {
+          user: {
+            defaultOrg: '',
+            pages: { focus: { filters: { who: 'mine' } } },
+          },
+        },
+      });
+      expect(saved.ok).toBe(true);
+      const mine = await call(ctx, 'get_recap', { date: '2026-10-26' });
+      expect(mine.closed.flatMap((g: Json) => ids(g.tasks.items))).toEqual([
+        'r-2',
+      ]);
+      expect(ids(mine.added.items)).toEqual(['r-5']);
+      const han = await call(ctx, 'get_recap', {
+        date: '2026-10-26',
+        assignee: 'han solo',
+      });
+      expect(ids(han.added.items)).toEqual(['r-3']);
     });
 
     it('refuses an unknown space, a name that matches several people, and a bad date', async () => {

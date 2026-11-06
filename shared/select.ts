@@ -293,6 +293,37 @@ export function byPriority(tasks: readonly Task[]): PriorityGroup[] {
   });
 }
 
+/** A bucket Focus's Due can group by when grouped by date (#311). */
+export type DueDateKey = Exclude<keyof FocusBuckets, 'blocked'>;
+
+export interface DueDateGroup {
+  key: DueDateKey;
+  tasks: Task[];
+}
+
+/**
+ * Focus's Due grouped by date (#311): Overdue, Today, Upcoming, then the
+ * High priority tasks Due keeps from past the window (Later, No date),
+ * each group keeping the order it was given; empty groups left out.
+ */
+export function byDueDate(
+  buckets: FocusBuckets,
+  tasks: readonly Task[],
+): DueDateGroup[] {
+  const order: DueDateKey[] = [
+    'overdue',
+    'today',
+    'upcoming',
+    'later',
+    'noDate',
+  ];
+  return order.flatMap((key) => {
+    const ids = new Set(buckets[key].map((t) => t.id));
+    const group = tasks.filter((t) => ids.has(t.id));
+    return group.length > 0 ? [{ key, tasks: group }] : [];
+  });
+}
+
 /** Each project's next milestone on or after `today`, by project id. */
 export const nextMilestones = lastCall(
   (projects: Projects, today: DateString): Map<string, Milestone> => {
@@ -470,6 +501,45 @@ export const BRIEFING_WEEK = 7;
 export const ATTENTION_TARGET_DAYS = 14;
 /** A project unchanged this many days is quiet. */
 export const ATTENTION_QUIET_DAYS = 14;
+/** Attention's target window, as Settings → Pages offers it (#311). */
+export const ATTENTION_TARGET_CHOICES = [7, 14, 30] as const;
+/** Attention's quiet rule, as Settings → Pages offers it; or off. */
+export const ATTENTION_QUIET_CHOICES = [7, 14, 30] as const;
+/** How far back Follow-ups looks, as Settings → Pages offers it. */
+export const FOLLOW_UP_CHOICES = [7, 14] as const;
+
+/**
+ * Focus's settings (#311), as `focusOptions()` in `shared/pages.ts` reads
+ * them from the page's address and saved values. One copy of the rules:
+ * the page, Brief me and MCP's `get_focus` and `get_recap` all take them.
+ */
+export interface FocusOptions {
+  /** Tasks for: everyone's, or only mine (Due, Waiting on, Follow-ups, Since yesterday). */
+  who: AssigneeFilter;
+  /** Due grouped by priority (High first) or by date (Overdue, Today, Upcoming). */
+  group: 'priority' | 'date';
+  /** How far Week looks ahead, today included (`FOCUS_DAYS`). */
+  days: number;
+  /** A target this many days away (or past) puts a project in Attention. */
+  targetDays: number;
+  /** A project unchanged this many days is quiet; `null` turns the rule off. */
+  quietDays: number | null;
+  /** Whether yellow health puts a project in Attention (red always does). */
+  yellow: boolean;
+  /** How many days back Follow-ups looks for meetings. */
+  followUpDays: number;
+}
+
+/** Focus as it is with nothing set. */
+export const FOCUS_DEFAULTS: FocusOptions = {
+  who: { kind: 'anyone' },
+  group: 'priority',
+  days: FOCUS_DAYS,
+  targetDays: ATTENTION_TARGET_DAYS,
+  quietDays: ATTENTION_QUIET_DAYS,
+  yellow: true,
+  followUpDays: BRIEFING_WEEK,
+};
 
 /** Outside the archive: General, or a project that is not archived. */
 const unarchived = (projects: Projects, projectId: string | null) =>
@@ -592,29 +662,37 @@ export interface AttentionItem {
 const HEALTH_RANK = { red: 0, yellow: 1, green: 2, none: 2 } as const;
 
 /**
- * Active projects outside the archive that need a look: health yellow or
- * red; a target date past or within `ATTENTION_TARGET_DAYS`; or no change
- * in `ATTENTION_QUIET_DAYS`. Red first, then yellow, then by target date
- * (none last), then name.
+ * Active projects outside the archive that need a look: health red, or
+ * yellow unless `yellow` is false; a target date past or within
+ * `targetDays`; or no change in `quietDays` (`null`: never quiet). The
+ * windows default to `ATTENTION_TARGET_DAYS` and `ATTENTION_QUIET_DAYS`;
+ * Focus's settings change them (`FocusOptions`, #311). Red first, then
+ * yellow, then by target date (none last), then name.
  */
 export const attention = lastCall(
-  (projects: Projects, today: DateString): AttentionItem[] => {
+  (
+    projects: Projects,
+    today: DateString,
+    targetDays: number = ATTENTION_TARGET_DAYS,
+    quietDays: number | null = ATTENTION_QUIET_DAYS,
+    yellow = true,
+  ): AttentionItem[] => {
     const out: AttentionItem[] = [];
     for (const p of Object.values(projects)) {
       if (p.archived || p.status !== 'active') continue;
       const reasons: AttentionReason[] = [];
       const health = healthOf(p);
-      if (health === 'yellow' || health === 'red') {
+      if (health === 'red' || (health === 'yellow' && yellow)) {
         reasons.push({ kind: 'health', health });
       }
       if (p.targetDate) {
         const days = daysBetween(today, p.targetDate);
-        if (days <= ATTENTION_TARGET_DAYS) {
+        if (days <= targetDays) {
           reasons.push({ kind: 'target', days });
         }
       }
       const quiet = daysSince(p.updatedAt, today);
-      if (quiet >= ATTENTION_QUIET_DAYS) {
+      if (quietDays !== null && quiet >= quietDays) {
         reasons.push({ kind: 'quiet', days: quiet });
       }
       if (reasons.length > 0) out.push({ project: p, reasons });
@@ -654,9 +732,10 @@ export interface FollowUp {
 /**
  * Open action items (`Task.meetingId`) matching the assignee filter and
  * not blocked (those are in Waiting on), from
- * meetings outside the archive held in the last `BRIEFING_WEEK` days
- * (today and a week ago today included, so last week's instance of a
- * weekly meeting counts), grouped by meeting, newest meeting first.
+ * meetings outside the archive held in the last `days` days
+ * (`BRIEFING_WEEK` unless Focus's settings say otherwise; today and `days`
+ * ago today included, so last week's instance of a weekly meeting
+ * counts), grouped by meeting, newest meeting first.
  */
 export const followUps = lastCall(
   (
@@ -666,8 +745,9 @@ export const followUps = lastCall(
     today: DateString,
     me: string | null,
     filter: AssigneeFilter,
+    days: number = BRIEFING_WEEK,
   ): FollowUp[] => {
-    const since = addDays(today, -BRIEFING_WEEK);
+    const since = addDays(today, -days);
     const groups = new Map<string, Task[]>();
     for (const t of Object.values(tasks)) {
       const m = t.meetingId ? meetings[t.meetingId] : undefined;

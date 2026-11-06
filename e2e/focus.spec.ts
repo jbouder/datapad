@@ -173,11 +173,11 @@ test('closing a task takes it out of its group', async ({ page }) => {
   );
 });
 
-test('no filters: everyone’s tasks; n opens the new-task panel', async ({
+test('no toolbar: everyone’s tasks; n opens the new-task panel', async ({
   page,
 }) => {
-  // An old address with an assignee shows the same as a bare one.
-  await openLive(page, '/?who=mine');
+  await openLive(page);
+  await expect(page.getByRole('radio', { name: 'Anyone' })).toBeChecked();
   const main = page.getByRole('main');
   await expect(main.getByRole('searchbox', { name: 'Find' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Filters/ })).toHaveCount(0);
@@ -186,7 +186,7 @@ test('no filters: everyone’s tasks; n opens the new-task panel', async ({
   );
   // `m` does nothing here now.
   await page.locator('body').press('m');
-  await expect(page).toHaveURL(/\?who=mine$/);
+  await expect(page).not.toHaveURL(/\?/);
   await expect(section(page, 'Waiting on')).toBeVisible();
   await expect(page.locator('[data-movement]')).toHaveText(
     '1 closed this week · 1 added · 1 overdue',
