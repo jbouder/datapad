@@ -4,7 +4,7 @@ Every release of Datapad, newest first, in the shape of
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are
 [tags](https://github.com/jbouder/datapad/tags) on `main`; each has a
 [GitHub release](https://github.com/jbouder/datapad/releases). The milestone
-numbers (M0–M22) are the
+numbers (M0–M23) are the
 [GitHub milestones](https://github.com/jbouder/datapad/milestones) the work
 was planned under.
 
@@ -16,6 +16,15 @@ a newer release is refused with a message saying so. A release that
 changes the format says so here under **Export format**.
 
 ## [Unreleased]
+
+## [1.0.0] — 2026-11-06
+
+The first stable release. Page settings: Focus, the project, task,
+meeting and list pages can hide and reorder their sections and keep
+their own options in Settings → Pages. The project page gets Show done
+in place of its Done group; People and Orgs become sections in the rail
+and Settings → Navigation. The export format is still 2, with additive
+page settings; the Durable Object's schema is still version 3.
 
 ### Added
 
@@ -607,7 +616,8 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jbouder/datapad/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/jbouder/datapad/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/jbouder/datapad/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jbouder/datapad/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jbouder/datapad/compare/v0.1.0...v0.2.0
