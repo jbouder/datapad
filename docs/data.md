@@ -136,7 +136,15 @@ as it is (migrated on the way in, below):
   until something is saved, holds each page's layout, sort, grouping,
   filters and sections as you left them (never the search text); a file
   without it imports unchanged, and a value a page no longer has is
-  ignored.
+  ignored. Its keys are `focus`, `projects`, `archive`, `tasks`,
+  `meetings`, `notes`, `lists`, `people` and the detail pages `project`,
+  `task`, `meeting` and `list` (#310), one set each for every item of
+  that kind. A page may also carry `hidden` (section keys it leaves out)
+  and `order` (section keys in the order it shows them) (#310): each
+  key at most once, 24 at most, a key the page does not have ignored, a
+  section `order` does not name shown in its default place, and a
+  `hidden` that names every section read as none. Settings kept out of
+  the address (a threshold, say) are saved under `filters` like the rest.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and templates. A template with `body`
   (Markdown, mentions as `@{personId}`) is a note template, with empty

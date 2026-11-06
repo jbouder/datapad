@@ -8,6 +8,7 @@ import {
   filterFields,
   focusDays,
   hasPagePrefs,
+  hasPageSettings,
   isFiltered,
   legacyPrefs,
   mergePatches,
@@ -41,11 +42,21 @@ function state(): Snapshot {
 const q = (s: string) => new URLSearchParams(s);
 
 describe('the registry', () => {
-  it('covers every page, the layout first', () => {
+  it('covers every page, the layout first where there is one', () => {
     expect(Object.keys(PAGES).sort()).toEqual([...PAGE_KEYS].sort());
     for (const page of PAGE_KEYS) {
-      expect(PAGES[page].fields[0]?.key).toBe('view');
+      const keys = PAGES[page].fields.map((f) => f.key);
+      if (keys.includes('view')) expect(keys[0]).toBe('view');
     }
+  });
+
+  it('has the detail pages, listed in Settings once they have something to set (#310)', () => {
+    for (const page of ['task', 'meeting', 'list'] as const) {
+      expect(PAGES[page].label).toMatch(/ page$/);
+      expect(hasPageSettings(page)).toBe(false);
+    }
+    expect(hasPageSettings('project')).toBe(true);
+    expect(hasPageSettings('focus')).toBe(true);
   });
 
   it('never remembers the search text or a single item', () => {
@@ -350,7 +361,7 @@ describe('patches', () => {
     expect(
       sectionCounts(
         { sections: { attention: false, 'day:later': true, noDate: false } },
-        PAGES.focus.sectionKeys,
+        PAGES.focus.collapsible,
       ),
     ).toEqual({ closed: 1, open: 0 });
   });

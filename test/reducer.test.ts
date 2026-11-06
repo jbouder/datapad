@@ -2674,6 +2674,69 @@ describe('page preferences (#186)', () => {
     });
   });
 
+  it('sets, replaces and clears hidden and ordered sections (#310)', () => {
+    const start = base();
+    const { state, changed } = at(start, {
+      type: 'setPagePrefs',
+      page: 'project',
+      patch: { hidden: ['activity'], order: ['tasks', 'milestones'] },
+    });
+    expect(pages(state)?.project).toEqual({
+      hidden: ['activity'],
+      order: ['tasks', 'milestones'],
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    // Not logged.
+    expect(state.activity).toBe(start.activity);
+    // A list replaces the whole one; the other stays.
+    const replaced = run(state, {
+      type: 'setPagePrefs',
+      page: 'project',
+      patch: { hidden: ['whiteboard', 'lists'] },
+    });
+    expect(pages(replaced)?.project).toEqual({
+      hidden: ['whiteboard', 'lists'],
+      order: ['tasks', 'milestones'],
+    });
+    // null clears; an emptied page goes.
+    const cleared = run(replaced, {
+      type: 'setPagePrefs',
+      page: 'project',
+      patch: { hidden: null, order: null },
+    });
+    expect(pages(cleared)).toEqual({});
+  });
+
+  it('refuses a repeated or oversized section list (#310)', () => {
+    const keys = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`);
+    for (const patch of [
+      { hidden: ['tasks', 'tasks'] },
+      { order: ['notes', 'tasks', 'notes'] },
+      { hidden: keys(LIMITS.prefSectionsMax + 1) },
+      { order: keys(LIMITS.prefSectionsMax + 1) },
+    ]) {
+      const op = { type: 'setPagePrefs', page: 'project', patch } as const;
+      expect(OpSchema.safeParse(op).success, JSON.stringify(patch)).toBe(false);
+      // The reducer does not trust the schema alone.
+      expect(() => at(base(), op)).toThrow(OpError);
+    }
+    expect(
+      OpSchema.safeParse({
+        type: 'setPagePrefs',
+        page: 'project',
+        patch: { order: keys(LIMITS.prefSectionsMax) },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('knows the task, meeting and list pages (#310)', () => {
+    for (const page of ['task', 'meeting', 'list'] as const) {
+      const op = { type: 'setPagePrefs', page, patch: { hidden: ['a'] } };
+      expect(OpSchema.safeParse(op).success).toBe(true);
+      expect(pages(run(base(), op as Op))?.[page]).toEqual({ hidden: ['a'] });
+    }
+  });
+
   it('resetPagePrefs resets one page, or every page, unlogged', () => {
     const state = run(
       base(),

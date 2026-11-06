@@ -457,8 +457,9 @@ export interface NavPrefs {
 }
 
 /**
- * The pages whose settings are remembered (#186). `project` is one set
- * shared by every project's page.
+ * The pages whose settings are remembered (#186). `project`, `task`,
+ * `meeting` and `list` (#310) are the detail pages: one set each, shared
+ * by every project's (task's, meeting's, list's) page.
  */
 export const PAGE_KEYS = [
   'focus',
@@ -470,6 +471,9 @@ export const PAGE_KEYS = [
   'lists',
   'people',
   'project',
+  'task',
+  'meeting',
+  'list',
 ] as const;
 export type PageKey = (typeof PAGE_KEYS)[number];
 
@@ -488,6 +492,16 @@ export interface PagePrefs {
   filters?: Record<string, string>;
   /** Open (true) or closed (false) per remembered section. */
   sections?: Record<string, boolean>;
+  /**
+   * Section keys the page leaves out altogether (#310). Kept as written
+   * and checked when read: a key the page does not have is ignored.
+   */
+  hidden?: string[];
+  /**
+   * Section keys in the order the page shows them (#310); a section the
+   * list does not name keeps its default place.
+   */
+  order?: string[];
 }
 
 export const SETTINGS_ID = 'user';

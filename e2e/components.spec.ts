@@ -32,6 +32,53 @@ test('every component is axe clean, and so is the open panel', async ({
   await expectAccessible(page);
 });
 
+test('page sections: show, hide and move, one always shown (#310)', async ({
+  page,
+}) => {
+  await open(page);
+  const editor = page.getByRole('list', { name: 'Demo sections' });
+  const demo = page.getByRole('list', { name: 'Demo page' });
+  await expect(demo.getByRole('listitem')).toHaveText([
+    'Alpha',
+    'Beta',
+    'Gamma',
+  ]);
+
+  // Move Gamma up twice: first, and its Move up is disabled.
+  const gammaUp = editor.getByRole('button', { name: 'Move Gamma up' });
+  await gammaUp.click();
+  await expect(gammaUp).toBeFocused();
+  await gammaUp.click();
+  await expect(demo.getByRole('listitem')).toHaveText([
+    'Gamma',
+    'Alpha',
+    'Beta',
+  ]);
+  await expect(gammaUp).toBeDisabled();
+
+  // Hide two: the last one shown cannot be hidden.
+  await editor.getByRole('switch', { name: 'Show Alpha' }).click();
+  await editor.getByRole('switch', { name: 'Show Beta' }).click();
+  await expect(demo.getByRole('listitem')).toHaveText(['Gamma']);
+  await expect(
+    editor.getByRole('switch', { name: 'Show Gamma' }),
+  ).toBeDisabled();
+  await expect(editor.locator('[data-section-row="alpha"]')).toContainText(
+    'Hidden',
+  );
+
+  // Shown again, in its place.
+  await editor.getByRole('switch', { name: 'Show Beta' }).click();
+  await expect(demo.getByRole('listitem')).toHaveText(['Gamma', 'Beta']);
+  await expectAccessible(page);
+  if (isMobile(page)) {
+    const box = await editor
+      .getByRole('button', { name: 'Move Beta up' })
+      .boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test('pickers are typeahead comboboxes you can drive by keyboard', async ({
   page,
 }) => {

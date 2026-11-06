@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { toggleCheck } from '#shared/markdown';
 import { namesToTokens } from '#shared/mentions';
-import type { Link, Priority } from '#shared/types';
+import {
+  applyPagePatch,
+  type PageSection,
+  visibleSections,
+} from '#shared/pages';
+import type { Link, PagePrefs, Priority } from '#shared/types';
 import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { LinksEditor } from '@/components/inputs/LinksEditor';
@@ -13,6 +18,7 @@ import { Markdown } from '@/components/Markdown';
 import { NoteComposer } from '@/components/NoteComposer';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
+import { SectionsEditor } from '@/components/SectionsEditor';
 import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +48,14 @@ const SAMPLE = [
   '```',
 ].join('\n');
 
+/** Sections for Settings → Pages' editor (#310), shown here on their own. */
+const DEMO_SECTIONS: readonly PageSection[] = [
+  { key: 'alpha', label: 'Alpha' },
+  { key: 'beta', label: 'Beta' },
+  { key: 'gamma', label: 'Gamma' },
+];
+const DEMO_KEYS = DEMO_SECTIONS.map((s) => s.key);
+
 export default function DevComponentsPage() {
   usePageTitle('Components');
   const { show } = useToast();
@@ -56,6 +70,7 @@ export default function DevComponentsPage() {
   const [draft, setDraft] = useState('');
   const { state } = useDatapad();
   const [name, setName] = useState('');
+  const [sectionPrefs, setSectionPrefs] = useState<PagePrefs>({});
   const dirty = useDirty({ name }, { name: '' });
 
   return (
@@ -135,6 +150,25 @@ export default function DevComponentsPage() {
             people={state?.people ?? {}}
           />
         </div>
+      </section>
+
+      <section aria-labelledby="sections-title" className="flex flex-col gap-2">
+        <h2 id="sections-title" className="text-xs font-medium">
+          Page sections
+        </h2>
+        <SectionsEditor
+          label="Demo"
+          sections={DEMO_SECTIONS}
+          prefs={sectionPrefs}
+          onChange={(patch) =>
+            setSectionPrefs((p) => applyPagePatch(p, patch) ?? {})
+          }
+        />
+        <ol aria-label="Demo page" className="flex flex-col gap-1 text-sm">
+          {visibleSections(DEMO_KEYS, sectionPrefs).map((key) => (
+            <li key={key}>{DEMO_SECTIONS.find((s) => s.key === key)?.label}</li>
+          ))}
+        </ol>
       </section>
 
       <LayoutsDemo />

@@ -1,6 +1,7 @@
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react';
 import {
   currentValues,
+  hasPageSettings,
   optionsFor,
   PAGES,
   type PrefField,
@@ -9,6 +10,7 @@ import {
   savedPrefs,
   sectionCounts,
 } from '#shared/pages';
+import type { PagePrefsPatch } from '#shared/protocol';
 import {
   PAGE_KEYS,
   type PageKey,
@@ -18,6 +20,7 @@ import {
 } from '#shared/types';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import { SectionsEditor } from '@/components/SectionsEditor';
 import { defaultTaskView } from '@/components/tasks/TaskLayouts';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -46,12 +49,19 @@ function describeSections(prefs: PagePrefs, keys?: readonly string[]): string {
   return `${parts.join(', ')} as you left ${closed + open === 1 ? 'it' : 'them'}.`;
 }
 
+/** The pages with something to set; one with nothing yet is left out. */
+const LISTED = PAGE_KEYS.filter(hasPageSettings);
+/** Whether any listed page lets you hide and move its sections (#310). */
+const ANY_SECTIONS = LISTED.some(
+  (page) => (PAGES[page].sectionKeys?.length ?? 0) > 0,
+);
+
 /**
  * Settings → Pages (#186): what each page remembers in the open space (its
- * layout, sort and grouping, filters, and sections left open or closed),
- * with the controls the page itself uses. A change here is saved at once;
- * Reset puts one page back to its defaults, Reset all every page, both
- * with Undo.
+ * layout, sort and grouping, filters, settings kept out of the address, and
+ * sections left open or closed, hidden or moved), with the controls the
+ * page itself uses. A change here is saved at once; Reset puts one page
+ * back to its defaults, Reset all every page, both with Undo.
  */
 export function PagesSettings() {
   const { state, actions } = useDatapad();
@@ -102,6 +112,8 @@ export function PagesSettings() {
           {name}, so every device you use opens pages the same way. A link that
           names its own settings still shows them. The search text is never
           saved.
+          {ANY_SECTIONS &&
+            ' Some pages also let you hide sections or change their order here.'}
         </p>
         <Button
           variant="outline"
@@ -114,7 +126,7 @@ export function PagesSettings() {
         </Button>
       </div>
       <ul aria-label="Pages" className="flex flex-col gap-4">
-        {PAGE_KEYS.map((page) => (
+        {LISTED.map((page) => (
           <li key={page}>
             <PageCard
               page={page}
@@ -127,6 +139,7 @@ export function PagesSettings() {
                   true,
                 )
               }
+              onSections={(patch) => save(page, patch, true)}
               onReset={() => reset(page)}
             />
           </li>
@@ -141,12 +154,14 @@ function PageCard({
   prefs,
   state,
   onChange,
+  onSections,
   onReset,
 }: {
   page: PageKey;
   prefs: PagePrefs;
   state: Snapshot;
   onChange: (key: string, value: string, def: string) => void;
+  onSections: (patch: PagePrefsPatch) => void;
   onReset: () => void;
 }) {
   const spec = PAGES[page];
@@ -175,7 +190,15 @@ function PageCard({
           Reset
         </Button>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
+      {spec.sectionKeys && spec.sectionKeys.length > 0 && (
+        <SectionsEditor
+          label={spec.label}
+          sections={spec.sectionKeys}
+          prefs={prefs}
+          onChange={onSections}
+        />
+      )}
+      <div className="grid grid-cols-1 gap-3 empty:hidden sm:grid-cols-2 sm:items-end">
         {spec.fields.map((field) => {
           const def = defaultOf(page, field);
           const value = values[field.key] ?? def;
@@ -203,7 +226,7 @@ function PageCard({
       </div>
       {spec.sections && (
         <p className="text-xs text-muted-foreground">
-          {describeSections(prefs, spec.sectionKeys)}
+          {describeSections(prefs, spec.collapsible)}
         </p>
       )}
     </section>

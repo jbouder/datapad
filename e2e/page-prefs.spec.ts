@@ -275,6 +275,34 @@ test('this browser’s earlier choices carry over once', async ({
   await expectStored(request, 'project', { sections: { activity: true } });
 });
 
+test('hidden and ordered sections reset and come back with Undo (#310)', async ({
+  page,
+  request,
+}) => {
+  const saved = {
+    sections: { notes: false },
+    hidden: ['activity'],
+    order: ['tasks', 'milestones'],
+  };
+  await request.post('/api/import', {
+    data: {
+      settings: { user: { defaultOrg: '', pages: { project: saved } } },
+    },
+  });
+  await expectStored(request, 'project', saved);
+  await openLive(page, '/settings/pages');
+  // The detail pages with nothing to set yet are not listed.
+  for (const name of ['Task page', 'Meeting page', 'List page']) {
+    await expect(page.getByRole('region', { name })).toHaveCount(0);
+  }
+  const project = page.getByRole('region', { name: 'Project page' });
+  await expect(project.getByText('Saved', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Reset Project page' }).click();
+  await expectStored(request, 'project', null);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expectStored(request, 'project', saved);
+});
+
 test('a saved Feed on Notes reads as List (#218)', async ({
   page,
   request,

@@ -1258,6 +1258,14 @@ function apply(d: Draft, op: Op, now: string) {
       if (Object.keys(next?.sections ?? {}).length > LIMITS.prefSectionsMax) {
         fail(`${LIMITS.prefSectionsMax} saved sections per page at most`);
       }
+      // Hidden and ordered sections (#310): each once, within the limit.
+      for (const list of [next?.hidden, next?.order]) {
+        if (!list) continue;
+        if (list.length > LIMITS.prefSectionsMax) {
+          fail(`${LIMITS.prefSectionsMax} sections per page at most`);
+        }
+        if (new Set(list).size !== list.length) fail('Each section once');
+      }
       if (next) pages[op.page] = next;
       else delete pages[op.page];
       d.set('settings', SETTINGS_ID, { ...current, pages });

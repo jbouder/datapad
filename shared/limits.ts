@@ -58,7 +58,10 @@ export const LIMITS = {
   prefValueMax: 120,
   /** Filters saved for one page. */
   prefFiltersMax: 12,
-  /** Sections remembered on one page. */
+  /**
+   * Sections remembered on one page; also the most section keys one
+   * page's `hidden` or `order` may name (#310).
+   */
   prefSectionsMax: 24,
   /** Ops in one batch (bulk actions and their undo). */
   batchMax: 200,
