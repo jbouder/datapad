@@ -44,7 +44,7 @@ changes the format says so here under **Export format**.
   and ⌘K too. ⌘K and the MCP `search` tool find lists by their title
   and by any item's text; a hit on an item shows that item.
 - **Lists on the project page; Make task from an item** (#301): a Lists
-  section between Milestones and Tasks, with Add list and a row per
+  section on the right under Notes, with Add list and a row per
   list (progress and its next open item; done lists last and muted),
   collapsible and remembered. An item's menu has Make task, which opens
   the new-task panel with the item's text and the list's project; the

@@ -55,7 +55,7 @@ import { useToast } from '@/providers/ToastProvider';
  * One project, where most entry happens: the header with its facts and
  * actions (Edit; under More, Summarize, Move to…, Save as template while
  * it has open tasks, and Archive), the
- * description, then Milestones, Lists, Tasks and Meetings on the left, Notes,
+ * description, then Milestones, Tasks and Meetings on the left, Notes, Lists,
  * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
  * remember open or closed, one set for every project (#186).
  */
@@ -311,13 +311,6 @@ export function ProjectPage({ id }: { id: string }) {
             today={today}
             remember={key('milestones')}
           />
-          <Suspense fallback={null}>
-            <ProjectLists
-              projectId={id}
-              lists={state.lists}
-              remember={key('lists')}
-            />
-          </Suspense>
           <Section
             title="Tasks"
             count={tasks.open.length}
@@ -427,6 +420,13 @@ export function ProjectPage({ id }: { id: string }) {
               )}
             </div>
           </Section>
+          <Suspense fallback={null}>
+            <ProjectLists
+              projectId={id}
+              lists={state.lists}
+              remember={key('lists')}
+            />
+          </Suspense>
           <Section
             title="Whiteboard"
             count={boardItems.length}
