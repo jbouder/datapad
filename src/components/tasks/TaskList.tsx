@@ -18,10 +18,11 @@ import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
 
 /**
- * Open tasks, then a collapsible Done section. Rows FLIP between the two
- * lists when a task closes or reopens (and when another device reorders
- * them). Used by Focus and the project
- * page; the Tasks view has its own table.
+ * Open tasks, then a collapsible Done section, or with `doneInline` (the
+ * project page's Show done, #318) the done tasks after the open ones in
+ * the same list. Rows FLIP between the two when a task closes or reopens
+ * (and when another device reorders them). Used by Person detail and the
+ * project page; the Tasks view has its own table.
  */
 export function TaskList({
   label,
@@ -32,11 +33,12 @@ export function TaskList({
   onOpen,
   empty = 'No open tasks.',
   reorderProject,
+  doneInline = false,
 }: {
   /** Names the open list for assistive tech ("Open tasks"). */
   label: string;
   open: Task[];
-  /** Omit to leave the Done section out (Focus). */
+  /** Omit to leave the done tasks out (Person detail). */
   done?: Task[];
   showProject?: boolean;
   /** Where the Done section's open or closed is saved. */
@@ -49,6 +51,11 @@ export function TaskList({
    * `null` is General.
    */
   reorderProject?: string | null;
+  /**
+   * `done` follows the open tasks in the same list, struck through, with
+   * no Done section of its own (#318).
+   */
+  doneInline?: boolean;
 }) {
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
@@ -101,6 +108,9 @@ export function TaskList({
   );
 
   if (!state) return null;
+  const inline = doneInline ? (done ?? []) : [];
+  /** Dragging to the end of the open tasks, with done rows below them. */
+  const dropAtEnd = dragId !== null && overIndex === open.length;
   const row = (task: Task, index?: number) => {
     const reorder: RowReorder | undefined =
       reorderable && index !== undefined
@@ -136,10 +146,15 @@ export function TaskList({
         data-flip-id={task.id}
         draggable={reorder ? armedId === task.id : undefined}
         data-drop-before={
-          dragId && overIndex === index && dragId !== task.id ? '' : undefined
+          (dragId && overIndex === index && dragId !== task.id) ||
+          (dropAtEnd && task.id === inline[0]?.id)
+            ? ''
+            : undefined
         }
+        data-inline-done={index === undefined && doneInline ? '' : undefined}
         className={cn(
-          reorder && 'task-drop-target',
+          (reorder || (doneInline && task.id === inline[0]?.id)) &&
+            'task-drop-target',
           dragId === task.id && 'opacity-50',
         )}
         onKeyDown={
@@ -205,9 +220,10 @@ export function TaskList({
 
   return (
     <div ref={container} className="flex flex-col gap-3">
-      {open.length === 0 ? (
+      {open.length === 0 && (
         <p className="text-sm text-muted-foreground">{empty}</p>
-      ) : (
+      )}
+      {open.length + inline.length > 0 && (
         <>
           {touchMode && (
             <div className="flex items-center gap-2 text-sm">
@@ -229,14 +245,20 @@ export function TaskList({
             aria-label={label}
             className={cn(
               'flex flex-col border-t',
-              dragId && overIndex === open.length && 'task-drop-end',
+              dropAtEnd && inline.length === 0 && 'task-drop-end',
             )}
             onDragOver={
               dragId
                 ? (event) => {
                     event.preventDefault();
-                    // Below the last row: the end of the list.
-                    if (event.target === event.currentTarget) {
+                    // Below the last row, or over the done ones after
+                    // it: the end of the open tasks.
+                    if (
+                      event.target === event.currentTarget ||
+                      (event.target as HTMLElement).closest?.(
+                        '[data-inline-done]',
+                      )
+                    ) {
                       setOverIndex(open.length);
                     }
                   }
@@ -248,6 +270,7 @@ export function TaskList({
             }}
           >
             {open.map((t, i) => row(t, reorderable ? i : undefined))}
+            {inline.map((t) => row(t))}
           </ul>
         </>
       )}
@@ -256,7 +279,7 @@ export function TaskList({
           {announcement}
         </p>
       )}
-      {done && done.length > 0 && (
+      {!doneInline && done && done.length > 0 && (
         <Section
           title="Done"
           count={done.length}

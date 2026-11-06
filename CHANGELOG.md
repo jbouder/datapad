@@ -58,6 +58,11 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- **Show done on the project page** (#318): the Done group inside Tasks
+  is gone. A Show done toggle in the Tasks header lists the done tasks
+  after the open ones, in the same list, and shows the board's Done
+  column. It is remembered with the project page and is also in
+  Settings → Pages. The Tasks count is still the open count.
 - **People and Orgs are sections**: in the rail after Lists, and in
   Settings → Navigation like the rest (Show, Phone, order). Off the
   phone's tab bar by default. Still Settings sections at the same

@@ -320,9 +320,13 @@ const DONE = 'done';
  * priorities; with no grouping, by status). Every column is there even
  * when empty, so it can take a drop. Dragging a card, or its Move to
  * menu, edits the field the columns stand for; the Done column (when on)
- * closes, and leaving it reopens.
+ * closes, and leaving it reopens. With `showDone` the caller decides
+ * whether the Done column shows (the project page's Show done, #318) and
+ * the board's own checkbox is left out.
  */
-export function TaskBoard(props: TaskLayoutProps & { doneTasks: Task[] }) {
+export function TaskBoard(
+  props: TaskLayoutProps & { doneTasks: Task[]; showDone?: boolean },
+) {
   const {
     groups,
     filters,
@@ -334,7 +338,9 @@ export function TaskBoard(props: TaskLayoutProps & { doneTasks: Task[] }) {
     openTask,
     change,
   } = props;
-  const [showDone, setShowDone] = useState(filters.status !== 'open');
+  const [showDoneHere, setShowDone] = useState(filters.status !== 'open');
+  const controlled = props.showDone !== undefined;
+  const showDone = props.showDone ?? showDoneHere;
   const by = filters.group === 'none' ? 'status' : filters.group;
   const open = groups.flatMap((g) => g.rows).filter((t) => t.status === 'open');
 
@@ -452,7 +458,7 @@ export function TaskBoard(props: TaskLayoutProps & { doneTasks: Task[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {by !== 'status' && (
+      {by !== 'status' && !controlled && (
         <label
           htmlFor="board-show-done"
           className="flex min-h-11 items-center gap-2 self-end text-xs desk:min-h-8"

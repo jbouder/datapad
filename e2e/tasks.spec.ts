@@ -11,7 +11,9 @@ import {
 } from './fixtures';
 
 const openList = (page: Page) => page.getByRole('list', { name: 'Open tasks' });
-const doneList = (page: Page) => page.getByRole('list', { name: 'Done tasks' });
+/** The open and done tasks in one list, with Show done on (#318). */
+const allList = (page: Page) =>
+  page.getByRole('list', { name: 'Tasks', exact: true });
 /** Click a row's checkbox the way a person does: on its 44px label. */
 async function toggle(page: Page, name: string) {
   await page
@@ -65,21 +67,26 @@ test('add three tasks from the project page, close one, undo', async ({
     /Tune the deflector/,
   ]);
 
-  // Close one: it moves to Done (collapsed until opened).
+  // Close one: it leaves the list (done tasks show with Show done, #318).
   await toggle(page, 'Close “Patch the hull”');
   await expect(page.getByText('Closed “Patch the hull”')).toBeVisible();
   await expect(openList(page)).not.toContainText('Patch the hull');
-  await expect(doneList(page)).toBeHidden();
-  await page.getByRole('button', { name: /^Done/ }).click();
-  await expect(doneList(page)).toContainText('Patch the hull');
+  await page.getByRole('button', { name: 'Show done' }).click();
+  await expect(allList(page).getByRole('listitem').last()).toContainText(
+    'Patch the hull',
+  );
   await expect(
     page.getByRole('checkbox', { name: 'Reopen “Patch the hull”' }),
   ).toBeChecked();
 
-  // Undo puts it back in the open list.
+  // Undo puts it back with the open tasks.
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(openList(page)).toContainText('Patch the hull');
-  await expect(page.getByRole('button', { name: /^Done/ })).toHaveCount(0);
+  await expect(
+    page.getByRole('checkbox', { name: 'Close “Patch the hull”' }),
+  ).not.toBeChecked();
+  await expect(allList(page).getByRole('listitem').nth(1)).toContainText(
+    'Patch the hull',
+  );
 
   // The log has the pair: closed, then reopened.
   await expectSaved(page);

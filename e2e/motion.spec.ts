@@ -31,9 +31,7 @@ async function animationsDuring(
               : a instanceof CSSTransition
                 ? `transition:${a.transitionProperty}`
                 : a.id || 'animation';
-          const where = target?.closest('[aria-label="Done tasks"]')
-            ? ' in Done'
-            : '';
+          const where = target?.closest('[data-inline-done]') ? ' in Done' : '';
           return `${name} on ${target?.tagName.toLowerCase() ?? '?'}${effect?.pseudoElement ?? ''}${where}`;
         };
         const end = performance.now() + 1000;
@@ -56,9 +54,9 @@ async function animationsDuring(
           ).click();
         } else if (kind === 'openDone') {
           (
-            [
-              ...document.querySelectorAll('button[aria-expanded="false"]'),
-            ].find((b) => b.textContent?.startsWith('Done')) as HTMLElement
+            [...document.querySelectorAll('button[aria-pressed]')].find(
+              (b) => b.textContent?.trim() === 'Show done',
+            ) as HTMLElement
           ).click();
         } else if (kind === 'closeTask') {
           (
@@ -137,7 +135,7 @@ test.describe('closing a task', () => {
       expect(seen).toMatch(/animation on li/);
     });
 
-    test('opening Done does not slide its rows in from the corner', async ({
+    test('Show done does not slide done rows in from the corner', async ({
       page,
       request,
     }) => {
@@ -147,15 +145,13 @@ test.describe('closing a task', () => {
         .locator('[data-task-id] input[type="checkbox"]')
         .first()
         .evaluate((el) => (el as HTMLElement).click());
-      const done = page.getByRole('button', { name: /^Done/, expanded: false });
-      await expect(done).toBeVisible();
-      // The rows were hidden, so they have no old position to slide from.
-      // (Sections below Done may still move down to make room.)
+      const show = page.getByRole('button', { name: 'Show done' });
+      await expect(show).toHaveAttribute('aria-pressed', 'false');
+      // The done rows were not rendered, so they have no old position to
+      // slide from. (Sections below may still move down to make room.)
       const seen = await animationsDuring(page, 'openDone');
       expect(seen.filter((s) => s.endsWith(' in Done'))).toEqual([]);
-      await expect(
-        page.getByRole('list', { name: 'Done tasks' }),
-      ).toBeVisible();
+      await expect(page.locator('[data-inline-done]').first()).toBeVisible();
     });
   });
 });

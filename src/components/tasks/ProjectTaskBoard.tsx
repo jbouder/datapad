@@ -16,15 +16,20 @@ export const PROJECT_TASK_VIEWS: readonly ViewOption<'list' | 'board'>[] = [
   { id: 'board', label: 'Board', icon: KanbanIcon },
 ];
 
-/** A project's tasks as a board by due date (its List is the TaskList). */
+/**
+ * A project's tasks as a board by due date (its List is the TaskList).
+ * The Done column shows with the page's Show done (#318).
+ */
 export function ProjectTaskBoard({
   projectId,
   open,
   done,
+  showDone,
 }: {
   projectId: string;
   open: Task[];
   done: Task[];
+  showDone: boolean;
 }) {
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
@@ -53,6 +58,7 @@ export function ProjectTaskBoard({
     <TaskBoard
       groups={[{ id: projectId, label: '', rows: open }]}
       doneTasks={done}
+      showDone={showDone}
       filters={{ ...DEFAULT_TASK_FILTERS, group: 'due' }}
       state={state}
       today={localDate(new Date())}
