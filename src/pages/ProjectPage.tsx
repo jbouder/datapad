@@ -3,6 +3,7 @@ import {
   ArrowsLeftRightIcon,
   ChalkboardSimpleIcon,
   ChecksIcon,
+  ClockCounterClockwiseIcon,
   CopySimpleIcon,
   PlusIcon,
   SparkleIcon,
@@ -62,7 +63,6 @@ import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import {
   usePageSections,
-  usePageSetting,
   usePageSettingState,
 } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
@@ -75,8 +75,9 @@ import { useToast } from '@/providers/ToastProvider';
  * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
  * remember open or closed, one set for every project (#186). Settings →
  * Pages hides and reorders them (#312): each column on desktop, and the
- * one column on a phone, follows the saved order; Meetings shows can
- * leave out past meetings. Show done in the Tasks header (#318) puts the
+ * one column on a phone, follows the saved order. Show past in the
+ * Meetings header (#320) puts the past meetings after the upcoming ones,
+ * in one list. Show done in the Tasks header (#318) puts the
  * done tasks after the open ones, in one list, and the board's Done column.
  */
 export function ProjectPage({ id }: { id: string }) {
@@ -116,7 +117,10 @@ export function ProjectPage({ id }: { id: string }) {
     [state?.meetings, id],
   );
   const { visible } = usePageSections('project');
-  const upcomingOnly = usePageSetting('project', 'meetings') === 'upcoming';
+  // Show past (#320): past meetings after the upcoming ones, in one list;
+  // saved with the page, also set in Settings → Pages.
+  const [pastSetting, setPastSetting] = usePageSettingState('project', 'past');
+  const showPast = pastSetting === 'show';
   // Show done (#318): done tasks after the open ones, and the board's Done
   // column; saved with the page, also set in Settings → Pages.
   const [doneSetting, setDoneSetting] = usePageSettingState('project', 'done');
@@ -158,10 +162,9 @@ export function ProjectPage({ id }: { id: string }) {
   }
 
   const today = localDate(new Date());
-  // Meetings shows (#312): Upcoming leaves out the past ones.
-  const shownMeetings = upcomingOnly
-    ? meetings.filter((e) => e.date >= today)
-    : meetings;
+  const shownMeetings = showPast
+    ? meetings
+    : meetings.filter((e) => e.date >= today);
   const boardItems = itemsOf(state.boardItems, id);
   const members = project.members
     .map((m) => state.people[m])
@@ -283,14 +286,25 @@ export function ProjectPage({ id }: { id: string }) {
         count={meetings.filter((e) => e.date >= today).length}
         remember={key('meetings')}
         actions={
-          <Button
-            variant="outline"
-            className="press h-11 desk:h-8"
-            onClick={() => newMeeting({ projectId: id, fixedProject: true })}
-          >
-            <PlusIcon />
-            Add meeting
-          </Button>
+          <>
+            <Toggle
+              variant="outline"
+              className="press h-11 desk:h-8"
+              pressed={showPast}
+              onPressedChange={(on) => setPastSetting(on ? 'show' : 'hide')}
+            >
+              <ClockCounterClockwiseIcon />
+              Show past
+            </Toggle>
+            <Button
+              variant="outline"
+              className="press h-11 desk:h-8"
+              onClick={() => newMeeting({ projectId: id, fixedProject: true })}
+            >
+              <PlusIcon />
+              Add meeting
+            </Button>
+          </>
         }
       >
         <div className="pt-2">
@@ -301,6 +315,7 @@ export function ProjectPage({ id }: { id: string }) {
             showProject={false}
             headingLevel={3}
             empty="Nothing coming up on this project."
+            pastInline
           />
         </div>
       </Section>

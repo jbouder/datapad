@@ -59,36 +59,51 @@ describe('the project page', () => {
     expect(projectColumns(['notes'])).toEqual({ left: [], right: ['notes'] });
   });
 
-  it('keeps Meetings shows out of the address', () => {
-    const field = PAGES.project.fields.find((f) => f.key === 'meetings');
-    expect(field).toMatchObject({ def: 'all', settingsOnly: true });
+  it('has Show past, not Meetings shows, and keeps it out of the address (#320)', () => {
+    expect(PAGES.project.fields.map((f) => f.key)).not.toContain('meetings');
+    const field = PAGES.project.fields.find((f) => f.key === 'past');
+    expect(field).toMatchObject({
+      label: 'Past meetings',
+      def: 'hide',
+      settingsOnly: true,
+    });
+    expect(field?.options?.map((o) => o.value)).toEqual(['hide', 'show']);
     expect(filterFields('project')).toEqual([]);
     expect(
-      currentValues(
-        'project',
-        { filters: { meetings: 'upcoming' } },
-        emptySnapshot(),
-      ),
-    ).toEqual({ meetings: 'upcoming' });
+      currentValues('project', { filters: { past: 'show' } }, emptySnapshot()),
+    ).toEqual({ past: 'show' });
     // A value it does not have reads as the default.
     expect(
-      currentValues(
-        'project',
-        { filters: { meetings: 'past' } },
-        emptySnapshot(),
-      ),
+      currentValues('project', { filters: { past: 'all' } }, emptySnapshot()),
     ).toEqual({});
     expect(
-      effectiveQuery('project', q('meetings=upcoming'), {
-        meetings: 'upcoming',
+      effectiveQuery('project', q('past=show'), {
+        past: 'show',
         view: 'board',
       }).toString(),
     ).toBe('view=board');
-    expect(planChange('project', { meetings: 'upcoming' }, {})).toEqual({
+    expect(planChange('project', { past: 'show' }, {})).toEqual({
       url: {},
       pin: {},
-      patch: { filters: { meetings: 'upcoming' } },
+      patch: { filters: { past: 'show' } },
     });
+    // The default is saved as nothing.
+    expect(planChange('project', { past: 'hide' }, {})).toEqual({
+      url: {},
+      pin: {},
+      patch: { filters: { past: null } },
+    });
+  });
+
+  it('reads a saved Meetings shows as Hide (#320)', () => {
+    for (const meetings of ['upcoming', 'all']) {
+      expect(
+        currentValues('project', { filters: { meetings } }, emptySnapshot()),
+      ).toEqual({});
+      expect(effectiveQuery('project', q(''), { meetings }).toString()).toBe(
+        '',
+      );
+    }
   });
 });
 

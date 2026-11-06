@@ -422,14 +422,19 @@ export function projectColumns(visible: readonly string[]): {
   };
 }
 
-/** The project page's Meetings shows (#312): set in Settings → Pages. */
-const projectMeetingsField: PrefField = {
-  key: 'meetings',
-  label: 'Meetings shows',
-  def: 'all',
+/**
+ * The project page's Show past (#320): past meetings after the upcoming
+ * ones in Meetings' list. Set from the toggle in the Meetings header or in
+ * Settings → Pages; never in the address. It replaced Meetings shows
+ * (#312), whose saved `meetings` is ignored, so it reads as Hide.
+ */
+const projectPastField: PrefField = {
+  key: 'past',
+  label: 'Past meetings',
+  def: 'hide',
   options: [
-    { value: 'all', label: 'All' },
-    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'hide', label: 'Hide' },
+    { value: 'show', label: 'Show' },
   ],
   control: 'segmented',
   settingsOnly: true,
@@ -729,8 +734,8 @@ export const PAGES: Record<PageKey, PageSpec> = {
         'list',
         'Tasks layout',
       ),
-      projectMeetingsField,
       projectDoneField,
+      projectPastField,
     ],
     sections: true,
     sectionKeys: PROJECT_PAGE_SECTIONS,

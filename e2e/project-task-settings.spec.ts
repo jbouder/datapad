@@ -1,19 +1,17 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
-import { addDays } from '../shared/dates';
 import {
   expect,
   expectNoSidewaysScroll,
   openLive,
   SEED,
   test,
-  today,
 } from './fixtures';
 
 /**
  * The project page's and the task page's settings (#312), set in
- * Settings → Pages: the project page's sections hidden and moved, its
- * Meetings showing only upcoming ones, and the task page's source note
- * collapsed or hidden.
+ * Settings → Pages: the project page's sections hidden and moved, and
+ * the task page's source note collapsed or hidden. (Meetings shows gave
+ * way to Show past, #320: `project-show-past.spec.ts`.)
  */
 
 test.beforeEach(async ({ request }) => {
@@ -89,43 +87,6 @@ test('hide and reorder the project page’s sections', async ({
   await expect(names.filter({ hasText: /^Whiteboard/ })).toHaveCount(0);
   await expect(names.filter({ hasText: /^Notes/ })).toHaveCount(1);
   await expectNoSidewaysScroll(page);
-});
-
-test('Meetings shows Upcoming leaves out past meetings', async ({
-  page,
-  request,
-}) => {
-  const shield = SEED.meetings['e-1'];
-  await request.post('/api/import', {
-    data: {
-      ...SEED,
-      meetings: {
-        ...SEED.meetings,
-        'e-past': {
-          ...shield,
-          id: 'e-past',
-          title: 'Evacuation drill',
-          date: addDays(today(), -5),
-          topics: [],
-        },
-      },
-    },
-  });
-  const meetings = page.getByRole('region', { name: /^Meetings/ });
-  await openLive(page, '/projects/p-echo');
-  // All, by default: the past one is under Past.
-  await expect(meetings.getByRole('button', { name: /^Past/ })).toBeVisible();
-
-  await openLive(page, '/settings/pages');
-  await choose(card(page, 'Project page'), 'Meetings shows', 'Upcoming');
-  await expectStored(request, 'project', {
-    filters: { meetings: 'upcoming' },
-  });
-
-  await openLive(page, '/projects/p-echo');
-  await expect(meetings).toContainText('Shield review');
-  await expect(meetings.getByRole('button', { name: /^Past/ })).toHaveCount(0);
-  await expect(meetings).not.toContainText('Evacuation drill');
 });
 
 test('the task page collapses or hides its source note', async ({
