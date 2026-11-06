@@ -2933,7 +2933,7 @@ describe('setNav', () => {
     // Not logged, like setSettings.
     expect(next.activity).toBe(state.activity);
     expect(
-      OpSchema.safeParse({ type: 'setNav', patch: { hidden: ['people'] } })
+      OpSchema.safeParse({ type: 'setNav', patch: { hidden: ['ideas'] } })
         .success,
     ).toBe(false);
     expect(OpSchema.safeParse({ type: 'setNav', patch: {} }).success).toBe(

@@ -241,7 +241,7 @@ the AUD, so a hostname that Access does not cover gets 401.
 ## Deploy from GitHub Actions
 
 `.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
-knip, type check, build, the bundle budget, Vitest in workerd with
+knip, type check, build, Vitest in workerd with
 coverage, then Playwright + axe (desktop and phone) against `vite
 preview`, split across four runners on the Playwright container image.
 The `check` job also runs `bun audit` and fails on a known advisory of
@@ -253,11 +253,6 @@ against an allowlist. Each of these fails the job:
 - **knip** (`npm run knip`, `knip.jsonc`): no unused file, export or
   dependency. Delete what is unused; ignore something only with a reason
   in `knip.jsonc`.
-- **Bundle budget** (`npm run build && npm run budget`,
-  `scripts/budget.ts`): what `index.html` loads up front (its script, the
-  chunks it preloads, its stylesheet) stays under the gzip budgets, and
-  WebLLM is never in it. Raise a budget only on purpose, in the change
-  that needs it.
 - **Coverage** (`npm run test:coverage`, `vitest.config.ts`): floors on
   `shared/` and `worker/`, just under where the suite is. Raise them as
   it grows. `.github/workflows/codeql.yml`

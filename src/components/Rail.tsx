@@ -19,7 +19,8 @@ const CURRENT =
 
 /**
  * The desktop rail (≥ 820px): the space switcher, the sections with live
- * counts (those Settings → Navigation shows, in its order), the Tools
+ * counts (those Settings → Navigation shows, in its order; People and
+ * Orgs among them, Settings sections linked here too), the Tools
  * (#261: Notepad, Whiteboard, Weekly digest, those shown, in their order;
  * the heading goes when none is), the active projects (most recently
  * updated first) with their open counts, Archived when there is any (each

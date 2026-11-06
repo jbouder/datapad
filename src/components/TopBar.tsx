@@ -27,7 +27,7 @@ import { linkProps } from '@/lib/router';
  * (a colored dot, with its word on desktop), Search (with
  * its shortcut on desktop), **+** (a menu of the space's quick-add actions,
  * Add task and Write a note by default; with one, + does it directly) and
- * the account menu (Refresh and Help are there).
+ * the account menu (Help is there).
  */
 export function TopBar({
   title,

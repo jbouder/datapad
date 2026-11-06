@@ -19,9 +19,10 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // The spaces (the phone's switcher), Motion and Theme, then Settings,
-  // then Sign out. No People or Orgs (they are in Settings), and no New
-  // space… or Manage spaces (Settings → Spaces does that).
+  // The spaces (the phone's switcher), Motion and Theme, then (on a
+  // phone) the Pages, then Help, Settings and Sign out. No Refresh
+  // (Settings → Account has it), and no New space… or Manage spaces
+  // (Settings → Spaces does that).
   await expect(
     page
       .getByRole('menu')
@@ -34,12 +35,11 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'System',
     'Light',
     'Dark',
-    // Lists (#299), off the tab bar, and the tools (#261): the rail has
-    // them on desktop.
+    // Lists (#299), off the tab bar, the tools (#261), People and Orgs:
+    // the rail has them on desktop.
     ...(isMobile(page)
-      ? ['Lists', 'Notepad', 'Whiteboard', 'Weekly digest']
+      ? ['Lists', 'People', 'Orgs', 'Notepad', 'Whiteboard', 'Weekly digest']
       : []),
-    'Refresh',
     'Help',
     'Settings',
     'Sign out',
@@ -65,10 +65,6 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'Connected apps',
     'Account',
   ]);
-  const sections = page.getByRole('navigation', { name: 'Sections' });
-  await expect(sections.getByRole('link', { name: /People|Orgs/ })).toHaveCount(
-    0,
-  );
   // No signed-in email in the rail; the account menu shows it.
   await expect(page.getByRole('complementary').getByText(email)).toHaveCount(0);
   // No Import / Export in the rail any more.
@@ -279,4 +275,18 @@ test('Data and Account', async ({ page, request, email }) => {
   await expect(page.getByTestId('build')).toHaveText(
     `About: Datapad ${health.version}, commit ${health.commit}.`,
   );
+
+  // Refresh reloads the page.
+  await page.evaluate(() => {
+    (window as unknown as { before?: boolean }).before = true;
+  });
+  const reloaded = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Refresh' }).click();
+  await reloaded;
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { before?: boolean }).before,
+    ),
+  ).toBeUndefined();
+  await expect(page).toHaveURL(/\/settings\/account$/);
 });

@@ -17,6 +17,32 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Changed
+
+- **People and Orgs are sections**: in the rail after Lists, and in
+  Settings → Navigation like the rest (Show, Phone, order). Off the
+  phone's tab bar by default. Still Settings sections at the same
+  addresses.
+- **Refresh moved to Settings → Account** (and stays in ⌘K); the account
+  menu no longer has it.
+- **Pages in the phone's account menu**: the shown sections and tools the
+  tab bar leaves out (Lists, People, Orgs and the tools, by default) sit
+  in their own Pages group.
+
+### Removed
+
+- **The bundle budget check** (`scripts/budget.ts`, `npm run budget`):
+  CI no longer fails on the entry's gzip size, nor checks that WebLLM
+  stays out of the entry.
+
+### Fixed
+
+- **Rows no longer slide on their own**: Focus's rows (and other lists
+  that slide when they reorder) jumped and slid back when the live data
+  arrived after loading, or after a section was toggled while scrolled.
+  Their positions are now measured inside the list, so scrolling and the
+  page's entrance no longer read as a move.
+
 ## [0.4.0] — 2026-11-05
 
 Lists: titled checklists on a project or in General, with their own

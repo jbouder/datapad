@@ -208,26 +208,36 @@ test('Refresh reloads the page and keeps changes still waiting', async ({
   await addTask(page, 'Patch the hangar roof');
   await expect(status(page)).toContainText('Offline, 1 change waiting');
 
+  // In Settings → Account; the top bar has no button for it. Getting
+  // there is client-side, so the change is still waiting.
+  await expect(
+    page.getByRole('banner').getByRole('button', { name: 'Refresh' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Account and settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings' })
+    .getByRole('link', { name: 'Account' })
+    .click();
+  await expect(status(page)).toContainText('Offline, 1 change waiting');
+
   // A marker on the old page tells a real reload from a re-render.
   await page.evaluate(() => {
     (window as unknown as { before?: boolean }).before = true;
   });
   blocked = false;
   let reloaded = page.waitForEvent('load');
-  // In the account menu, at every width; the top bar has no button for it.
-  await expect(
-    page.getByRole('banner').getByRole('button', { name: 'Refresh' }),
-  ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Account and settings' }).click();
-  await page.getByRole('menuitem', { name: 'Refresh' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Refresh' }).click();
   await reloaded;
   expect(
     await page.evaluate(
       () => (window as unknown as { before?: boolean }).before,
     ),
   ).toBeUndefined();
+  await expect(page).toHaveURL(/\/settings\/account$/);
   await expect(status(page)).toHaveAttribute('data-status', 'live');
   await expect(status(page)).toContainText('Saved');
+  await page.goto('/');
   await expect(added(page, 1)).toBeVisible();
 
   // ⌘K has it too.

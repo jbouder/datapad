@@ -1,4 +1,5 @@
 import {
+  BuildingsIcon,
   CalendarBlankIcon,
   CalendarPlusIcon,
   ChalkboardSimpleIcon,
@@ -11,6 +12,7 @@ import {
   NewspaperIcon,
   NoteIcon,
   NotePencilIcon,
+  UsersIcon,
 } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import {
@@ -77,6 +79,19 @@ export const NAV_ITEMS: Record<SectionName, NavItem> = {
     route: { name: 'lists' },
     label: 'Lists',
     icon: ListChecksIcon,
+  },
+  // Settings sections too (#159), at the same addresses.
+  people: {
+    name: 'people',
+    route: { name: 'people' },
+    label: 'People',
+    icon: UsersIcon,
+  },
+  orgs: {
+    name: 'orgs',
+    route: { name: 'orgs' },
+    label: 'Orgs',
+    icon: BuildingsIcon,
   },
 };
 

@@ -206,8 +206,6 @@ browser is idle, and a first visit straight to one loads its chunk before
 the first render (`src/main.tsx`), so a loaded page never suspends. A
 chunk that fails to load is a page that threw: "This view stopped
 working", whose Reload this view fetches it again.
-`scripts/budget.ts` holds the entry (what `index.html` loads up front) to
-a gzip budget in CI.
 
 The active space is remembered per device in `localStorage`
 (`datapad:space`), not in the URL, so a link opens in whatever space is
@@ -243,8 +241,7 @@ In the browser: `@mlc-ai/web-llm` in a Web Worker
 settings, streamed. `shared/summaries.ts` holds the models, the prompt and
 the context builders; `src/lib/summary-engine.ts` wraps one loaded model
 (unit-tested with a fake); `src/lib/summary-runtime.ts` loads WebLLM lazily,
-so the library is not in the main bundle (`scripts/budget.ts` fails CI if
-it ever is) and nothing downloads until the owner agrees. Every WebLLM call
+so the library is not in the main bundle and nothing downloads until the owner agrees. Every WebLLM call
 gets `src/lib/summary-pins.ts`'s `appConfig`: the WebGPU library from a
 commit of `binary-mlc-llm-libs` and the weights from a Hugging Face
 revision, never a branch, with SRI hashes WebLLM checks for the library,

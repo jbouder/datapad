@@ -248,9 +248,10 @@ export function NavSettings() {
     <>
       <p className="text-sm text-muted-foreground">
         The sections and tools in the rail and the tab bar, in this order, for
-        this space. Phone puts one on the phone’s tab bar; a shown tool that is
-        not there is in the account menu. A hidden section or tool still opens
-        from its address, ⌘K and Help. Changes save as you make them.
+        this space. Phone puts one on the phone’s tab bar; a shown one that is
+        not there is under Pages in the account menu. A hidden section or tool
+        still opens from its address, ⌘K and Help. Changes save as you make
+        them.
       </p>
 
       <div className="flex flex-col gap-2">

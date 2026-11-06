@@ -164,12 +164,6 @@ export function Palette({
         ),
       },
       {
-        id: 'go-people',
-        label: 'Go to People',
-        icon: UserIcon,
-        run: go({ name: 'people' }),
-      },
-      {
         id: 'theme',
         label:
           mode === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme',

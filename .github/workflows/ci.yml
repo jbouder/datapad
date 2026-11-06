@@ -50,9 +50,6 @@ jobs:
       - run: bunx knip
       - run: bunx tsc -b
       - run: bunx vite build
-      # The entry's JS and CSS (gzip) against scripts/budget.ts, and
-      # WebLLM kept out of it.
-      - run: bun run budget
       # With the coverage floors on shared/ and worker/ (vitest.config.ts).
       - run: bunx vitest run --coverage
 

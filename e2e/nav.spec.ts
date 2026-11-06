@@ -195,7 +195,7 @@ test('the + button is “Add task” and opens the new-task panel', async ({
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Meetings, Notes, Lists (off the phone), then the Tools (off the phone); People and Orgs are in Settings', async ({
+test('sections run Focus, Projects, Tasks, Meetings, Notes, Lists (off the phone), People and Orgs, then the Tools (all off the phone)', async ({
   page,
 }) => {
   await page.goto('/');
@@ -209,15 +209,22 @@ test('sections run Focus, Projects, Tasks, Meetings, Notes, Lists (off the phone
     /Tasks/,
     /Meetings/,
     /Notes/,
-    // Lists (#299) and the tools (#261) follow in the rail, off the
-    // phone's tab bar by default (the account menu has them there).
+    // Lists (#299), People and Orgs (Settings sections, #159) and the
+    // tools (#261) follow in the rail, off the phone's tab bar (the
+    // account menu has them there).
     ...(isMobile(page)
       ? []
-      : [/Lists/, /Notepad/, /Whiteboard/, /Weekly digest/]),
+      : [/Lists/, /People/, /Orgs/, /Notepad/, /Whiteboard/, /Weekly digest/]),
   ]);
-  // People and Orgs live under Settings (#159), in neither the rail nor
-  // the tab bar.
-  await expect(nav.getByRole('link', { name: /People|Orgs/ })).toHaveCount(0);
+  if (!isMobile(page)) {
+    // People leads to Settings → People, current in the rail.
+    await nav.getByRole('link', { name: 'People' }).click();
+    await expect(page).toHaveURL(/\/settings\/people$/);
+    await expect(nav.getByRole('link', { name: 'People' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  }
   if (isMobile(page)) {
     // Five tabs, each at least 44px square.
     for (const link of await nav.getByRole('link').all()) {
