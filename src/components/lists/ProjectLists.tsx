@@ -10,7 +10,7 @@ import { linkProps } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /**
- * A project's lists on its page (#301), between Milestones and Tasks: a
+ * A project's lists on its page (#301), in the right column under Notes: a
  * row per list (its title opening its page, its progress and its first
  * open item), the ones in progress first and the done ones last and
  * muted. Add list opens the list panel preset to the project. Rows only:
