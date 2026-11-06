@@ -1,4 +1,5 @@
 import {
+  BuildingsIcon,
   CalendarBlankIcon,
   CalendarPlusIcon,
   ChalkboardSimpleIcon,
@@ -11,6 +12,7 @@ import {
   NewspaperIcon,
   NoteIcon,
   NotePencilIcon,
+  UsersIcon,
 } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import {
@@ -35,7 +37,7 @@ import type { Route } from '@/lib/router';
 
 /** A top-level section or a tool, as the rail and the tab bar show it. */
 export interface NavItem {
-  name: SectionName | ToolName;
+  name: SectionName | ToolName | 'people' | 'orgs';
   route: Route;
   label: string;
   icon: Icon;
@@ -101,6 +103,21 @@ export const TOOL_ITEMS: Record<ToolName, NavItem> = {
     icon: NewspaperIcon,
   },
 };
+
+/**
+ * People and Orgs: Settings sections (#159), linked from the rail under
+ * the sections and from the account menu's Pages on a phone. Always
+ * shown; Settings → Navigation does not list them.
+ */
+export const DIRECTORY_ITEMS: NavItem[] = [
+  {
+    name: 'people',
+    route: { name: 'people' },
+    label: 'People',
+    icon: UsersIcon,
+  },
+  { name: 'orgs', route: { name: 'orgs' }, label: 'Orgs', icon: BuildingsIcon },
+];
 
 /**
  * Every section, then every tool, in the default order (⌘K lists them

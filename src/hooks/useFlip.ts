@@ -13,6 +13,11 @@ import { DURATION, EASE, flipHeld } from '@/lib/motion';
  * remembered and compared. When layout really did change under a running
  * slide, the new slide starts from where the card visibly is, not from
  * where layout put it, so it never jumps.
+ *
+ * Boxes are measured against the container, not the viewport: scrolling,
+ * or the page's own entrance (`.enter` moves an ancestor), shifts both
+ * alike, so neither reads as a move. Measured against the viewport, a
+ * row seen mid-entrance or before a scroll slid on the next render.
  */
 
 interface Point {
@@ -47,6 +52,7 @@ export function useFlip(
     // A section just opened or closed: remember where things are now, but
     // let them jump there (`holdFlip`).
     const held = flipHeld();
+    const origin = container.getBoundingClientRect();
     for (const el of container.querySelectorAll<HTMLElement>(
       '[data-flip-id]',
     )) {
@@ -68,8 +74,8 @@ export function useFlip(
       const box = el.getBoundingClientRect();
       // Where layout put it, with any slide in progress taken back out.
       const last: Point = {
-        left: box.left - offset.left,
-        top: box.top - offset.top,
+        left: box.left - origin.left - offset.left,
+        top: box.top - origin.top - offset.top,
       };
       next.set(id, last);
       const first = previous.current.get(id);

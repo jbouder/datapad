@@ -1,4 +1,5 @@
 import {
+  ArrowClockwiseIcon,
   DownloadSimpleIcon,
   SignOutIcon,
   UploadSimpleIcon,
@@ -284,6 +285,17 @@ function Account() {
         <SignOutIcon />
         Sign out
       </a>
+      <p className="text-sm text-muted-foreground">
+        Refresh reloads Datapad. Changes still waiting to sync are kept.
+      </p>
+      <Button
+        variant="outline"
+        className="press self-start"
+        onClick={() => window.location.reload()}
+      >
+        <ArrowClockwiseIcon />
+        Refresh
+      </Button>
       <p className="text-sm text-muted-foreground" data-testid="build">
         About: Datapad {VERSION}, commit{' '}
         <span className="font-mono">{COMMIT}</span>.

@@ -1,5 +1,4 @@
 import {
-  ArrowClockwiseIcon,
   GearSixIcon,
   QuestionIcon,
   SignOutIcon,
@@ -20,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SIGN_OUT_URL } from '@/lib/api';
-import { useNav } from '@/lib/nav';
+import { DIRECTORY_ITEMS, useNav } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { useSpaces } from '@/providers/DatapadProvider';
@@ -30,9 +29,10 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then the shown sections and tools the
- * phone's tab bar leaves out (Lists and every tool, by default; the rail
- * has them on desktop), Refresh, Help, Settings and Sign out.
+ * quick Motion and Theme switches, then on a phone the Pages: the shown
+ * sections and tools the tab bar leaves out (Lists and every tool, by
+ * default), People and Orgs (the rail has them all on desktop); then
+ * Help, Settings and Sign out. Refresh is in Settings → Account and ⌘K.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
@@ -113,23 +113,21 @@ export function PreferencesMenu({ email }: { email: string | null }) {
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+        {/* The rail has them on desktop; the tab bar can. */}
+        <DropdownMenuSeparator className="desk:hidden" />
+        <DropdownMenuGroup className="desk:hidden">
+          <DropdownMenuLabel>Pages</DropdownMenuLabel>
+          {[...menuItems, ...DIRECTORY_ITEMS].map(
+            ({ name, route, label, icon: PageIcon }) => (
+              <DropdownMenuItem key={name} render={<a {...linkProps(route)} />}>
+                <PageIcon />
+                {label}
+              </DropdownMenuItem>
+            ),
+          )}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {/* The rail has them on desktop; the tab bar can. */}
-          {menuItems.map(({ name, route, label, icon: ToolIcon }) => (
-            <DropdownMenuItem
-              key={name}
-              className="desk:hidden"
-              render={<a {...linkProps(route)} />}
-            >
-              <ToolIcon />
-              {label}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem onClick={() => window.location.reload()}>
-            <ArrowClockwiseIcon />
-            Refresh
-          </DropdownMenuItem>
           <DropdownMenuItem render={<a {...linkProps({ name: 'help' })} />}>
             <QuestionIcon />
             Help
