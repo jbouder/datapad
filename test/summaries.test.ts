@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FOCUS_DEFAULTS } from '#shared/select';
 import {
   BRIEF_BUDGET_CHARS,
   BRIEF_LIMITS,
@@ -707,7 +708,10 @@ describe('briefContext', () => {
   });
 
   it('narrows the tasks to the assignee filter, and says so', () => {
-    const mine = briefContext(busy(), today, { kind: 'mine' });
+    const mine = briefContext(busy(), today, {
+      ...FOCUS_DEFAULTS,
+      who: { kind: 'mine' },
+    });
     expect(mine).toContain('Tasks are narrowed to my own tasks.');
     expect(mine).toContain('Tasks closed (1):');
     expect(mine).toContain('Tasks added (0):');
@@ -715,10 +719,32 @@ describe('briefContext', () => {
     expect(mine).toContain('Waiting on (0):');
     // Meetings and projects are no one's.
     expect(mine).toContain('Agenda (1):');
-    const han = briefContext(busy(), today, { kind: 'person', id: 'han' });
+    const han = briefContext(busy(), today, {
+      ...FOCUS_DEFAULTS,
+      who: { kind: 'person', id: 'han' },
+    });
     expect(han).toContain('Tasks are narrowed to tasks assigned to Han Solo.');
     expect(han).toContain('- Map the ice caves (Echo Base)');
     expect(briefContext(busy(), today)).not.toContain('narrowed');
+  });
+
+  it('applies Focus’s Attention rules (#311)', () => {
+    const leaveYellow = briefContext(busy(), today, {
+      ...FOCUS_DEFAULTS,
+      yellow: false,
+    });
+    expect(leaveYellow).toContain('- Echo Base: quiet 27 days');
+    const neither = briefContext(busy(), today, {
+      ...FOCUS_DEFAULTS,
+      yellow: false,
+      quietDays: null,
+    });
+    expect(neither).toContain('Projects that need attention (0):\nnone');
+    const late = briefContext(busy(), today, {
+      ...FOCUS_DEFAULTS,
+      quietDays: 30,
+    });
+    expect(late).toMatch(/- Echo Base: yellow$/);
   });
 
   it('caps every section, so a busy day stays within the model’s budget', () => {
@@ -799,6 +825,10 @@ describe('briefContext', () => {
       meetingId: null,
       prompt: BRIEF_PROMPT,
     });
+    const mine = { ...FOCUS_DEFAULTS, who: { kind: 'mine' as const } };
+    expect(
+      summaryRequest({ kind: 'brief', today, options: mine }, state)?.context,
+    ).toBe(briefContext(state, today, mine));
     expect(summaryRequest({ kind: 'project', id: 'p1' }, state)?.prompt).toBe(
       SYSTEM_PROMPT,
     );

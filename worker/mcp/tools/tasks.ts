@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { currentValues, focusDays, savedPrefs } from '#shared/pages';
+import { savedFocusOptions } from '#shared/pages';
 import {
   buildRecap,
   recapCounts,
@@ -162,7 +162,7 @@ export const getFocus = defineTool({
   name: 'get_focus',
   title: 'Focus',
   description:
-    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts, and their High priority ones as `high`, which Focus shows whatever their date), what is waiting on whom, open action items from the last week's meetings, active projects that need attention, and the agenda of meetings and milestones over those `days` (seven unless the owner set Focus's Week to another number in Settings → Pages).",
+    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts, and their High priority ones as `high`, which Focus shows whatever their date), what is waiting on whom, open action items from recent meetings, active projects that need attention, and the agenda of meetings and milestones over those `days`. It follows Focus's settings in Settings → Pages: `days` (seven unless set), Tasks for (everyone's tasks, or only the owner's when set to Mine; an `assignee` given here wins), how far back follow-ups look (seven days unless set), and Attention's rules (a target within 14 days, quiet after 14 days, yellow health included, unless set).",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -177,10 +177,11 @@ export const getFocus = defineTool({
       args.today,
     );
     const me = meId(state.people);
-    const who = assigneeFilter(state, args.assignee);
-    const days = focusDays(
-      currentValues('focus', savedPrefs(state, 'focus'), state).days,
-    );
+    const options = savedFocusOptions(state);
+    const who = args.assignee
+      ? assigneeFilter(state, args.assignee)
+      : options.who;
+    const { days } = options;
     const buckets = focusBuckets(
       state.tasks,
       state.projects,
@@ -226,6 +227,7 @@ export const getFocus = defineTool({
         today,
         me,
         who,
+        options.followUpDays,
       ).map((f) => ({
         meeting: {
           id: f.meeting.id,
@@ -235,7 +237,13 @@ export const getFocus = defineTool({
         },
         tasks: tasks(f.tasks),
       })),
-      attention: attention(state.projects, today).map((a) => ({
+      attention: attention(
+        state.projects,
+        today,
+        options.targetDays,
+        options.quietDays,
+        options.yellow,
+      ).map((a) => ({
         project: { id: a.project.id, name: a.project.name },
         health: healthOf(a.project),
         targetDate: a.project.targetDate,
@@ -267,7 +275,7 @@ export const getRecap = defineTool({
   name: 'get_recap',
   title: 'Since yesterday',
   description:
-    "Focus's Since yesterday: what happened on the last working day before a day (yesterday; Friday through Sunday on a Monday, Friday and Saturday on a Sunday). Tasks closed (by project) and added, meetings held with their topics, action items and notes, notes written (by project), and the other activity lines (status, health, blocked, milestones; 5 per project, with how many more). Projects in the archive are left out; an assignee narrows closed and added.",
+    "Focus's Since yesterday: what happened on the last working day before a day (yesterday; Friday through Sunday on a Monday, Friday and Saturday on a Sunday). Tasks closed (by project) and added, meetings held with their topics, action items and notes, notes written (by project), and the other activity lines (status, health, blocked, milestones; 5 per project, with how many more). Projects in the archive are left out; an assignee narrows closed and added. Without one it follows Focus's Tasks for in Settings → Pages: only the owner's tasks when set to Mine.",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -282,7 +290,9 @@ export const getRecap = defineTool({
     const recap = buildRecap(
       state,
       today,
-      assigneeFilter(state, args.assignee),
+      args.assignee
+        ? assigneeFilter(state, args.assignee)
+        : savedFocusOptions(state).who,
     );
     const tasks = (list: readonly Task[]) =>
       cap(list.map((t) => taskOut(state, t)));

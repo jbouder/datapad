@@ -242,6 +242,20 @@ describe('attention', () => {
     expect(line('quiet')).toBe(`quiet ${quiet} days`);
   });
 
+  it('follows Focus’s rules: target window, quiet off, yellow left out (#311)', () => {
+    const items = attention(projects, TODAY, 7, null, false);
+    expect(items.map((i) => i.project.id)).toEqual([
+      'red-soon',
+      'red',
+      'past',
+      'today',
+    ]);
+    const month = attention(projects, TODAY, 30, 30, true);
+    expect(month.map((i) => i.project.id)).toContain('edge');
+    expect(month.map((i) => i.project.id)).toContain('beyond');
+    expect(month.map((i) => i.project.id)).not.toContain('quiet');
+  });
+
   it('puts every reason on one line', () => {
     const all = byId(
       project('all', {
@@ -294,6 +308,24 @@ describe('followUps', () => {
       'week-ago',
     ]);
     expect(ids(groups[1]?.tasks ?? [])).toEqual(['t1', 't2']);
+  });
+
+  it('looks back as far as Focus says (#311)', () => {
+    const fortnight = followUps(
+      meetings,
+      tasks,
+      projects,
+      TODAY,
+      null,
+      anyone,
+      14,
+    );
+    expect(fortnight.map((g) => g.meeting.id)).toEqual([
+      'today-late',
+      'today',
+      'week-ago',
+      'too-old',
+    ]);
   });
 
   it('follows the assignee filter', () => {
