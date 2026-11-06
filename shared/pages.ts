@@ -263,6 +263,78 @@ export const LIST_SHOW_OPTIONS = [
 ] as const;
 
 /**
+ * The project page's sections (#312), in today's order: on desktop the
+ * first three sit in the left column and the rest in the right, each
+ * column in the saved order (`projectColumns`); on a phone, one column in
+ * the saved order.
+ */
+export const PROJECT_PAGE_SECTIONS: readonly PageSection[] = [
+  { key: 'milestones', label: 'Milestones' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'meetings', label: 'Meetings' },
+  { key: 'notes', label: 'Notes' },
+  { key: 'lists', label: 'Lists' },
+  { key: 'whiteboard', label: 'Whiteboard' },
+  { key: 'activity', label: 'Activity' },
+];
+
+/** The project page's sections that sit in its left column on desktop. */
+const PROJECT_LEFT = new Set(['milestones', 'tasks', 'meetings']);
+
+/**
+ * The project page's two desktop columns (#312): `visible` (the sections
+ * it shows, in the saved order) split by the column each one belongs to,
+ * keeping that order within each.
+ */
+export function projectColumns(visible: readonly string[]): {
+  left: string[];
+  right: string[];
+} {
+  return {
+    left: visible.filter((key) => PROJECT_LEFT.has(key)),
+    right: visible.filter((key) => !PROJECT_LEFT.has(key)),
+  };
+}
+
+/** The project page's Meetings shows (#312): set in Settings → Pages. */
+const projectMeetingsField: PrefField = {
+  key: 'meetings',
+  label: 'Meetings shows',
+  def: 'all',
+  options: [
+    { value: 'all', label: 'All' },
+    { value: 'upcoming', label: 'Upcoming' },
+  ],
+  control: 'segmented',
+  settingsOnly: true,
+};
+
+/** How the task page shows the note a task was made from (#312). */
+export const SOURCE_NOTE_OPTIONS = [
+  { value: 'expanded', label: 'Expanded' },
+  { value: 'collapsed', label: 'Collapsed' },
+  { value: 'hidden', label: 'Hidden' },
+] as const;
+
+export type SourceNoteShow = (typeof SOURCE_NOTE_OPTIONS)[number]['value'];
+
+const sourceNoteField: PrefField = {
+  key: 'sourceNote',
+  label: 'Source note',
+  def: 'expanded',
+  options: SOURCE_NOTE_OPTIONS,
+  control: 'segmented',
+  settingsOnly: true,
+};
+
+/** A saved Source note as the task page reads it; anything else is Expanded. */
+export function sourceNoteShow(value: string): SourceNoteShow {
+  return (
+    SOURCE_NOTE_OPTIONS.find((o) => o.value === value)?.value ?? 'expanded'
+  );
+}
+
+/**
  * The meeting page's sections (#313), in today's order: Topics and
  * Action items on the left, Notes on the right, the series links at the
  * foot.
@@ -505,15 +577,16 @@ export const PAGES: Record<PageKey, PageSpec> = {
         'list',
         'Tasks layout',
       ),
+      projectMeetingsField,
     ],
     sections: true,
+    sectionKeys: PROJECT_PAGE_SECTIONS,
   },
-  // The other detail pages (#310): nothing to set yet, so Settings → Pages
-  // leaves them out (`hasPageSettings`); #312 adds the task page's.
   task: {
     label: 'Task page',
-    fields: [],
-    sections: false,
+    fields: [sourceNoteField],
+    sections: true,
+    collapsible: ['notes'],
   },
   meeting: {
     label: 'Meeting page',

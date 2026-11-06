@@ -1,20 +1,23 @@
 import {
   ArrowCounterClockwiseIcon,
+  CaretRightIcon,
   CheckIcon,
   LockSimpleIcon,
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { formatTimestamp } from '#shared/dates';
+import { type SourceNoteShow, sourceNoteShow } from '#shared/pages';
 import { notesOfTask } from '#shared/select';
-import { blockedOf } from '#shared/types';
+import { blockedOf, type Note, type Snapshot } from '#shared/types';
 import { DetailActions } from '@/components/DetailActions';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Markdown } from '@/components/Markdown';
 import { LinkedNoteList } from '@/components/notes/LinkedNoteList';
 import { noteLocation } from '@/components/notes/useMakeTask';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
+import { useSectionOpen } from '@/components/Section';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
@@ -28,6 +31,7 @@ import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { linkProps, navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { usePageSetting } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -38,6 +42,10 @@ import { useToast } from '@/providers/ToastProvider';
  * status, priority, due date, assignee, blocker, tags and links, then
  * the details on the left and its running notes on the right (one column
  * below 820px). Anywhere else a task opens in its panel.
+ *
+ * Settings → Pages (#312) sets how the note it was made from shows
+ * (Expanded, Collapsed, or Hidden with a link in the details) and
+ * remembers its Notes open or closed; the panel shares neither.
  */
 export function TaskPage({ id }: { id: string }) {
   const clock = useClock();
@@ -49,6 +57,7 @@ export function TaskPage({ id }: { id: string }) {
   const { toggle, isDone } = useTaskToggle();
   const today = useToday();
   const task = state?.tasks[id];
+  const sourceShow = sourceNoteShow(usePageSetting('task', 'sourceNote'));
   usePageTitle(task?.title ?? (state ? 'Not found' : 'Task'));
 
   const notes = useMemo(
@@ -196,6 +205,16 @@ export function TaskPage({ id }: { id: string }) {
               </ExternalLink>
             </li>
           ))}
+          {sourceShow === 'hidden' && sourceLink && (
+            <li>
+              <a
+                {...linkProps(sourceLink.route, sourceLink.query)}
+                className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground desk:min-h-0"
+              >
+                From a note
+              </a>
+            </li>
+          )}
         </ul>
       </header>
 
@@ -220,30 +239,13 @@ export function TaskPage({ id }: { id: string }) {
               </p>
             )}
           </section>
-          {task.sourceNoteId && (
-            <section
-              aria-labelledby="task-page-source"
-              className="flex flex-col gap-1"
-            >
-              <h2 id="task-page-source" className="text-xs font-medium">
-                From note
-              </h2>
-              {sourceNote && sourceLink ? (
-                <>
-                  <blockquote className="line-clamp-6 border-l-2 pl-3">
-                    <Markdown text={sourceNote.body} people={state.people} />
-                  </blockquote>
-                  <a
-                    {...linkProps(sourceLink.route, sourceLink.query)}
-                    className="self-start text-sm underline underline-offset-4 hover:text-foreground"
-                  >
-                    Show the note
-                  </a>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">Note deleted</p>
-              )}
-            </section>
+          {task.sourceNoteId && sourceShow !== 'hidden' && (
+            <SourceNote
+              note={sourceNote}
+              link={sourceLink}
+              people={state.people}
+              show={sourceShow}
+            />
           )}
         </div>
         <LinkedNoteList
@@ -253,6 +255,7 @@ export function TaskPage({ id }: { id: string }) {
           label={`New note on “${task.title}”`}
           draftKey={`datapad:draft:note:task:${task.id}`}
           headingLevel={2}
+          remember={{ page: 'task', key: 'notes' }}
         />
       </div>
 
@@ -267,5 +270,77 @@ export function TaskPage({ id }: { id: string }) {
         )}
       </dl>
     </article>
+  );
+}
+
+/**
+ * The note a task was made from: Expanded shows it, Collapsed puts it
+ * behind its heading (opened for this visit only), as Settings → Pages
+ * says (#312). A deleted note says so.
+ */
+function SourceNote({
+  note,
+  link,
+  people,
+  show,
+}: {
+  note: Note | undefined;
+  link: ReturnType<typeof noteLocation> | null;
+  people: Snapshot['people'];
+  show: Exclude<SourceNoteShow, 'hidden'>;
+}) {
+  const id = useId();
+  const collapsible = show === 'collapsed';
+  const { open, opening, toggle } = useSectionOpen({
+    defaultOpen: !collapsible,
+  });
+  return (
+    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-1">
+      <h2 id={`${id}-title`} className="flex text-xs font-medium">
+        {collapsible ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={toggle}
+            className="-ml-1 flex min-h-11 items-center gap-1.5 px-1 text-left outline-ring/50 focus-visible:outline-2 desk:min-h-7"
+          >
+            <CaretRightIcon
+              weight="bold"
+              aria-hidden
+              className={cn(
+                'size-3 transition-transform duration-(--duration-fast)',
+                open && 'rotate-90',
+              )}
+            />
+            From note
+          </button>
+        ) : (
+          'From note'
+        )}
+      </h2>
+      <div
+        id={`${id}-body`}
+        hidden={!open}
+        className="section-body flex flex-col gap-1"
+        data-opening={opening || undefined}
+      >
+        {note && link ? (
+          <>
+            <blockquote className="line-clamp-6 border-l-2 pl-3">
+              <Markdown text={note.body} people={people} />
+            </blockquote>
+            <a
+              {...linkProps(link.route, link.query)}
+              className="self-start text-sm underline underline-offset-4 hover:text-foreground"
+            >
+              Show the note
+            </a>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Note deleted</p>
+        )}
+      </div>
+    </section>
   );
 }

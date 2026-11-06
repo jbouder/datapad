@@ -291,9 +291,8 @@ test('hidden and ordered sections reset and come back with Undo (#310)', async (
   });
   await expectStored(request, 'project', saved);
   await openLive(page, '/settings/pages');
-  // A detail page with nothing to set yet is not listed.
-  await expect(page.getByRole('region', { name: 'Task page' })).toHaveCount(0);
-  for (const name of ['Meeting page', 'List page']) {
+  // The detail pages each have something to set, so all are listed.
+  for (const name of ['Task page', 'Meeting page', 'List page']) {
     await expect(page.getByRole('region', { name })).toHaveCount(1);
   }
   const project = page.getByRole('region', { name: 'Project page' });

@@ -26,6 +26,12 @@ changes the format says so here under **Export format**.
   them, with Reset and Undo; at least one section stays shown. Focus and
   the project, task, meeting and list pages adopt it next. Settings →
   Pages lists a page only once it has something to set.
+- **Project and task page settings** (#312): Settings → Pages hides and
+  reorders the project page's sections (on desktop each keeps its
+  column), and its Meetings can show only upcoming meetings. The task
+  page's source note can be expanded, collapsed or hidden (a link to it
+  stays in the details), and its Notes section opens and closes and is
+  remembered. The panels are unchanged.
 - **Meeting and list page settings** (#313): in Settings → Pages, the
   meeting page can hide and reorder Topics, Action items, Notes and
   Series, and hide covered topics and done action items, with one line

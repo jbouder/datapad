@@ -6,11 +6,19 @@ import {
   PlusIcon,
   SparkleIcon,
 } from '@phosphor-icons/react';
-import { Suspense, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  type ReactNode,
+  Suspense,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { itemsOf } from '#shared/board';
 import { formatDay, localDate } from '#shared/dates';
 import { projectMeetings } from '#shared/meetings';
 import { projectNotes } from '#shared/notes';
+import { projectColumns } from '#shared/pages';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { BoardPreview } from '@/components/board/BoardPreview';
 import { DetailActions } from '@/components/DetailActions';
@@ -41,6 +49,7 @@ import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
+import { useDesk } from '@/hooks/useMediaQuery';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { moveProject } from '@/lib/api';
 import { linkProps, navigate } from '@/lib/router';
@@ -49,6 +58,7 @@ import { ProjectLists } from '@/pages/lazy';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageSections, usePageSetting } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -57,7 +67,10 @@ import { useToast } from '@/providers/ToastProvider';
  * it has open tasks, and Archive), the
  * description, then Milestones, Tasks and Meetings on the left, Notes, Lists,
  * the Whiteboard (a preview and the way in) and Activity on the right (3:2 above 820px, one column below). Sections
- * remember open or closed, one set for every project (#186).
+ * remember open or closed, one set for every project (#186). Settings →
+ * Pages hides and reorders them (#312): each column on desktop, and the
+ * one column on a phone, follows the saved order; Meetings shows can
+ * leave out past meetings.
  */
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
@@ -95,6 +108,9 @@ export function ProjectPage({ id }: { id: string }) {
     () => projectMeetings(state?.meetings ?? {}, id),
     [state?.meetings, id],
   );
+  const { visible } = usePageSections('project');
+  const upcomingOnly = usePageSetting('project', 'meetings') === 'upcoming';
+  const desk = useDesk();
 
   const tasks = useMemo(() => {
     const mine = Object.values(state?.tasks ?? {}).filter(
@@ -131,6 +147,10 @@ export function ProjectPage({ id }: { id: string }) {
   }
 
   const today = localDate(new Date());
+  // Meetings shows (#312): Upcoming leaves out the past ones.
+  const shownMeetings = upcomingOnly
+    ? meetings.filter((e) => e.date >= today)
+    : meetings;
   const boardItems = itemsOf(state.boardItems, id);
   const members = project.members
     .map((m) => state.people[m])
@@ -184,6 +204,179 @@ export function ProjectPage({ id }: { id: string }) {
     });
     return true;
   };
+
+  const sections: Record<string, ReactNode> = {
+    milestones: (
+      <Milestones
+        project={project}
+        today={today}
+        remember={key('milestones')}
+      />
+    ),
+    tasks: (
+      <Section
+        title="Tasks"
+        count={tasks.open.length}
+        remember={key('tasks')}
+        actions={
+          <>
+            <ViewSwitcher
+              views={PROJECT_TASK_VIEWS}
+              value={taskView}
+              onChange={setTaskView}
+            />
+            <Button
+              variant="outline"
+              className="press h-11 desk:h-8"
+              onClick={() => newTask(id)}
+            >
+              <PlusIcon />
+              Add task
+            </Button>
+          </>
+        }
+      >
+        <div className="pt-2">
+          {taskView === 'board' ? (
+            <ProjectTaskBoard
+              projectId={id}
+              open={tasks.open}
+              done={tasks.done}
+            />
+          ) : (
+            <TaskList
+              label="Open tasks"
+              open={tasks.open}
+              done={tasks.done}
+              showProject={false}
+              doneRemember={key('done')}
+              reorderProject={id}
+            />
+          )}
+        </div>
+      </Section>
+    ),
+    meetings: (
+      <Section
+        title="Meetings"
+        count={meetings.filter((e) => e.date >= today).length}
+        remember={key('meetings')}
+        actions={
+          <Button
+            variant="outline"
+            className="press h-11 desk:h-8"
+            onClick={() => newMeeting({ projectId: id, fixedProject: true })}
+          >
+            <PlusIcon />
+            Add meeting
+          </Button>
+        }
+      >
+        <div className="pt-2">
+          <MeetingList
+            meetings={shownMeetings}
+            state={state}
+            today={today}
+            showProject={false}
+            headingLevel={3}
+            empty="Nothing coming up on this project."
+          />
+        </div>
+      </Section>
+    ),
+    notes: (
+      <Section
+        title="Notes"
+        count={notes.length}
+        remember={key('notes')}
+        actions={
+          <Button
+            variant="outline"
+            className="press h-11 desk:h-8"
+            onClick={() => newNote(id)}
+          >
+            <PlusIcon />
+            Add note
+          </Button>
+        }
+      >
+        <div className="pt-2">
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No notes on this project yet.
+            </p>
+          ) : (
+            <ul
+              ref={notesList}
+              aria-label="Notes"
+              className="flex flex-col gap-2"
+            >
+              {notes.map((n) => (
+                <NoteRow
+                  key={n.id}
+                  note={n}
+                  state={state}
+                  chips={{ meeting: true, task: true }}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </Section>
+    ),
+    lists: (
+      <Suspense fallback={null}>
+        <ProjectLists
+          projectId={id}
+          lists={state.lists}
+          remember={key('lists')}
+        />
+      </Suspense>
+    ),
+    whiteboard: (
+      <Section
+        title="Whiteboard"
+        count={boardItems.length}
+        remember={key('whiteboard')}
+        actions={
+          <a
+            {...linkProps({ name: 'whiteboard', project: id })}
+            className={cn(
+              buttonVariants({ variant: 'outline' }),
+              'press h-11 desk:h-8',
+            )}
+          >
+            <ChalkboardSimpleIcon />
+            Open whiteboard
+          </a>
+        }
+      >
+        <div className="pt-2">
+          {boardItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nothing on this project's whiteboard yet.
+            </p>
+          ) : (
+            <BoardPreview items={boardItems} people={state.people} />
+          )}
+        </div>
+      </Section>
+    ),
+    activity: (
+      <Section title="Activity" remember={key('activity')} defaultOpen={false}>
+        <ActivityList entries={state.activity[id]?.events ?? []} />
+      </Section>
+    ),
+  };
+  const column = (keys: string[]) =>
+    keys.length > 0 && (
+      <div className="flex min-w-0 flex-col gap-6">
+        {keys.map((k) => (
+          <Fragment key={k}>{sections[k]}</Fragment>
+        ))}
+      </div>
+    );
+  const { left, right } = projectColumns(visible);
 
   return (
     <article
@@ -304,165 +497,14 @@ export function ProjectPage({ id }: { id: string }) {
         )}
       </header>
 
-      <div className="grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <Milestones
-            project={project}
-            today={today}
-            remember={key('milestones')}
-          />
-          <Section
-            title="Tasks"
-            count={tasks.open.length}
-            remember={key('tasks')}
-            actions={
-              <>
-                <ViewSwitcher
-                  views={PROJECT_TASK_VIEWS}
-                  value={taskView}
-                  onChange={setTaskView}
-                />
-                <Button
-                  variant="outline"
-                  className="press h-11 desk:h-8"
-                  onClick={() => newTask(id)}
-                >
-                  <PlusIcon />
-                  Add task
-                </Button>
-              </>
-            }
-          >
-            <div className="pt-2">
-              {taskView === 'board' ? (
-                <ProjectTaskBoard
-                  projectId={id}
-                  open={tasks.open}
-                  done={tasks.done}
-                />
-              ) : (
-                <TaskList
-                  label="Open tasks"
-                  open={tasks.open}
-                  done={tasks.done}
-                  showProject={false}
-                  doneRemember={key('done')}
-                  reorderProject={id}
-                />
-              )}
-            </div>
-          </Section>
-          <Section
-            title="Meetings"
-            count={meetings.filter((e) => e.date >= today).length}
-            remember={key('meetings')}
-            actions={
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={() =>
-                  newMeeting({ projectId: id, fixedProject: true })
-                }
-              >
-                <PlusIcon />
-                Add meeting
-              </Button>
-            }
-          >
-            <div className="pt-2">
-              <MeetingList
-                meetings={meetings}
-                state={state}
-                today={today}
-                showProject={false}
-                headingLevel={3}
-                empty="Nothing coming up on this project."
-              />
-            </div>
-          </Section>
+      {desk ? (
+        <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6">
+          {column(left)}
+          {column(right)}
         </div>
-        <div className="flex min-w-0 flex-col gap-6">
-          <Section
-            title="Notes"
-            count={notes.length}
-            remember={key('notes')}
-            actions={
-              <Button
-                variant="outline"
-                className="press h-11 desk:h-8"
-                onClick={() => newNote(id)}
-              >
-                <PlusIcon />
-                Add note
-              </Button>
-            }
-          >
-            <div className="pt-2">
-              {notes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No notes on this project yet.
-                </p>
-              ) : (
-                <ul
-                  ref={notesList}
-                  aria-label="Notes"
-                  className="flex flex-col gap-2"
-                >
-                  {notes.map((n) => (
-                    <NoteRow
-                      key={n.id}
-                      note={n}
-                      state={state}
-                      chips={{ meeting: true, task: true }}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Section>
-          <Suspense fallback={null}>
-            <ProjectLists
-              projectId={id}
-              lists={state.lists}
-              remember={key('lists')}
-            />
-          </Suspense>
-          <Section
-            title="Whiteboard"
-            count={boardItems.length}
-            remember={key('whiteboard')}
-            actions={
-              <a
-                {...linkProps({ name: 'whiteboard', project: id })}
-                className={cn(
-                  buttonVariants({ variant: 'outline' }),
-                  'press h-11 desk:h-8',
-                )}
-              >
-                <ChalkboardSimpleIcon />
-                Open whiteboard
-              </a>
-            }
-          >
-            <div className="pt-2">
-              {boardItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing on this project's whiteboard yet.
-                </p>
-              ) : (
-                <BoardPreview items={boardItems} people={state.people} />
-              )}
-            </div>
-          </Section>
-          <Section
-            title="Activity"
-            remember={key('activity')}
-            defaultOpen={false}
-          >
-            <ActivityList entries={state.activity[id]?.events ?? []} />
-          </Section>
-        </div>
-      </div>
+      ) : (
+        column(visible)
+      )}
     </article>
   );
 }
