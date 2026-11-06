@@ -241,6 +241,8 @@ export async function openNoteRow(row: Locator) {
 export async function noteAction(row: Locator, name: string) {
   await row.getByRole('button', { name: /^More for note from / }).click();
   await row.page().getByRole('menuitem', { name, exact: true }).click();
+  // Wait for the menu to finish closing, so the next row's menu is the only one.
+  await expect(row.page().getByRole('menu')).toHaveCount(0);
 }
 
 /** No sideways scrolling (WCAG 1.4.10 Reflow). */
