@@ -288,14 +288,14 @@ function Account() {
       <p className="text-sm text-muted-foreground">
         Refresh reloads Datapad. Changes still waiting to sync are kept.
       </p>
-      <Button
-        variant="outline"
-        className="press self-start"
+      <button
+        type="button"
         onClick={() => window.location.reload()}
+        className="press inline-flex h-11 items-center gap-2 self-start border px-3 text-sm hover:bg-accent desk:h-9"
       >
         <ArrowClockwiseIcon />
         Refresh
-      </Button>
+      </button>
       <p className="text-sm text-muted-foreground" data-testid="build">
         About: Datapad {VERSION}, commit{' '}
         <span className="font-mono">{COMMIT}</span>.
