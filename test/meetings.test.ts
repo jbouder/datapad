@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
+  byMonth,
   CARRIED_OUTCOME,
   carryForward,
   carryOps,
@@ -157,6 +158,25 @@ describe('selecting meetings', () => {
     );
     expect(past.map((e) => e.id)).toEqual(['c', 'e']);
     expect(monthLabel('2026-10')).toBe('October 2026');
+  });
+
+  it('groups the past by month, newest first (#320)', () => {
+    const all = selectMeetings(
+      {
+        ...meetings,
+        e: meeting('e', { date: '2026-08-01' }),
+        f: meeting('f', { date: '2026-08-20' }),
+      },
+      { project: '' },
+    );
+    const { past } = splitByMonth(all, '2026-10-27');
+    expect(
+      byMonth(past).map((m) => [m.month, m.meetings.map((e) => e.id)]),
+    ).toEqual([
+      ['2026-09', ['c']],
+      ['2026-08', ['f', 'e']],
+    ]);
+    expect(byMonth([])).toEqual([]);
   });
 });
 

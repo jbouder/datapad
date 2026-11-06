@@ -38,10 +38,9 @@ changes the format says so here under **Export format**.
   a hidden section still feeds Brief me.
 - **Project and task page settings** (#312): Settings → Pages hides and
   reorders the project page's sections (on desktop each keeps its
-  column), and its Meetings can show only upcoming meetings. The task
-  page's source note can be expanded, collapsed or hidden (a link to it
-  stays in the details), and its Notes section opens and closes and is
-  remembered. The panels are unchanged.
+  column). The task page's source note can be expanded, collapsed or
+  hidden (a link to it stays in the details), and its Notes section
+  opens and closes and is remembered. The panels are unchanged.
 - **Meeting and list page settings** (#313): in Settings → Pages, the
   meeting page can hide and reorder Topics, Action items, Notes and
   Series, and hide covered topics and done action items, with one line
@@ -63,6 +62,12 @@ changes the format says so here under **Export format**.
   after the open ones, in the same list, and shows the board's Done
   column. It is remembered with the project page and is also in
   Settings → Pages. The Tasks count is still the open count.
+- **Show past on the project page** (#320): the Past group inside
+  Meetings is gone. A Show past toggle in the Meetings header lists the
+  past meetings after the upcoming ones, in the same list, by month,
+  newest first. It is remembered with the project page and is also in
+  Settings → Pages, where it replaces Meetings shows; a saved Meetings
+  shows reads as Hide. The Meetings count is still the upcoming count.
 - **People and Orgs are sections**: in the rail after Lists, and in
   Settings → Navigation like the rest (Show, Phone, order). Off the
   phone's tab bar by default. Still Settings sections at the same

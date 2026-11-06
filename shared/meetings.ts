@@ -159,6 +159,21 @@ export function monthLabel(month: string): string {
 }
 
 /**
+ * Meetings under their months, in the order given: a new month starts
+ * wherever the month changes.
+ */
+export function byMonth(meetings: readonly Meeting[]): MeetingMonth[] {
+  const months: MeetingMonth[] = [];
+  for (const m of meetings) {
+    const month = m.date.slice(0, 7);
+    const last = months[months.length - 1];
+    if (last?.month === month) last.meetings.push(m);
+    else months.push({ month, meetings: [m] });
+  }
+  return months;
+}
+
+/**
  * Meetings (already soonest first) split at `today`: upcoming ones (today
  * included) under their month, and the past newest first.
  */
@@ -166,20 +181,11 @@ export function splitByMonth(
   meetings: Meeting[],
   today: DateString,
 ): { upcoming: MeetingMonth[]; past: Meeting[] } {
-  const upcoming: MeetingMonth[] = [];
-  const past: Meeting[] = [];
-  for (const m of meetings) {
-    if (m.date < today) {
-      past.push(m);
-      continue;
-    }
-    const month = m.date.slice(0, 7);
-    const last = upcoming[upcoming.length - 1];
-    if (last?.month === month) last.meetings.push(m);
-    else upcoming.push({ month, meetings: [m] });
-  }
-  past.reverse();
-  return { upcoming, past };
+  const past = meetings.filter((m) => m.date < today).reverse();
+  return {
+    upcoming: byMonth(meetings.filter((m) => m.date >= today)),
+    past,
+  };
 }
 
 /* ---- topics -------------------------------------------------------------- */

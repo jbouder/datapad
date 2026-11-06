@@ -1,6 +1,11 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { useId, useMemo, useRef, useState } from 'react';
-import { monthLabel, splitByMonth } from '#shared/meetings';
+import {
+  byMonth,
+  type MeetingMonth,
+  monthLabel,
+  splitByMonth,
+} from '#shared/meetings';
 import type { Meeting, Snapshot } from '#shared/types';
 import { MeetingRow } from '@/components/meetings/MeetingRow';
 import { withViewTransition } from '@/lib/motion';
@@ -9,8 +14,10 @@ import { useMotion } from '@/providers/MotionProvider';
 
 /**
  * Meetings (soonest first) as upcoming months, then Past (newest first,
- * collapsed until asked for). Rows that arrive after the list first drew
- * come in with `.enter`; opening Past is a `filter` transition.
+ * collapsed until asked for). With `pastInline` (the project page's Show
+ * past, #320) the past months follow the upcoming ones in the same list,
+ * newest first, with no Past disclosure. Rows that arrive after the list
+ * first drew come in with `.enter`; opening Past is a `filter` transition.
  */
 export function MeetingList({
   meetings,
@@ -19,6 +26,7 @@ export function MeetingList({
   showProject = true,
   headingLevel = 2,
   empty,
+  pastInline = false,
 }: {
   meetings: Meeting[];
   state: Snapshot;
@@ -27,6 +35,8 @@ export function MeetingList({
   /** The month headings' level: 2 on the Meetings page, 3 in a section. */
   headingLevel?: 2 | 3;
   empty: string;
+  /** The past months after the upcoming ones, with no Past disclosure. */
+  pastInline?: boolean;
 }) {
   const { active } = useMotion();
   const id = useId();
@@ -34,6 +44,10 @@ export function MeetingList({
   const { upcoming, past } = useMemo(
     () => splitByMonth(meetings, today),
     [meetings, today],
+  );
+  const pastMonths = useMemo(
+    () => (pastInline ? byMonth(past) : []),
+    [pastInline, past],
   );
 
   // What was there at first stays still; anything added later enters.
@@ -53,28 +67,32 @@ export function MeetingList({
     />
   );
 
+  const month = (m: MeetingMonth, prefix: string) => (
+    <section
+      key={`${prefix}${m.month}`}
+      aria-labelledby={`${id}-${prefix}${m.month}`}
+      className="flex flex-col"
+      data-past-month={prefix ? '' : undefined}
+    >
+      <Heading
+        id={`${id}-${prefix}${m.month}`}
+        className="border-b pb-1 text-xs font-medium text-muted-foreground"
+      >
+        {monthLabel(m.month)}
+      </Heading>
+      {m.meetings.map(row)}
+    </section>
+  );
+
   return (
     <div className="vt-list flex flex-col gap-5">
       {upcoming.length === 0 ? (
         <p className="text-state">{empty}</p>
       ) : (
-        upcoming.map((m) => (
-          <section
-            key={m.month}
-            aria-labelledby={`${id}-${m.month}`}
-            className="flex flex-col"
-          >
-            <Heading
-              id={`${id}-${m.month}`}
-              className="border-b pb-1 text-xs font-medium text-muted-foreground"
-            >
-              {monthLabel(m.month)}
-            </Heading>
-            {m.meetings.map(row)}
-          </section>
-        ))
+        upcoming.map((m) => month(m, ''))
       )}
-      {past.length > 0 && (
+      {pastMonths.map((m) => month(m, 'past-'))}
+      {!pastInline && past.length > 0 && (
         <section aria-labelledby={`${id}-past`} className="flex flex-col">
           <Heading id={`${id}-past`} className="flex">
             <button
