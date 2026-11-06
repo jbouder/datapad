@@ -4,7 +4,7 @@ Every release of Datapad, newest first, in the shape of
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are
 [tags](https://github.com/jbouder/datapad/tags) on `main`; each has a
 [GitHub release](https://github.com/jbouder/datapad/releases). The milestone
-numbers (M0–M20) are the
+numbers (M0–M22) are the
 [GitHub milestones](https://github.com/jbouder/datapad/milestones) the work
 was planned under.
 
@@ -16,6 +16,14 @@ a newer release is refused with a message saying so. A release that
 changes the format says so here under **Export format**.
 
 ## [Unreleased]
+
+## [0.4.0] — 2026-11-05
+
+Lists: titled checklists on a project or in General, with their own
+pages, quick add, search, a section on the project page, Make task from
+an item, and MCP tools to read and add to them. The export format is now
+2 and may carry `lists`; older Datapads refuse a format 2 file rather
+than drop its lists. The Durable Object's schema is still version 3.
 
 ### Added
 
@@ -529,7 +537,8 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jbouder/datapad/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jbouder/datapad/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jbouder/datapad/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jbouder/datapad/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jbouder/datapad/releases/tag/v0.1.0
