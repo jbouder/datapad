@@ -192,6 +192,49 @@ export function topicCount(topics: readonly Topic[]): string {
 }
 
 /**
+ * The line the meeting page shows in place of its topics when every one
+ * is covered and covered topics are hidden (#313).
+ */
+export function allCoveredText(count: number): string {
+  return count === 1
+    ? 'The one topic is covered'
+    : `All ${count} topics covered`;
+}
+
+/**
+ * The topic order after moving the shown topic at `from` to the place of
+ * the shown one at `to` (#313): with covered topics hidden, a move steps
+ * past the next shown topic, and the hidden ones keep their places among
+ * the rest. With every topic shown it is a plain move. `null` when
+ * nothing moves.
+ */
+export function moveAmongShown(
+  all: readonly string[],
+  shown: readonly string[],
+  from: number,
+  to: number,
+): string[] | null {
+  const id = shown[from];
+  const target = shown[to];
+  if (id === undefined || target === undefined || from === to) return null;
+  const rest = all.filter((x) => x !== id);
+  const at = rest.indexOf(target);
+  if (at < 0) return null;
+  rest.splice(to > from ? at + 1 : at, 0, id);
+  return rest;
+}
+
+/**
+ * The line in place of a meeting's action items when every one is done
+ * and done ones are hidden (#313).
+ */
+export function allDoneActionsText(count: number): string {
+  return count === 1
+    ? 'The one action item is done'
+    : `All ${count} action items done`;
+}
+
+/**
  * What is wrong with a new meeting's pending topics, or null: one longer
  * than a title may be, or more topics than a meeting holds (counting the
  * `existing` ones, carried forward, they are added after).

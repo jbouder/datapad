@@ -54,10 +54,9 @@ describe('the registry', () => {
     for (const page of ['task', 'meeting', 'list'] as const) {
       expect(PAGES[page].label).toMatch(/ page$/);
     }
-    for (const page of ['meeting', 'list'] as const) {
-      expect(hasPageSettings(page)).toBe(false);
+    for (const page of ['task', 'meeting', 'list'] as const) {
+      expect(hasPageSettings(page)).toBe(true);
     }
-    expect(hasPageSettings('task')).toBe(true);
     expect(hasPageSettings('project')).toBe(true);
     expect(hasPageSettings('focus')).toBe(true);
   });

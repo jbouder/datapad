@@ -32,6 +32,13 @@ changes the format says so here under **Export format**.
   page's source note can be expanded, collapsed or hidden (a link to it
   stays in the details), and its Notes section opens and closes and is
   remembered. The panels are unchanged.
+- **Meeting and list page settings** (#313): in Settings → Pages, the
+  meeting page can hide and reorder Topics, Action items, Notes and
+  Series, and hide covered topics and done action items, with one line
+  in their place when every one is hidden. The list page shows its done
+  items collapsed under Done (n), as before, expanded, or hidden with
+  "n done" in their place. The meeting panel shows everything, as
+  before.
 
 ### Export format
 
