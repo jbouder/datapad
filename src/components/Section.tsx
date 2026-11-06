@@ -16,6 +16,51 @@ export interface RememberSection {
 }
 
 /**
+ * A collapsible section's open or closed (#186): with `remember`, what the
+ * page saved as it opened, else `defaultOpen`; `forced` shows it open
+ * regardless. `toggle` flips it and, with `remember`, saves it (only a
+ * state other than `defaultOpen` is kept). `opening` is true for a moment
+ * after a click opens it, so its contents appear without entrances.
+ */
+export function useSectionOpen({
+  remember,
+  defaultOpen = true,
+  forced,
+  onToggle,
+}: {
+  remember?: RememberSection;
+  defaultOpen?: boolean;
+  forced?: boolean;
+  onToggle?: (open: boolean) => void;
+}): { open: boolean; opening: boolean; toggle: () => void } {
+  const prefs = usePagePrefs();
+  const saved = useOpening(({ read }) =>
+    remember ? read(remember.page).sections?.[remember.key] : undefined,
+  );
+  /** Toggled here; until then, what is saved. */
+  const [chosen, setOpen] = useState<boolean | null>(null);
+  const remembered = chosen ?? saved ?? defaultOpen;
+  /** Opened by a click just now: its contents appear without entrances. */
+  const [opening, setOpening] = useState(false);
+  const open = Boolean(forced) || remembered;
+  const toggle = () => {
+    const next = !open;
+    holdFlip();
+    setOpening(next);
+    // A moment later, whatever is added enters as usual.
+    if (next) window.setTimeout(() => setOpening(false), 250);
+    setOpen(next);
+    if (remember) {
+      prefs.save(remember.page, {
+        sections: { [remember.key]: next === defaultOpen ? null : next },
+      });
+    }
+    onToggle?.(next);
+  };
+  return { open, opening, toggle };
+}
+
+/**
  * A titled section whose header is a button with `aria-expanded`. With
  * `remember`, open or closed is saved with the page's preferences (#186),
  * so it follows you to every device; only a state other than
@@ -51,30 +96,12 @@ export function Section({
   children: ReactNode;
 }) {
   const id = useId();
-  const prefs = usePagePrefs();
-  const saved = useOpening(({ read }) =>
-    remember ? read(remember.page).sections?.[remember.key] : undefined,
-  );
-  /** Toggled here; until then, what is saved. */
-  const [chosen, setOpen] = useState<boolean | null>(null);
-  const remembered = chosen ?? saved ?? defaultOpen;
-  /** Opened by a click just now: its contents appear without entrances. */
-  const [opening, setOpening] = useState(false);
-  const open = forced || remembered;
-  const toggle = () => {
-    const next = !open;
-    holdFlip();
-    setOpening(next);
-    // A moment later, whatever is added enters as usual.
-    if (next) window.setTimeout(() => setOpening(false), 250);
-    setOpen(next);
-    if (remember) {
-      prefs.save(remember.page, {
-        sections: { [remember.key]: next === defaultOpen ? null : next },
-      });
-    }
-    onToggle?.(next);
-  };
+  const { open, opening, toggle } = useSectionOpen({
+    remember,
+    defaultOpen,
+    forced,
+    onToggle,
+  });
   return (
     <section
       aria-labelledby={`${id}-title`}

@@ -57,7 +57,9 @@ describe('the registry', () => {
   it('has the detail pages, listed in Settings once they have something to set (#310)', () => {
     for (const page of ['task', 'meeting', 'list'] as const) {
       expect(PAGES[page].label).toMatch(/ page$/);
-      expect(hasPageSettings(page)).toBe(false);
+    }
+    for (const page of ['task', 'meeting', 'list'] as const) {
+      expect(hasPageSettings(page)).toBe(true);
     }
     expect(hasPageSettings('project')).toBe(true);
     expect(hasPageSettings('focus')).toBe(true);

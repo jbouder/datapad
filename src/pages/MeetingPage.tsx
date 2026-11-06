@@ -5,7 +5,7 @@ import {
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useMemo, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import {
   carryForward,
@@ -40,7 +40,9 @@ import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { newId } from '@/lib/ids';
 import { linkProps, navigate } from '@/lib/router';
+import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { usePageSections, usePageSetting } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -49,7 +51,9 @@ import { useToast } from '@/providers/ToastProvider';
  * Summarize, Carry forward and Delete, which asks first and keeps the
  * notes and action items), the agenda, then Topics and Action items on the left and Notes
  * on the right (one column below 820px), and the previous and next
- * meeting of its series at the foot.
+ * meeting of its series at the foot. Settings → Pages can hide and
+ * reorder those sections and hide covered topics and done action items
+ * (#313).
  */
 export function MeetingPage({ id }: { id: string }) {
   const clock = useClock();
@@ -61,6 +65,10 @@ export function MeetingPage({ id }: { id: string }) {
   const meeting = state?.meetings[id];
   usePageTitle(meeting?.title ?? (state ? 'Not found' : 'Meeting'));
   const [confirming, setConfirming] = useState(false);
+  // Set in Settings → Pages (#313); the meeting's panel shows everything.
+  const sections = usePageSections('meeting');
+  const hideCovered = usePageSetting('meeting', 'covered') === 'hide';
+  const hideDoneActions = usePageSetting('meeting', 'doneActions') === 'hide';
   /** Deleted just now: on the way to Meetings. */
   const [leaving, setLeaving] = useState(false);
 
@@ -245,35 +253,116 @@ export function MeetingPage({ id }: { id: string }) {
         )}
       </header>
 
-      <div className="grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <MeetingTopics meeting={meeting} headingLevel={2} />
-          <MeetingActionItems meeting={meeting} headingLevel={2} />
-        </div>
-        <LinkedNoteList
-          notes={notes}
-          fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
-          state={state}
-          label={meetingNoteLabel(meeting)}
-          draftKey={meetingDraftKey(meeting)}
-          headingLevel={2}
-        />
-      </div>
-
-      {(series.previous || series.next) && (
-        <nav
-          aria-label="This series"
-          className="flex flex-wrap justify-between gap-2 border-t pt-3 text-sm"
-        >
-          {series.previous ? (
-            <SeriesLink meeting={series.previous} today={today} previous />
-          ) : (
-            <span />
-          )}
-          {series.next && <SeriesLink meeting={series.next} today={today} />}
-        </nav>
-      )}
+      <MeetingSections
+        visible={sections.visible}
+        sections={{
+          topics: (
+            <MeetingTopics
+              meeting={meeting}
+              headingLevel={2}
+              hideCovered={hideCovered}
+            />
+          ),
+          actions: (
+            <MeetingActionItems
+              meeting={meeting}
+              headingLevel={2}
+              hideDone={hideDoneActions}
+            />
+          ),
+          notes: (
+            <LinkedNoteList
+              notes={notes}
+              fields={{ projectId: meeting.projectId, meetingId: meeting.id }}
+              state={state}
+              label={meetingNoteLabel(meeting)}
+              draftKey={meetingDraftKey(meeting)}
+              headingLevel={2}
+            />
+          ),
+          series: (series.previous || series.next) && (
+            <nav
+              aria-label="This series"
+              className="flex flex-wrap justify-between gap-2 border-t pt-3 text-sm"
+            >
+              {series.previous ? (
+                <SeriesLink meeting={series.previous} today={today} previous />
+              ) : (
+                <span />
+              )}
+              {series.next && (
+                <SeriesLink meeting={series.next} today={today} />
+              )}
+            </nav>
+          ),
+        }}
+      />
     </article>
+  );
+}
+
+/**
+ * The meeting page's sections in the saved order, without the hidden
+ * ones (#313). Below 820px they are one column in that order. From
+ * 820px Notes keeps the right column and the rest stack on the left in
+ * that order; the ones before Notes start beside it and the ones after
+ * follow them, so the reading order is the saved order at every width.
+ * Series, when it comes last, is the full-width foot it always was.
+ */
+function MeetingSections({
+  visible,
+  sections,
+}: {
+  visible: readonly string[];
+  sections: Record<string, ReactNode>;
+}) {
+  const shown = visible.filter((key) => sections[key]);
+  const foot = shown[shown.length - 1] === 'series' ? 'series' : null;
+  const body = foot ? shown.slice(0, -1) : shown;
+  const notesAt = body.indexOf('notes');
+  const before = notesAt < 0 ? body : body.slice(0, notesAt);
+  const after = notesAt < 0 ? [] : body.slice(notesAt + 1);
+  // Notes beside one group on the left, or two when it sits between them.
+  const split = before.length > 0 && after.length > 0;
+  const column = (keys: string[], className?: string) =>
+    keys.length > 0 && (
+      <div className={cn('flex min-w-0 flex-col gap-6', className)}>
+        {keys.map((key) => (
+          <Fragment key={key}>{sections[key]}</Fragment>
+        ))}
+      </div>
+    );
+  return (
+    <>
+      {body.length > 0 && (
+        <div
+          className={cn(
+            'grid grid-cols-1 gap-6 desk:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+            split && 'desk:grid-rows-[auto_1fr]',
+          )}
+        >
+          {column(before, 'desk:col-start-1 desk:row-start-1')}
+          {notesAt >= 0 && (
+            <div
+              className={cn(
+                'min-w-0 desk:col-start-2 desk:row-start-1',
+                split && 'desk:row-span-2',
+              )}
+            >
+              {sections.notes}
+            </div>
+          )}
+          {column(
+            after,
+            cn(
+              'desk:col-start-1',
+              split ? 'desk:row-start-2' : 'desk:row-start-1',
+            ),
+          )}
+        </div>
+      )}
+      {foot && sections.series}
+    </>
   );
 }
 
