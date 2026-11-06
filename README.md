@@ -6,11 +6,11 @@
 
 A private project tracker for one engineering leader.
 
-Projects, tasks, notes, meetings, milestones, whiteboards and people in one
-place, with cross-project views, search and summaries that run on your own
-device. Only you can open it, your data stays in your own Cloudflare
-account, and nothing is ever wiped. Built for daily use on a laptop and a
-phone.
+Projects, tasks, notes, lists, meetings, milestones, whiteboards and people
+in one place, with cross-project views, search and summaries that run on
+your own device. Only you can open it, your data stays in your own
+Cloudflare account, and nothing is ever wiped. Built for daily use on a
+laptop and a phone.
 
 Runs entirely on Cloudflare: Cloudflare Access signs you in, one Worker
 serves the app and checks your sign-in again on every request, and one
@@ -30,8 +30,8 @@ over WebSockets, and backs itself up to R2 every night.
 - **Projects.** Name, org, status (active, paused, done), priority,
   start and target dates, members, tags, links, a Markdown description,
   a health flag (green, yellow, red) and an activity log. A project page
-  holds its milestones, tasks, meetings, notes and whiteboard. Archive
-  when done; start a new one from a template.
+  holds its milestones, tasks, meetings, notes, lists and whiteboard.
+  Archive when done; start a new one from a template.
 - **Tasks.** Add from the top bar's + or `n`, a circular checkbox to
   close with Undo, priority, due date (type `fri`, `+3d`,
   `10/31`), assignee, tags, links, Markdown details and dated running
@@ -43,6 +43,11 @@ over WebSockets, and backs itself up to R2 every night.
   command menu and formatting keys in the composer; pinned notes; select
   text to make a task from it; note templates for the 1:1s and status
   updates you write the same way every time.
+- **Lists.** Titled checklists of one-line items, on a project or in
+  General: tick items off, edit them in place, reorder by drag, keyboard
+  or touch, and turn one into a task with Make task. Start one from +,
+  `⌘K` or `Shift+L`. Each list has a page of its own, and a project page
+  shows its lists with their progress.
 - **Meetings.** Date, times, project, attendees and a link. Topics are the
   agenda: tick them off, note an outcome, reorder; a new meeting in a
   series (same title, project and people) offers to carry the uncovered
@@ -60,10 +65,10 @@ over WebSockets, and backs itself up to R2 every night.
 - **Layouts.** Projects as cards, a table or a timeline; Tasks as a list,
   a table, a board or a timeline, grouped by project, due, assignee or
   priority; Meetings as a list, a month calendar or a timeline; Notes as
-  a list or a grid. Every page remembers its layout, sort, filters and
-  open sections, saved with your data so every device opens it the same
-  way. Settings → Navigation picks which sections and tools the rail and
-  the phone's tab bar show, and in what order.
+  a list or a grid; Lists as cards or a table. Every page remembers its
+  layout, sort, filters and open sections, saved with your data so every
+  device opens it the same way. Settings → Navigation picks which sections
+  and tools the rail and the phone's tab bar show, and in what order.
 - **Tools.** Under their own heading in the rail: the Notepad, the
   Whiteboard and the Weekly digest, each shown or hidden, ordered and put
   on the phone's tab bar as you like (otherwise they are in the account
@@ -74,8 +79,8 @@ over WebSockets, and backs itself up to R2 every night.
   space: sticky notes, text, rectangles, arrows and freehand ink in five
   colors, undo and redo, zoom and pan, download as PNG or SVG. Live on
   every device like everything else.
-- **Search.** `⌘K` finds any project, task, note, meeting, org, person or
-  whiteboard item and runs actions.
+- **Search.** `⌘K` finds any project, task, note, meeting, list (by its
+  title or any item), org, person or whiteboard item and runs actions.
 - **People and orgs.** Everyone you assign, add to projects and mention,
   each with their projects, open tasks and mentions for a quick check
   before a 1:1; the clients, teams, vendors and partners your projects
@@ -140,10 +145,10 @@ over WebSockets, and backs itself up to R2 every night.
   fictional.
 
 Limits: 12 spaces; titles 200 characters, bodies and descriptions 20,000;
-50 milestones per project, 50 topics per meeting, 100 members or
-attendees; 2,000 items per whiteboard; 150 activity entries per log; 16 MiB
-per import; 20 ops per second per connection; 30 backups kept per space;
-60 MCP tool calls a minute per connection.
+50 milestones per project, 50 topics per meeting, 200 items per list, 100
+members or attendees; 2,000 items per whiteboard; 150 activity entries per
+log; 16 MiB per import; 20 ops per second per connection; 30 backups kept
+per space; 60 MCP tool calls a minute per connection.
 
 ## Connect Claude
 
@@ -152,7 +157,7 @@ datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
 Desktop. You sign in through Access and approve the client on a consent
 page. Claude can then read everything the app shows: the overview, Focus,
 what happened since the last working day, projects, tasks, notes,
-meetings, people, orgs, the digest and search. See
+meetings, lists, people, orgs, the digest and search. See
 [docs/mcp.md](docs/mcp.md).
 
 ## Run it yourself
