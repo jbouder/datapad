@@ -348,6 +348,31 @@ export function usePageSetting(page: PageKey, key: string): string {
   return values[key] ?? pageField(page, key)?.def ?? '';
 }
 
+/**
+ * A `settingsOnly` field the page also sets itself (#318: the project
+ * page's Show done): its value as the page opened, then this visit's own
+ * choice, and a setter that shows it at once and saves it through the
+ * debounced `save` (`planChange`, so the default is saved as nothing and
+ * the address is left alone).
+ */
+export function usePageSettingState(
+  page: PageKey,
+  key: string,
+): [string, (value: string) => void] {
+  const opening = usePageSetting(page, key);
+  const { save } = usePagePrefs();
+  const [own, setOwn] = useState<string | null>(null);
+  const set = useCallback(
+    (value: string) => {
+      setOwn(value);
+      const { patch } = planChange(page, { [key]: value }, {});
+      if (patch) save(page, patch);
+    },
+    [page, key, save],
+  );
+  return [own ?? opening, set];
+}
+
 function withChanges(
   values: Record<string, string>,
   changes: Record<string, string | null>,

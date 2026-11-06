@@ -309,6 +309,23 @@ const projectMeetingsField: PrefField = {
   settingsOnly: true,
 };
 
+/**
+ * The project page's Show done (#318): done tasks after the open ones in
+ * Tasks' list, and the board's Done column. Set from the toggle in the
+ * Tasks header or in Settings → Pages; never in the address.
+ */
+const projectDoneField: PrefField = {
+  key: 'done',
+  label: 'Done tasks',
+  def: 'hide',
+  options: [
+    { value: 'hide', label: 'Hide' },
+    { value: 'show', label: 'Show' },
+  ],
+  control: 'segmented',
+  settingsOnly: true,
+};
+
 /** How the task page shows the note a task was made from (#312). */
 export const SOURCE_NOTE_OPTIONS = [
   { value: 'expanded', label: 'Expanded' },
@@ -532,9 +549,13 @@ export const PAGES: Record<PageKey, PageSpec> = {
         'Tasks layout',
       ),
       projectMeetingsField,
+      projectDoneField,
     ],
     sections: true,
     sectionKeys: PROJECT_PAGE_SECTIONS,
+    // Only its own sections: the Done group inside Tasks is gone (#318),
+    // and what it saved is ignored.
+    collapsible: PROJECT_PAGE_SECTIONS.map((s) => s.key),
   },
   task: {
     label: 'Task page',

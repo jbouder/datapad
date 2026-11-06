@@ -2,6 +2,7 @@ import {
   ArchiveIcon,
   ArrowsLeftRightIcon,
   ChalkboardSimpleIcon,
+  ChecksIcon,
   CopySimpleIcon,
   PlusIcon,
   SparkleIcon,
@@ -47,6 +48,7 @@ import { TaskList } from '@/components/tasks/TaskList';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { useDesk } from '@/hooks/useMediaQuery';
@@ -58,7 +60,11 @@ import { ProjectLists } from '@/pages/lazy';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
-import { usePageSections, usePageSetting } from '@/providers/PagePrefsProvider';
+import {
+  usePageSections,
+  usePageSetting,
+  usePageSettingState,
+} from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
@@ -70,7 +76,8 @@ import { useToast } from '@/providers/ToastProvider';
  * remember open or closed, one set for every project (#186). Settings →
  * Pages hides and reorders them (#312): each column on desktop, and the
  * one column on a phone, follows the saved order; Meetings shows can
- * leave out past meetings.
+ * leave out past meetings. Show done in the Tasks header (#318) puts the
+ * done tasks after the open ones, in one list, and the board's Done column.
  */
 export function ProjectPage({ id }: { id: string }) {
   const { state, actions } = useDatapad();
@@ -110,6 +117,10 @@ export function ProjectPage({ id }: { id: string }) {
   );
   const { visible } = usePageSections('project');
   const upcomingOnly = usePageSetting('project', 'meetings') === 'upcoming';
+  // Show done (#318): done tasks after the open ones, and the board's Done
+  // column; saved with the page, also set in Settings → Pages.
+  const [doneSetting, setDoneSetting] = usePageSettingState('project', 'done');
+  const showDone = doneSetting === 'show';
   const desk = useDesk();
 
   const tasks = useMemo(() => {
@@ -225,6 +236,15 @@ export function ProjectPage({ id }: { id: string }) {
               value={taskView}
               onChange={setTaskView}
             />
+            <Toggle
+              variant="outline"
+              className="press h-11 desk:h-8"
+              pressed={showDone}
+              onPressedChange={(on) => setDoneSetting(on ? 'show' : 'hide')}
+            >
+              <ChecksIcon />
+              Show done
+            </Toggle>
             <Button
               variant="outline"
               className="press h-11 desk:h-8"
@@ -242,14 +262,15 @@ export function ProjectPage({ id }: { id: string }) {
               projectId={id}
               open={tasks.open}
               done={tasks.done}
+              showDone={showDone}
             />
           ) : (
             <TaskList
-              label="Open tasks"
+              label={showDone ? 'Tasks' : 'Open tasks'}
               open={tasks.open}
-              done={tasks.done}
+              done={showDone ? tasks.done : undefined}
+              doneInline
               showProject={false}
-              doneRemember={key('done')}
               reorderProject={id}
             />
           )}
