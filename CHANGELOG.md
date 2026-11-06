@@ -19,12 +19,15 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
-- **People and Orgs in the rail**: links under the sections, still
-  Settings sections at the same addresses.
+- **People and Orgs are sections**: in the rail after Lists, and in
+  Settings → Navigation like the rest (Show, Phone, order). Off the
+  phone's tab bar by default. Still Settings sections at the same
+  addresses.
 - **Refresh moved to Settings → Account** (and stays in ⌘K); the account
   menu no longer has it.
-- **Pages in the phone's account menu**: the sections and tools the tab
-  bar leaves out, with People and Orgs, sit in their own Pages group.
+- **Pages in the phone's account menu**: the shown sections and tools the
+  tab bar leaves out (Lists, People, Orgs and the tools, by default) sit
+  in their own Pages group.
 
 ### Fixed
 

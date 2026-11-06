@@ -31,6 +31,8 @@ describe('navOf', () => {
       'meetings',
       'notes',
       'lists',
+      'people',
+      'orgs',
     ]);
   });
 
@@ -42,7 +44,7 @@ describe('navOf', () => {
           hidden: ['meetings', 'focus'],
         },
       }),
-    ).toEqual(['notes', 'lists', 'tasks', 'projects']);
+    ).toEqual(['notes', 'lists', 'people', 'orgs', 'tasks', 'projects']);
   });
 
   it('ignores unknown and repeated names, the Whiteboard among them', () => {
@@ -50,32 +52,76 @@ describe('navOf', () => {
       navOf({
         nav: {
           order: ['reports', 'notes', 'whiteboard', 'notes', 'focus'],
-          hidden: ['people', 'focus', 'whiteboard'],
+          hidden: ['ideas', 'focus', 'whiteboard'],
         },
       }),
-    ).toEqual(['notes', 'lists', 'projects', 'tasks', 'meetings']);
+    ).toEqual([
+      'notes',
+      'lists',
+      'people',
+      'orgs',
+      'projects',
+      'tasks',
+      'meetings',
+    ]);
   });
 
   it('puts a section missing from the saved order at its default place', () => {
     // A saved order from before Meetings, say: it comes back after Tasks.
     expect(
       navOrderOf({ order: ['tasks', 'focus', 'projects', 'notes'] }),
-    ).toEqual(['tasks', 'meetings', 'focus', 'projects', 'notes', 'lists']);
+    ).toEqual([
+      'tasks',
+      'meetings',
+      'focus',
+      'projects',
+      'notes',
+      'lists',
+      'people',
+      'orgs',
+    ]);
     // The first section, when missing, goes first.
     expect(navOrderOf({ order: ['notes', 'projects'] })).toEqual([
       'focus',
       'notes',
       'lists',
+      'people',
+      'orgs',
       'projects',
       'tasks',
       'meetings',
     ]);
-    // Lists (#299), missing from every order saved before it: after Notes.
+    // Lists (#299), then People and Orgs, missing from every order saved
+    // before them: after Notes.
     expect(
       navOrderOf({
         order: ['notes', 'meetings', 'tasks', 'projects', 'focus'],
       }),
-    ).toEqual(['notes', 'lists', 'meetings', 'tasks', 'projects', 'focus']);
+    ).toEqual([
+      'notes',
+      'lists',
+      'people',
+      'orgs',
+      'meetings',
+      'tasks',
+      'projects',
+      'focus',
+    ]);
+    // An order saved with Lists but before People and Orgs: after Lists.
+    expect(
+      navOrderOf({
+        order: ['lists', 'notes', 'meetings', 'tasks', 'projects', 'focus'],
+      }),
+    ).toEqual([
+      'lists',
+      'people',
+      'orgs',
+      'notes',
+      'meetings',
+      'tasks',
+      'projects',
+      'focus',
+    ]);
   });
 
   it('keeps at least one section visible', () => {
@@ -89,7 +135,7 @@ describe('navOf', () => {
 });
 
 describe('navPhoneOf', () => {
-  it('puts every section but Lists on the tab bar by default', () => {
+  it('puts every section but Lists, People and Orgs on the tab bar by default', () => {
     expect(navPhoneOf({})).toEqual([
       'focus',
       'projects',
@@ -97,11 +143,27 @@ describe('navPhoneOf', () => {
       'meetings',
       'notes',
     ]);
-    expect(navPhoneHiddenOf(undefined)).toEqual(new Set(['lists']));
-    // So the phone has it in the account menu.
-    expect(navMenuSectionsOf({})).toEqual(['lists']);
-    // Hidden, it is in neither.
-    expect(navMenuSectionsOf({ nav: { hidden: ['lists'] } })).toEqual([]);
+    expect(navPhoneHiddenOf(undefined)).toEqual(
+      new Set(['lists', 'people', 'orgs']),
+    );
+    // So the phone has them in the account menu.
+    expect(navMenuSectionsOf({})).toEqual(['lists', 'people', 'orgs']);
+    // Hidden, they are in neither.
+    expect(
+      navMenuSectionsOf({ nav: { hidden: ['lists', 'people', 'orgs'] } }),
+    ).toEqual([]);
+    // On the tab bar, not in the menu.
+    const onPhone = { order: [...NAV_SECTIONS], phoneHidden: ['lists'] };
+    expect(navPhoneOf({ nav: onPhone })).toEqual([
+      'focus',
+      'projects',
+      'tasks',
+      'meetings',
+      'notes',
+      'people',
+      'orgs',
+    ]);
+    expect(navMenuSectionsOf({ nav: onPhone })).toEqual(['lists']);
   });
 
   it('keeps Lists off the phone until a saved order names it (#299)', () => {
@@ -110,7 +172,9 @@ describe('navPhoneOf', () => {
       order: ['focus', 'projects', 'tasks', 'meetings', 'notes'],
       phoneHidden: ['notes'],
     };
-    expect(navPhoneHiddenOf(before)).toEqual(new Set(['notes', 'lists']));
+    expect(navPhoneHiddenOf(before)).toEqual(
+      new Set(['notes', 'lists', 'people', 'orgs']),
+    );
     // Saved since, order and phone list together: Phone on for Lists.
     const on = { order: [...NAV_SECTIONS], phoneHidden: ['notes'] };
     expect(navPhoneHiddenOf(on)).toEqual(new Set(['notes']));
@@ -120,6 +184,8 @@ describe('navPhoneOf', () => {
       'tasks',
       'meetings',
       'lists',
+      'people',
+      'orgs',
     ]);
     expect(navMenuSectionsOf({ nav: on })).toEqual(['notes']);
   });
@@ -135,6 +201,8 @@ describe('navPhoneOf', () => {
       'projects',
       'tasks',
       'lists',
+      'people',
+      'orgs',
     ]);
     expect(navPhoneHiddenOf(nav)).toEqual(new Set(['notes']));
   });
@@ -143,9 +211,11 @@ describe('navPhoneOf', () => {
     const nav = { order: ['notes', 'focus'], phoneHidden: [...NAV_SECTIONS] };
     expect(navPhoneOf({ nav })).toEqual(['notes']);
     // The first shown one, when the first in the order is hidden.
-    expect(navPhoneOf({ nav: { ...nav, hidden: ['notes', 'lists'] } })).toEqual(
-      ['focus'],
-    );
+    expect(
+      navPhoneOf({
+        nav: { ...nav, hidden: ['notes', 'lists', 'people', 'orgs'] },
+      }),
+    ).toEqual(['focus']);
   });
 });
 
@@ -216,8 +286,9 @@ describe('the tools (#261)', () => {
       new Set(['whiteboard']),
     );
     // On the phone as a section (saved knowing it): on the phone as a tool.
+    // Saved before Lists, People and Orgs, which stay off the phone.
     const onPhone = {
-      order: [...NAV_SECTIONS, 'whiteboard'],
+      order: ['focus', 'projects', 'tasks', 'meetings', 'notes', 'whiteboard'],
       phoneHidden: ['notes'],
     };
     expect(navPhoneToolsOf({ nav: onPhone })).toEqual(['whiteboard']);

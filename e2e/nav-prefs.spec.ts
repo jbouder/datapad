@@ -7,6 +7,7 @@ import {
   expectNoSidewaysScroll,
   isMobile,
   openLive,
+  openPreferences,
   SEED,
   syncStatus,
   test,
@@ -80,8 +81,8 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    // Lists (#299) is off the phone's tab bar by default.
-    ...(isMobile(page) ? [] : [/Lists/]),
+    // Lists (#299), People and Orgs are off the phone's tab bar by default.
+    ...(isMobile(page) ? [] : [/Lists/, /People/, /Orgs/]),
   ]);
   if (isMobile(page)) {
     // Four even columns, each still a 44px target.
@@ -106,8 +107,8 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    // Lists (#299) is off the phone's tab bar by default.
-    ...(isMobile(page) ? [] : [/Lists/]),
+    // Lists (#299), People and Orgs are off the phone's tab bar by default.
+    ...(isMobile(page) ? [] : [/Lists/, /People/, /Orgs/]),
   ]);
 
   // A hidden section still opens from its address and ⌘K, and nothing in
@@ -142,16 +143,82 @@ test('hiding and reordering sections follows into the rail and the tab bar, afte
     /Projects/,
     /Notes/,
     /Tasks/,
-    ...(isMobile(page) ? [] : [/Lists/]),
+    ...(isMobile(page) ? [] : [/Lists/, /People/, /Orgs/]),
   ]);
   await other.close();
+});
+
+test('People and Orgs are sections like the rest: off the tab bar, in the account menu until Phone puts them there', async ({
+  page,
+}) => {
+  test.skip(
+    !isMobile(page),
+    'The tab bar and the menu’s Pages are phone only.',
+  );
+  await openLive(page, '/settings/navigation');
+  const pages = () =>
+    page.getByRole('group', { name: 'Pages' }).getByRole('menuitem');
+  await expect(sections(page).filter({ hasText: /People|Orgs/ })).toHaveCount(
+    0,
+  );
+  await openPreferences(page);
+  await expect(pages()).toHaveText([
+    'Lists',
+    'People',
+    'Orgs',
+    'Notepad',
+    'Whiteboard',
+    'Weekly digest',
+  ]);
+  await page.keyboard.press('Escape');
+
+  // Phone on for People: on the tab bar, out of the menu.
+  await page.getByRole('switch', { name: 'People on the phone' }).click();
+  await expect(sections(page).last()).toHaveText(/People/);
+  await sections(page).last().click();
+  await expect(page).toHaveURL(/\/settings\/people$/);
+  await expect(sections(page).last()).toHaveAttribute('aria-current', 'page');
+  await openPreferences(page);
+  await expect(pages()).toHaveText([
+    'Lists',
+    'Orgs',
+    'Notepad',
+    'Whiteboard',
+    'Weekly digest',
+  ]);
+  await page.keyboard.press('Escape');
+
+  // Hidden, Orgs is in neither; still in Settings.
+  await page.goto('/settings/navigation');
+  await page.getByRole('switch', { name: 'Show Orgs', exact: true }).click();
+  await openPreferences(page);
+  await expect(pages()).toHaveText([
+    'Lists',
+    'Notepad',
+    'Whiteboard',
+    'Weekly digest',
+  ]);
+  await page.keyboard.press('Escape');
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Settings' })
+      .getByRole('link', { name: 'Orgs' }),
+  ).toBeVisible();
 });
 
 test('the last section stays, and Reset puts the default back with Undo', async ({
   page,
 }) => {
   await openLive(page, '/settings/navigation');
-  for (const label of ['Focus', 'Projects', 'Tasks', 'Meetings', 'Lists']) {
+  for (const label of [
+    'Focus',
+    'Projects',
+    'Tasks',
+    'Meetings',
+    'Lists',
+    'People',
+    'Orgs',
+  ]) {
     await page
       .getByRole('switch', { name: `Show ${label}`, exact: true })
       .click();
@@ -169,7 +236,7 @@ test('the last section stays, and Reset puts the default back with Undo', async 
     /Tasks/,
     /Meetings/,
     /Notes/,
-    ...(isMobile(page) ? [] : [/Lists/]),
+    ...(isMobile(page) ? [] : [/Lists/, /People/, /Orgs/]),
   ]);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(sections(page)).toHaveText([/Notes/]);
@@ -251,13 +318,15 @@ test('the sync status sits at the foot of the rail (the top bar on phones); the 
     const nav = rail.getByRole('navigation');
     const links = await nav.getByRole('link').allInnerTexts();
     const names = links.map((t) => t.split('\n')[0].trim());
-    expect(names.slice(0, 9)).toEqual([
+    expect(names.slice(0, 11)).toEqual([
       'Focus',
       'Projects',
       'Tasks',
       'Meetings',
       'Notes',
       'Lists',
+      'People',
+      'Orgs',
       'Notepad',
       'Whiteboard',
       'Weekly digest',

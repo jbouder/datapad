@@ -287,7 +287,6 @@ export function sectionOf(route: Route): RouteName {
   if (route.name === 'task') return 'tasks';
   if (route.name === 'meeting') return 'meetings';
   if (route.name === 'list') return 'lists';
-  if (route.name === 'people' || route.name === 'orgs') return 'settings';
   return route.name;
 }
 

@@ -257,9 +257,9 @@ describe('sectionOf and titleOf', () => {
     expect(sectionOf(parseRoute('/events'))).toBe('meetings');
   });
 
-  it('puts People and Orgs under Settings', () => {
-    expect(sectionOf({ name: 'people', person: 'p' })).toBe('settings');
-    expect(sectionOf({ name: 'orgs' })).toBe('settings');
+  it('gives People and Orgs their own sections', () => {
+    expect(sectionOf({ name: 'people', person: 'p' })).toBe('people');
+    expect(sectionOf({ name: 'orgs', org: 'o' })).toBe('orgs');
     expect(sectionOf({ name: 'settings', section: 'data' })).toBe('settings');
   });
 

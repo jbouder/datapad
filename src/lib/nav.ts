@@ -37,7 +37,7 @@ import type { Route } from '@/lib/router';
 
 /** A top-level section or a tool, as the rail and the tab bar show it. */
 export interface NavItem {
-  name: SectionName | ToolName | 'people' | 'orgs';
+  name: SectionName | ToolName;
   route: Route;
   label: string;
   icon: Icon;
@@ -80,6 +80,19 @@ export const NAV_ITEMS: Record<SectionName, NavItem> = {
     label: 'Lists',
     icon: ListChecksIcon,
   },
+  // Settings sections too (#159), at the same addresses.
+  people: {
+    name: 'people',
+    route: { name: 'people' },
+    label: 'People',
+    icon: UsersIcon,
+  },
+  orgs: {
+    name: 'orgs',
+    route: { name: 'orgs' },
+    label: 'Orgs',
+    icon: BuildingsIcon,
+  },
 };
 
 /** The tools (#261): below the sections in the rail. */
@@ -103,21 +116,6 @@ export const TOOL_ITEMS: Record<ToolName, NavItem> = {
     icon: NewspaperIcon,
   },
 };
-
-/**
- * People and Orgs: Settings sections (#159), linked from the rail under
- * the sections and from the account menu's Pages on a phone. Always
- * shown; Settings → Navigation does not list them.
- */
-export const DIRECTORY_ITEMS: NavItem[] = [
-  {
-    name: 'people',
-    route: { name: 'people' },
-    label: 'People',
-    icon: UsersIcon,
-  },
-  { name: 'orgs', route: { name: 'orgs' }, label: 'Orgs', icon: BuildingsIcon },
-];
 
 /**
  * Every section, then every tool, in the default order (⌘K lists them

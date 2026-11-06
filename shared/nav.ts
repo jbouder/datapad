@@ -17,6 +17,8 @@ export const NAV_SECTIONS = [
   'meetings',
   'notes',
   'lists',
+  'people',
+  'orgs',
 ] as const;
 export type SectionName = (typeof NAV_SECTIONS)[number];
 
@@ -92,14 +94,14 @@ export function navOf(settings: Pick<Settings, 'nav'>): SectionName[] {
 }
 
 /**
- * Off the phone's tab bar until switched on (#299): Lists, a sixth
- * section, would fill it and push every tool to the account menu.
+ * Off the phone's tab bar until switched on: Lists (#299), People and
+ * Orgs would fill it and push every tool to the account menu.
  */
-const PHONE_HIDDEN: readonly SectionName[] = ['lists'];
+const PHONE_HIDDEN: readonly SectionName[] = ['lists', 'people', 'orgs'];
 
 /**
  * The sections the phone's tab bar leaves out, among the shown ones
- * (every section but Lists is on it by default). Settings saves the order
+ * (every section but Lists, People and Orgs is on it by default). Settings saves the order
  * with the phone's list, so a section the saved order never names (a
  * later release's) keeps its default. At least one shown section stays
  * on the phone, the first in the order.
@@ -124,8 +126,8 @@ export function navPhoneOf(settings: Pick<Settings, 'nav'>): SectionName[] {
 }
 
 /**
- * The shown sections the phone's tab bar leaves out (Lists, by default):
- * the account menu has them on a phone.
+ * The shown sections the phone's tab bar leaves out (Lists, People and
+ * Orgs, by default): the account menu has them on a phone.
  */
 export function navMenuSectionsOf(
   settings: Pick<Settings, 'nav'>,

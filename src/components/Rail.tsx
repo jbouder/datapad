@@ -5,7 +5,7 @@ import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
-import { DIRECTORY_ITEMS, type NavItem, sectionOf, useNav } from '@/lib/nav';
+import { type NavItem, sectionOf, useNav } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
@@ -19,8 +19,8 @@ const CURRENT =
 
 /**
  * The desktop rail (≥ 820px): the space switcher, the sections with live
- * counts (those Settings → Navigation shows, in its order) with People and
- * Orgs under them (Settings sections, linked here too), the Tools
+ * counts (those Settings → Navigation shows, in its order; People and
+ * Orgs among them, Settings sections linked here too), the Tools
  * (#261: Notepad, Whiteboard, Weekly digest, those shown, in their order;
  * the heading goes when none is), the active projects (most recently
  * updated first) with their open counts, Archived when there is any (each
@@ -108,13 +108,6 @@ export function Rail({ route }: { route: Route }) {
               </li>
             );
           })}
-          {DIRECTORY_ITEMS.map((item) => (
-            <ToolRow
-              key={item.name}
-              tool={item}
-              current={route.name === item.route.name}
-            />
-          ))}
         </ul>
 
         {nav.tools.length > 0 && (
