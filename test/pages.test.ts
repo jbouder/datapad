@@ -7,6 +7,7 @@ import {
   effectiveQuery,
   filterFields,
   focusDays,
+  focusOptions,
   hasPagePrefs,
   hasPageSettings,
   isFiltered,
@@ -16,11 +17,14 @@ import {
   PAGES,
   planChange,
   prefsAsPatch,
+  savedFocusOptions,
   savedPrefs,
   sectionCounts,
+  visibleSections,
 } from '#shared/pages';
 import { PagePrefsPatchSchema } from '#shared/protocol';
 import { reduce } from '#shared/reducer';
+import { FOCUS_DEFAULTS } from '#shared/select';
 import { emptySnapshot, PAGE_KEYS, type Snapshot } from '#shared/types';
 
 const T1 = '2026-10-23T10:00:00.000Z';
@@ -54,10 +58,9 @@ describe('the registry', () => {
     for (const page of ['task', 'meeting', 'list'] as const) {
       expect(PAGES[page].label).toMatch(/ page$/);
     }
-    for (const page of ['meeting', 'list'] as const) {
-      expect(hasPageSettings(page)).toBe(false);
+    for (const page of ['task', 'meeting', 'list'] as const) {
+      expect(hasPageSettings(page)).toBe(true);
     }
-    expect(hasPageSettings('task')).toBe(true);
     expect(hasPageSettings('project')).toBe(true);
     expect(hasPageSettings('focus')).toBe(true);
   });
@@ -145,6 +148,137 @@ describe('how far Focus’s Week looks ahead', () => {
     expect(
       currentValues('focus', { filters: { days: '6' } }, s).days,
     ).toBeUndefined();
+  });
+});
+
+describe('Focus’s settings (#311)', () => {
+  it('reads as today’s Focus with nothing set', () => {
+    expect(focusOptions({}, state().people)).toEqual(FOCUS_DEFAULTS);
+    expect(FOCUS_DEFAULTS).toEqual({
+      who: { kind: 'anyone' },
+      group: 'priority',
+      days: 7,
+      targetDays: 14,
+      quietDays: 14,
+      yellow: true,
+      followUpDays: 7,
+    });
+  });
+
+  it('reads each choice, and anything else as the default', () => {
+    const s = state();
+    expect(
+      focusOptions(
+        {
+          who: 'mine',
+          group: 'date',
+          days: '10',
+          target: '30',
+          quiet: 'off',
+          yellow: 'leave',
+          followDays: '14',
+        },
+        s.people,
+      ),
+    ).toEqual({
+      who: { kind: 'mine' },
+      group: 'date',
+      days: 10,
+      targetDays: 30,
+      quietDays: null,
+      yellow: false,
+      followUpDays: 14,
+    });
+    expect(
+      focusOptions(
+        {
+          who: 'p:u2',
+          group: 'nope',
+          target: '10',
+          quiet: '9',
+          yellow: 'maybe',
+          followDays: '30',
+        },
+        s.people,
+      ),
+    ).toEqual(FOCUS_DEFAULTS);
+    expect(focusOptions({ quiet: '7' }, s.people).quietDays).toBe(7);
+  });
+
+  it('reads Mine as Anyone when nobody is marked as me', () => {
+    expect(focusOptions({ who: 'mine' }, {}).who).toEqual({ kind: 'anyone' });
+  });
+
+  it('offers Mine in Tasks for only when someone is marked as me', () => {
+    const field = PAGES.focus.fields.find((f) => f.key === 'who');
+    if (!field) throw new Error('no Tasks for');
+    const s = state();
+    expect(optionsFor(field, s).map((o) => o.value)).toEqual([
+      'anyone',
+      'mine',
+    ]);
+    const nobody = { ...s, people: {} };
+    expect(optionsFor(field, nobody).map((o) => o.value)).toEqual(['anyone']);
+    expect(
+      currentValues('focus', { filters: { who: 'mine' } }, nobody),
+    ).toEqual({});
+  });
+
+  it('keeps who and group in the address and the rules out of it', () => {
+    const plan = planChange(
+      'focus',
+      { who: 'mine', group: 'date', quiet: 'off', followDays: '14' },
+      {},
+    );
+    expect(plan.url).toEqual({ who: 'mine', group: 'date' });
+    expect(plan.patch).toEqual({
+      group: 'date',
+      filters: { who: 'mine', quiet: 'off', followDays: '14' },
+    });
+    const read = effectiveQuery('focus', q('quiet=7&who=mine'), {
+      quiet: 'off',
+    });
+    expect(read.get('quiet')).toBeNull();
+    expect(read.get('who')).toBe('mine');
+  });
+
+  it('reads what the space saved (MCP)', () => {
+    const s = reduce(
+      state(),
+      {
+        type: 'setPagePrefs',
+        page: 'focus',
+        patch: {
+          group: 'date',
+          filters: { who: 'mine', target: '7', yellow: 'leave', bogus: '1' },
+        },
+      },
+      T1,
+    ).state;
+    expect(savedFocusOptions(s)).toEqual({
+      ...FOCUS_DEFAULTS,
+      who: { kind: 'mine' },
+      group: 'date',
+      targetDays: 7,
+      yellow: false,
+    });
+  });
+
+  it('has six sections in today’s order', () => {
+    expect(PAGES.focus.sectionKeys?.map((x) => x.key)).toEqual([
+      'recap',
+      'agenda',
+      'waiting',
+      'attention',
+      'followUps',
+      'due',
+    ]);
+    expect(
+      visibleSections('focus', {
+        hidden: ['agenda'],
+        order: ['due', 'recap', 'agenda', 'waiting', 'attention', 'followUps'],
+      }),
+    ).toEqual(['due', 'recap', 'waiting', 'attention', 'followUps']);
   });
 });
 

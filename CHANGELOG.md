@@ -26,12 +26,29 @@ changes the format says so here under **Export format**.
   them, with Reset and Undo; at least one section stays shown. Focus and
   the project, task, meeting and list pages adopt it next. Settings →
   Pages lists a page only once it has something to set.
+- **Focus settings** (#311): in Settings → Pages, hide Focus's sections
+  (Since yesterday, Agenda, Waiting on, Attention, Follow-ups, Due) and
+  put them in your own order. **Tasks for: Mine** (also a switch in
+  Focus's header, and `?who=mine`) narrows Due, Waiting on, Follow-ups
+  and Since yesterday to your tasks. **Group Due by: Date** shows Overdue,
+  Today and Upcoming. Attention's rules (target within 7, 14 or 30 days;
+  quiet after 7, 14 or 30 days, or off; yellow health in or out) and how
+  far back Follow-ups looks (7 or 14 days) are yours to set. Brief me
+  and the MCP tools `get_focus` and `get_recap` follow the same settings;
+  a hidden section still feeds Brief me.
 - **Project and task page settings** (#312): Settings → Pages hides and
   reorders the project page's sections (on desktop each keeps its
   column), and its Meetings can show only upcoming meetings. The task
   page's source note can be expanded, collapsed or hidden (a link to it
   stays in the details), and its Notes section opens and closes and is
   remembered. The panels are unchanged.
+- **Meeting and list page settings** (#313): in Settings → Pages, the
+  meeting page can hide and reorder Topics, Action items, Notes and
+  Series, and hide covered topics and done action items, with one line
+  in their place when every one is hidden. The list page shows its done
+  items collapsed under Done (n), as before, expanded, or hidden with
+  "n done" in their place. The meeting panel shows everything, as
+  before.
 
 ### Export format
 

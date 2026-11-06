@@ -15,6 +15,7 @@ import { useId, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { moveOpenItem } from '#shared/lists';
 import { restoredOrder } from '#shared/meetings';
+import type { ListDoneMode } from '#shared/pages';
 import type { Op } from '#shared/protocol';
 import type { List, ListItem } from '#shared/types';
 import { useListPanel } from '@/components/lists/ListPanelProvider';
@@ -50,8 +51,18 @@ const INLINE_INPUT =
  * mouse; Alt+↑ / Alt+↓ on a row and the menu are the keyboard and touch
  * ways. Add an item opens a field at the end that stays open for the next
  * after Enter; Escape closes it.
+ *
+ * `done` is how the done ones show (#313): under Done (n), collapsed (the
+ * default) or open, or left out with "n done" as text in their place. The
+ * list page passes its saved setting.
  */
-export function ListItems({ list }: { list: List }) {
+export function ListItems({
+  list,
+  done: doneMode = 'collapsed',
+}: {
+  list: List;
+  done?: ListDoneMode;
+}) {
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const { active } = useMotion();
@@ -63,7 +74,14 @@ export function ListItems({ list }: { list: List }) {
   const addButton = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
-  const [showDone, setShowDone] = useState(false);
+  const [showDone, setShowDone] = useState(doneMode === 'expanded');
+  // The saved setting can arrive after the first render (the live state
+  // over the cached one): start over from it when it changes.
+  const [modeWas, setModeWas] = useState(doneMode);
+  if (modeWas !== doneMode) {
+    setModeWas(doneMode);
+    setShowDone(doneMode === 'expanded');
+  }
   const [announcement, setAnnouncement] = useState('');
   const [armedId, setArmedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -303,7 +321,12 @@ export function ListItems({ list }: { list: List }) {
         />
       )}
 
-      {done.length > 0 && (
+      {done.length > 0 && doneMode === 'hidden' && (
+        <p className="pt-2 text-xs text-muted-foreground tabular-nums">
+          {done.length} done
+        </p>
+      )}
+      {done.length > 0 && doneMode !== 'hidden' && (
         <div className="flex min-w-0 flex-col pt-2">
           <button
             type="button"

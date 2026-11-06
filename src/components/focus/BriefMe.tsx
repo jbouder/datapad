@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { namesToTokens } from '#shared/mentions';
+import type { FocusOptions } from '#shared/select';
 import { briefLabel, briefNoteBody } from '#shared/summaries';
 import { Markdown } from '@/components/Markdown';
 import { ModelGate } from '@/components/summary/SummaryPanel';
@@ -35,8 +36,17 @@ function useBriefAvailable(): boolean {
   return enabled && model.kind !== 'unsupported';
 }
 
-/** Focus's header button: asks the model for today's brief (#259). */
-export function BriefMeButton({ today }: { today: string }) {
+/**
+ * Focus's header button: asks the model for today's brief (#259), with
+ * Focus's settings as the page reads them (#311).
+ */
+export function BriefMeButton({
+  today,
+  options,
+}: {
+  today: string;
+  options: FocusOptions;
+}) {
   const { summarize } = useSummaries();
   if (!useBriefAvailable()) return null;
   return (
@@ -44,7 +54,7 @@ export function BriefMeButton({ today }: { today: string }) {
       type="button"
       variant="outline"
       className={BUTTON}
-      onClick={() => summarize({ kind: 'brief', today })}
+      onClick={() => summarize({ kind: 'brief', today, options })}
     >
       <SparkleIcon />
       Brief me
@@ -60,7 +70,13 @@ export function BriefMeButton({ today }: { today: string }) {
  * device per space and per day (`brief-cache.ts`), so it is still here
  * when Focus is opened again today. Leaving Focus stops a run.
  */
-export function BriefCard({ today }: { today: string }) {
+export function BriefCard({
+  today,
+  options,
+}: {
+  today: string;
+  options: FocusOptions;
+}) {
   const summaries = useSummaries();
   const live = useBrief();
   const { state, actions } = useDatapad();
@@ -105,7 +121,8 @@ export function BriefCard({ today }: { today: string }) {
     !live || live.run.status === 'done' || live.run.status === 'error';
   const label = live?.request.label ?? briefLabel(today);
 
-  const regenerate = () => summaries.summarize({ kind: 'brief', today });
+  const regenerate = () =>
+    summaries.summarize({ kind: 'brief', today, options });
 
   const dismiss = () => {
     live?.close();
