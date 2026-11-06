@@ -106,7 +106,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
   `/projects/:id`; a task opens its page only from Tasks, its panel
   everywhere else).
-- `scripts/` — `budget.ts` and `licenses.ts` (CI's checks, above), `icons.ts`.
+- `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
   and the SDK client over `SELF`; `mcp-tools.test.ts`: each tool over a
@@ -250,7 +250,6 @@ npm run preview -- --port 4318   # in another terminal: the e2e runs reuse it, n
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
-npm run budget       # after a build: the entry's gzip budget, WebLLM kept out
 npm run knip         # unused files, exports, dependencies (knip.jsonc)
 npm run licenses     # every installed package's license against the allowlist
 npm run test:coverage  # vitest with the coverage floors on shared/ and worker/

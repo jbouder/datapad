@@ -29,6 +29,12 @@ changes the format says so here under **Export format**.
   tab bar leaves out (Lists, People, Orgs and the tools, by default) sit
   in their own Pages group.
 
+### Removed
+
+- **The bundle budget check** (`scripts/budget.ts`, `npm run budget`):
+  CI no longer fails on the entry's gzip size, nor checks that WebLLM
+  stays out of the entry.
+
 ### Fixed
 
 - **Rows no longer slide on their own**: Focus's rows (and other lists

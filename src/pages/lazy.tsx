@@ -3,8 +3,7 @@ import type { Route } from '@/lib/router';
 
 /**
  * The pages most visits never open, each its own chunk, so the entry stays
- * small (`scripts/budget.ts` holds it to a budget in CI). AppShell renders
- * them inside the page's error boundary and a Suspense with a quiet
+ * small. AppShell renders them inside the page's error boundary and a Suspense with a quiet
  * fallback: a chunk that fails to load shows "Reload this view" like any
  * page that throws.
  *

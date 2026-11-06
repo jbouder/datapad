@@ -12,7 +12,6 @@
     "test": "wrangler types && vitest run",
     "test:watch": "vitest",
     "test:coverage": "wrangler types && vitest run --coverage",
-    "budget": "bun scripts/budget.ts",
     "licenses": "bun scripts/licenses.ts",
     "knip": "knip",
     "e2e": "playwright test",
