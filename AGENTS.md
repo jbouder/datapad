@@ -244,7 +244,7 @@ bun install
 cp .dev.vars.example .dev.vars   # once: the dev sign-in
 npm run dev          # Vite + Worker + DO locally (Miniflare)
 npm test             # wrangler types + vitest (runs in workerd)
-npm run e2e          # playwright: build, vite preview, desktop + phone
+npm run e2e          # playwright: build, vite preview, desktop + phone (CI runs this; locally use e2e:changed)
 npm run e2e:changed  # only the specs changed since main (npx playwright test --only-changed=main)
 npm run preview -- --port 4318   # in another terminal: the e2e runs reuse it, no rebuild
 npm run check        # biome check --write
@@ -261,13 +261,19 @@ fails on any file Biome would format differently; Markdown is excluded in
 `npm run check` after the last code edit, and `bunx biome ci .` before
 every commit; it must print no errors.
 
-Run `npm run check && npm run build && npm test` before finishing any change,
-and `npm run e2e` when it touches the UI. Iterate with `npm run e2e:changed`
-against a running preview (build it with `VITE_DEV_COMPONENTS=1 npx vite
-build`, as the e2e server does, and again after app changes), but the full
-`npm run e2e` is still the gate before finishing (first time: `bunx playwright
-install chromium`). Check UI changes at phone width in the browser too, and
-add an e2e spec for every flow worth keeping.
+Run `npm run check && npm run build && npm test` before finishing any change.
+When it touches the UI, also run the specs for what changed with
+`npm run e2e:changed`, against a running preview (build it with
+`VITE_DEV_COMPONENTS=1 npx vite build`, as the e2e server does, and again
+after app changes; first time: `bunx playwright install chromium`). Do not
+run the full `npm run e2e` locally: CI runs every spec, desktop and phone, on
+every pull request, and that is the gate. Check UI changes at phone width in
+the browser too, and add an e2e spec for every flow worth keeping.
+
+Each e2e test signs in as a new user, and the local Worker keeps that user's
+database and backups in `.wrangler/state` for good. If the build gets slow
+(a minute in the CSS step), delete `.wrangler/state`: it is local dev data
+only, and the next run recreates it.
 
 The e2e suite passes on any date, at any time of day, in any timezone, with
 no fake clock. The runner and the browser share one zone: `E2E_TZ`, UTC by
