@@ -17,6 +17,14 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Changed
+
+- The components in `src/components/ui` now come from the
+  [Beskar](https://github.com/jbouder/beskar) registry in place of stock
+  shadcn. Nothing looks different. Combobox buttons gain accessible names,
+  and calendar days are named with the full date ("Sunday, November 1,
+  2026").
+
 ## [1.0.0] — 2026-11-06
 
 The first stable release. Page settings: Focus, the project, task,

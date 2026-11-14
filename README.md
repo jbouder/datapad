@@ -180,7 +180,7 @@ is the guide to working in this repository.
 
 ## Stack
 
-React 19 + TypeScript + Vite, Tailwind CSS v4, stock shadcn (base-lyra on
+React 19 + TypeScript + Vite, Tailwind CSS v4, [Beskar](https://github.com/jbouder/beskar) (a shadcn base-lyra registry on
 Base UI), Oxanium + JetBrains Mono, Phosphor icons, `cmdk`, zod, Biome.
 Cloudflare Workers + Durable Objects (SQLite storage, WebSocket
 hibernation) and R2 through `@cloudflare/vite-plugin`. Tests with Vitest

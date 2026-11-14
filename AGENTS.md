@@ -123,8 +123,10 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 ## Stack
 
 React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
-· stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do
-not hand-edit) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
+· [Beskar](https://github.com/jbouder/beskar), a shadcn `base-lyra` registry on
+Base UI (`src/components/ui`, CLI-managed, do not hand-edit; add or update one
+with `bunx shadcn@latest add @beskar/<name> --overwrite`, and see the
+`beskar-ui` skill in `.claude/skills`) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
 resolver fails on Vitest 4.1 peers; one version, `packageManager` in
 `package.json`, which every workflow uses) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`; its downloads

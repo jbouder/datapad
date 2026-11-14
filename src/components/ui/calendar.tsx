@@ -1,19 +1,21 @@
-'use client';
-
 import {
   CaretDownIcon,
   CaretLeftIcon,
   CaretRightIcon,
 } from '@phosphor-icons/react';
-import { cn } from 'cn';
 import * as React from 'react';
 import {
   type DayButton,
   DayPicker,
+  type Chevron as DayPickerChevron,
+  type Root as DayPickerRoot,
+  type WeekNumber as DayPickerWeekNumber,
   getDefaultClassNames,
   type Locale,
 } from 'react-day-picker';
+
 import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 function Calendar({
   className,
@@ -24,6 +26,7 @@ function Calendar({
   locale,
   formatters,
   components,
+  labels,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
@@ -40,6 +43,20 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
+      labels={{
+        // The stock label says "November 1st", which does not contain the
+        // visible "1". Speech input users say what they see, so the name has
+        // to include it (WCAG 2.5.3 Label in Name).
+        labelDayButton: (date, modifiers) => {
+          let label = date.toLocaleDateString(locale?.code, {
+            dateStyle: 'full',
+          });
+          if (modifiers.today) label = `Today, ${label}`;
+          if (modifiers.selected) label = `${label}, selected`;
+          return label;
+        },
+        ...labels,
+      }}
       locale={locale}
       formatters={{
         formatMonthDropdown: (date) =>
@@ -137,49 +154,61 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Root: ({ className, rootRef, ...props }) => {
-          return (
-            <div
-              data-slot="calendar"
-              ref={rootRef}
-              className={cn(className)}
-              {...props}
-            />
-          );
-        },
-        Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === 'left') {
-            return (
-              <CaretLeftIcon className={cn('size-4', className)} {...props} />
-            );
-          }
-
-          if (orientation === 'right') {
-            return (
-              <CaretRightIcon className={cn('size-4', className)} {...props} />
-            );
-          }
-
-          return (
-            <CaretDownIcon className={cn('size-4', className)} {...props} />
-          );
-        },
-        DayButton: ({ ...props }) => (
-          <CalendarDayButton locale={locale} {...props} />
+        Root: CalendarRoot,
+        Chevron: CalendarChevron,
+        // biome-ignore lint/correctness/noComponentHookFactories: the day button needs this calendar's locale, which only exists in this scope.
+        DayButton: (dayButtonProps) => (
+          <CalendarDayButton locale={locale} {...dayButtonProps} />
         ),
-        WeekNumber: ({ children, ...props }) => {
-          return (
-            <td {...props}>
-              <div className="flex size-(--cell-size) items-center justify-center text-center">
-                {children}
-              </div>
-            </td>
-          );
-        },
+        WeekNumber: CalendarWeekNumber,
         ...components,
       }}
       {...props}
     />
+  );
+}
+
+// These three live at module scope so React keeps them mounted between
+// renders. Stock shadcn defines them inline, which remounts them every time.
+function CalendarRoot({
+  className,
+  rootRef,
+  ...props
+}: React.ComponentProps<typeof DayPickerRoot>) {
+  return (
+    <div
+      data-slot="calendar"
+      ref={rootRef}
+      className={cn(className)}
+      {...props}
+    />
+  );
+}
+
+function CalendarChevron({
+  className,
+  orientation,
+  ...props
+}: React.ComponentProps<typeof DayPickerChevron>) {
+  if (orientation === 'left') {
+    return <CaretLeftIcon className={cn('size-4', className)} {...props} />;
+  }
+  if (orientation === 'right') {
+    return <CaretRightIcon className={cn('size-4', className)} {...props} />;
+  }
+  return <CaretDownIcon className={cn('size-4', className)} {...props} />;
+}
+
+function CalendarWeekNumber({
+  children,
+  ...props
+}: React.ComponentProps<typeof DayPickerWeekNumber>) {
+  return (
+    <td {...props}>
+      <div className="flex size-(--cell-size) items-center justify-center text-center">
+        {children}
+      </div>
+    </td>
   );
 }
 
@@ -198,7 +227,10 @@ function CalendarDayButton({
   }, [modifiers.focused]);
 
   return (
+    // Stock shadcn creates this ref but never attaches it, so arrow keys
+    // move the roving tabindex without moving focus.
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       data-day={day.date.toLocaleDateString(locale?.code)}

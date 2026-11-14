@@ -1,7 +1,9 @@
+'use client';
+
 import { CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
-import { Command as CommandPrimitive } from 'cmdk';
-import { cn } from 'cn';
-import * as React from 'react';
+import { Command as CommandPrimitive, useCommandState } from 'cmdk';
+import type * as React from 'react';
+
 import {
   Dialog,
   DialogContent,
@@ -10,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group';
+import { cn } from '@/lib/utils';
 
 function Command({
   className,
@@ -128,12 +131,27 @@ function CommandGroup({
   );
 }
 
+/**
+ * A divider between groups. cmdk's own separator forces `role="separator"`,
+ * which is not a valid child of the list's `listbox` role, so this one is a
+ * plain presentational element. Like cmdk's, it hides while a search is
+ * active unless `alwaysRender` is set.
+ */
 function CommandSeparator({
   className,
+  alwaysRender = false,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Separator>) {
+}: React.ComponentProps<'div'> & {
+  alwaysRender?: boolean;
+}) {
+  const searching = useCommandState((state) => Boolean(state.search));
+  if (searching && !alwaysRender) {
+    return null;
+  }
+
   return (
-    <CommandPrimitive.Separator
+    <div
+      role="none"
       data-slot="command-separator"
       className={cn('-mx-1 h-px bg-border', className)}
       {...props}
