@@ -14,6 +14,7 @@ import {
   splitStream,
   streamNow,
 } from '#shared/stream';
+import type { SummaryTarget } from '#shared/summaries';
 import { localTime, nextMeeting } from '#shared/today';
 import { type Snapshot, settingsOf } from '#shared/types';
 import { CaptureLine } from '@/components/capture/CaptureLine';
@@ -32,6 +33,7 @@ import {
   RoomHeader,
 } from '@/components/rooms/RoomFrame';
 import { RoomStream } from '@/components/rooms/RoomStream';
+import { SummarizeButton, SummaryCard } from '@/components/summary/SummaryCard';
 import { type LaneLabels, LoopLanes } from '@/components/today/LoopLanes';
 import { Button } from '@/components/ui/button';
 import { useClock } from '@/hooks/useClock';
@@ -160,6 +162,14 @@ export function PersonRoom({ id }: { id: string }) {
     navigate({ name: 'people' }, { replace: true });
   };
 
+  /** Summarize's target: the room as narrowed, as of when it is asked. */
+  const summaryTarget = (): SummaryTarget => ({
+    kind: 'room',
+    room: { kind: 'person', id: person.id, project },
+    today,
+    now: localTime(Date.now()),
+  });
+
   const menu: MenuAction[] = [
     {
       label: 'Remove',
@@ -212,7 +222,13 @@ export function PersonRoom({ id }: { id: string }) {
         stateLine={
           projectName ? [...stateLine, `Narrowed to ${projectName}`] : stateLine
         }
-        // The on-device summary goes here (#339).
+        summary={
+          <SummaryCard
+            target={summaryTarget}
+            footnote="Written on this device by a small model from what this room shows. Check it before you rely on it."
+            className="mt-2"
+          />
+        }
         actions={
           <>
             <PinButton room={room} />
@@ -229,6 +245,7 @@ export function PersonRoom({ id }: { id: string }) {
               <CalendarPlusIcon />
               Schedule meeting
             </Button>
+            <SummarizeButton target={summaryTarget} />
             <DetailActions
               onEdit={() => setEditing({ key: Date.now(), open: true })}
               menu={menu}

@@ -205,6 +205,8 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
   await expect(notes.getByRole('list')).toContainText(
     'The ridge needs two more sensors.',
   );
+  // Save note hands focus back to the composer once it settles.
+  await expect(composer).toBeFocused();
 
   // A line becomes an action item from the composer.
   await composer.pressSequentially('Order the sensors /task');

@@ -6,12 +6,19 @@ import {
   BRIEF_PROMPT,
   briefContext,
   briefNoteBody,
+  cardOf,
   DEFAULT_MODEL,
   findModel,
+  MEETING_BUDGET_CHARS,
+  MEETING_LIMITS,
   meetingContext,
-  noteContext,
   projectContext,
+  RECAP_PROMPT,
   REQUEST_SETTINGS,
+  ROOM_BUDGET_CHARS,
+  ROOM_LIMITS,
+  ROOM_PROMPT,
+  roomContext,
   SUMMARY_LIMITS,
   SUMMARY_MODELS,
   SYSTEM_PROMPT,
@@ -504,42 +511,26 @@ describe('taskContext', () => {
   });
 });
 
-describe('noteContext', () => {
-  it('names the task a running note is on', () => {
-    const state = world();
-    state.tasks.t = task('t', { title: 'Calibrate shields' });
-    const text = noteContext(
-      note('x', { meetingId: null, taskId: 't', body: 'Done' }),
-      state,
-    );
-    expect(text).toContain('Task: Calibrate shields');
-  });
-
-  it('has the date, project, meeting and body', () => {
-    const text = noteContext(
-      note('x', { phase: 'post', body: 'Ask @{leia}' }),
-      world(),
-    );
-    expect(text).toBe(
-      [
-        'Note of Wed 21 Oct 2026',
-        'Project: Echo Base',
-        'Meeting: Shield review on Tue 27 Oct 2026',
-        '',
-        'Ask @Leia Organa',
-      ].join('\n'),
-    );
-  });
-});
-
 describe('summaryRequest', () => {
   it('names the item and where Save as note goes', () => {
     const state = world();
     state.tasks.t = task('Calibrate shields', { projectId: null });
-    expect(summaryRequest({ kind: 'project', id: 'p1' }, state)).toMatchObject({
+    expect(
+      summaryRequest(
+        {
+          kind: 'room',
+          room: { kind: 'project', id: 'p1' },
+          today: '2026-10-28',
+          now: '12:00',
+        },
+        state,
+      ),
+    ).toMatchObject({
       label: 'Echo Base',
+      noteLabel: 'Echo Base',
       projectId: 'p1',
       meetingId: null,
+      prompt: ROOM_PROMPT,
     });
     expect(summaryRequest({ kind: 'task', id: 't' }, state)).toMatchObject({
       label: 'Calibrate shields',
@@ -551,7 +542,77 @@ describe('summaryRequest', () => {
       projectId: 'p1',
       meetingId: 'e1',
     });
+    expect(summaryRequest({ kind: 'recap', id: 'e1' }, state)).toMatchObject({
+      label: 'Shield review',
+      projectId: 'p1',
+      meetingId: 'e1',
+      prompt: RECAP_PROMPT,
+    });
     expect(summaryRequest({ kind: 'task', id: 'gone' }, state)).toBeNull();
+  });
+
+  it('files a room’s summary to the room: a person by a mention', () => {
+    const state = world();
+    const at = { today: '2026-10-28', now: '12:00' } as const;
+    expect(
+      summaryRequest(
+        { kind: 'room', room: { kind: 'person', id: 'han' }, ...at },
+        state,
+      ),
+    ).toMatchObject({
+      label: 'Han Solo',
+      noteLabel: '@Han Solo',
+      projectId: null,
+      meetingId: null,
+    });
+    expect(
+      summaryRequest(
+        {
+          kind: 'room',
+          room: { kind: 'person', id: 'han', project: 'p1' },
+          ...at,
+        },
+        state,
+      ),
+    ).toMatchObject({ noteLabel: '@Han Solo', projectId: 'p1' });
+    expect(
+      summaryRequest(
+        {
+          kind: 'room',
+          room: { kind: 'project', id: 'p1', person: 'han' },
+          ...at,
+        },
+        state,
+      ),
+    ).toMatchObject({
+      label: 'Echo Base with Han Solo',
+      noteLabel: 'Echo Base with @Han Solo',
+      projectId: 'p1',
+    });
+    expect(
+      summaryRequest(
+        { kind: 'room', room: { kind: 'person', id: 'gone' }, ...at },
+        state,
+      ),
+    ).toBeNull();
+  });
+
+  it('names the card that shows it, or the panel', () => {
+    const at = { today: '2026-10-28', now: '12:00' } as const;
+    expect(cardOf({ kind: 'brief', today: '2026-10-28' })).toBe('brief');
+    expect(cardOf({ kind: 'recap', id: 'e1' })).toBe('recap:e1');
+    expect(
+      cardOf({ kind: 'room', room: { kind: 'project', id: 'p1' }, ...at }),
+    ).toBe('room:project:p1:');
+    expect(
+      cardOf({
+        kind: 'room',
+        room: { kind: 'person', id: 'han', project: 'p1' },
+        ...at,
+      }),
+    ).toBe('room:person:han:p1');
+    expect(cardOf({ kind: 'meeting', id: 'e1' })).toBeNull();
+    expect(cardOf({ kind: 'task', id: 't' })).toBeNull();
   });
 
   it('saves as "Summary of <item>" then the text', () => {
@@ -833,6 +894,7 @@ describe('briefContext', () => {
     const state = busy();
     expect(summaryRequest({ kind: 'brief', today }, state)).toEqual({
       label: 'Brief · Wed 28 Oct 2026',
+      noteLabel: 'Brief · Wed 28 Oct 2026',
       context: briefContext(state, today),
       projectId: null,
       meetingId: null,
@@ -842,7 +904,7 @@ describe('briefContext', () => {
     expect(
       summaryRequest({ kind: 'brief', today, options: mine }, state)?.context,
     ).toBe(briefContext(state, today, mine));
-    expect(summaryRequest({ kind: 'project', id: 'p1' }, state)?.prompt).toBe(
+    expect(summaryRequest({ kind: 'task', id: 'closed' }, state)?.prompt).toBe(
       SYSTEM_PROMPT,
     );
     expect(briefNoteBody(today, '\nAll quiet.\n')).toBe(
@@ -871,5 +933,280 @@ describe('withoutThinking', () => {
     expect(withoutThinking('One <think> in the middle.')).toBe(
       'One <think> in the middle.',
     );
+  });
+});
+
+describe('meetingContext caps (#339)', () => {
+  it('keeps the latest notes and says how many were left out', () => {
+    const notes: Record<string, Note> = {};
+    for (let i = 0; i < 9; i++) {
+      notes[`n${i}`] = note(`n${i}`, {
+        body: `Note ${i}`,
+        createdAt: `2026-10-27T1${i}:00:00.000Z`,
+      });
+    }
+    const text = meetingContext(meeting, {
+      projects: {},
+      people: {},
+      notes,
+    });
+    expect(text).toContain('(3 earlier notes left out)');
+    expect(text).not.toContain('Note 2');
+    expect(text).toContain('Note 3');
+    expect(text.endsWith('Note 8')).toBe(true);
+  });
+
+  it('caps every section, so a long meeting stays within the budget', () => {
+    const state = world();
+    const long = 'x'.repeat(2000);
+    const many = 60;
+    const attendees: string[] = [];
+    for (let i = 0; i < many; i++) {
+      state.people[`h${i}`] = { id: `h${i}`, name: long, role: '', me: false };
+      attendees.push(`h${i}`);
+      state.tasks[`a${i}`] = task(`a${i}`, {
+        title: long,
+        meetingId: 'e1',
+        assignee: `h${i}`,
+        priority: 'high',
+        due: '2026-10-30',
+        blocked: { on: `h${i}`, note: long },
+      });
+      state.notes[`n${i}`] = note(`n${i}`, { body: long });
+    }
+    const big: Meeting = {
+      ...meeting,
+      title: long,
+      note: long,
+      attendees,
+      topics: Array.from({ length: many }, (_, i) => ({
+        id: `t${i}`,
+        title: long,
+        done: true,
+        outcome: long,
+      })),
+    };
+    state.meetings.e1 = big;
+    const text = meetingContext(big, state);
+    expect(text).toContain(`- and ${many - MEETING_LIMITS.topics} more`);
+    expect(text).toContain(`- and ${many - MEETING_LIMITS.actions} more`);
+    expect(text).toContain(
+      `(${many - MEETING_LIMITS.notes} earlier notes left out)`,
+    );
+    expect(text).not.toContain('x'.repeat(MEETING_LIMITS.agenda));
+    expect(RECAP_PROMPT.length + text.length).toBeLessThan(
+      MEETING_BUDGET_CHARS,
+    );
+    expect(SYSTEM_PROMPT.length + text.length).toBeLessThan(
+      MEETING_BUDGET_CHARS,
+    );
+  });
+});
+
+describe('roomContext', () => {
+  const today = '2026-10-28';
+  const now = '12:00';
+
+  function room(): Snapshot {
+    const state = world();
+    state.projects.p1 = {
+      ...project,
+      health: 'yellow',
+      milestones: [{ id: 'm1', title: 'Shields up', date: '2026-11-02' }],
+    };
+    state.projects.p2 = { ...project, id: 'p2', name: 'Hoth', members: [] };
+    state.tasks = {
+      mine: task('mine', { title: 'Calibrate shields', due: '2026-10-30' }),
+      wait: task('wait', { title: 'Send the parts', assignee: 'han' }),
+      decide: task('decide', { title: 'Pick a site', decide: true }),
+      done: task('done', {
+        title: 'Order blankets',
+        status: 'done',
+        createdAt: '2026-10-20T09:00:00.000Z',
+        completedAt: '2026-10-27T10:00:00.000Z',
+      }),
+      hoth: task('hoth', {
+        title: 'Thaw the doors',
+        projectId: 'p2',
+        assignee: 'han',
+      }),
+    };
+    state.notes = {
+      recent: note('recent', {
+        meetingId: null,
+        body: 'Spoke to @{han} about the parts',
+        createdAt: '2026-10-26T09:00:00.000Z',
+      }),
+      old: note('old', {
+        meetingId: null,
+        body: 'From last month',
+        createdAt: '2026-10-01T09:00:00.000Z',
+      }),
+    };
+    state.meetings = {
+      e1: { ...meeting, date: '2026-10-27', attendees: ['leia', 'han'] },
+      e2: {
+        ...meeting,
+        id: 'e2',
+        title: 'Parts sync',
+        date: '2026-10-29',
+        time: '10:00',
+        end: '10:30',
+        attendees: ['leia', 'han'],
+        topics: [{ id: 'x', title: 'Hyperdrive', done: false, outcome: '' }],
+      },
+    };
+    return state;
+  }
+
+  it('sends a project’s state line, lanes, what is coming up and the last 14 days', () => {
+    const text = roomContext({ kind: 'project', id: 'p1' }, room(), today, now);
+    expect(text).toBe(
+      [
+        'Project: Echo Base',
+        'Org: Rebel Alliance',
+        'Today is Wed 28 Oct 2026.',
+        'State: Yellow · Target Fri 20 Nov 2026 · Next: Shields up, Mon 2 Nov 2026 · 3 open',
+        '',
+        'Mine (1):',
+        '- Calibrate shields, due Fri 30 Oct 2026',
+        '',
+        'Waiting on (1):',
+        '- Han Solo, 1 task: Send the parts',
+        '',
+        'To decide (1):',
+        '- Pick a site',
+        '',
+        'Coming up (2):',
+        '- Thu 29 Oct 2026 10:00–10:30: Meeting: Parts sync',
+        '- Mon 2 Nov 2026: Milestone: Shields up',
+        '',
+        'The last 14 days, newest first (4):',
+        '- Tue 27 Oct 2026: Meeting: Shield review',
+        '- Tue 27 Oct 2026: Task done: Order blankets',
+        '- Mon 26 Oct 2026: Note: Spoke to @Han Solo about the parts',
+        '- Tue 20 Oct 2026: Task added: Order blankets',
+      ].join('\n'),
+    );
+    expect(text).not.toContain('From last month');
+  });
+
+  it('sends a person’s lanes as their room labels them, with the projects', () => {
+    const text = roomContext({ kind: 'person', id: 'han' }, room(), today, now);
+    expect(text).toContain('Person: Han Solo\n');
+    expect(text).toContain('State: 2 projects · 2 open');
+    expect(text).toContain('You owe (0):\nnone');
+    expect(text).toContain(
+      'They owe you (1):\n- Han Solo, 2 tasks: Send the parts; Thaw the doors',
+    );
+    expect(text).toContain('To discuss (0):\nnone');
+    expect(text).toContain(
+      'Topics to discuss (1):\n- Hyperdrive (Parts sync, Thu 29 Oct 2026)',
+    );
+    expect(text).toContain(
+      '- Thu 29 Oct 2026 10:00–10:30: Meeting (Echo Base): Parts sync',
+    );
+    expect(text).toContain(
+      '- Mon 26 Oct 2026: Note (Echo Base): Spoke to @Han Solo about the parts',
+    );
+    // The project's own items that do not touch them stay out.
+    expect(text).not.toContain('Pick a site');
+    expect(text).not.toContain('Shields up');
+  });
+
+  it('sends what a narrowed room shows, and says so', () => {
+    const state = room();
+    const person = roomContext(
+      { kind: 'person', id: 'han', project: 'p1' },
+      state,
+      today,
+      now,
+    );
+    expect(person).toContain('Narrowed to: Echo Base');
+    expect(person).not.toContain('Thaw the doors');
+    expect(person).toContain('- Mon 26 Oct 2026: Note: Spoke to');
+    const project = roomContext(
+      { kind: 'project', id: 'p1', person: 'han' },
+      state,
+      today,
+      now,
+    );
+    expect(project).toContain('Narrowed to: Han Solo');
+    expect(project).not.toContain('Calibrate shields');
+    expect(project).toContain('Send the parts');
+  });
+
+  it('is empty when the room is gone', () => {
+    const state = room();
+    expect(roomContext({ kind: 'project', id: 'no' }, state, today, now)).toBe(
+      '',
+    );
+    expect(roomContext({ kind: 'person', id: 'no' }, state, today, now)).toBe(
+      '',
+    );
+  });
+
+  it('caps every section, so a busy room stays within the model’s budget', () => {
+    const state = world();
+    const long = 'x'.repeat(400);
+    state.projects.p1 = {
+      ...project,
+      name: long,
+      org: long,
+      health: 'red',
+      milestones: Array.from({ length: 50 }, (_, i) => ({
+        id: `m${i}`,
+        title: long,
+        date: '2026-11-02',
+      })),
+    };
+    state.people.han = { id: 'han', name: long, role: long, me: false };
+    for (let i = 0; i < 200; i++) {
+      state.people[`h${i}`] = { id: `h${i}`, name: long, role: '', me: false };
+      const patches: Partial<Task>[] = [
+        { assignee: 'han' },
+        { assignee: `h${i}`, desc: '@{han}' },
+        { blocked: { on: 'han', note: long } },
+        { decide: true, assignee: 'han' },
+        {
+          assignee: 'han',
+          due: '2026-10-28',
+          createdAt: '2026-10-27T09:00:00.000Z',
+        },
+      ];
+      patches.forEach((patch, k) => {
+        state.tasks[`t${i}-${k}`] = task(`t${i}-${k}`, {
+          title: `${long}\n${long}`,
+          ...patch,
+        });
+      });
+      state.notes[`n${i}`] = note(`n${i}`, {
+        meetingId: null,
+        body: `@{han} ${long}\n${long}`,
+        createdAt: '2026-10-27T09:00:00.000Z',
+      });
+      state.meetings[`e${i}`] = {
+        ...meeting,
+        id: `e${i}`,
+        title: long,
+        date: i % 2 ? '2026-10-27' : '2026-10-30',
+        attendees: ['han'],
+        topics: [{ id: `x${i}`, title: long, done: false, outcome: '' }],
+      };
+    }
+    for (const subject of [
+      { kind: 'project', id: 'p1' },
+      { kind: 'person', id: 'han' },
+    ] as const) {
+      const text = roomContext(subject, state, today, now);
+      expect(text).toMatch(/- and \d+ more\n\nThe last 14 days/);
+      expect(text.endsWith(' more')).toBe(true);
+      expect(text).not.toContain('x'.repeat(BRIEF_LIMITS.text));
+      expect(ROOM_PROMPT.length + text.length).toBeLessThan(ROOM_BUDGET_CHARS);
+    }
+    // The person's topics stop at their cap too.
+    expect(
+      roomContext({ kind: 'person', id: 'han' }, state, today, now),
+    ).toContain(`- and ${100 - ROOM_LIMITS.topics} more`);
   });
 });

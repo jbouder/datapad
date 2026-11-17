@@ -70,8 +70,8 @@ desktop and phone width, with axe.
 ## Known exceptions
 
 - **Summaries are written by a language model**, on the device. Their text
-  is not reviewed for reading level or structure, and the panel says to
-  check it.
+  is not reviewed for reading level or structure, and the panel or card
+  says to check it.
 - **The manual checks above have not been recorded yet.** Until they are,
   this statement rests on the automated checks.
 

@@ -37,7 +37,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   read through `settingsOf()`, and every page's in `PAGES`; nothing else
   hard-codes one),
   `summaries.ts` (the models, prompt and per-item context Summarize
-  sends, and Focus's Brief me context and prompt), `schedule.ts` (the
+  sends, Today's Brief me context and prompt, a room's `roomContext()`
+  and meeting mode's recap; `cardOf()` says which card shows one),
+  `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `all.ts` (All's address, its filters
   per kind over each kind's own selector, its rows, each kind's layouts

@@ -355,13 +355,18 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="summaries">
         <p className="text-sm">
-          Summarize (on a project, task, meeting or note) writes a short summary
-          with a small language model that runs in this browser. Nothing about
-          your data leaves the device. The first time, it asks before
+          Summarize writes with a small language model that runs in this
+          browser. Nothing about your data leaves the device. In a project’s or
+          a person’s room it writes a sentence or two on where things stand,
+          under the state line, from the lanes, what is coming up and the last
+          two weeks of the stream. In meeting mode (in More) it writes a short
+          recap from the notes, the covered topics and the action items. On a
+          task it summarizes the task in a panel. The first time, it asks before
           downloading the model (about 1 GB, once); Settings → Summaries picks
           another model or removes it. It needs WebGPU, which recent Chrome,
           Edge, Safari and Firefox have on most hardware. Stop keeps what it has
-          written; Save as note keeps the summary with the item’s project.
+          written; Save as note files the summary to the room or the meeting (a
+          person’s as a note that mentions them), and × puts it away.
         </p>
         <p className="text-sm">
           Summaries can be turned off on this device in Settings → Summaries:

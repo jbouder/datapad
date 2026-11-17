@@ -310,8 +310,10 @@ test('every action the classic page had is in the header', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Schedule meeting' }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Summarize', exact: true }),
+  ).toBeVisible();
   expect(await moreActions(page)).toEqual([
-    'Summarize',
     'Pause',
     'Mark done',
     'Save as template',

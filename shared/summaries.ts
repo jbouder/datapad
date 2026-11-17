@@ -1,7 +1,7 @@
 import { itemsOf } from './board';
-import { formatDay } from './dates';
+import { addDays, formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
-import { NOBODY, todayLanes } from './loops';
+import { lanesOf, NOBODY, todayLanes, waitingCount } from './loops';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import { noteTitle } from './notes';
@@ -20,6 +20,18 @@ import {
   tasksOfMeeting,
 } from './select';
 import {
+  personLanes,
+  personProjects,
+  personStateLine,
+  personStream,
+  personTopics,
+  projectKeep,
+  projectStateLine,
+  projectStream,
+  type StreamItem,
+  splitStream,
+} from './stream';
+import {
   blockedOf,
   type DateString,
   healthOf,
@@ -28,6 +40,7 @@ import {
   type Note,
   type Snapshot,
   type Task,
+  type TimeString,
   topicsOf,
 } from './types';
 
@@ -157,45 +170,98 @@ function noteDay(note: Note): string {
 }
 
 /**
+ * How much of a meeting goes in, so meeting mode's recap (#339) stays
+ * within the model's window on a long meeting: the topics and action
+ * items in order up to their caps, and the latest notes. Past a cap, a
+ * section says how many more. Every title, outcome and note is cut to
+ * its length.
+ */
+export const MEETING_LIMITS = {
+  topics: 12,
+  actions: 8,
+  notes: 6,
+  attendees: 8,
+  /** Characters of a topic's title or an action item's title. */
+  title: 80,
+  /** Characters of a topic's outcome, or what an action item waits on. */
+  outcome: 120,
+  /** Characters of the meeting's own agenda text. */
+  agenda: 400,
+  /** Characters of one note. */
+  note: 320,
+} as const;
+
+/**
+ * The most a meeting's prompt and context come to, in characters, as
+ * `BRIEF_BUDGET_CHARS` is for Brief me (`test/summaries.test.ts` fills
+ * every section past its cap).
+ */
+export const MEETING_BUDGET_CHARS = 8750;
+
+/** Text cut to `max` characters, its lines kept. */
+function clipBlock(text: string, max: number): string {
+  const trimmed = text.trim();
+  return trimmed.length > max
+    ? `${trimmed.slice(0, max - 1).trimEnd()}…`
+    : trimmed;
+}
+
+/**
  * A meeting: title, date and times, project, attendees, agenda, its
  * topics in order (`- [x] title — outcome` once covered), its action
- * items (open, then done), and every linked note, oldest first, each
- * labeled `[note]` (a legacy `phase` is not shown).
+ * items (open, then done), and its linked notes, the latest
+ * `MEETING_LIMITS.notes` oldest first, each labeled `[note]` (a legacy
+ * `phase` is not shown). Summarize on a meeting row and meeting mode's
+ * recap (#339) both send it; every section is capped (`MEETING_LIMITS`).
  */
 export function meetingContext(
   meeting: Meeting,
   state: Pick<Snapshot, 'projects' | 'people' | 'notes'> &
     Partial<Pick<Snapshot, 'tasks'>>,
 ): string {
-  const attendees = names(state, meeting.attendees);
+  const people = meeting.attendees
+    .map((id) => state.people[id]?.name)
+    .filter((n): n is string => Boolean(n));
+  const shownPeople = people.slice(0, MEETING_LIMITS.attendees).map(clipName);
+  if (people.length > shownPeople.length) {
+    shownPeople.push(`and ${people.length - shownPeople.length} more`);
+  }
   const range = timeRange(meeting, '24h');
   const lines = [
-    `Meeting: ${meeting.title}`,
+    `Meeting: ${clip(meeting.title, MEETING_LIMITS.title)}`,
     `Date: ${day(meeting.date)}${range ? `, ${range}` : ''}`,
-    `Project: ${projectName(state, meeting.projectId)}`,
-    `Attendees: ${attendees || 'none listed'}`,
+    `Project: ${clipName(projectName(state, meeting.projectId))}`,
+    `Attendees: ${shownPeople.join(', ') || 'none listed'}`,
   ];
-  if (meeting.note) lines.push(`Agenda: ${meeting.note}`);
+  if (meeting.note) {
+    lines.push(`Agenda: ${clipBlock(meeting.note, MEETING_LIMITS.agenda)}`);
+  }
 
   const topics = topicsOf(meeting);
   if (topics.length > 0) {
     lines.push('', 'Topics:');
-    for (const t of topics) {
+    for (const t of topics.slice(0, MEETING_LIMITS.topics)) {
+      const title = clip(t.title, MEETING_LIMITS.title);
       lines.push(
         t.done
-          ? `- [x] ${t.title}${t.outcome ? ` — ${t.outcome}` : ''}`
-          : `- [ ] ${t.title}`,
+          ? `- [x] ${title}${t.outcome ? ` — ${clip(t.outcome, MEETING_LIMITS.outcome)}` : ''}`
+          : `- [ ] ${title}`,
       );
     }
+    const more = topics.length - MEETING_LIMITS.topics;
+    if (more > 0) lines.push(`- and ${more} more`);
   }
 
   const items = tasksOfMeeting(state.tasks ?? {}, meeting.id);
-  if (items.open.length + items.done.length > 0) {
+  const all = [...items.open, ...items.done];
+  if (all.length > 0) {
     lines.push('', 'Action items:');
-    for (const t of [...items.open, ...items.done]) {
-      const line = taskLine(t, state).slice(2);
+    for (const t of all.slice(0, MEETING_LIMITS.actions)) {
+      const line = taskLine(t, state, true).slice(2);
       lines.push(`- [${t.status === 'done' ? 'x' : ' '}] ${line}`);
     }
+    const more = all.length - MEETING_LIMITS.actions;
+    if (more > 0) lines.push(`- and ${more} more`);
   }
 
   const notes = Object.values(state.notes)
@@ -203,10 +269,17 @@ export function meetingContext(
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (notes.length > 0) {
     lines.push('', 'Linked notes:');
-    for (const n of notes) {
+    const earlier = notes.length - MEETING_LIMITS.notes;
+    if (earlier > 0) {
+      lines.push(
+        `(${earlier} earlier ${earlier === 1 ? 'note' : 'notes'} left out)`,
+        '',
+      );
+    }
+    for (const n of notes.slice(-MEETING_LIMITS.notes)) {
       lines.push(
         `[note] ${noteDay(n)}`,
-        tokensToNames(n.body, state.people).trim(),
+        clipBlock(tokensToNames(n.body, state.people), MEETING_LIMITS.note),
         '',
       );
     }
@@ -214,18 +287,25 @@ export function meetingContext(
   return lines.join('\n').trimEnd();
 }
 
-/** One task line for a project's lists: title, then what is set. */
-function taskLine(task: Task, state: Lookup): string {
-  const bits = [`- ${task.title}`];
+/**
+ * One task line for a project's lists: title, then what is set. `short`
+ * cuts the title and the names (a meeting's action items).
+ */
+function taskLine(task: Task, state: Lookup, short = false): string {
+  const bits = [
+    `- ${short ? clip(task.title, MEETING_LIMITS.title) : task.title}`,
+  ];
   if (task.priority !== 'none')
     bits.push(`priority ${PRIORITY_WORDS[task.priority]}`);
   if (task.due) bits.push(`due ${day(task.due)}`);
   const assignee = personName(state, task.assignee);
-  if (assignee) bits.push(`assigned to ${assignee}`);
+  if (assignee)
+    bits.push(`assigned to ${short ? clipName(assignee) : assignee}`);
   if (task.completedAt)
     bits.push(`closed ${day(task.completedAt.slice(0, 10))}`);
   const waiting = blockedLine(task, state);
-  if (waiting) bits.push(waiting);
+  if (waiting)
+    bits.push(short ? clip(waiting, MEETING_LIMITS.outcome) : waiting);
   return bits.join(', ');
 }
 
@@ -413,29 +493,6 @@ export function taskContext(
     }
     lines.pop();
   }
-  return lines.join('\n');
-}
-
-/**
- * A note: its date, project, the meeting or task it belongs to, and the
- * body.
- */
-export function noteContext(
-  note: Note,
-  state: Pick<Snapshot, 'projects' | 'people' | 'meetings'> &
-    Partial<Pick<Snapshot, 'tasks'>>,
-): string {
-  const meeting = note.meetingId ? state.meetings[note.meetingId] : undefined;
-  const task = note.taskId ? state.tasks?.[note.taskId] : undefined;
-  const lines = [
-    `Note of ${noteDay(note)}`,
-    `Project: ${projectName(state, note.projectId)}`,
-  ];
-  if (meeting) {
-    lines.push(`Meeting: ${meeting.title} on ${day(meeting.date)}`);
-  }
-  if (task) lines.push(`Task: ${task.title}`);
-  lines.push('', tokensToNames(note.body, state.people).trim());
   return lines.join('\n');
 }
 
@@ -713,12 +770,254 @@ export function briefNoteBody(today: DateString, text: string): string {
   return `${briefLabel(today)}\n\n${text.trim()}`;
 }
 
+/* ---- Rooms and meeting mode (#339) -------------------------------------- */
+
+/**
+ * A room's Summarize: one or two sentences under the computed state
+ * line. The facts come from what the room shows; the model only writes.
+ */
+export const ROOM_PROMPT =
+  'You are writing the state of one room in a personal project tracker used by an engineering leader: a project, or a person they work with. Write one or two plain sentences on where things stand and what needs attention next. No headings, no bullets, no preamble. Keep names and dates exactly as given, do not invent anything not in the data, and stay under 60 words.';
+
+/** Meeting mode's Summarize: a short recap of the meeting. */
+export const RECAP_PROMPT =
+  'You are writing a short recap of one meeting from a personal project tracker used by an engineering leader. Write one or two sentences on what the meeting covered, then "- " bullets for what was decided or agreed, then the action items as "- " bullets with who owns them. Plain markdown, no headings. Keep names and dates exactly as given, do not invent anything not in the data, skip what is not there, and stay under 150 words.';
+
+/** How many days of a room's stream go in, today included. */
+export const ROOM_STREAM_DAYS = 14;
+
+/** How much of a room goes in (`roomContext`); past a cap, how many more. */
+export const ROOM_LIMITS = {
+  /** Each of the three lanes; Waiting on counts people. */
+  mine: 8,
+  waiting: 4,
+  waitingTasks: 2,
+  decide: 5,
+  /** A person's To discuss topics. */
+  topics: 5,
+  upcoming: 5,
+  stream: 20,
+  /** Characters of one note in the stream. */
+  note: 200,
+} as const;
+
+/**
+ * The most a room's prompt and context come to, in characters, as
+ * `BRIEF_BUDGET_CHARS` is for Brief me.
+ */
+export const ROOM_BUDGET_CHARS = 8750;
+
+/** What a room's Summarize is about: the room, narrowed or not. */
+export type RoomSubject =
+  | { kind: 'project'; id: string; person?: string | null }
+  | { kind: 'person'; id: string; project?: string | null };
+
+/** The lanes' headings, as each room labels them. */
+const ROOM_LANES = {
+  project: { mine: 'Mine', waiting: 'Waiting on', decide: 'To decide' },
+  person: { mine: 'You owe', waiting: 'They owe you', decide: 'To discuss' },
+} as const;
+
+/** One stream item, as a line: its day, what it is, its words. */
+function streamLine(
+  item: StreamItem,
+  state: Snapshot,
+  withProject: boolean,
+): string {
+  const date = day(item.at.slice(0, 10));
+  const where = (id: string | null) =>
+    withProject ? ` (${clipName(projectName(state, id))})` : '';
+  switch (item.kind) {
+    case 'note':
+      return `- ${date}: Note${where(item.note.projectId)}: ${clip(tokensToNames(item.note.body, state.people), ROOM_LIMITS.note)}`;
+    case 'task': {
+      const what = item.event === 'done' ? 'Task done' : 'Task added';
+      return `- ${date}: ${what}${where(item.task.projectId)}: ${clip(tokensToNames(item.task.title, state.people))}`;
+    }
+    case 'meeting': {
+      const m = item.meeting;
+      const topics = topicsOf(m);
+      const covered = topics.filter((t) => t.done).length;
+      return `- ${date}: Meeting${where(m.projectId)}: ${clip(m.title)}${
+        topics.length > 0
+          ? ` (${covered} of ${topics.length} topics covered)`
+          : ''
+      }`;
+    }
+    case 'milestone':
+      return `- ${date}: Milestone${where(item.projectId)}: ${clip(item.milestone.title)}`;
+  }
+}
+
+/** What is coming up, as a line: its day and time, what it is. */
+function upcomingLine(
+  item: StreamItem,
+  state: Snapshot,
+  withProject: boolean,
+): string {
+  if (item.kind !== 'meeting') return streamLine(item, state, withProject);
+  const m = item.meeting;
+  const range = timeRange(m, '24h');
+  const where = withProject
+    ? ` (${clipName(projectName(state, m.projectId))})`
+    : '';
+  return `- ${day(m.date)}${range ? ` ${range}` : ''}: Meeting${where}: ${clip(m.title)}`;
+}
+
+/**
+ * What a room's Summarize sends (#339): the room and its state line as
+ * the room computes it, its three lanes (a person's with the topics to
+ * discuss), what is coming up (meetings and milestones), then the last
+ * `ROOM_STREAM_DAYS` days of the stream, newest first. A narrowed room
+ * sends what it shows. `now` is the time of day on the local calendar.
+ * Every section is capped (`ROOM_LIMITS`), so a busy room stays within
+ * `ROOM_BUDGET_CHARS`. Empty when the room is gone.
+ */
+export function roomContext(
+  subject: RoomSubject,
+  state: Snapshot,
+  today: DateString,
+  now: TimeString,
+): string {
+  const me = meId(state.people);
+  const isProject = subject.kind === 'project';
+  const projectId = isProject ? subject.id : (subject.project ?? null);
+  const personId = isProject ? (subject.person ?? null) : subject.id;
+  const project = projectId ? state.projects[projectId] : undefined;
+  const person = personId ? state.people[personId] : undefined;
+  if (isProject ? !project : !person) return '';
+
+  const lanes = isProject
+    ? lanesOf(state, me, projectKeep(subject.id, person ? personId : null))
+    : personLanes(state, me, subject.id, project ? projectId : null);
+  const open = lanes.mine.length + waitingCount(lanes) + lanes.decide.length;
+
+  const lines: string[] = [];
+  if (isProject && project) {
+    lines.push(
+      `Project: ${clipName(project.name)}`,
+      `Org: ${clipName(project.org) || 'none'}`,
+    );
+    if (person) lines.push(`Narrowed to: ${clipName(person.name)}`);
+    lines.push(
+      `Today is ${day(today)}.`,
+      `State: ${projectStateLine(
+        {
+          ...project,
+          milestones: milestonesOf(project).map((m) => ({
+            ...m,
+            title: clip(m.title),
+          })),
+        },
+        open,
+        today,
+        day,
+      ).join(' · ')}`,
+    );
+  } else if (person) {
+    lines.push(
+      `Person: ${clipName(person.name)}${person.me ? ' (the owner)' : ''}`,
+    );
+    if (project) lines.push(`Narrowed to: ${clipName(project.name)}`);
+    lines.push(
+      `Today is ${day(today)}.`,
+      `State: ${personStateLine(
+        { role: clip(person.role) },
+        personProjects(state, person.id).length,
+        open,
+      ).join(' · ')}`,
+    );
+  }
+
+  const labels = ROOM_LANES[subject.kind];
+  const title = (t: Task) => clip(tokensToNames(t.title, state.people));
+  const where = (t: Task) =>
+    isProject || project
+      ? ''
+      : ` (${clipName(projectName(state, t.projectId))})`;
+  const loop = (t: Task) =>
+    `- ${title(t)}${where(t)}${t.due ? `, due ${day(t.due)}` : ''}`;
+  lines.push(
+    '',
+    ...section(labels.mine, lanes.mine.map(loop), ROOM_LIMITS.mine),
+    '',
+    ...section(
+      labels.waiting,
+      lanes.waiting.map((g) => {
+        const who =
+          g.personId === NOBODY
+            ? 'no one listed'
+            : clipName(
+                personName(state, g.personId) ?? 'someone no longer listed',
+              );
+        const shown = g.tasks.slice(0, ROOM_LIMITS.waitingTasks).map(title);
+        const more = g.tasks.length - shown.length;
+        if (more > 0) shown.push(`and ${more} more`);
+        const count = `${g.tasks.length} ${g.tasks.length === 1 ? 'task' : 'tasks'}`;
+        return `- ${who}, ${count}: ${shown.join('; ')}`;
+      }),
+      ROOM_LIMITS.waiting,
+    ),
+    '',
+    ...section(labels.decide, lanes.decide.map(loop), ROOM_LIMITS.decide),
+  );
+  if (!isProject && person) {
+    const topics = personTopics(
+      state,
+      person.id,
+      today,
+      now,
+      project ? projectId : null,
+    );
+    lines.push(
+      '',
+      ...section(
+        'Topics to discuss',
+        topics.map(
+          ({ meeting, topic }) =>
+            `- ${clip(topic.title)} (${clipName(meeting.title)}, ${day(meeting.date)})`,
+        ),
+        ROOM_LIMITS.topics,
+      ),
+    );
+  }
+
+  const stream = isProject
+    ? projectStream(state, subject.id, person ? personId : null)
+    : personStream(state, subject.id, project ? projectId : null);
+  const { upcoming, past } = splitStream(stream, `${today}T${now}`);
+  const from = `${addDays(today, 1 - ROOM_STREAM_DAYS)}T00:00`;
+  const recent = past.filter((item) => item.at >= from);
+  const withProject = !isProject && !project;
+  lines.push(
+    '',
+    ...section(
+      'Coming up',
+      upcoming.map((item) => upcomingLine(item, state, withProject)),
+      ROOM_LIMITS.upcoming,
+    ),
+    '',
+    ...section(
+      `The last ${ROOM_STREAM_DAYS} days, newest first`,
+      recent.map((item) => streamLine(item, state, withProject)),
+      ROOM_LIMITS.stream,
+    ),
+  );
+  return lines.join('\n');
+}
+
 /** What a Summarize button names. */
 export type SummaryTarget =
-  | { kind: 'project'; id: string }
   | { kind: 'task'; id: string }
+  /** A meeting row's Summarize, in the panel. */
   | { kind: 'meeting'; id: string }
-  | { kind: 'note'; id: string }
+  /** Meeting mode's recap (#339), in a card under its header. */
+  | { kind: 'recap'; id: string }
+  /**
+   * A room's state (#339), in a card under its state line, as of `today`
+   * at `now` (the time of day).
+   */
+  | { kind: 'room'; room: RoomSubject; today: DateString; now: TimeString }
   /** The seven days ending `toDay` (the Digest page). */
   | { kind: 'digest'; toDay: string }
   /**
@@ -728,15 +1027,43 @@ export type SummaryTarget =
   | { kind: 'brief'; today: DateString; options?: FocusOptions };
 
 export interface SummaryRequest {
-  /** "Echo Base", "Shield review", "note of Wed 21 Oct 2026". */
+  /** "Echo Base", "Shield review", "Brief · Wed 28 Oct 2026". */
   label: string;
+  /**
+   * What follows "Summary of" in the saved note: the label, with a
+   * person as `@Name` so the note mentions them and files to their room.
+   */
+  noteLabel: string;
   context: string;
   /** Where Save as note puts the result. */
   projectId: string | null;
   /** Set when summarizing a meeting, so the saved note links to it. */
   meetingId: string | null;
-  /** The system prompt: `SYSTEM_PROMPT`, or `BRIEF_PROMPT` for a brief. */
+  /**
+   * The system prompt: `SYSTEM_PROMPT`, `BRIEF_PROMPT` for a brief,
+   * `ROOM_PROMPT` for a room, `RECAP_PROMPT` for a meeting's recap.
+   */
   prompt: string;
+}
+
+/**
+ * Which card shows a target's summary: Today's Brief me card, a room's,
+ * or meeting mode's, by a key; null for the summary panel.
+ */
+export function cardOf(target: SummaryTarget): string | null {
+  switch (target.kind) {
+    case 'brief':
+      return 'brief';
+    case 'recap':
+      return `recap:${target.id}`;
+    case 'room': {
+      const { room } = target;
+      const narrow = room.kind === 'project' ? room.person : room.project;
+      return `room:${room.kind}:${room.id}:${narrow ?? ''}`;
+    }
+    default:
+      return null;
+  }
 }
 
 /** Everything one Summarize run needs, or null when the item is gone. */
@@ -745,15 +1072,42 @@ export function summaryRequest(
   state: Snapshot,
 ): SummaryRequest | null {
   switch (target.kind) {
-    case 'project': {
-      const project = state.projects[target.id];
-      if (!project) return null;
+    case 'room': {
+      const { room } = target;
+      const context = roomContext(room, state, target.today, target.now);
+      if (!context) return null;
+      const projectId =
+        room.kind === 'project' ? room.id : (room.project ?? null);
+      const personId = room.kind === 'person' ? room.id : room.person;
+      const project = projectId ? state.projects[projectId] : undefined;
+      const person = personId ? state.people[personId] : undefined;
+      const label =
+        room.kind === 'person'
+          ? (person?.name ?? '')
+          : `${project?.name ?? ''}${person ? ` with ${person.name}` : ''}`;
+      const noteLabel =
+        room.kind === 'person'
+          ? `@${person?.name ?? ''}`
+          : `${project?.name ?? ''}${person ? ` with @${person.name}` : ''}`;
       return {
-        label: project.name,
-        context: projectContext(project.id, state),
-        projectId: project.id,
+        label,
+        noteLabel,
+        context,
+        projectId: project ? (projectId ?? null) : null,
         meetingId: null,
-        prompt: SYSTEM_PROMPT,
+        prompt: ROOM_PROMPT,
+      };
+    }
+    case 'recap': {
+      const meeting = state.meetings[target.id];
+      if (!meeting) return null;
+      return {
+        label: meeting.title,
+        noteLabel: meeting.title,
+        context: meetingContext(meeting, state),
+        projectId: meeting.projectId,
+        meetingId: meeting.id,
+        prompt: RECAP_PROMPT,
       };
     }
     case 'task': {
@@ -761,6 +1115,7 @@ export function summaryRequest(
       if (!task) return null;
       return {
         label: task.title,
+        noteLabel: task.title,
         context: taskContext(task, state),
         projectId: task.projectId,
         meetingId: null,
@@ -772,6 +1127,7 @@ export function summaryRequest(
       if (!meeting) return null;
       return {
         label: meeting.title,
+        noteLabel: meeting.title,
         context: meetingContext(meeting, state),
         projectId: meeting.projectId,
         meetingId: meeting.id,
@@ -781,8 +1137,10 @@ export function summaryRequest(
     case 'digest': {
       const digest = buildDigest(state, weekEnding(target.toDay));
       const { fromDay, toDay } = digest.range;
+      const label = `week of ${day(fromDay)} – ${day(toDay)}`;
       return {
-        label: `week of ${day(fromDay)} – ${day(toDay)}`,
+        label,
+        noteLabel: label,
         context: `Weekly digest across every project.\n\n${digestMarkdown(digest)}`,
         projectId: null,
         meetingId: null,
@@ -792,22 +1150,12 @@ export function summaryRequest(
     case 'brief':
       return {
         label: briefLabel(target.today),
+        noteLabel: briefLabel(target.today),
         context: briefContext(state, target.today, target.options),
         projectId: null,
         meetingId: null,
         prompt: BRIEF_PROMPT,
       };
-    case 'note': {
-      const note = state.notes[target.id];
-      if (!note) return null;
-      return {
-        label: `note of ${noteDay(note)}`,
-        context: noteContext(note, state),
-        projectId: note.projectId,
-        meetingId: null,
-        prompt: SYSTEM_PROMPT,
-      };
-    }
   }
 }
 
