@@ -464,14 +464,7 @@ test('with one action shown, + does it directly; hidden ones still work; Reset p
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Write a note is hidden from +, not from its shortcut or ⌘K.
-  if (!isMobile(page)) {
-    await page.keyboard.press('Shift+N');
-    const note = page.getByRole('dialog', { name: 'New note' });
-    await expect(note).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(note).toHaveCount(0);
-  }
+  // Write a note is hidden from +, not from ⌘K.
   await page.getByRole('button', { name: 'Search' }).click();
   const palette = page.getByRole('dialog', { name: 'Search' });
   await palette.getByRole('combobox').fill('New note');

@@ -173,7 +173,7 @@ test('closing a task takes it out of its group', async ({ page }) => {
   );
 });
 
-test('no toolbar: everyone’s tasks; n opens the new-task panel', async ({
+test('no toolbar: everyone’s tasks; n goes to the capture line', async ({
   page,
 }) => {
   await openLive(page);
@@ -193,15 +193,13 @@ test('no toolbar: everyone’s tasks; n opens the new-task panel', async ({
   );
   await expectAccessible(page);
 
-  // No quick-add: n opens the new-task panel.
+  // n goes to the capture line; a [ ] line is a task.
   await page.locator('body').press('n');
-  const panel = page.getByRole('dialog', { name: 'New task' });
-  await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
-  await panel
-    .getByRole('textbox', { name: 'Title' })
-    .fill('Calibrate the ion cannon');
-  await panel.getByRole('textbox', { name: 'Title' }).press('Enter');
-  await expect(panel).toBeHidden();
+  const capture = page.getByRole('combobox', { name: 'Capture' });
+  await expect(capture).toBeFocused();
+  await capture.fill('[ ] Calibrate the ion cannon');
+  await capture.press('Enter');
+  await expect(capture).toHaveValue('');
   await expect(page.locator('[data-movement]')).toHaveText(
     '1 closed this week · 2 added · 1 overdue',
   );
@@ -334,7 +332,7 @@ test('nothing needs you says what to do next', async ({ page }) => {
   await openLive(page);
   await expect(
     page.getByText(
-      'Nothing needs you. Add a task with + or n, or open a project.',
+      'Nothing needs you. Capture something above, or open a project.',
     ),
   ).toBeVisible();
   await expect(page.locator('[data-movement]')).toHaveText(

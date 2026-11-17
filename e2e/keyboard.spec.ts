@@ -26,14 +26,15 @@ test('add, move, complete, edit and reorder without the mouse', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  // `n` opens the new-task panel, preset to the project; Enter adds.
-  const adding = page.getByRole('dialog', { name: 'New task' });
+  // `n` goes to the capture line, preset to the project; Enter adds and
+  // keeps focus there.
+  const capture = page.getByRole('combobox', { name: 'Capture' });
+  await page.locator('body').press('n');
   for (const title of ['Patch the hull', 'Tune the deflector']) {
-    await page.locator('body').press('n');
-    await expect(adding.getByRole('textbox', { name: 'Title' })).toBeFocused();
-    await page.keyboard.type(title);
+    await expect(capture).toBeFocused();
+    await page.keyboard.type(`[ ] ${title}`);
     await page.keyboard.press('Enter');
-    await expect(adding).toBeHidden();
+    await expect(capture).toHaveValue('');
     await expect(
       page.locator('[data-task-id]').filter({ hasText: title }),
     ).toBeVisible();

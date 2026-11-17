@@ -25,8 +25,8 @@ const Context = createContext<ListPanels | null>(null);
 
 /**
  * The list panel (#300) lives here, one for the app: the Lists page, a
- * list's page, the project page's Lists section, the top bar's +, ⌘K and
- * `Shift+L` open it. Each opening is a fresh form.
+ * list's page, the project page's Lists section, the top bar's + and ⌘K
+ * open it. Each opening is a fresh form.
  */
 export function ListPanelProvider({ children }: { children: ReactNode }) {
   const { newTask } = useTaskPanels();

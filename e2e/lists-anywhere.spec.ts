@@ -5,14 +5,13 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
-  isMobile,
   openLive,
   SEED,
   test,
 } from './fixtures';
 
 /**
- * Lists from anywhere (#300): + (once shown), ⌘K and Shift+L; ⌘K finds
+ * Lists from anywhere (#300): + (once shown) and ⌘K; ⌘K finds
  * lists by title and item. And a project's lists on its page, and Make
  * task from an item (#301). The seed's Evacuation checklist is on Echo
  * Base; Hyperdrive parts, every item done, on the Falcon.
@@ -93,10 +92,6 @@ test('+ offers New list once shown, preset to the project; hiding Lists takes it
     palette(page).getByRole('group', { name: 'Lists' }).getByRole('option'),
   ).toHaveCount(1);
   await page.keyboard.press('Escape');
-  if (!isMobile(page)) {
-    await page.locator('body').press('Shift+L');
-    await expect(newList(page)).toHaveCount(0);
-  }
 });
 
 test('⌘K finds a list by an item and by its title, and offers New list', async ({
@@ -133,40 +128,6 @@ test('⌘K finds a list by an item and by its title, and offers New list', async
   await expect(
     page.getByRole('heading', { level: 1, name: 'Errands' }),
   ).toBeVisible();
-});
-
-test('Shift+L opens New list; on a list’s page it adds an item', async ({
-  page,
-}) => {
-  test.skip(isMobile(page), 'A keyboard shortcut.');
-  await openLive(page, '/projects/p-echo');
-  await page.locator('body').press('Shift+L');
-  await expect(newList(page)).toBeVisible();
-  await expect(
-    newList(page).getByRole('combobox', { name: 'Project' }),
-  ).toHaveValue('Echo Base relocation');
-  await page.keyboard.press('Escape');
-  await expect(newList(page)).toHaveCount(0);
-
-  await page.goto('/lists/l-evac');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Evacuation checklist' }),
-  ).toBeVisible();
-  await page.locator('body').press('Shift+L');
-  await expect(
-    page.getByRole('textbox', {
-      name: 'Add an item to “Evacuation checklist”',
-    }),
-  ).toBeFocused();
-  await expect(newList(page)).toHaveCount(0);
-
-  // The shortcut sheet lists it, from SHORTCUTS.
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Add an item' })).toBeFocused();
-  await page.keyboard.press('?');
-  await expect(page.getByRole('dialog')).toContainText(
-    'New list (on a list’s page: add an item to it)',
-  );
 });
 
 test('the project page shows its lists; Add list starts one there', async ({

@@ -37,10 +37,22 @@ changes the format says so here under **Export format**.
   `datapad-v2`, with its own data, backups and Access application, after
   CI passes. Production still deploys from `main` only. See
   docs/self-hosting.md § Staging.
+- The capture line (#330): one input at the top of Focus and of each
+  project's page. Type anything and chips say what it will become and
+  where it goes. A plain line is a note; `[ ]`, `todo` or a date makes a
+  task; `?` or `decide:` something to decide; `waiting on @Name` a task
+  blocked on them. `#project` files it, `@Name` mentions someone (and
+  assigns a task to them), and `@` and `#` open a menu, where a new name
+  can be added to People. Enter saves with Undo, Esc clears, Tab or the
+  kind chip changes the kind, and Shift+Enter or the expand button opens
+  the full note composer. `n` goes to it.
 
 ### Changed
 
 - New tasks start at Medium priority instead of none.
+- `n` goes to the capture line where there is one (elsewhere it still
+  opens the new-task panel). Shift+N and Shift+L are gone: write a note
+  or start a list from + or ⌘K. The + menu no longer shows shortcuts.
 
 - The components in `src/components/ui` now come from the
   [Beskar](https://github.com/jbouder/beskar) registry in place of stock
