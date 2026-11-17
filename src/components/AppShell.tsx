@@ -44,7 +44,6 @@ import {
   SettingsPage,
   WhiteboardPage,
 } from '@/pages/lazy';
-import { notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonPage } from '@/pages/PersonPage';
 import { ProjectPage } from '@/pages/ProjectPage';
@@ -96,12 +95,11 @@ export function AppShell() {
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
-  // On Notes, a new note starts in the filtered project, as Add note does.
+  // On All, a new note starts in the room it is filtered to.
   const query = useQuery();
+  const room = route.name === 'all' ? query.get('room') : null;
   const noteProject =
-    route.name === 'all' && route.kind === 'note'
-      ? notesPreset(query.get('project'))
-      : currentProject;
+    room && room !== 'general' && state?.projects[room] ? room : currentProject;
   const addNote = useCallback(() => {
     newNote(noteProject);
   }, [newNote, noteProject]);
@@ -274,9 +272,6 @@ function pageKey(route: Route): string {
   if (route.name === 'person') return `person:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
-  if (route.name === 'all') {
-    return `all:${route.kind ?? ''}${route.archived ? ':archived' : ''}`;
-  }
   if (route.name === 'whiteboard') return `whiteboard:${route.project ?? ''}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
@@ -289,7 +284,7 @@ function Page({ route }: { route: Route }) {
     case 'unfiled':
       return <UnfiledPage />;
     case 'all':
-      return <AllPage kind={route.kind} archived={route.archived} />;
+      return <AllPage />;
     case 'help':
       return <HelpPage section={route.section} />;
     case 'project':

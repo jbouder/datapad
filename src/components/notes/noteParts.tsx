@@ -90,9 +90,11 @@ export function NoteChips({
                 ? { name: 'project', id: project.id }
                 : { name: 'unfiled' },
             )}
-            className="border px-1.5 py-0.5 text-foreground hover:bg-accent"
+            className={CHIP}
           >
-            {project && !note.scratch ? project.name : 'Notepad'}
+            <span className="truncate border px-1.5 py-0.5 text-foreground hover:bg-accent">
+              {project && !note.scratch ? project.name : 'Notepad'}
+            </span>
           </a>
         ) : (
           <span className="border border-dashed px-1.5 py-0.5">General</span>

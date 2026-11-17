@@ -14,10 +14,10 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('from a card to the project; no current state line', async ({ page }) => {
-  await openLive(page, '/projects');
+test('from All to the project; no current state line', async ({ page }) => {
+  await openLive(page, '/all?kind=project');
   await page
-    .getByRole('list', { name: 'Projects' })
+    .getByRole('list', { name: 'Items' })
     .getByRole('link', { name: /Echo Base relocation/ })
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);

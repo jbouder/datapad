@@ -14,6 +14,8 @@ export interface NoteFilters {
   pinned: boolean;
   /** Matches the body with mentions read as names; every word must. */
   q: string;
+  /** Keep archived projects' notes with no project filter (All, #337). */
+  archived?: boolean;
 }
 
 export const DEFAULT_NOTE_FILTERS: NoteFilters = {
@@ -29,7 +31,8 @@ export function queryWords(q: string): string[] {
 
 /**
  * Notes for the Notes view, newest first. Notes of archived projects are
- * left out unless that project is the filter; `hidden` are notes on
+ * left out unless that project is the filter or `archived` keeps them;
+ * `hidden` are notes on
  * their way out (a delete waiting on Undo).
  */
 export function selectNotes(
@@ -45,7 +48,11 @@ export function selectNotes(
         if (n.projectId !== null) return false;
       } else if (filters.project) {
         if (n.projectId !== filters.project) return false;
-      } else if (n.projectId && state.projects[n.projectId]?.archived) {
+      } else if (
+        !filters.archived &&
+        n.projectId &&
+        state.projects[n.projectId]?.archived
+      ) {
         return false;
       }
       if (filters.pinned && !n.pinned) return false;

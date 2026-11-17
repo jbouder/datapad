@@ -181,7 +181,7 @@ export function PersonDetail({
                       {m.kind === 'note' ? (
                         <a
                           {...linkProps(
-                            { name: 'all', kind: 'note' },
+                            { name: 'all', kinds: ['note'] },
                             `note=${m.doc.id}`,
                           )}
                           className="press flex min-h-11 flex-col justify-center gap-0.5 py-1.5 text-sm hover:bg-accent/50"

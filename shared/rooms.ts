@@ -156,6 +156,51 @@ export function owedBy(
     .slice(0, OWED_MAX);
 }
 
+/**
+ * Every person but you, by how much they owe you (as `owedBy` counts it),
+ * most first, then by name: All's people rooms (#337).
+ */
+export function peopleByOwed(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+): { person: Person; count: number }[] {
+  const me = meId(state.people);
+  const counts = new Map(
+    waitingPeople(lanesOf(state, me), state.people).map(({ person, tasks }) => [
+      person.id,
+      tasks.length,
+    ]),
+  );
+  return Object.values(state.people)
+    .filter((person) => person.id !== me)
+    .map((person) => ({ person, count: counts.get(person.id) ?? 0 }))
+    .sort(
+      (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
+    );
+}
+
+/**
+ * All's project rooms (#337): every project not archived, by name, under
+ * its org (orgs A to Z, then those with none, under `''`).
+ */
+export function projectRoomsByOrg(
+  projects: Snapshot['projects'],
+): { org: string; projects: Project[] }[] {
+  const groups = new Map<string, Project[]>();
+  for (const project of Object.values(projects)) {
+    if (project.archived) continue;
+    const org = project.org.trim();
+    groups.set(org, [...(groups.get(org) ?? []), project]);
+  }
+  return [...groups]
+    .map(([org, list]) => ({
+      org,
+      projects: list.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort(
+      (a, b) => Number(!a.org) - Number(!b.org) || a.org.localeCompare(b.org),
+    );
+}
+
 /** How many notes have no home yet: Unfiled's count. */
 export function unfiledCount(notes: Snapshot['notes']): number {
   let count = 0;

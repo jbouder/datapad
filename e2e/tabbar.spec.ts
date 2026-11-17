@@ -78,20 +78,18 @@ test.beforeEach(async ({ page, request }) => {
 test.describe('with motion on', () => {
   test.use({ reducedMotion: 'no-preference' });
 
-  test('the tab bar stays opaque and still through page, layout and space transitions', async ({
+  test('the tab bar stays opaque and still through page, filter and space transitions', async ({
     page,
     request,
   }) => {
     await request.post('/api/spaces/create', { data: { name: 'Personal' } });
     await watchTransitions(page);
-    await openLive(page, '/all?kind=project');
+    await openLive(page, '/all');
 
-    // A layout change (Today has none).
-    const group = page.getByRole('group', { name: /^Layout/ });
-    await group
-      .locator('label')
-      .filter({ has: page.getByRole('radio', { checked: false }) })
-      .first()
+    // A filter change (Today has none): one of All's kinds.
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Tasks', exact: true })
       .click();
     await expect.poll(async () => (await seen(page)).length).toBe(1);
 
@@ -107,7 +105,7 @@ test.describe('with motion on', () => {
     await expect.poll(async () => (await seen(page)).length).toBe(3);
 
     const all = await seen(page);
-    expect(all.map((s) => s.type)).toEqual(['layout', 'page', 'space']);
+    expect(all.map((s) => s.type)).toEqual(['filter', 'page', 'space']);
     for (const s of all) {
       expect(s.name, s.type).toBe('tabbar');
       expect(opaque(s.background), `${s.type}: ${s.background}`).toBe(true);

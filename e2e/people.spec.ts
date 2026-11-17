@@ -57,11 +57,7 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
   await title.press('Enter');
   await expect(panel).toBeHidden();
 
-  await page.goto('/all?kind=note');
-  await page
-    .getByRole('main')
-    .getByRole('button', { name: 'Add note' })
-    .click();
+  await addFromTopBar(page, 'Write a note');
   const write = page.getByRole('dialog', { name: 'New note' });
   await write
     .getByRole('combobox', { name: 'Note' })
@@ -108,7 +104,7 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
   await expect(
     people(page).getByRole('listitem').filter({ hasText: 'Leia' }),
   ).not.toContainText('you');
-  await page.goto('/all?kind=task&who=mine');
+  await page.goto('/all?kind=task&person=me');
   await expect(page.getByRole('main')).toContainText('Fix the compressor');
 
   // Remove Han: the note reads @unknown, the task is unassigned.

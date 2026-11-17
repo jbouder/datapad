@@ -7,29 +7,34 @@ import { GENERAL_BOARD } from './types';
  * React halves.
  *
  * v2 (#329) has three places and the rooms: Today (`/`), Unfiled
- * (`/unfiled`), All (`/all`, `?kind=` picks one kind), a project's room
+ * (`/unfiled`), All (`/all`, `?kind=` picks kinds), a project's room
  * (`/projects/:id`), a person's room (`/people/:id`) and a meeting
  * (`/meetings/:id`). Every address from before lands on its new home
  * (`landRoute`).
  */
 
-/** The kinds All can be narrowed to (`/all?kind=`). */
-export const ALL_KINDS = ['project', 'task', 'note', 'meeting'] as const;
+/**
+ * The kinds All lists (`/all?kind=`, #337), in their order: one or
+ * several, comma separated; none is every kind.
+ */
+export const ALL_KINDS = [
+  'task',
+  'note',
+  'meeting',
+  'project',
+  'person',
+] as const;
 export type AllKind = (typeof ALL_KINDS)[number];
-
-export function isAllKind(value: unknown): value is AllKind {
-  return (ALL_KINDS as readonly unknown[]).includes(value);
-}
 
 export type Route =
   | { name: 'today' }
   /** Lines with no home yet (#333); replaces the Notepad. */
   | { name: 'unfiled' }
   /**
-   * Every item of every kind (#337), or one kind. `archived` is the
-   * archived projects, with `kind: 'project'`.
+   * Every item of every kind (#337), or of the `kinds` given. Its filters
+   * and sort are the rest of the query (`shared/all.ts`).
    */
-  | { name: 'all'; kind?: AllKind; archived?: true }
+  | { name: 'all'; kinds?: readonly AllKind[] }
   /** A project's room (#334). */
   | { name: 'project'; id: string }
   /** A person's room (#335). */
@@ -101,21 +106,33 @@ function decoded(value: string): string {
   return decodeURIComponent(value);
 }
 
-/** `?a=b`, or empty for no parameters. */
+/**
+ * `?a=b`, or empty for no parameters. Commas stay commas, so All's kinds
+ * read `kind=task,note`.
+ */
 function asSearch(params: URLSearchParams): string {
-  const text = params.toString();
+  const text = params.toString().replaceAll('%2C', ',');
   return text ? `?${text}` : '';
 }
 
 /**
- * The query a route carries itself: All's `kind` and `archived`. Every
- * other route has none.
+ * The kinds a `kind` parameter names, each once, in `ALL_KINDS` order;
+ * empty (every kind) when it names none.
+ */
+export function kindsOf(value: string | null): AllKind[] {
+  const named = new Set((value ?? '').split(','));
+  return ALL_KINDS.filter((kind) => named.has(kind));
+}
+
+/**
+ * The query a route carries itself: All's `kind`. Every other route has
+ * none.
  */
 export function routeQuery(route: Route): URLSearchParams {
   const params = new URLSearchParams();
   if (route.name === 'all') {
-    if (route.kind) params.set('kind', route.kind);
-    if (route.archived) params.set('archived', '1');
+    const kinds = kindsOf((route.kinds ?? []).join(','));
+    if (kinds.length > 0) params.set('kind', kinds.join(','));
   }
   return params;
 }
@@ -133,13 +150,50 @@ export function routeSearch(route: Route, extra = ''): string {
   return asSearch(params);
 }
 
-/** All, as the query names it: the kind, and archived projects. */
+/** All, as the query names it: its kinds. */
 function allFrom(params: URLSearchParams): Route {
-  const kind = params.get('kind');
-  if (!isAllKind(kind)) return { name: 'all' };
-  return kind === 'project' && params.get('archived') === '1'
-    ? { name: 'all', kind, archived: true }
-    : { name: 'all', kind };
+  const kinds = kindsOf(params.get('kind'));
+  return kinds.length > 0 ? { name: 'all', kinds } : { name: 'all' };
+}
+
+/** All with `kind` and `params`: its address, its own query first. */
+function landAll(kind: AllKind, params: URLSearchParams): [Route, string] {
+  const route: Route = { name: 'all', kinds: [kind] };
+  return [route, routeSearch(route, params.toString())];
+}
+
+/**
+ * An old list page's query as All reads it (#337): Tasks' Blocked is
+ * Waiting on, its assignee is Person (Mine is `me`, Unassigned goes),
+ * Notes' and Meetings' project is Room, Projects' Active and Paused are
+ * Open; Find, Status (Done, All), Sort and Direction carry over, and the
+ * rest (layouts, grouping, Health, Org, Pinned) goes.
+ */
+function oldListQuery(
+  kind: AllKind,
+  params: URLSearchParams,
+  archived: boolean,
+): URLSearchParams {
+  const out = new URLSearchParams();
+  const q = params.get('q');
+  if (q) out.set('q', q);
+  const status = params.get('status');
+  if (archived) out.set('status', 'archived');
+  else if (status === 'done' || status === 'all') out.set('status', status);
+  else if (status === 'blocked' && kind === 'task') out.set('waiting', '1');
+  const who = params.get('who');
+  if (who === 'mine') out.set('person', 'me');
+  else if (who?.startsWith('p:') && who.length > 2) {
+    out.set('person', who.slice(2));
+  }
+  const project = params.get('project');
+  if (project && project !== 'all') out.set('room', project);
+  // `note` opens one note (`?note=<id>`).
+  for (const key of ['sort', 'dir', 'note']) {
+    const value = params.get(key);
+    if (value) out.set(key, value);
+  }
+  return out;
 }
 
 /**
@@ -150,7 +204,9 @@ function allFrom(params: URLSearchParams): Route {
  *   zoom (`/?view=week`)
  * - `/notepad` (and Notes' old Notepad layout) is `/unfiled`
  * - `/projects`, `/tasks`, `/notes`, `/meetings` (and `/events`) are All
- *   with that kind, their filters kept; `/archive` adds `archived=1`
+ *   with that kind, their filters as All reads them (`oldListQuery`);
+ *   `/archive` is All's projects with `status=archived`, as is
+ *   `/all?archived=1` (#329's address for it)
  * - `/lists` and `/lists/:id` are All's notes (#328 made lists notes)
  * - `/meetings?meeting=<id>` and `/events?event=<id>` are that meeting
  * - `/settings/people/:id` is the person's room (`/people/:id`)
@@ -177,7 +233,11 @@ export function landRoute(
   if (clean === '/unfiled') return [{ name: 'unfiled' }, search];
   if (clean === '/all') {
     const route = allFrom(params);
-    return [route, routeSearch(route, search)];
+    if (params.get('archived') === '1') {
+      params.delete('archived');
+      params.set('status', 'archived');
+    }
+    return [route, routeSearch(route, params.toString())];
   }
 
   // The old list pages: All, narrowed to their kind.
@@ -194,17 +254,10 @@ export function landRoute(
           ? params.get('meeting')
           : null;
     if (meeting) return [{ name: 'meeting', id: meeting }, ''];
-    params.delete('kind');
-    params.delete('archived');
-    const route: Route =
-      clean === '/archive'
-        ? { name: 'all', kind, archived: true }
-        : { name: 'all', kind };
-    return [route, routeSearch(route, params.toString())];
+    return landAll(kind, oldListQuery(kind, params, clean === '/archive'));
   }
   if (/^\/lists(?:\/[^/]+)?$/.test(clean)) {
-    const route: Route = { name: 'all', kind: 'note' };
-    return [route, routeSearch(route)];
+    return landAll('note', new URLSearchParams());
   }
 
   // A person's room; their old address under Settings gets there too.
@@ -402,14 +455,6 @@ const TITLES: Partial<Record<RouteName, string>> = {
   notFound: 'Not found',
 };
 
-/** All's title for one kind. */
-const KIND_TITLES: Record<AllKind, string> = {
-  project: 'Projects',
-  task: 'Tasks',
-  note: 'Notes',
-  meeting: 'Meetings',
-};
-
 /**
  * The top bar's title; a room, a meeting or a task passes its name.
  */
@@ -418,8 +463,5 @@ export function titleOf(route: Route, name?: string): string {
   if (route.name === 'person') return name ?? 'Person';
   if (route.name === 'task') return name ?? 'Task';
   if (route.name === 'meeting') return name ?? 'Meeting';
-  if (route.name === 'all' && route.kind) {
-    return route.archived ? 'Archived' : KIND_TITLES[route.kind];
-  }
   return TITLES[route.name] ?? 'Datapad';
 }
