@@ -116,7 +116,7 @@ test.describe('with motion on', () => {
     // The page itself did move.
     expect(all[0]?.others).toBeGreaterThan(0);
 
-    // Between transitions it is the usual translucent bar again.
+    // Between transitions it has no snapshot name of its own.
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });
 });

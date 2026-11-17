@@ -58,6 +58,8 @@ changes the format says so here under **Export format**.
   project. New list is gone from +, ⌘K and Shift+L, and the Lists,
   Notepad, Weekly digest and task pages are gone, as lists and the
   Notepad became notes.
+- The phone's tab bar is opaque, so its labels keep their contrast over
+  whatever scrolls under it.
 - New tasks start at Medium priority instead of none.
 
 - The components in `src/components/ui` now come from the

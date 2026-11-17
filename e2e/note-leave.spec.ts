@@ -20,8 +20,7 @@ const box = (page: Page) =>
 const asking = (page: Page) =>
   page.getByRole('alertdialog', { name: 'Save this note?' });
 
-/** The rail's (or the tab bar's) Tasks link: an in-app page change. */
-/** All, from the rail or the tab bar. */
+/** All, from the rail or the tab bar: an in-app page change. */
 const tasksLink = (page: Page) =>
   page
     .getByRole('link', { name: 'All', exact: true })
@@ -51,9 +50,6 @@ test('an unsaved note holds a link until Discard, then goes on', async ({
   await expect(
     asking(page).getByRole('button', { name: 'Save note' }),
   ).toBeFocused();
-  // Checked scrolled to the end, so nothing sits under the phone's
-  // translucent tab bar.
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expectAccessible(page);
 
   await asking(page).getByRole('button', { name: 'Discard' }).click();
@@ -126,6 +122,8 @@ test('an unsaved note in a panel holds closing it', async ({ page }) => {
   const form = page.getByRole('dialog', { name: 'Edit Shield review' });
   const region = form.getByRole('region', { name: 'Notes', exact: true });
   await region.getByRole('button', { name: 'Add note' }).click();
+  // Typed once the composer has focus, or the letters are shortcuts.
+  await expect(region.getByRole('combobox').first()).toBeFocused();
   await page.keyboard.type('Check the generator');
   await form.getByRole('button', { name: 'Close' }).click();
   const ask = form.getByRole('alertdialog', { name: 'Save this note?' });

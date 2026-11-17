@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 /**
  * The phone's navigation (< 820px, #329): Today, Unfiled and All, in
  * three columns along the bottom, one thumb away, above the home
- * indicator. Rooms are reached from All and from links. The rail
+ * indicator. Rooms are reached from All and from links. Opaque, so its
+ * labels keep their contrast over whatever scrolls under it. The rail
  * replaces it on desktop.
  */
 export function TabBar({ route }: { route: Route }) {
@@ -13,7 +14,7 @@ export function TabBar({ route }: { route: Route }) {
   return (
     <nav
       aria-label="Sections"
-      className="vt-tabbar fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 desk:hidden"
+      className="vt-tabbar fixed inset-x-0 bottom-0 z-30 border-t bg-background pb-[env(safe-area-inset-bottom)] desk:hidden"
     >
       <ul className="grid h-(--tabbar-height) grid-cols-3">
         {PLACES.map(({ name, route: to, label, icon: Icon }) => {
