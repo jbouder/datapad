@@ -135,7 +135,7 @@ export const listProjects = defineTool({
   name: 'list_projects',
   title: 'List projects',
   description:
-    'Projects as the Projects page lists them: by default those not archived, of every status, most recently updated first. Filter by status, health or org; archived: true lists the archive instead.',
+    'Projects as All lists them: by default those not archived, of every status, most recently updated first. Filter by status, health or org; archived: true lists the archive instead.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
