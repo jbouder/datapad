@@ -117,8 +117,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `/projects/:id` (its Plan tab `/projects/:id/plan`, its Whiteboard tab
   `/projects/:id/whiteboard`, narrowed to a person with `?person=`; the
   room's frame, which the person's room reuses, is `components/rooms/`,
-  and its stream's selectors `shared/stream.ts`) and `PersonPage`
-  `/people/:id`; `AllPage` is `/all`, every kind in one list with
+  and its stream's selectors `shared/stream.ts`) and `PersonRoom`
+  `/people/:id` (narrowed to a project with `?project=`); `AllPage` is `/all`, every kind in one list with
   `shared/all.ts` reading its address, the layouts for one kind, the
   bulk bar, and `components/all/SavedViews` its saved views, and `UnfiledPage` `/unfiled`; a task opens in its
   panel everywhere, and `/tasks/:id` lands on its room with the panel

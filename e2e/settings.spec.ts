@@ -164,7 +164,7 @@ test('People: add, mark yourself, edit and remove', async ({
 
   // Each opens their room, where Edit and Remove are.
   await list.getByRole('link', { name: /Leia Organa/ }).click();
-  await page.getByRole('button', { name: 'Edit Leia Organa' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel.getByRole('checkbox', { name: 'This is me' }).click();
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel).toBeHidden();
@@ -172,7 +172,7 @@ test('People: add, mark yourself, edit and remove', async ({
   await expect(list.getByRole('listitem').last()).toContainText('you');
 
   await list.getByRole('link', { name: /Han Solo/ }).click();
-  await page.getByRole('button', { name: 'Edit Han Solo' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel.getByRole('button', { name: 'Remove' }).click();
   await expect(panel.getByRole('alertdialog')).toContainText(
     'Remove Han Solo? Mentions of them show as @unknown.',

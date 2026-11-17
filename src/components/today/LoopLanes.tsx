@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { type Lanes, NOBODY, waitingCount } from '#shared/loops';
 import type { PageKey, Snapshot, Task } from '#shared/types';
 import { OrderedSections, Section } from '@/components/Section';
@@ -6,6 +6,24 @@ import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { LoopRow } from '@/components/today/LoopRow';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { linkProps } from '@/lib/router';
+
+export interface LaneLabels {
+  mine: string;
+  waiting: string;
+  decide: string;
+  mineEmpty: string;
+  waitingEmpty: string;
+  decideEmpty: string;
+}
+
+const DEFAULT_LABELS: LaneLabels = {
+  mine: 'Mine',
+  waiting: 'Waiting on',
+  decide: 'To decide',
+  mineEmpty: 'Nothing open is yours.',
+  waitingEmpty: 'Nobody owes you anything.',
+  decideEmpty: 'Nothing to decide.',
+};
 
 const GROUP_HEAD =
   'flex min-h-11 items-center gap-1.5 pt-1 text-sm desk:min-h-8';
@@ -17,7 +35,9 @@ const GROUP_LINK =
  * it waits on) and To decide, each a section that collapses, in the
  * order `page` saved, without the hidden ones. A row's checkbox closes
  * the task (the toast offers Undo) and its title opens the task panel.
- * Today shows them beside the day; the rooms reuse them (#334, #335).
+ * Today shows them beside the day; the rooms reuse them (#334, #335): a
+ * person's room names them its own way (`labels`) and adds the open
+ * topics of meetings ahead to To decide (`discuss`).
  */
 export function LoopLanes({
   lanes,
@@ -25,12 +45,17 @@ export function LoopLanes({
   today,
   projects,
   people,
+  labels = DEFAULT_LABELS,
+  discuss,
 }: {
   lanes: Lanes;
   page: PageKey;
   today: string;
   projects: Snapshot['projects'];
   people: Snapshot['people'];
+  labels?: LaneLabels;
+  /** More for To decide, after its tasks, with how many it holds. */
+  discuss?: { count: number; node: ReactNode };
 }) {
   const { openTask } = useTaskPanels();
   const { toggle, isDone } = useTaskToggle();
@@ -70,18 +95,18 @@ export function LoopLanes({
       sections={{
         mine: (
           <Section
-            title="Mine"
+            title={labels.mine}
             count={lanes.mine.length}
             remember={{ page, key: 'mine' }}
           >
             {lanes.mine.length > 0
-              ? list(lanes.mine, 'Mine', true)
-              : empty('Nothing open is yours.')}
+              ? list(lanes.mine, labels.mine, true)
+              : empty(labels.mineEmpty)}
           </Section>
         ),
         waiting: (
           <Section
-            title="Waiting on"
+            title={labels.waiting}
             count={waitingCount(lanes)}
             remember={{ page, key: 'waiting' }}
           >
@@ -122,19 +147,21 @@ export function LoopLanes({
                 })}
               </div>
             ) : (
-              empty('Nobody owes you anything.')
+              empty(labels.waitingEmpty)
             )}
           </Section>
         ),
         decide: (
           <Section
-            title="To decide"
-            count={lanes.decide.length}
+            title={labels.decide}
+            count={lanes.decide.length + (discuss?.count ?? 0)}
             remember={{ page, key: 'decide' }}
           >
-            {lanes.decide.length > 0
-              ? list(lanes.decide, 'To decide', true)
-              : empty('Nothing to decide.')}
+            {lanes.decide.length > 0 && list(lanes.decide, labels.decide, true)}
+            {discuss && discuss.count > 0 && discuss.node}
+            {lanes.decide.length === 0 &&
+              !(discuss && discuss.count > 0) &&
+              empty(labels.decideEmpty)}
           </Section>
         ),
       }}

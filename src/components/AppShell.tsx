@@ -45,7 +45,7 @@ import {
   WhiteboardPage,
 } from '@/pages/lazy';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { PersonPage } from '@/pages/PersonPage';
+import { PersonRoom } from '@/pages/PersonRoom';
 import { ProjectRoom } from '@/pages/ProjectRoom';
 import { TodayPage } from '@/pages/TodayPage';
 import { UnfiledPage } from '@/pages/UnfiledPage';
@@ -327,7 +327,7 @@ function Page({ route }: { route: Route }) {
     case 'project':
       return <ProjectRoom id={route.id} tab={route.tab ?? 'stream'} />;
     case 'person':
-      return <PersonPage id={route.id} />;
+      return <PersonRoom id={route.id} />;
     case 'task':
       return <TaskLanding id={route.id} />;
     case 'meeting':

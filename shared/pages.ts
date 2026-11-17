@@ -364,6 +364,17 @@ export const PROJECT_ROOM_SECTIONS: readonly PageSection[] = [
   { key: 'decide', label: 'To decide' },
 ];
 
+/**
+ * A person's room's sections (#335): its three lanes under the room's
+ * names (the keys are the lanes' own), which hide and move as the
+ * project room's do.
+ */
+export const PERSON_ROOM_SECTIONS: readonly PageSection[] = [
+  { key: 'mine', label: 'You owe' },
+  { key: 'waiting', label: 'They owe you' },
+  { key: 'decide', label: 'To discuss' },
+];
+
 /** How the task page shows the note a task was made from (#312). */
 export const SOURCE_NOTE_OPTIONS = [
   { value: 'expanded', label: 'Expanded' },
@@ -649,6 +660,13 @@ export const PAGES: Record<PageKey, PageSpec> = {
       'milestones',
       'activity',
     ],
+  },
+  person: {
+    label: 'Person room',
+    fields: [],
+    sections: true,
+    sectionKeys: PERSON_ROOM_SECTIONS,
+    collapsible: PERSON_ROOM_SECTIONS.map((s) => s.key),
   },
   task: {
     label: 'Task page',

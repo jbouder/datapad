@@ -17,8 +17,8 @@ import {
   type ViewOption,
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
-import { YouTag } from '@/components/people/PersonDetail';
 import { PersonForm } from '@/components/people/PersonForm';
+import { YouTag } from '@/components/people/YouTag';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
