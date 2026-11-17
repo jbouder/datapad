@@ -19,6 +19,18 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **All** (#337): every task, note, meeting, project and person in one
+  list. Kind chips pick some kinds (none is every kind). Find, then the
+  filters that fit the kinds picked: Room, Person, Status (Open, Done or
+  past, Archived, All), Due, Tag, and To decide or Waiting on. Tasks or
+  projects alone sort as their pages did; several kinds sort together by
+  Recently updated, Title or Date. Everything stays in the address. Below
+  the list are the rooms: projects under their orgs and people by how
+  much they owe you, each with Pin. The space's whiteboard is linked from
+  the header. It replaces the Tasks, Notes, Meetings, Projects and
+  Archived pages, whose addresses land on it with their filters.
+  Layouts, saved views and bulk actions come back with #338.
+
 - Settings → Pages has New task priority: what a new task starts with when
   you do not pick one, from the New task panel, `/task`, Make task, action
   items and MCP's `add_task`.

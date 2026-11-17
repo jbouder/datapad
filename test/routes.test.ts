@@ -32,21 +32,28 @@ describe('the v2 addresses (#329)', () => {
     expect(parseRoute('/all')).toEqual({ name: 'all' });
     expect(parseRoute('/all', '', false, '?kind=task')).toEqual({
       name: 'all',
-      kind: 'task',
+      kinds: ['task'],
     });
     expect(parseRoute('/all', '', false, '?kind=nope')).toEqual({
       name: 'all',
     });
-    expect(parseRoute('/all', '', false, '?kind=project&archived=1')).toEqual({
-      name: 'all',
-      kind: 'project',
-      archived: true,
-    });
-    // Archived is only a project filter.
-    expect(parseRoute('/all', '', false, '?kind=task&archived=1')).toEqual({
-      name: 'all',
-      kind: 'task',
-    });
+  });
+
+  it('reads All’s kinds once each, in their order (#337)', () => {
+    expect(
+      parseRoute('/all', '', false, '?kind=person,task,nope,task'),
+    ).toEqual({ name: 'all', kinds: ['task', 'person'] });
+    expect(routeHref({ name: 'all', kinds: ['project', 'note'] })).toBe(
+      '/all?kind=note,project',
+    );
+    expect(routeHref({ name: 'all', kinds: [] })).toBe('/all');
+  });
+
+  it('reads #329’s archived projects as All’s Archived status', () => {
+    expect(landRoute('/all', '?kind=project&archived=1')).toEqual([
+      { name: 'all', kinds: ['project'] },
+      '?kind=project&status=archived',
+    ]);
   });
 
   it('reads the rooms and a meeting', () => {
@@ -106,11 +113,12 @@ describe('the v2 addresses (#329)', () => {
       { name: 'today' },
       { name: 'unfiled' },
       { name: 'all' },
-      { name: 'all', kind: 'task' },
-      { name: 'all', kind: 'note' },
-      { name: 'all', kind: 'meeting' },
-      { name: 'all', kind: 'project' },
-      { name: 'all', kind: 'project', archived: true },
+      { name: 'all', kinds: ['task'] },
+      { name: 'all', kinds: ['note'] },
+      { name: 'all', kinds: ['meeting'] },
+      { name: 'all', kinds: ['project'] },
+      { name: 'all', kinds: ['person'] },
+      { name: 'all', kinds: ['task', 'note', 'meeting'] },
       { name: 'project', id: 'a/b' },
       { name: 'person', id: 'u 1' },
       { name: 'meeting', id: 'e 1' },
@@ -134,16 +142,13 @@ describe('the v2 addresses (#329)', () => {
   });
 
   it('puts All’s kind in the query, first, over any other', () => {
-    expect(routeHref({ name: 'all', kind: 'task' })).toBe('/all?kind=task');
-    expect(routeHref({ name: 'all', kind: 'project', archived: true })).toBe(
-      '/all?kind=project&archived=1',
-    );
-    expect(routeHref({ name: 'all', kind: 'note' }, 'note=n1')).toBe(
+    expect(routeHref({ name: 'all', kinds: ['task'] })).toBe('/all?kind=task');
+    expect(routeHref({ name: 'all', kinds: ['note'] }, 'note=n1')).toBe(
       '/all?kind=note&note=n1',
     );
-    expect(routeSearch({ name: 'all', kind: 'note' }, '?kind=task&q=x')).toBe(
-      '?kind=note&q=x',
-    );
+    expect(
+      routeSearch({ name: 'all', kinds: ['note'] }, '?kind=task&q=x'),
+    ).toBe('?kind=note&q=x');
     expect(routeHref({ name: 'project', id: 'p' }, 'milestone=m')).toBe(
       '/projects/p?milestone=m',
     );
@@ -170,31 +175,41 @@ describe('redirects from every old address (#329)', () => {
     expect(landsOn('/notes/?project=p1&view=notepad')).toBe('/unfiled');
   });
 
-  it('sends each list page to All with its kind, filters kept', () => {
+  it('sends each list page to All with its kind, filters as All reads them', () => {
     expect(landsOn('/tasks')).toBe('/all?kind=task');
     expect(landsOn('/tasks?who=mine&group=priority')).toBe(
-      '/all?kind=task&who=mine&group=priority',
+      '/all?kind=task&person=me',
+    );
+    expect(landsOn('/tasks?who=p:u1&status=blocked&q=x&sort=title')).toBe(
+      '/all?kind=task&q=x&waiting=1&person=u1&sort=title',
+    );
+    expect(landsOn('/tasks?status=done&who=unassigned')).toBe(
+      '/all?kind=task&status=done',
     );
     expect(landsOn('/notes')).toBe('/all?kind=note');
     expect(landsOn('/notes?note=n1')).toBe('/all?kind=note&note=n1');
+    expect(landsOn('/notes?project=p1&pinned=1')).toBe(
+      '/all?kind=note&room=p1',
+    );
     expect(landsOn('/meetings')).toBe('/all?kind=meeting');
-    expect(landsOn('/meetings?view=calendar')).toBe(
-      '/all?kind=meeting&view=calendar',
-    );
+    expect(landsOn('/meetings?view=calendar')).toBe('/all?kind=meeting');
     expect(landsOn('/projects')).toBe('/all?kind=project');
-    expect(landsOn('/projects/?view=cards')).toBe(
-      '/all?kind=project&view=cards',
+    expect(landsOn('/projects/?view=cards&status=paused&org=x')).toBe(
+      '/all?kind=project',
     );
-    expect(landsOn('/archive')).toBe('/all?kind=project&archived=1');
+    expect(landsOn('/projects?status=all')).toBe(
+      '/all?kind=project&status=all',
+    );
+    expect(landsOn('/archive')).toBe('/all?kind=project&status=archived');
     expect(landsOn('/archive?sort=name')).toBe(
-      '/all?kind=project&archived=1&sort=name',
+      '/all?kind=project&status=archived&sort=name',
     );
   });
 
   it('sends Events, an old name for Meetings, there too', () => {
     expect(landsOn('/events')).toBe('/all?kind=meeting');
     expect(landsOn('/events?project=p1&view=calendar')).toBe(
-      '/all?kind=meeting&project=p1&view=calendar',
+      '/all?kind=meeting&room=p1',
     );
   });
 
@@ -273,7 +288,7 @@ describe('placeOf and titleOf', () => {
     expect(placeOf({ name: 'today' })).toBe('today');
     expect(placeOf({ name: 'unfiled' })).toBe('unfiled');
     expect(placeOf({ name: 'all' })).toBe('all');
-    expect(placeOf({ name: 'all', kind: 'task' })).toBe('all');
+    expect(placeOf({ name: 'all', kinds: ['task'] })).toBe('all');
     // The space's board is linked from All; a project's is in its room.
     expect(placeOf({ name: 'whiteboard' })).toBe('all');
     expect(placeOf({ name: 'whiteboard', project: 'p' })).toBeNull();
@@ -286,10 +301,7 @@ describe('placeOf and titleOf', () => {
     expect(titleOf({ name: 'today' })).toBe('Today');
     expect(titleOf({ name: 'unfiled' })).toBe('Unfiled');
     expect(titleOf({ name: 'all' })).toBe('All');
-    expect(titleOf({ name: 'all', kind: 'task' })).toBe('Tasks');
-    expect(titleOf({ name: 'all', kind: 'project', archived: true })).toBe(
-      'Archived',
-    );
+    expect(titleOf({ name: 'all', kinds: ['task'] })).toBe('All');
     expect(titleOf({ name: 'project', id: 'p' }, 'Alpha')).toBe('Alpha');
     expect(titleOf({ name: 'project', id: 'p' })).toBe('Project');
     expect(titleOf({ name: 'person', id: 'u' }, 'Han')).toBe('Han');

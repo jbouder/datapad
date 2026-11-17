@@ -157,7 +157,7 @@ export function ProjectPage({ id }: { id: string }) {
     return (
       <NotFoundPage
         what="project"
-        back={{ name: 'all', kind: 'project' }}
+        back={{ name: 'all', kinds: ['project'] }}
         backLabel="Go to All"
       />
     );
@@ -213,7 +213,7 @@ export function ProjectPage({ id }: { id: string }) {
       show(error instanceof Error ? error.message : 'Could not move it');
       return false;
     }
-    navigate({ name: 'all', kind: 'project' });
+    navigate({ name: 'all', kinds: ['project'] });
     show(`Moved ${project.name} to ${to.name}`, undefined, {
       label: 'Open',
       run: () => openInSpace(to.id, { name: 'project', id }),

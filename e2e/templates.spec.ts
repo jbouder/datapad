@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import {
+  addFromTopBar,
   expect,
   expectAccessible,
   expectSaved,
@@ -72,8 +73,8 @@ test('save a project’s tasks as a template, then start a project from it', asy
   ).toContainText('4 tasks');
 
   // A new project from it.
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromTopBar(page, 'Add project');
   const form = page.getByRole('dialog');
   await form.getByRole('textbox', { name: 'Name' }).fill('Hoth outpost');
   await form.getByRole('combobox', { name: 'Start from template' }).click();

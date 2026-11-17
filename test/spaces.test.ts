@@ -156,16 +156,16 @@ describe('routeAfterSwitch', () => {
   it('leaves a task or meeting for All, with its kind', () => {
     expect(routeAfterSwitch({ name: 'task', id: 't-1' })).toEqual({
       name: 'all',
-      kind: 'task',
+      kinds: ['task'],
     });
     expect(routeAfterSwitch({ name: 'meeting', id: 'e-1' })).toEqual({
       name: 'all',
-      kind: 'meeting',
+      kinds: ['meeting'],
     });
   });
 
   it('keeps the places', () => {
-    expect(routeAfterSwitch({ name: 'all', kind: 'task' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'all', kinds: ['task'] })).toBeNull();
     expect(routeAfterSwitch({ name: 'unfiled' })).toBeNull();
     expect(routeAfterSwitch({ name: 'whiteboard' })).toBeNull();
     expect(routeAfterSwitch({ name: 'people' })).toBeNull();

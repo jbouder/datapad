@@ -117,11 +117,12 @@ test('Sort in the toolbar writes the same address as the column headers', async 
 
 test('desktop: the filters sit in the toolbar, axe clean', async ({ page }) => {
   test.skip(isMobile(page), 'The phone has the sheet.');
-  await openLive(page, '/tasks?status=blocked');
+  await openLive(page, '/all?kind=task&waiting=1');
   const main = page.getByRole('main');
-  await expect(main.getByRole('group', { name: 'Status' })).toBeVisible();
-  await expect(main.getByRole('combobox', { name: 'Group by' })).toBeVisible();
-  await expect(main.getByRole('combobox', { name: 'Assignee' })).toBeVisible();
+  await expect(main.getByRole('combobox', { name: 'Room' })).toBeVisible();
+  await expect(main.getByRole('combobox', { name: 'Person' })).toBeVisible();
+  await expect(main.getByRole('combobox', { name: 'Status' })).toBeVisible();
+  await expect(main.getByRole('group', { name: 'Tasks' })).toBeVisible();
   await expect(
     main.getByRole('combobox', { name: 'Sort', exact: true }),
   ).toBeVisible();
@@ -130,28 +131,30 @@ test('desktop: the filters sit in the toolbar, axe clean', async ({ page }) => {
     main.getByRole('button', { name: 'Clear filters' }).first(),
   ).toBeVisible();
   await expectAccessible(page);
-  await openLive(page, '/notes');
+  // Notes have no task filters.
+  await openLive(page, '/all?kind=note');
+  await expect(main.getByRole('combobox', { name: 'Due' })).toHaveCount(0);
   await expectAccessible(page);
 });
 
 test('phone: Find and a Filters sheet with the rest', async ({ page }) => {
   test.skip(!isMobile(page), 'The sheet is the phone layout.');
-  await openLive(page, '/tasks');
+  await openLive(page, '/all?kind=task');
   await expect(page.getByRole('searchbox', { name: 'Find' })).toBeVisible();
   // The filters are not on the page itself.
-  await expect(page.getByRole('combobox', { name: 'Group by' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Room' })).toHaveCount(0);
   const button = page.getByRole('button', { name: 'Filters', exact: true });
   expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   await expectNoSidewaysScroll(page);
 
   const sheet = await openFilters(page);
   await sheet
-    .getByRole('group', { name: 'Status' })
-    .locator('label', { hasText: 'Blocked' })
+    .getByRole('group', { name: 'Tasks' })
+    .locator('label', { hasText: 'Waiting on' })
     .click();
-  await expect(page).toHaveURL(/status=blocked/);
-  await expect(sheet.getByRole('combobox', { name: 'Group by' })).toBeVisible();
-  await expect(sheet.getByRole('combobox', { name: 'Assignee' })).toBeVisible();
+  await expect(page).toHaveURL(/waiting=1/);
+  await expect(sheet.getByRole('combobox', { name: 'Room' })).toBeVisible();
+  await expect(sheet.getByRole('combobox', { name: 'Person' })).toBeVisible();
   await expect(
     sheet.getByRole('combobox', { name: 'Sort', exact: true }),
   ).toBeVisible();
@@ -162,10 +165,5 @@ test('phone: Find and a Filters sheet with the rest', async ({ page }) => {
   await expectAccessible(page);
   await closeFilters(page);
   await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeFocused();
-  await expectAccessible(page);
-
-  await openLive(page, '/notes');
-  const notes = await openFilters(page);
-  await expect(notes.getByRole('group', { name: 'Show' })).toBeVisible();
   await expectAccessible(page);
 });

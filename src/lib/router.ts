@@ -54,19 +54,10 @@ export function hrefFor(route: Route, query = ''): string {
  * Two routes are the same page (same name, same project, task, meeting or
  * list). Settings sections, People and Orgs among them, are one page, so
  * moving between them is no page transition; so is picking another person
- * or org.
+ * or org, and All is one page whatever its kinds.
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
-  // All with another kind shows another page.
-  if (a.name === 'all' || b.name === 'all') {
-    return (
-      a.name === 'all' &&
-      b.name === 'all' &&
-      a.kind === b.kind &&
-      a.archived === b.archived
-    );
-  }
   if (a.name === 'whiteboard' || b.name === 'whiteboard') {
     return (
       a.name === 'whiteboard' &&

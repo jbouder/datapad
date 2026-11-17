@@ -59,5 +59,5 @@ export function noteLocation(
   const query = `note=${encodeURIComponent(note.id)}`;
   return note.projectId && state.projects[note.projectId]
     ? { route: { name: 'project', id: note.projectId }, query }
-    : { route: { name: 'all', kind: 'note' }, query };
+    : { route: { name: 'all', kinds: ['note'] }, query };
 }
