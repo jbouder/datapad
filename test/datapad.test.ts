@@ -445,6 +445,48 @@ describe('DatapadObject storage', () => {
     });
   });
 
+  it('does not run format 3 again past schema 4: deleted list notes stay gone, decided tasks stay decided', async () => {
+    const at = '2026-10-01T09:00:00.000Z';
+    const task = {
+      ...fixture.tasks['t-1'],
+      tags: ['decide'],
+      decide: false,
+    };
+    const list = {
+      id: 'l-gone',
+      projectId: 'p-echo',
+      title: 'Evacuation',
+      items: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const stub = bindings.DATAPAD.getByName('schema4-again@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM docs');
+      sql.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'projects', 'p-echo', ?, '2026-10-01')",
+        JSON.stringify(fixture.projects['p-echo']),
+      );
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'tasks', ?, ?, '2026-10-01')",
+        task.id,
+        JSON.stringify(task),
+      );
+      // The list's note was made at schema 4, then deleted by its owner.
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'lists', 'l-gone', ?, '2026-10-01')",
+        JSON.stringify(list),
+      );
+      const revived = new DatapadObject(state, bindings);
+      await state.blockConcurrencyWhile(async () => {});
+      const file = await revived.export(MAIN_SPACE);
+      expect(file.notes['l-gone']).toBeUndefined();
+      expect(file.tasks[task.id]).toMatchObject({ decide: false });
+    });
+  });
+
   it('stores meetings rows in a fresh object', async () => {
     const email = 'fresh-meetings@example.com';
     const stub = bindings.DATAPAD.getByName(email);

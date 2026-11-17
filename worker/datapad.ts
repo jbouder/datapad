@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { LIMITS } from '#shared/limits';
-import { migrate, migrateFormat3 } from '#shared/migrate';
+import { migrate, migrateFormat3, migrateSettings } from '#shared/migrate';
 import {
   type BackupInfo,
   type BackupList,
@@ -572,7 +572,11 @@ export class DatapadObject extends DurableObject<Bindings> {
     this.ctx.storage.transactionSync(() => {
       if (version < 2) this.migrateSpaces();
       if (version < 3) this.migrateSpaceDocs(MIGRATED, migrate);
-      this.migrateSpaceDocs(FORMAT3_READ, migrateFormat3);
+      // Format 3 once, at schema 4: run again it would bring back a list's
+      // note deleted since and mark a decided task to decide again.
+      if (version < 4) this.migrateSpaceDocs(FORMAT3_READ, migrateFormat3);
+      else if (version < 5)
+        this.migrateSpaceDocs(FORMAT3_READ, migrateSettings);
       this.bumpSpaces();
       this.setMeta(SCHEMA, String(SCHEMA_VERSION));
     });
