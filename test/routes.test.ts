@@ -31,6 +31,9 @@ describe('the v2 addresses (#329)', () => {
     expect(parseRoute('/')).toEqual({ name: 'today' });
     expect(parseRoute('/unfiled')).toEqual({ name: 'unfiled' });
     expect(parseRoute('/unfiled/')).toEqual({ name: 'unfiled' });
+    expect(parseRoute('/rooms')).toEqual({ name: 'rooms' });
+    expect(parseRoute('/rooms/')).toEqual({ name: 'rooms' });
+    expect(routePath({ name: 'rooms' })).toBe('/rooms');
     expect(parseRoute('/all')).toEqual({ name: 'all' });
     expect(parseRoute('/all', '', false, '?kind=task')).toEqual({
       name: 'all',
@@ -114,6 +117,7 @@ describe('the v2 addresses (#329)', () => {
     const routes: Route[] = [
       { name: 'today' },
       { name: 'unfiled' },
+      { name: 'rooms' },
       { name: 'all' },
       { name: 'all', kinds: ['task'] },
       { name: 'all', kinds: ['note'] },
@@ -330,15 +334,20 @@ describe('placeOf and titleOf', () => {
     expect(placeOf({ name: 'all', kinds: ['task'] })).toBe('all');
     // The space's board is linked from All; a project's is in its room.
     expect(placeOf({ name: 'whiteboard' })).toBe('all');
-    expect(placeOf({ name: 'whiteboard', project: 'p' })).toBeNull();
-    expect(placeOf({ name: 'project', id: 'p' })).toBeNull();
-    expect(placeOf({ name: 'person', id: 'u' })).toBeNull();
+    // The rooms list and every room are in Rooms (the phone's tab).
+    expect(placeOf({ name: 'rooms' })).toBe('rooms');
+    expect(placeOf({ name: 'whiteboard', project: 'p' })).toBe('rooms');
+    expect(placeOf({ name: 'project', id: 'p' })).toBe('rooms');
+    expect(placeOf({ name: 'project', id: 'p', tab: 'plan' })).toBe('rooms');
+    expect(placeOf({ name: 'person', id: 'u' })).toBe('rooms');
+    expect(placeOf({ name: 'meeting', id: 'm' })).toBeNull();
     expect(placeOf({ name: 'settings', section: 'data' })).toBeNull();
   });
 
   it('titles the pages', () => {
     expect(titleOf({ name: 'today' })).toBe('Today');
     expect(titleOf({ name: 'unfiled' })).toBe('Unfiled');
+    expect(titleOf({ name: 'rooms' })).toBe('Rooms');
     expect(titleOf({ name: 'all' })).toBe('All');
     expect(titleOf({ name: 'all', kinds: ['task'] })).toBe('All');
     expect(titleOf({ name: 'project', id: 'p' }, 'Alpha')).toBe('Alpha');

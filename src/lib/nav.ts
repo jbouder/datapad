@@ -1,4 +1,5 @@
 import {
+  DoorOpenIcon,
   type Icon,
   SquaresFourIcon,
   SunIcon,
@@ -7,7 +8,7 @@ import {
 import type { Place } from '#shared/routes';
 import type { Route } from '@/lib/router';
 
-/** One of the three places, as the rail and the tab bar show it (#329). */
+/** A place, as the rail and the tab bar show it (#329). */
 export interface PlaceItem {
   name: Place;
   route: Route;
@@ -26,5 +27,16 @@ export const PLACES: PlaceItem[] = [
   },
   { name: 'all', route: { name: 'all' }, label: 'All', icon: SquaresFourIcon },
 ];
+
+/**
+ * The phone's Rooms tab, between Unfiled and All: the rail's rooms as a
+ * page. The rail lists the rooms themselves, so it has no such row.
+ */
+export const ROOMS_TAB: PlaceItem = {
+  name: 'rooms',
+  route: { name: 'rooms' },
+  label: 'Rooms',
+  icon: DoorOpenIcon,
+};
 
 export { placeOf, titleOf } from '#shared/routes';
