@@ -47,7 +47,7 @@ const SAMPLE = [
   '```',
 ].join('\n');
 
-/** Sections for Settings → Pages' editor (#310), shown here on their own. */
+/** Sections for Settings' section editor (#310), shown here on their own. */
 const DEMO_SECTIONS: readonly PageSection[] = [
   { key: 'alpha', label: 'Alpha' },
   { key: 'beta', label: 'Beta' },
@@ -147,7 +147,7 @@ export default function DevComponentsPage() {
           Page sections
         </h2>
         <SectionsEditor
-          label="Demo"
+          label="Demo sections"
           sections={DEMO_SECTIONS}
           prefs={sectionPrefs}
           onChange={(patch) =>

@@ -69,10 +69,14 @@ export type RouteName = Route['name'];
  */
 export const SETTINGS_SECTIONS = [
   'appearance',
-  /** Each page's saved layout, sorts, filters and sections (#186). */
-  'pages',
-  /** The pinned rooms, in the rail's order (#329). */
+  /** Today's options and meeting mode's (#343): Focus's page settings. */
+  'today',
+  /** The pinned rooms (#329) and the rooms' options (#343). */
   'rooms',
+  /** What the capture line saves (#343). */
+  'capture',
+  /** All's opening kinds, layouts, sorts and saved views (#343). */
+  'all',
   'templates',
   'summaries',
   'spaces',
@@ -210,7 +214,8 @@ function oldListQuery(
  * - `/lists` and `/lists/:id` are All's notes (#328 made lists notes)
  * - `/meetings?meeting=<id>` and `/events?event=<id>` are that meeting
  * - `/settings/people/:id` is the person's room (`/people/:id`)
- * - `/settings/navigation` is Settings → Rooms
+ * - `/settings/navigation` is Settings → Rooms, `/settings/pages`
+ *   Settings → Today
  *
  * `/tasks/:id` is the `task` route: the shell sends it to the task's room
  * once it has the data. `devRoutes` admits `/dev/components` (dev and e2e
@@ -277,6 +282,10 @@ export function landRoute(
   }
   if (clean === '/settings/navigation') {
     return [{ name: 'settings', section: 'rooms' }, ''];
+  }
+  // Settings → Pages went with v2 (#343): Today's options lead.
+  if (clean === '/settings/pages') {
+    return [{ name: 'settings', section: 'today' }, ''];
   }
   const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
   if (settings) {

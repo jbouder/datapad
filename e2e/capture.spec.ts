@@ -227,3 +227,43 @@ test('Help and the ? sheet list n', async ({ page }) => {
     'Capture: go to the capture line',
   );
 });
+
+test('Settings → Capture changes what a plain line saves (#343)', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/settings/capture');
+  await expect(page).toHaveTitle('Capture · Settings · Datapad');
+  const becomes = page.getByRole('group', { name: 'A plain line becomes' });
+  await expect(becomes.getByRole('radio', { name: 'A note' })).toBeChecked();
+  await becomes
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'A task' }) })
+    .click();
+  await expect(becomes.getByRole('radio', { name: 'A task' })).toBeChecked();
+  // @Name only mentions.
+  await page.getByRole('switch', { name: /@Name assigns a task/ }).click();
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+  await expectSaved(page);
+
+  await openLive(page);
+  await capture(page).fill('Ask @Han Solo about the motivator');
+  // A task, mentioning Han rather than assigned to him.
+  await expect(chips(page)).toHaveText(['Task', '@Han Solo']);
+  await capture(page).press('Enter');
+  await expect(toast(page)).toContainText('Added a task to General');
+  await expectSaved(page);
+  const data = await stored(request);
+  const [, task] = findTask(data, 'Ask Han Solo about the motivator') ?? [];
+  expect(task?.assignee).toBe('');
+
+  // Reset to defaults: a plain line is a note again.
+  await openLive(page, '/settings/capture');
+  await page.getByRole('button', { name: 'Reset to defaults' }).click();
+  await expect(becomes.getByRole('radio', { name: 'A note' })).toBeChecked();
+  await expectSaved(page);
+  await openLive(page);
+  await capture(page).fill('The hangar doors stick in the cold');
+  await expect(chips(page)).toHaveText(['Note', 'Unfiled']);
+});

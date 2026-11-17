@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
-import { migrate, migrateFormat3 } from './migrate';
+import { migrate, migrateFormat3, migrateSettings } from './migrate';
 import {
   type Activity,
   BOARD_COLORS,
   BOARD_KINDS,
   type BoardItem,
+  CAPTURE_AS,
   type COLLECTIONS,
   DECISION_STATUSES,
   DEFAULT_SETTINGS,
@@ -13,6 +14,7 @@ import {
   DOC_COLLECTIONS,
   EXPORT_FORMAT,
   type ExportFile,
+  type LaneLabels,
   type Link,
   type List,
   type ListItem,
@@ -30,6 +32,8 @@ import {
   PROJECT_HEALTHS,
   PROJECT_STATUSES,
   type Project,
+  ROOM_NOTES,
+  ROOM_TABS,
   type Settings,
   type Snapshot,
   type SpaceInfo,
@@ -539,6 +543,12 @@ export const PagePrefsPatchSchema = z
 
 export type PagePrefsPatch = z.infer<typeof PagePrefsPatchSchema>;
 
+/** A person room lane's own name (#343), within a name's length. */
+const laneLabel = z.string().trim().min(1).max(LIMITS.laneLabelMax);
+const laneLabels = z
+  .object({ youOwe: laneLabel, theyOwe: laneLabel, discuss: laneLabel })
+  .partial() satisfies z.ZodType<LaneLabels, unknown>;
+
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
   assignToMe: z.boolean().optional(),
@@ -546,6 +556,12 @@ export const SettingsSchema = z.object({
   nav: NavPrefsSchema.optional(),
   pinned: pinnedRooms.optional(),
   pages: PagesSchema.optional(),
+  captureAs: z.enum(CAPTURE_AS).optional(),
+  mentionAssigns: z.boolean().optional(),
+  roomNotes: z.enum(ROOM_NOTES).optional(),
+  railOwed: z.boolean().optional(),
+  roomTab: z.enum(ROOM_TABS).optional(),
+  laneLabels: laneLabels.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
 
 /** One schema per collection, for imports and `put`. */
@@ -641,7 +657,8 @@ export function newerFormatMessage(format: number): string {
 /**
  * Its `format` (#240): none is legacy, which is migrated by shape; one
  * this version knows is read as it is, after format 1 and 2 are brought
- * up to 3 (`migrateFormat3()`); a newer one is refused whole, with a
+ * up to 3 (`migrateFormat3()`, then `migrateSettings()`); a newer one is
+ * refused whole, with a
  * message that says so, before any of it is read.
  */
 function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
@@ -662,7 +679,8 @@ function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
       return z.NEVER;
     }
   }
-  return input;
+  // A format 3 file from before Settings for v2 (#343) carries over too.
+  return migrateSettings(input);
 }
 
 /**
@@ -1429,12 +1447,20 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   /* settings */
   z.object({
     type: z.literal('setSettings'),
+    /** `null` clears an option back to its default (#343). */
     patch: patch({
       defaultOrg: z.string().trim().max(LIMITS.nameMax),
-      assignToMe: z.boolean(),
-      defaultPriority: priority,
+      assignToMe: z.boolean().nullable(),
+      defaultPriority: priority.nullable(),
       /** The pinned rooms, whole, in order (#329). */
-      pinned: pinnedRooms,
+      pinned: pinnedRooms.nullable(),
+      captureAs: z.enum(CAPTURE_AS).nullable(),
+      mentionAssigns: z.boolean().nullable(),
+      roomNotes: z.enum(ROOM_NOTES).nullable(),
+      railOwed: z.boolean().nullable(),
+      roomTab: z.enum(ROOM_TABS).nullable(),
+      /** The three names, whole: a lane left out keeps its default. */
+      laneLabels: laneLabels.nullable(),
     }),
   }),
   /** Navigation preferences; `null` clears a key (all six: the default). */

@@ -32,7 +32,7 @@ import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useNewSpace } from '@/components/SpaceSwitcher';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
-import { PLACES } from '@/lib/nav';
+import { usePlaces } from '@/hooks/usePlaces';
 import { boardItemLink, navigate, type Route } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -93,6 +93,7 @@ export function Palette({
   const { mode, setTheme } = useTheme();
   const { spaces, current, switchSpace } = useSpaces();
   const { openNewSpace } = useNewSpace();
+  const places = usePlaces();
   const [query, setQuery] = useState('');
   const [overPanel, setOverPanel] = useState(false);
   /** What to do once the palette has closed. */
@@ -142,7 +143,7 @@ export function Palette({
         icon: PlusIcon,
         run: () => openProjectForm(),
       },
-      ...PLACES.map((n) => ({
+      ...places.map((n) => ({
         id: `go-${n.name}`,
         label: `Go to ${n.label}`,
         icon: n.icon,
@@ -212,6 +213,7 @@ export function Palette({
       },
     ];
   }, [
+    places,
     spaces,
     current,
     switchSpace,

@@ -13,7 +13,7 @@ import {
   longDay,
 } from '#shared/dates';
 import { lanesOf, waitingCount } from '#shared/loops';
-import { focusDays, savedFocusOptions } from '#shared/pages';
+import { briefOn, focusDays, savedFocusOptions } from '#shared/pages';
 import { buildRecap, recapLine } from '#shared/recap';
 import { unfiledCount } from '#shared/rooms';
 import { meId } from '#shared/select';
@@ -67,11 +67,11 @@ const HEADING =
  * Today (`/`, #331), the home page: one day at a time. The header has
  * the long day, one line that counts it, and Previous, Today and Next.
  * Then the capture line; on today, the Next up card while a meeting is
- * ahead (within the days Settings → Pages says); what is due (and late,
+ * ahead (within the days Settings → Today says); what is due (and late,
  * on today); and the timeline, with meetings as anchors and the Now line
  * at the current minute. Beside it on desktop, below it on phones: the
  * Unfiled card and the three lanes of open loops (`lanesOf`), each a
- * section that collapses, hides and moves (Settings → Pages, saved under
+ * section that collapses, hides and moves (Settings → Today, saved under
  * Focus's key so its old settings carry over). Everything follows the
  * local date and rolls over at midnight; the day you step to is an
  * offset from today, so it rolls over too.
@@ -101,6 +101,7 @@ export function TodayPage() {
 
   const who = usePageSetting('focus', 'who');
   const days = focusDays(usePageSetting('focus', 'days'));
+  const brief = briefOn(usePageSetting('focus', 'brief'));
   const me = state ? meId(state.people) : null;
   const lanes = useMemo(() => {
     if (!state) return null;
@@ -118,12 +119,16 @@ export function TodayPage() {
     [state],
   );
   const recap = useMemo(
-    () => (state && options ? buildRecap(state, today, options.who) : null),
+    () =>
+      state && options
+        ? buildRecap(state, today, options.who, options.weekStart)
+        : null,
     [state, options, today],
   );
+  const weekStart = options?.weekStart ?? 'mon';
   const week = useMemo(
-    () => (state && zoom === 'week' ? weekDays(state, day) : null),
-    [state, zoom, day],
+    () => (state && zoom === 'week' ? weekDays(state, day, weekStart) : null),
+    [state, zoom, day, weekStart],
   );
 
   if (!state || !lanes || !options || !recap) {
@@ -131,7 +136,7 @@ export function TodayPage() {
   }
 
   const isToday = offset === 0;
-  const span = weekAround(day);
+  const span = weekAround(day, weekStart);
   const weekHasToday = span.from <= today && today <= span.to;
   const step = zoom === 'week' ? 7 : 1;
   const inRecap = day >= recap.window.from && day <= recap.window.to;
@@ -191,7 +196,7 @@ export function TodayPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {zoom === 'day' && isToday && (
+          {zoom === 'day' && isToday && brief && (
             <BriefMeButton today={today} options={options} />
           )}
           <ViewSwitcher views={ZOOMS} value={zoom} onChange={setZoom} />
@@ -248,7 +253,7 @@ export function TodayPage() {
       ) : (
         <div className="grid gap-6 desk:grid-cols-[minmax(0,1fr)_20rem] desk:gap-8">
           <div className="flex min-w-0 flex-col gap-6">
-            {isToday && <BriefCard today={today} options={options} />}
+            {isToday && brief && <BriefCard today={today} options={options} />}
 
             {next && (
               <NextUp

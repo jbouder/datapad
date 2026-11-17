@@ -37,6 +37,7 @@ import {
   viewQuery,
 } from '#shared/all';
 import { formatDay } from '#shared/dates';
+import { ALL_SORT_SETTING, allSortDefaults } from '#shared/pages';
 import type { Op } from '#shared/protocol';
 import { peopleByOwed, projectRoomsByOrg, savedViews } from '#shared/rooms';
 import { ALL_KINDS, type AllKind } from '#shared/routes';
@@ -92,7 +93,10 @@ import { linkProps, navigate, useQuery } from '@/lib/router';
 import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
-import { usePageSettingState } from '@/providers/PagePrefsProvider';
+import {
+  usePageSetting,
+  usePageSettingState,
+} from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 const KIND_ICONS: Record<AllKind, Icon> = {
@@ -141,7 +145,7 @@ const tasksOf = (rows: readonly AllRow[]): Task[] =>
  * #338 adds layouts for one kind alone (tasks: list, table, board by
  * status or priority; meetings: list, calendar; projects: list, cards,
  * timeline), in the address as `?view=`, each kind's default saved with
- * the space (Settings → Pages); saved views as chips above the list
+ * the space (Settings → All); saved views as chips above the list
  * (`SavedViews`); and select boxes on tasks for the bulk bar, whose
  * actions are one `batch` each, with Undo.
  */
@@ -156,9 +160,20 @@ export function AllPage() {
   const today = useToday();
   const query = useQuery();
   const value = query.toString();
+  // The owner's default sorts (Settings → All), as the page opened.
+  const taskSort = usePageSetting('all', ALL_SORT_SETTING.task);
+  const projectSort = usePageSetting('all', ALL_SORT_SETTING.project);
+  const sorts = useMemo(
+    () =>
+      allSortDefaults({
+        [ALL_SORT_SETTING.task]: taskSort,
+        [ALL_SORT_SETTING.project]: projectSort,
+      }),
+    [taskSort, projectSort],
+  );
   const filters = useMemo(
-    () => parseAllQuery(new URLSearchParams(value)),
-    [value],
+    () => parseAllQuery(new URLSearchParams(value), sorts),
+    [value, sorts],
   );
   const target = query.get('note');
   const [limit, setLimit] = useState(PAGE);
@@ -190,7 +205,7 @@ export function AllPage() {
   const change = useCallback(
     (next: AllFilters, how: 'filter' | 'layout' | 'none' = 'filter') => {
       const params = new URLSearchParams();
-      for (const [key, v] of Object.entries(allQuery(next))) {
+      for (const [key, v] of Object.entries(allQuery(next, sorts))) {
         if (v) params.set(key, v);
       }
       const go = () =>
@@ -203,7 +218,7 @@ export function AllPage() {
       else go();
       setLimit(PAGE);
     },
-    [active],
+    [active, sorts],
   );
   const set = (patch: Partial<AllFilters>, transition = true) =>
     change({ ...filters, ...patch }, transition ? 'filter' : 'none');
@@ -343,7 +358,7 @@ export function AllPage() {
     change({
       ...filters,
       kinds,
-      sort: defaultSort(kinds),
+      sort: defaultSort(kinds, sorts),
       dir: 'asc',
       view: '',
       board: 'status',

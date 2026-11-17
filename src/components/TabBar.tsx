@@ -1,4 +1,5 @@
-import { PLACES, placeOf } from '@/lib/nav';
+import { usePlaces } from '@/hooks/usePlaces';
+import { placeOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
@@ -11,13 +12,14 @@ import { cn } from '@/lib/utils';
  */
 export function TabBar({ route }: { route: Route }) {
   const place = placeOf(route);
+  const places = usePlaces();
   return (
     <nav
       aria-label="Sections"
       className="vt-tabbar fixed inset-x-0 bottom-0 z-30 border-t bg-background pb-[env(safe-area-inset-bottom)] desk:hidden"
     >
       <ul className="grid h-(--tabbar-height) grid-cols-3">
-        {PLACES.map(({ name, route: to, label, icon: Icon }) => {
+        {places.map(({ name, route: to, label, icon: Icon }) => {
           const current = place === name;
           return (
             <li key={name} className="flex">

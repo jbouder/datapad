@@ -31,6 +31,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   and the DO's schema 3 run it; and `migrateFormat3()`, #328: decide-tagged
   tasks to `decide`, lists to checklist notes, the Notepad to an ordinary
   note; format 1 and 2 imports and the DO's schema 4 run it),
+  `settings.ts` (Settings for v2, #343: which options each section
+  owns, its Reset to defaults and Undo, Appearance's per-device
+  defaults; every space-wide default is `DEFAULT_SETTINGS` in `types.ts`,
+  read through `settingsOf()`, and every page's in `PAGES`; nothing else
+  hard-codes one),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends, and Focus's Brief me context and prompt), `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`
@@ -94,6 +99,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   pages' Find, filters, Sort and Clear filters), DataTable, CardGrid,
   Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
+  `settings/` holds Settings → Today, Capture and All and the rooms'
+  options, with their shared parts (`ResetToDefaults`, `PageFields`);
   `meetings/` holds the meeting form, row, list, layouts,
   the topics (`MeetingTopics` in meeting mode and in the meeting's panel,
   `PendingTopics` for a new meeting's), the meeting note composer, and

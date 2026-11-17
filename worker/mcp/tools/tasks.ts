@@ -162,7 +162,7 @@ export const getFocus = defineTool({
   name: 'get_focus',
   title: 'Focus',
   description:
-    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts, and their High priority ones as `high`, which Focus shows whatever their date), what is waiting on whom, open action items from recent meetings, active projects that need attention, and the agenda of meetings and milestones over those `days`. It follows Focus's settings in Settings → Pages: `days` (seven unless set), Tasks for (everyone's tasks, or only the owner's when set to Mine; an `assignee` given here wins), how far back follow-ups look (seven days unless set), and Attention's rules (a target within 14 days, quiet after 14 days, yellow health included, unless set).",
+    "The Focus page for a day: open tasks outside the archive by when they are due (overdue, today, upcoming in the next `days`; later and undated as counts, and their High priority ones as `high`, which Focus shows whatever their date), what is waiting on whom, open action items from recent meetings, active projects that need attention, and the agenda of meetings and milestones over those `days`. It follows Today's settings in Settings → Today: `days` (seven unless set), Tasks for (everyone's tasks, or only the owner's when set to Mine; an `assignee` given here wins), how far back follow-ups look (seven days unless set), and Attention's rules (a target within 14 days, quiet after 14 days, yellow health included, unless set).",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -275,7 +275,7 @@ export const getRecap = defineTool({
   name: 'get_recap',
   title: 'Since yesterday',
   description:
-    "Focus's Since yesterday: what happened on the last working day before a day (yesterday; Friday through Sunday on a Monday, Friday and Saturday on a Sunday). Tasks closed (by project) and added, meetings held with their topics, action items and notes, notes written (by project), and the other activity lines (status, health, blocked, milestones; 5 per project, with how many more). Projects in the archive are left out; an assignee narrows closed and added. Without one it follows Focus's Tasks for in Settings → Pages: only the owner's tasks when set to Mine.",
+    "Focus's Since yesterday: what happened on the last working day before a day (yesterday; Friday through Sunday on a Monday, Friday and Saturday on a Sunday; a day earlier when Settings → Today starts the week on Sunday). Tasks closed (by project) and added, meetings held with their topics, action items and notes, notes written (by project), and the other activity lines (status, health, blocked, milestones; 5 per project, with how many more). Projects in the archive are left out; an assignee narrows closed and added. Without one it follows Mine shows in Settings → Today: only the owner's tasks when set to Only assigned to me.",
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -287,12 +287,13 @@ export const getRecap = defineTool({
   annotations: READ_ONLY,
   async run(args, ctx) {
     const { space, state, today } = await readSpace(ctx, args.space, args.date);
+    const saved = savedFocusOptions(state);
     const recap = buildRecap(
       state,
       today,
-      args.assignee
-        ? assigneeFilter(state, args.assignee)
-        : savedFocusOptions(state).who,
+      args.assignee ? assigneeFilter(state, args.assignee) : saved.who,
+      // The week's start (Settings → Today, #343) sets the weekend.
+      saved.weekStart,
     );
     const tasks = (list: readonly Task[]) =>
       cap(list.map((t) => taskOut(state, t)));

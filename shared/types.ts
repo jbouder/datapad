@@ -460,10 +460,52 @@ export interface Settings {
   /**
    * Each page's remembered layout, sort, grouping, filters and sections
    * (#186). Absent until something is saved, so older exports round-trip
-   * unchanged; `shared/pages.ts` reads it.
+   * unchanged; `shared/pages.ts` reads it. Today's options live under
+   * `focus` and All's under `all` (#343); pages retired in v2 stay as
+   * stored and are read by nothing.
    */
   pages?: Partial<Record<PageKey, PagePrefs>>;
+  /**
+   * What a plain line on the capture line becomes (#343). Absent: a note.
+   */
+  captureAs?: CaptureAs;
+  /**
+   * Whether `@Name` on a captured task (or decision) assigns it to that
+   * person (#343). Absent: it does. Off, the person is only mentioned.
+   */
+  mentionAssigns?: boolean;
+  /**
+   * Where a note captured in a room goes when it names no project
+   * (#343): the room, or Unfiled. Absent: the room.
+   */
+  roomNotes?: RoomNotes;
+  /** Whether the rail lists the people who owe you (#343). Absent: it does. */
+  railOwed?: boolean;
+  /** The tab a project room opens on (#343). Absent: Stream. */
+  roomTab?: RoomTab;
+  /**
+   * The person room's lane names, where the owner wants other words
+   * (#343). A lane left out keeps its default name.
+   */
+  laneLabels?: LaneLabels;
 }
+
+/** What a plain captured line becomes. */
+export const CAPTURE_AS = ['note', 'task'] as const;
+export type CaptureAs = (typeof CAPTURE_AS)[number];
+
+/** Where a note captured in a room goes when it names no project. */
+export const ROOM_NOTES = ['room', 'unfiled'] as const;
+export type RoomNotes = (typeof ROOM_NOTES)[number];
+
+/** A project room's tabs (#334), Stream first. */
+export const ROOM_TABS = ['stream', 'plan', 'whiteboard'] as const;
+export type RoomTab = (typeof ROOM_TABS)[number];
+
+/** The person room's three lanes (#335), by key. */
+export const LANE_KEYS = ['youOwe', 'theyOwe', 'discuss'] as const;
+export type LaneKey = (typeof LANE_KEYS)[number];
+export type LaneLabels = Partial<Record<LaneKey, string>>;
 
 /**
  * Which sections the rail and tab bar showed before v2, in what order,
@@ -551,14 +593,58 @@ export interface SavedView {
 
 export const SETTINGS_ID = 'user';
 
-/** A fresh space has no default org: you pick one in Orgs. */
-export const DEFAULT_SETTINGS: Settings = {
+/**
+ * The settings in effect: every option has a value, the stored one or its
+ * default. `nav` and `pages` stay as stored (a page's defaults are in
+ * `PAGES`, `shared/pages.ts`).
+ */
+export type EffectiveSettings = Required<Omit<Settings, 'nav' | 'pages'>> &
+  Pick<Settings, 'nav' | 'pages'> & { laneLabels: Required<LaneLabels> };
+
+/**
+ * Every space-wide option's default, in one place (#343): a fresh space
+ * works with no setup. No default org, new tasks unassigned at Medium, a
+ * plain captured line a note, `@Name` assigning a task, room notes in the
+ * room, nothing pinned (the rail lists the active projects) with the
+ * people who owe you under it, rooms opening on Stream, the person room's
+ * lanes by their own names. Stored settings hold only what was changed,
+ * so older exports round-trip unchanged.
+ */
+export const DEFAULT_SETTINGS: EffectiveSettings = {
   defaultOrg: '',
+  assignToMe: false,
+  defaultPriority: 'med',
+  pinned: [],
+  captureAs: 'note',
+  mentionAssigns: true,
+  roomNotes: 'room',
+  railOwed: true,
+  roomTab: 'stream',
+  laneLabels: {
+    youOwe: 'You owe',
+    theyOwe: 'They owe you',
+    discuss: 'To discuss',
+  },
+};
+
+/**
+ * The settings document a space starts storing from: only what is
+ * required. Changes are written over it, never the defaults.
+ */
+export const STORED_SETTINGS: Settings = {
+  defaultOrg: DEFAULT_SETTINGS.defaultOrg,
 };
 
 /** The settings in effect: what is stored over the defaults. */
-export function settingsOf(snapshot: Pick<Snapshot, 'settings'>): Settings {
-  return { ...DEFAULT_SETTINGS, ...snapshot.settings[SETTINGS_ID] };
+export function settingsOf(
+  snapshot: Pick<Snapshot, 'settings'>,
+): EffectiveSettings {
+  const stored = snapshot.settings[SETTINGS_ID];
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    laneLabels: { ...DEFAULT_SETTINGS.laneLabels, ...stored?.laneLabels },
+  };
 }
 
 export interface Collections {

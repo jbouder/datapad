@@ -49,8 +49,10 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   // Its sections, People and Orgs among them.
   await expect(settingsNav(page).getByRole('link')).toHaveText([
     'Appearance',
-    'Pages',
+    'Today',
     'Rooms',
+    'Capture',
+    'All',
     'Templates',
     'Summaries',
     'Spaces',
@@ -95,6 +97,8 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     ['/settings/people/u-x', '/people/u-x'],
     ['/orgs', '/settings/orgs'],
     ['/orgs/o-x', '/settings/orgs/o-x'],
+    // Settings → Pages went with v2 (#343).
+    ['/settings/pages', '/settings/today'],
   ]) {
     await page.goto(from);
     await expect(page).toHaveURL(new RegExp(`${to}$`));

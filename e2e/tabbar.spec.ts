@@ -126,7 +126,7 @@ test.describe('with prefers-reduced-motion: reduce', () => {
     await watchTransitions(page);
     await openLive(page, '/');
     await tabs(page).getByRole('link', { name: 'All' }).click();
-    await expect(page).toHaveURL(/\/all$/);
+    await expect(page).toHaveURL(/\/all\?kind=task$/);
     await tabs(page).getByRole('link', { name: 'Unfiled' }).click();
     await expect(page).toHaveURL(/\/unfiled$/);
     expect(await seen(page)).toEqual([]);
@@ -144,7 +144,7 @@ test.describe('with Motion off', () => {
     await page.getByRole('menuitemcheckbox', { name: 'Motion' }).click();
     await page.keyboard.press('Escape');
     await tabs(page).getByRole('link', { name: 'All' }).click();
-    await expect(page).toHaveURL(/\/all$/);
+    await expect(page).toHaveURL(/\/all\?kind=task$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });

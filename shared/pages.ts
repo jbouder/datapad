@@ -1,5 +1,6 @@
 import {
   ALL_LAYOUTS,
+  type AllSortDefaults,
   KIND_LABELS,
   LAYOUT_SETTING,
   type LayoutKind,
@@ -8,6 +9,7 @@ import { LIMITS } from './limits';
 import { LIST_SORTS } from './lists';
 import { PROJECT_SORTS } from './projects';
 import type { PagePrefsPatch } from './protocol';
+import { type AllKind, kindsOf } from './routes';
 import {
   ATTENTION_QUIET_CHOICES,
   ATTENTION_TARGET_CHOICES,
@@ -19,7 +21,7 @@ import {
   meId,
   orgs,
 } from './select';
-import { TASK_SORTS } from './tasks';
+import { DEFAULT_TASK_FILTERS, TASK_SORTS } from './tasks';
 import {
   GENERAL,
   PAGE_KEYS,
@@ -47,9 +49,10 @@ export interface PrefOption {
 
 /**
  * A list that comes from the data rather than the page: `me` is Anyone,
- * and Mine when a person is marked as me (Focus's Tasks for, #311).
+ * and Mine when a person is marked as me (Focus's Tasks for, #311);
+ * `kinds` is some of All's kinds, or every kind (#343).
  */
-export type PrefKind = 'who' | 'me' | 'project' | 'org';
+export type PrefKind = 'who' | 'me' | 'project' | 'org' | 'kinds';
 
 export interface PrefField {
   /**
@@ -74,10 +77,10 @@ export interface PrefField {
    */
   renamed?: Readonly<Record<string, string>>;
   kind?: PrefKind;
-  /** The control the page uses for it, which Settings → Pages reuses. */
+  /** The control the page uses for it, which Settings reuses. */
   control: 'segmented' | 'select';
   /**
-   * Set in Settings → Pages only, never in the address (#310): a threshold
+   * Set in Settings only, never in the address (#310): a threshold
    * or a display choice with no business in a link. Saved under `filters`
    * like any other key and read with `currentValues()` (or the
    * `usePageSetting()` hook); `effectiveQuery()` and `planChange()` leave
@@ -109,16 +112,21 @@ export interface PageSpec {
   /**
    * The keys of those sections, when the page names them: a saved key
    * that is not one (a section an older release had) is ignored when
-   * Settings → Pages counts them.
+   * Settings counts them.
    */
   collapsible?: readonly string[];
   /**
    * The sections the page can hide and put in another order (#310), in
-   * their default order, each with its label for Settings → Pages. Set
+   * their default order, each with its label for Settings. Set
    * once the page renders them through `usePageSections()`; a saved key
    * that is not one is ignored.
    */
   sectionKeys?: readonly PageSection[];
+  /**
+   * Whether those sections keep their own order: they can be hidden but
+   * not moved (meeting mode's, #336, whose layout is fixed).
+   */
+  fixedOrder?: true;
 }
 
 /**
@@ -177,13 +185,15 @@ const dayOptions = (choices: readonly number[]): PrefOption[] =>
   choices.map((n) => ({ value: String(n), label: `${n} days` }));
 
 /**
- * Today's settings (#331), set in Settings → Pages only. They are what
- * Focus saved (#311), under the same keys: `who` is what Mine holds
- * (Focus's Tasks for: Anyone reads as Mine and unassigned, Mine as only
- * what is assigned to me), and `days` how far Next up looks ahead
- * (Focus's Week window). Focus's other rules (`target`, `quiet`,
- * `yellow`, `followDays`) stay saved and still feed MCP's `get_focus`
- * (`savedFocusOptions`); Settings no longer shows them.
+ * Today's settings (#331, #343), set in Settings → Today only. The first
+ * two are what Focus saved (#311), under the same keys, so Focus's carry
+ * over as they are: `who` is what Mine holds (Focus's Tasks for: Anyone
+ * reads as Mine and unassigned, Mine as only what is assigned to me), and
+ * `days` how far Next up looks ahead (Focus's Week window). `weekStart`
+ * is the day the week zoom and the recap's weekend start from, and
+ * `brief` whether Today offers Brief me. Focus's other rules (`target`,
+ * `quiet`, `yellow`, `followDays`) stay saved and still feed MCP's
+ * `get_focus` (`savedFocusOptions`); Settings no longer shows them.
  */
 const todayFields: readonly PrefField[] = [
   {
@@ -205,7 +215,34 @@ const todayFields: readonly PrefField[] = [
     control: 'select',
     settingsOnly: true,
   },
+  {
+    key: 'weekStart',
+    label: 'Week starts on',
+    def: 'mon',
+    options: [
+      { value: 'mon', label: 'Monday' },
+      { value: 'sun', label: 'Sunday' },
+    ],
+    control: 'segmented',
+    settingsOnly: true,
+  },
+  {
+    key: 'brief',
+    label: 'Brief me',
+    def: 'on',
+    options: [
+      { value: 'on', label: 'On' },
+      { value: 'off', label: 'Off' },
+    ],
+    control: 'segmented',
+    settingsOnly: true,
+  },
 ];
+
+/** Whether Today offers Brief me, from its saved values. */
+export function briefOn(value: string | null | undefined): boolean {
+  return value !== 'off';
+}
 
 /**
  * Focus's settings (#311) from values by query key: the page's address
@@ -232,6 +269,7 @@ export function focusOptions(
         : choice(values.quiet, ATTENTION_QUIET_CHOICES, d.quietDays ?? 0),
     yellow: values.yellow !== 'leave',
     followUpDays: choice(values.followDays, FOLLOW_UP_CHOICES, d.followUpDays),
+    weekStart: values.weekStart === 'sun' ? 'sun' : d.weekStart,
   };
 }
 
@@ -390,7 +428,7 @@ export function projectColumns(visible: readonly string[]): {
 /**
  * The project page's Show past (#320): past meetings after the upcoming
  * ones in Meetings' list. Set from the toggle in the Meetings header or in
- * Settings → Pages; never in the address. It replaced Meetings shows
+ * Settings; never in the address. It replaced Meetings shows
  * (#312), whose saved `meetings` is ignored, so it reads as Hide.
  */
 const projectPastField: PrefField = {
@@ -408,7 +446,7 @@ const projectPastField: PrefField = {
 /**
  * The project page's Show done (#318): done tasks after the open ones in
  * Tasks' list, and the board's Done column. Set from the toggle in the
- * Tasks header or in Settings → Pages; never in the address.
+ * Tasks header or in Settings; never in the address.
  */
 const projectDoneField: PrefField = {
   key: 'done',
@@ -459,7 +497,7 @@ export const MEETING_SECTIONS: readonly PageSection[] = [
   { key: 'series', label: 'Series' },
 ];
 
-/** A Show · Hide choice set in Settings → Pages only (#313). */
+/** A Show · Hide choice set in Settings only (#313). */
 function showHide(key: string, label: string): PrefField {
   return {
     key,
@@ -495,8 +533,8 @@ export function listDoneMode(value: string): ListDoneMode {
 
 /**
  * All's layouts (#338): the one each kind opens with when it is shown
- * alone, set here or by switching layout on All, never in the address
- * (`?view=` there says what one link shows).
+ * alone, set in Settings → All or by switching layout on All, never in
+ * the address (`?view=` there says what one link shows).
  */
 const allLayoutFields: readonly PrefField[] = (
   Object.keys(ALL_LAYOUTS) as LayoutKind[]
@@ -510,7 +548,83 @@ const allLayoutFields: readonly PrefField[] = (
   layoutOf: `All, ${KIND_LABELS[kind].toLowerCase()}`,
 }));
 
-/** What each page remembers, in the order Settings → Pages shows them. */
+/** The setting that holds the kinds All opens with (#343). */
+export const ALL_KINDS_SETTING = 'kinds';
+
+/** The value that saves "every kind" as All's opening kinds. */
+export const EVERY_KIND = 'all';
+
+/** The kinds All opens with when nothing is set: Tasks. */
+export const DEFAULT_ALL_KINDS: readonly AllKind[] = ['task'];
+
+/**
+ * The kinds All opens with, from the saved value: the kinds named, `all`
+ * for every kind (empty), else Tasks.
+ */
+export function allHomeKinds(value: string | null | undefined): AllKind[] {
+  if (value === EVERY_KIND) return [];
+  const kinds = kindsOf(value ?? null);
+  return kinds.length > 0 ? kinds : [...DEFAULT_ALL_KINDS];
+}
+
+/** The value that saves `kinds` as All's opening kinds. */
+export function allHomeValue(kinds: readonly AllKind[]): string {
+  const named = kindsOf(kinds.join(','));
+  return named.length > 0 ? named.join(',') : EVERY_KIND;
+}
+
+/**
+ * All's default sorts (#343): the sort a kind alone starts with, for the
+ * two kinds with sorts of their own. Set in Settings → All only.
+ */
+export const ALL_SORT_SETTING = {
+  task: 'taskSort',
+  project: 'projectSort',
+} as const;
+
+/** All's saved default sorts, by kind, as `shared/all.ts` takes them. */
+export function allSortDefaults(
+  values: Readonly<Record<string, string | undefined>>,
+): AllSortDefaults {
+  const out: AllSortDefaults = {};
+  const task = values[ALL_SORT_SETTING.task];
+  if (task && (TASK_SORTS as readonly string[]).includes(task)) out.task = task;
+  const project = values[ALL_SORT_SETTING.project];
+  if (project && (PROJECT_SORTS as readonly string[]).includes(project)) {
+    out.project = project;
+  }
+  return out;
+}
+
+const allFields: readonly PrefField[] = [
+  {
+    key: ALL_KINDS_SETTING,
+    label: 'Opens on',
+    def: DEFAULT_ALL_KINDS.join(','),
+    kind: 'kinds',
+    control: 'select',
+    settingsOnly: true,
+  },
+  ...allLayoutFields,
+  {
+    key: ALL_SORT_SETTING.task,
+    label: 'Tasks sort by',
+    def: DEFAULT_TASK_FILTERS.sort,
+    options: TASK_SORT_OPTIONS,
+    control: 'select',
+    settingsOnly: true,
+  },
+  {
+    key: ALL_SORT_SETTING.project,
+    label: 'Projects sort by',
+    def: 'updated',
+    options: PROJECT_SORT_OPTIONS,
+    control: 'select',
+    settingsOnly: true,
+  },
+];
+
+/** What each page remembers. */
 export const PAGES: Record<PageKey, PageSpec> = {
   focus: {
     label: 'Today',
@@ -525,7 +639,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
   },
   all: {
     label: 'All',
-    fields: allLayoutFields,
+    fields: allFields,
     sections: false,
   },
   projects: {
@@ -724,13 +838,14 @@ export const PAGES: Record<PageKey, PageSpec> = {
     collapsible: ['notes'],
   },
   meeting: {
-    label: 'Meeting page',
+    label: 'Meeting mode',
     fields: [
       showHide('covered', 'Covered topics'),
       showHide('doneActions', 'Done action items'),
     ],
     sections: false,
     sectionKeys: MEETING_SECTIONS,
+    fixedOrder: true,
   },
   list: {
     label: 'List page',
@@ -769,7 +884,7 @@ export function layoutTable(): {
 }
 
 /**
- * Whether a page has anything to set in Settings → Pages: a remembered
+ * Whether a page has anything to set in Settings: a remembered
  * field, sections that remember open or closed, or sections to hide and
  * move.
  */
@@ -955,6 +1070,8 @@ export function isCurrent(
       return value === GENERAL || Boolean(state.projects[value]);
     case 'org':
       return orgs(state.projects, state.orgs).includes(value);
+    case 'kinds':
+      return value === EVERY_KIND || kindsOf(value).join(',') === value;
     default:
       return false;
   }
@@ -1195,7 +1312,7 @@ function keysOf(source: SectionSource): readonly string[] {
     : source;
 }
 
-/** A section's label in Settings → Pages; the key when it has none. */
+/** A section's label in Settings; the key when it has none. */
 export function sectionLabel(page: PageKey, key: string): string {
   return PAGES[page].sectionKeys?.find((s) => s.key === key)?.label ?? key;
 }
@@ -1366,4 +1483,12 @@ export function legacyPrefs(
     }
   }
   return out;
+}
+
+/** The kinds All opens with in this space (Settings → All, #343). */
+export function allHome(
+  snapshot: Pick<Snapshot, 'settings' | 'people' | 'projects' | 'orgs'>,
+): AllKind[] {
+  const values = currentValues('all', savedPrefs(snapshot, 'all'), snapshot);
+  return allHomeKinds(values[ALL_KINDS_SETTING]);
 }

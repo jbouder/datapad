@@ -87,11 +87,10 @@ test.describe('layouts', () => {
     await expect(
       layout(page).getByRole('radio', { name: 'Board' }),
     ).toBeChecked();
-    // And it is All's default in Settings → Pages.
-    await openLive(page, '/settings/pages');
-    const all = page.getByRole('region', { name: 'All', exact: true });
+    // And it is All's default in Settings → All.
+    await openLive(page, '/settings/all');
     await expect(
-      all
+      page
         .getByRole('group', { name: 'Tasks layout' })
         .getByRole('radio', { name: 'Board' }),
     ).toBeChecked();

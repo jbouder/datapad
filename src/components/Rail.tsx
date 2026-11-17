@@ -13,7 +13,8 @@ import { settingsOf } from '#shared/types';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
-import { PLACES, placeOf } from '@/lib/nav';
+import { usePlaces } from '@/hooks/usePlaces';
+import { placeOf } from '@/lib/nav';
 import { linkProps, type Route, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
@@ -44,12 +45,15 @@ function inRoom(route: Route, room: Room, here?: string): boolean {
  * (with its count) and All; then Rooms: the pinned rooms in your order,
  * or before anything is pinned the active projects, most recently changed
  * first, with their open counts; then the people who owe you something,
- * with counts, until they are pinned; and the sync status at the foot.
+ * with counts, until they are pinned (unless Settings → Rooms leaves
+ * them out); and the sync status at the foot. All opens on the kinds
+ * Settings → All names.
  * Hidden below 820px, where the tab bar takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const place = placeOf(route);
+  const places = usePlaces();
   const query = useQuery().toString();
 
   const rail = useMemo(() => {
@@ -58,7 +62,8 @@ export function Rail({ route }: { route: Route }) {
     return {
       unfiled: unfiledCount(state.notes),
       rooms: railRooms(settings, state),
-      owed: owedBy(state, settings),
+      // Settings → Rooms can leave them out (#343).
+      owed: settings.railOwed ? owedBy(state, settings) : [],
       open: openCounts(state.tasks),
     };
   }, [state]);
@@ -109,7 +114,7 @@ export function Rail({ route }: { route: Route }) {
         className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-4"
       >
         <ul className="flex flex-col">
-          {PLACES.map(({ name, route: to, label, icon: Icon }) => {
+          {places.map(({ name, route: to, label, icon: Icon }) => {
             const current = place === name;
             const count = name === 'unfiled' ? (rail?.unfiled ?? 0) : 0;
             return (

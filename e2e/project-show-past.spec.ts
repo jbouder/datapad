@@ -13,7 +13,7 @@ import {
 /**
  * The project page's Show past (#320): a toggle in the Meetings header
  * puts the past meetings after the upcoming ones in one list, by month,
- * newest first, remembered with the page and set in Settings → Pages too.
+ * newest first, remembered with the page.
  */
 
 /** The seed, with Echo Base given one more upcoming and two past meetings. */
@@ -106,23 +106,18 @@ test('Show past puts past meetings after the upcoming ones, and is remembered', 
   await expectStored(request, null);
 });
 
-test('Show past is in Settings → Pages; Meetings shows is gone', async ({
-  page,
-  request,
-}) => {
+test('a saved Show past shows the past meetings', async ({ page, request }) => {
   await seed(request);
-  await openLive(page, '/settings/pages');
-  const card = page.getByRole('region', { name: 'Project page', exact: true });
-  await expect(card.getByRole('group', { name: 'Meetings shows' })).toHaveCount(
-    0,
-  );
-  const group = card.getByRole('group', { name: 'Past meetings' });
-  await expect(group.getByRole('radio', { name: 'Hide' })).toBeChecked();
-  await group
-    .locator('label')
-    .filter({ has: page.getByRole('radio', { name: 'Show' }) })
-    .click();
-  await expect(group.getByRole('radio', { name: 'Show' })).toBeChecked();
+  await request.post('/api/import', {
+    data: {
+      settings: {
+        user: {
+          defaultOrg: '',
+          pages: { project: { filters: { past: 'show' } } },
+        },
+      },
+    },
+  });
   await expectStored(request, { filters: { past: 'show' } });
 
   await openLive(page, '/projects/p-echo');

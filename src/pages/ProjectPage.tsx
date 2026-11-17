@@ -120,11 +120,11 @@ export function ProjectPage({ id }: { id: string }) {
   );
   const { visible } = usePageSections('project');
   // Show past (#320): past meetings after the upcoming ones, in one list;
-  // saved with the page, also set in Settings → Pages.
+  // saved with the page.
   const [pastSetting, setPastSetting] = usePageSettingState('project', 'past');
   const showPast = pastSetting === 'show';
   // Show done (#318): done tasks after the open ones, and the board's Done
-  // column; saved with the page, also set in Settings → Pages.
+  // column; saved with the page.
   const [doneSetting, setDoneSetting] = usePageSettingState('project', 'done');
   const showDone = doneSetting === 'show';
   const desk = useDesk();

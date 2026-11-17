@@ -263,3 +263,30 @@ test('Brief me is as tall as the Day and Week switcher beside it; only on today'
   await week(page);
   await expect(button(page)).toHaveCount(0);
 });
+
+test('Settings → Today turns Brief me off, and Reset brings it back (#343)', async ({
+  page,
+}) => {
+  await fakeModel(page, ['Unused.']);
+  await openLive(page);
+  await expect(button(page)).toBeVisible();
+
+  await openLive(page, '/settings/today');
+  const brief = page.getByRole('group', { name: 'Brief me' });
+  await brief
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'Off' }) })
+    .click();
+  await expect(brief.getByRole('radio', { name: 'Off' })).toBeChecked();
+  await expectSaved(page);
+  await openLive(page);
+  await expect(page.locator('[data-day-line]')).toBeVisible();
+  await expect(button(page)).toHaveCount(0);
+
+  await openLive(page, '/settings/today');
+  await page.getByRole('button', { name: 'Reset to defaults' }).click();
+  await expect(brief.getByRole('radio', { name: 'On' })).toBeChecked();
+  await expectSaved(page);
+  await openLive(page);
+  await expect(button(page)).toBeVisible();
+});

@@ -544,7 +544,7 @@ export function briefContext(
   const group = (project: { name: string } | null) =>
     clipName(project?.name ?? 'General');
   const title = (t: Task) => clip(tokensToNames(t.title, state.people));
-  const recap = buildRecap(state, today, assignee);
+  const recap = buildRecap(state, today, assignee, options.weekStart);
   const { from, to } = recap.window;
   const filter = filterLabel(state, assignee);
 

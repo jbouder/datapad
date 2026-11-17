@@ -9,6 +9,7 @@ import {
   emptySnapshot,
   GENERAL,
   type Project,
+  SETTINGS_ID,
   type Snapshot,
   settingsOf,
   type Task,
@@ -38,6 +39,11 @@ function run(state: Snapshot, ...ops: Op[]): Snapshot {
 
 function at(state: Snapshot, op: Op, now = T1) {
   return reduce(freeze(state), op, now);
+}
+
+/** The settings document as stored: only what was changed. */
+function stored(state: Snapshot) {
+  return state.settings[SETTINGS_ID];
 }
 
 function lastLog(state: Snapshot, scope: string): string | undefined {
@@ -2756,8 +2762,9 @@ describe('the reducer is exhaustive', () => {
 describe('settings', () => {
   it('starts from the defaults and stores a patch, unlogged', () => {
     const state = base();
-    // No default org until you pick one.
-    expect(settingsOf(state)).toEqual({ defaultOrg: '' });
+    // No default org until you pick one; nothing stored yet.
+    expect(settingsOf(state).defaultOrg).toBe('');
+    expect(stored(state)).toBeUndefined();
     const { state: next, changed } = at(state, {
       type: 'setSettings',
       patch: { defaultOrg: 'Rebel Alliance' },
@@ -2782,7 +2789,7 @@ describe('settings', () => {
       type: 'setSettings',
       patch: { assignToMe: true },
     });
-    expect(settingsOf(on)).toEqual({
+    expect(stored(on)).toEqual({
       defaultOrg: 'Rebel Alliance',
       assignToMe: true,
     });
@@ -2801,7 +2808,7 @@ describe('settings', () => {
       type: 'setSettings',
       patch: { defaultPriority: 'low' },
     });
-    expect(settingsOf(low)).toEqual({
+    expect(stored(low)).toEqual({
       defaultOrg: 'Rebel Alliance',
       defaultPriority: 'low',
     });
@@ -2818,7 +2825,7 @@ describe('settings', () => {
       type: 'setSettings',
       patch: { pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'] },
     });
-    expect(settingsOf(pinned)).toEqual({
+    expect(stored(pinned)).toEqual({
       defaultOrg: 'Rebel Alliance',
       pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'],
     });
@@ -2829,6 +2836,61 @@ describe('settings', () => {
       patch: { pinned: ['pe-leia', 'p-echo'] },
     });
     expect(settingsOf(reordered).pinned).toEqual(['pe-leia', 'p-echo']);
+  });
+
+  it('stores the v2 options and clears one back to its default with null (#343)', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: {
+        captureAs: 'task',
+        mentionAssigns: false,
+        roomNotes: 'unfiled',
+        railOwed: false,
+        roomTab: 'plan',
+        laneLabels: { youOwe: 'On me' },
+      },
+    });
+    expect(stored(state)).toEqual({
+      defaultOrg: '',
+      captureAs: 'task',
+      mentionAssigns: false,
+      roomNotes: 'unfiled',
+      railOwed: false,
+      roomTab: 'plan',
+      laneLabels: { youOwe: 'On me' },
+    });
+    expect(settingsOf(state).laneLabels).toEqual({
+      youOwe: 'On me',
+      theyOwe: 'They owe you',
+      discuss: 'To discuss',
+    });
+    const { state: cleared, changed } = at(state, {
+      type: 'setSettings',
+      patch: { captureAs: null, laneLabels: null, railOwed: null },
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(cleared.activity).toBe(state.activity);
+    expect(stored(cleared)).toEqual({
+      defaultOrg: '',
+      mentionAssigns: false,
+      roomNotes: 'unfiled',
+      roomTab: 'plan',
+    });
+    expect(settingsOf(cleared).captureAs).toBe('note');
+    expect(settingsOf(cleared).railOwed).toBe(true);
+  });
+
+  it('refuses a lane name that is empty or too long, and an unknown tab', () => {
+    for (const patch of [
+      { laneLabels: { youOwe: ' ' } },
+      { laneLabels: { youOwe: 'x'.repeat(41) } },
+      { roomTab: 'board' },
+      { captureAs: 'decide' },
+    ]) {
+      expect(OpSchema.safeParse({ type: 'setSettings', patch }).success).toBe(
+        false,
+      );
+    }
   });
 
   it('refuses pinned rooms named twice, or too many', () => {
@@ -3308,7 +3370,7 @@ describe('setNav', () => {
       { type: 'setNav', patch: { hidden: ['notes', 'notes'] } },
       { type: 'setNav', patch: { phoneHidden: ['whiteboard', 'whiteboard'] } },
     );
-    expect(settingsOf(state)).toEqual({
+    expect(stored(state)).toEqual({
       defaultOrg: 'Rebel Alliance',
       nav: {
         extras: { digest: false, archived: false },

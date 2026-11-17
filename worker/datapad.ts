@@ -173,14 +173,18 @@ const SEQ = 'seq';
  * The storage layout: 1 before spaces, 2 with `docs` keyed by space, 3
  * with meetings (no `events` rows) and milestones on their projects, 4
  * with export format 3's shape (#328): tasks to decide, lists as notes,
- * no Notepad.
+ * no Notepad, 5 with the old list pages' layouts and sorts carried into
+ * All's settings (#343).
  */
 const SCHEMA = 'schema_version';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 /** The collections the meetings migration reads and may rewrite. */
 const MIGRATED = ['projects', 'notes', 'events', 'meetings'] as const;
-/** The collections schema 4's migration reads (lists only read, never written). */
-const FORMAT3_READ = ['tasks', 'notes', 'lists'] as const;
+/**
+ * The collections schema 4's and 5's migration reads (lists only read,
+ * never written).
+ */
+const FORMAT3_READ = ['tasks', 'notes', 'lists', 'settings'] as const;
 /** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
@@ -640,7 +644,8 @@ export class DatapadObject extends DurableObject<Bindings> {
    * Runs a pure migration over each space's documents in `cols`: schema
    * 3's `migrate()` (events became meetings and milestones moved onto
    * their project; it drops the `events` rows) and schema 4's
-   * `migrateFormat3()` (to decide, lists as notes, no Notepad).
+   * `migrateFormat3()` (to decide, lists as notes, no Notepad; with
+   * schema 5's `migrateSettings()`, All's settings from the old pages').
    * `shared/migrate.ts` has the rules. Writes only the rows that changed.
    * Runs inside `ensureTables()`'s transaction.
    */

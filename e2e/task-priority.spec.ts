@@ -27,11 +27,11 @@ async function newTask(page: Page, title: string) {
   return panel;
 }
 
-test('new tasks start at Medium; Settings → Pages changes it', async ({
+test('new tasks start at Medium; Settings → Capture changes it', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
+  await openLive(page, '/settings/capture');
   await expect(
     setting(page).getByRole('radio', { name: 'Medium' }),
   ).toBeChecked();

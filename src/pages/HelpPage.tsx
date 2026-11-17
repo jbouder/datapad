@@ -93,7 +93,7 @@ export function HelpPage({ section }: { section?: string }) {
             overdue); Since yesterday, what happened on the last working day
             (Friday through Sunday on a Monday): tasks closed and added,
             meetings held, notes written and other activity; today’s meetings
-            and milestones (or the next seven days’, in Week; Settings → Pages
+            and milestones (or the next seven days’, in Week; Settings → Today
             sets how many), each meeting with where its prep stands; blocked
             tasks by who they wait on, and for how long; projects off health,
             near or past their target, or quiet for two weeks; open action items
@@ -146,7 +146,7 @@ export function HelpPage({ section }: { section?: string }) {
           layout, sort and grouping, filters and the sections you open or close,
           saved with the space so every device opens it the same way. A link
           that names its own filters still shows them, and the search text is
-          never kept. Settings → Pages shows, changes and resets them.
+          never kept. Settings → Today and Settings → All set how those open.
         </p>
         <Table
           caption="Layouts"

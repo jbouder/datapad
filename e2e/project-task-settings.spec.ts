@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
   expect,
   expectNoSidewaysScroll,
@@ -8,33 +8,11 @@ import {
 } from './fixtures';
 
 /**
- * The project page's and the task page's settings (#312), set in
- * Settings → Pages: the project page's sections hidden and moved, and
- * the task page's source note collapsed or hidden. (Meetings shows gave
- * way to Show past, #320: `project-show-past.spec.ts`.)
+ * The project page's saved sections (#312), hidden and moved. Settings →
+ * Pages, where they were set, went with v2 (#343); the project room
+ * (#334) replaces the page. (Meetings shows gave way to Show past, #320:
+ * `project-show-past.spec.ts`.)
  */
-
-test.beforeEach(async ({ request }) => {
-  await request.post('/api/import', { data: SEED });
-});
-
-function card(page: Page, name: string) {
-  return page.getByRole('region', { name, exact: true });
-}
-
-/** Wait until the server has saved `expected` for `key` of `page`. */
-async function expectStored(
-  request: APIRequestContext,
-  pageKey: string,
-  expected: unknown,
-) {
-  await expect
-    .poll(async () => {
-      const file = await (await request.get('/api/export.json')).json();
-      return file.settings.user?.pages?.[pageKey] ?? null;
-    })
-    .toEqual(expected);
-}
 
 /** The project page's section headings, top to bottom. */
 function headings(page: Page) {
@@ -44,29 +22,33 @@ function headings(page: Page) {
     .filter({ has: page.locator('button[aria-expanded]') });
 }
 
-test('hide and reorder the project page’s sections', async ({
+test('the project page shows its sections hidden and moved as saved', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
-  const project = card(page, 'Project page');
-  const editor = project.getByRole('list', { name: 'Project page sections' });
-  // Meetings to the top, Whiteboard hidden.
-  const up = editor.getByRole('button', { name: 'Move Meetings up' });
-  await up.click();
-  await up.click();
-  await editor.getByRole('switch', { name: 'Show Whiteboard' }).click();
-  await expectStored(request, 'project', {
-    order: [
-      'meetings',
-      'milestones',
-      'tasks',
-      'notes',
-      'lists',
-      'whiteboard',
-      'activity',
-    ],
-    hidden: ['whiteboard'],
+  await request.post('/api/import', {
+    data: {
+      ...SEED,
+      settings: {
+        user: {
+          defaultOrg: '',
+          pages: {
+            project: {
+              order: [
+                'meetings',
+                'milestones',
+                'tasks',
+                'notes',
+                'lists',
+                'whiteboard',
+                'activity',
+              ],
+              hidden: ['whiteboard'],
+            },
+          },
+        },
+      },
+    },
   });
 
   await openLive(page, '/projects/p-echo');

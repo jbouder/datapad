@@ -11,7 +11,7 @@ import {
 /**
  * The project page's Show done (#318): a toggle in the Tasks header puts
  * the done tasks after the open ones in one list (and the board's Done
- * column), remembered with the page and set in Settings → Pages too.
+ * column), remembered with the page.
  */
 
 test.beforeEach(async ({ request }) => {
@@ -81,19 +81,20 @@ test('Show done puts done tasks after the open ones, and is remembered', async (
   await expectStored(request, null);
 });
 
-test('Show done is in Settings → Pages and shows the board’s Done column', async ({
+test('a saved Show done shows the board’s Done column', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
-  const group = page
-    .getByRole('region', { name: 'Project page', exact: true })
-    .getByRole('group', { name: 'Done tasks' });
-  await group
-    .locator('label')
-    .filter({ has: page.getByRole('radio', { name: 'Show' }) })
-    .click();
-  await expect(group.getByRole('radio', { name: 'Show' })).toBeChecked();
+  await request.post('/api/import', {
+    data: {
+      settings: {
+        user: {
+          defaultOrg: '',
+          pages: { project: { filters: { done: 'show' } } },
+        },
+      },
+    },
+  });
   await expectStored(request, { filters: { done: 'show' } });
 
   await openLive(page, '/projects/p-echo?view=board');
