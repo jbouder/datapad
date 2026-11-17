@@ -133,7 +133,11 @@ export function TaskPanel({
     };
   };
 
+  // Only a save can move the task to another lane; a link out of the
+  // panel (Show the note) leaves focus to the page it opens.
+  const saved = useRef(false);
   const save = () => {
+    saved.current = true;
     const title = values.title.trim();
     if (!title) {
       setTitleError('Give the task a title');
@@ -198,7 +202,7 @@ export function TaskPanel({
       dirty={dirty}
       onSubmit={save}
       returnFocus={(opener) =>
-        opener?.isConnected ? null : movedTitle(task.id)
+        saved.current && !opener?.isConnected ? movedTitle(task.id) : null
       }
       footer={
         <>

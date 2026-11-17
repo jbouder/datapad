@@ -77,7 +77,8 @@ export function SidePanel({
   useEffect(() => {
     if (open) {
       opener.current =
-        document.activeElement instanceof HTMLElement
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement !== document.body
           ? document.activeElement
           : null;
     } else {
@@ -136,7 +137,12 @@ export function SidePanel({
           }
           finalFocus={() =>
             returnFocus?.(opener.current) ??
-            (opener.current?.isConnected ? opener.current : true)
+            (opener.current?.isConnected
+              ? opener.current
+              : opener.current
+                ? true
+                : // Opened with nothing focused (⌘K's New task): the page.
+                  (document.getElementById('main') ?? true))
           }
           onKeyDown={(event) => {
             // A composer that took ⌘Enter for itself (a note's Save
