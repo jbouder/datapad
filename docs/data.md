@@ -121,13 +121,26 @@ as it is (migrated on the way in, below):
   space starts with no orgs), optionally `assignToMe` (`true` when new
   tasks go to the person marked as you, from Settings → People; absent
   is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
-  what a new task starts with, from Settings → Pages; absent is `med`),
+  what a new task starts with, from Settings → Capture; absent is `med`),
   optionally `pinned` (#329), the rooms pinned to the rail, in order:
   `["p-echo", "pe-leia", "p-echo+pe-leia", "view:v-1"]`, each a project
   id, a person id, a project and a person joined by `+`, or `view:` and
   the id of a view saved on All (#338), each once, 50 at most,
   absent until something is pinned; an entry that names nothing in the
-  space is kept and skipped when read. And, optionally, `nav`, the
+  space is kept and skipped when read. Settings for v2 (#343) add, each
+  optional and absent at its default: `captureAs` (`note` or `task`: what
+  a plain line on the capture line becomes; absent is `note`),
+  `mentionAssigns` (`false` when `@Name` on a captured task only mentions
+  the person; absent assigns), `roomNotes` (`room` or `unfiled`: where a
+  note captured in a room goes when it names no project; absent is
+  `room`), `railOwed` (`false` hides the people who owe you from the
+  rail; absent shows them), `roomTab` (`stream`, `plan` or `whiteboard`:
+  the tab a project room opens on; absent is `stream`) and `laneLabels`
+  (the person room's lane names, `{ "youOwe": "On me" }`, keys `youOwe`,
+  `theyOwe` and `discuss`, each 1 to 40 characters; a lane left out keeps
+  its own name). Every default is in `DEFAULT_SETTINGS`
+  (`shared/types.ts`) and the stored document holds only what was
+  changed. And, optionally, `nav`, the
   navigation preferences from Settings → Navigation (#187), which v2
   (#329) retired: kept as written, so an older file round-trips, and no
   longer read. Its shape:
@@ -159,10 +172,22 @@ as it is (migrated on the way in, below):
   the address (a threshold, say) are saved under `filters` like the rest.
   The meeting page's sections are `topics`, `actions`, `notes` and
   `series`, and its settings `covered` and `doneActions` (`show` or
-  `hide`); the list page's setting is `done` (`collapsed`, `expanded` or
-  `hidden`) (#313). All's settings are `taskView` (`list`, `table` or
-  `board`), `meetingView` (`list` or `calendar`) and `projectView`
-  (`list`, `cards` or `timeline`), each kind's layout; All may also carry
+  `hide`); meeting mode reads them and ignores `order` (#336). The list
+  page's setting is `done` (`collapsed`, `expanded` or `hidden`) (#313).
+  Today's settings (#331, #343) live under `focus`, so what Focus saved
+  carries over: `who` (`anyone` or `mine`), `days`, `weekStart` (`mon` or
+  `sun`) and `brief` (`on` or `off`), with the lanes `mine`, `waiting` and
+  `decide` as its sections. All's settings are `kinds` (the kinds All
+  opens on, comma-joined in All's order, or `all` for every kind; absent
+  is `task`), `taskView` (`list`, `table` or `board`), `meetingView`
+  (`list` or `calendar`) and `projectView` (`list`, `cards` or
+  `timeline`), each kind's layout, and `taskSort` and `projectSort`, the
+  sort tasks or projects alone start with. On the way in, and once in
+  each space when the Durable Object's schema goes to 5, a space that has
+  saved nothing for All takes the old Tasks, Meetings and Projects pages'
+  layouts and sorts that All has (`migrateSettings()`); those pages'
+  entries, like `lists`, `list` and `archive`, stay as stored and are
+  read by nothing. All may also carry
   `views` (#338), its saved views in chip order:
   `[{ "id": "v-1", "name": "Echo tasks", "query": "kind=task&room=p-echo&view=table" }]`,
   each id once, 30 at most, a name of 1 to 120 characters and `query` All's

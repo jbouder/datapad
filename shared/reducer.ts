@@ -12,7 +12,6 @@ import {
   blockedOf,
   type Collection,
   type Collections,
-  DEFAULT_SETTINGS,
   decideOf,
   GENERAL,
   GENERAL_BOARD,
@@ -26,11 +25,26 @@ import {
   type Person,
   type Project,
   SETTINGS_ID,
+  type Settings,
   type Snapshot,
+  STORED_SETTINGS,
   type Task,
   type Topic,
   topicsOf,
 } from './types';
+
+/** The settings `setSettings` clears with `null` (#343). */
+const CLEARABLE = [
+  'assignToMe',
+  'defaultPriority',
+  'pinned',
+  'captureAs',
+  'mentionAssigns',
+  'roomNotes',
+  'railOwed',
+  'roomTab',
+  'laneLabels',
+] as const satisfies readonly (keyof Settings)[];
 
 /**
  * The one place state changes, on the client and in the Durable Object.
@@ -1271,8 +1285,17 @@ function apply(d: Draft, op: Op, now: string) {
 
     /* settings (not logged) */
     case 'setSettings': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
-      d.set('settings', SETTINGS_ID, { ...current, ...op.patch });
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
+      // A `null` clears the option back to its default (#343): the
+      // patch goes over what is stored, then each option it cleared goes.
+      const next = { ...current, ...op.patch } as Record<
+        keyof Settings,
+        unknown
+      >;
+      for (const key of CLEARABLE) {
+        if (next[key] === null) delete next[key];
+      }
+      d.set('settings', SETTINGS_ID, next as unknown as Settings);
       return;
     }
     case 'setNav': {
@@ -1282,7 +1305,7 @@ function apply(d: Draft, op: Op, now: string) {
 
     /* page preferences (#186), not logged either */
     case 'setPagePrefs': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
       const pages = { ...current.pages };
       const next = applyPagePatch(pages[op.page], op.patch);
       if (Object.keys(next?.filters ?? {}).length > LIMITS.prefFiltersMax) {
@@ -1305,7 +1328,7 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
     case 'resetPagePrefs': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
       // Kept, empty: a space that reset everything has still saved.
       const pages = { ...current.pages };
       if (op.page) delete pages[op.page];
@@ -1331,7 +1354,7 @@ function apply(d: Draft, op: Op, now: string) {
  * a nav with nothing left in it goes, so the default nav is no `nav`.
  */
 function setNav(d: Draft, op: OpOf<'setNav'>) {
-  const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+  const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
   const nav: NavPrefs = { ...current.nav };
   const { order, hidden, phoneHidden, extras, tools, quickAdd } = op.patch;
   if (order === null) delete nav.order;

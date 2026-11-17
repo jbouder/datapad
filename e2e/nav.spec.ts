@@ -63,16 +63,15 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
     page.getByRole('heading', { level: 1, name: 'Han Solo' }),
   ).toBeVisible();
 
+  // All opens on Tasks until Settings → All says otherwise (#343).
   await places.getByRole('link', { name: 'All' }).click();
-  await expect(page).toHaveURL(/\/all$/);
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
   await expect(
     page.getByRole('heading', { level: 1, name: 'All' }),
   ).toBeVisible();
-  await page
-    .getByRole('main')
-    .getByRole('button', { name: 'Tasks', exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/all\?kind=task$/);
+  await expect(
+    page.getByRole('main').getByRole('button', { name: 'Tasks', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await expect(places.getByRole('link', { name: 'All' })).toHaveAttribute(
     'aria-current',
     'page',
@@ -105,7 +104,7 @@ test('a phone has three tabs, Today, Unfiled and All, each a 44px target', async
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
   await tabs.getByRole('link', { name: 'All' }).click();
-  await expect(page).toHaveURL(/\/all$/);
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
   await expect(tabs.getByRole('link', { name: 'All' })).toHaveAttribute(
     'aria-current',
     'page',

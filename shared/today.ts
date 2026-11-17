@@ -4,7 +4,7 @@
  * local calendar (`dates.ts`): a timestamp's day and `HH:MM` are where it
  * fell for the person reading. Archived projects' items are left out.
  */
-import { addDays, dayOf, endOfWeek } from './dates';
+import { addDays, dayOf, dayOfWeek, type WeekStart } from './dates';
 import { byLoop, isOpenLoop } from './loops';
 import type {
   DateString,
@@ -169,13 +169,19 @@ export function dayLine(counts: DayCounts): string {
   ].join(', ');
 }
 
-/** The Monday-to-Sunday week holding `day`, both ends included. */
-export function weekAround(day: DateString): {
+/**
+ * The week holding `day`, both ends included: Monday to Sunday, or Sunday
+ * to Saturday when the week starts on Sunday (#343).
+ */
+export function weekAround(
+  day: DateString,
+  start: WeekStart = 'mon',
+): {
   from: DateString;
   to: DateString;
 } {
-  const to = endOfWeek(day);
-  return { from: addDays(to, -6), to };
+  const from = addDays(day, -dayOfWeek(day, start));
+  return { from, to: addDays(from, 6) };
 }
 
 /** One day of the week zoom (#332): its meetings and what it counts. */
@@ -192,15 +198,17 @@ export interface WeekDay {
 }
 
 /**
- * The week zoom's seven days, Monday to Sunday, around `day`: each with
+ * The week zoom's seven days around `day`, from the week's first day
+ * (`start`, Monday unless set to Sunday): each with
  * its meetings and how many tasks fall due, are done and notes are
  * written, from `dayEntries()` (archived projects left out).
  */
 export function weekDays(
   state: Pick<Snapshot, 'meetings' | 'tasks' | 'notes' | 'projects'>,
   day: DateString,
+  start: WeekStart = 'mon',
 ): WeekDay[] {
-  const { from } = weekAround(day);
+  const { from } = weekAround(day, start);
   const open = Object.values(state.tasks).filter(
     (t) => t.due && isOpenLoop(t, state.projects),
   );

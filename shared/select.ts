@@ -1,4 +1,10 @@
-import { addDays, dayOf, daysBetween, formatDay } from './dates';
+import {
+  addDays,
+  dayOf,
+  daysBetween,
+  formatDay,
+  type WeekStart,
+} from './dates';
 import { byWhen, previousMeeting } from './meetings';
 import { nextMilestone } from './milestones';
 import {
@@ -176,7 +182,7 @@ export function matchesAssignee(
 
 /**
  * How many days Focus's Week looks ahead, today included: the agenda's
- * window and Due's. `FOCUS_DAYS` unless Settings → Pages says otherwise
+ * window and Due's. `FOCUS_DAYS` unless Settings → Today says otherwise
  * (`focusDays()` in `shared/pages.ts`).
  */
 export const FOCUS_DAYS = 7;
@@ -501,11 +507,11 @@ export const BRIEFING_WEEK = 7;
 export const ATTENTION_TARGET_DAYS = 14;
 /** A project unchanged this many days is quiet. */
 export const ATTENTION_QUIET_DAYS = 14;
-/** Attention's target window, as Settings → Pages offers it (#311). */
+/** Attention's target window, as Settings → Today offers it (#311). */
 export const ATTENTION_TARGET_CHOICES = [7, 14, 30] as const;
-/** Attention's quiet rule, as Settings → Pages offers it; or off. */
+/** Attention's quiet rule, as Settings → Today offers it; or off. */
 export const ATTENTION_QUIET_CHOICES = [7, 14, 30] as const;
-/** How far back Follow-ups looks, as Settings → Pages offers it. */
+/** How far back Follow-ups looks, as Settings → Today offers it. */
 export const FOLLOW_UP_CHOICES = [7, 14] as const;
 
 /**
@@ -528,6 +534,8 @@ export interface FocusOptions {
   yellow: boolean;
   /** How many days back Follow-ups looks for meetings. */
   followUpDays: number;
+  /** The day the week starts on: the week zoom's and the recap's (#343). */
+  weekStart: WeekStart;
 }
 
 /** Focus as it is with nothing set. */
@@ -539,6 +547,7 @@ export const FOCUS_DEFAULTS: FocusOptions = {
   quietDays: ATTENTION_QUIET_DAYS,
   yellow: true,
   followUpDays: BRIEFING_WEEK,
+  weekStart: 'mon',
 };
 
 /** Outside the archive: General, or a project that is not archived. */

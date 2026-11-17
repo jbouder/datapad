@@ -9,6 +9,12 @@
  * project whose name (letters and digits only) starts with the word;
  * `@Name` mentions someone and, on a task or a decision, assigns it to
  * them. A room's context presets the project or the person.
+ *
+ * Settings → Capture (#343) changes three of those: a plain line can be a
+ * task instead (`captureAs`), `@Name` can leave a task unassigned
+ * (`mentionAssigns`), and a note in a room can go to Unfiled rather than
+ * the room (`roomNotes`). New tasks start at the space's default
+ * priority. The defaults are in `DEFAULT_SETTINGS`.
  */
 import { formatDay, parseDate } from './dates';
 import { LIMITS } from './limits';
@@ -16,7 +22,12 @@ import { mentionedIds, namesToTokens } from './mentions';
 import type { BaseOp } from './protocol';
 import { meId } from './select';
 import { defaultAssignee, defaultPriority } from './tasks';
-import type { DateString, Project, Snapshot } from './types';
+import {
+  type DateString,
+  type Project,
+  type Snapshot,
+  settingsOf,
+} from './types';
 
 export const CAPTURE_KINDS = ['note', 'task', 'decide', 'wait'] as const;
 export type CaptureKind = (typeof CAPTURE_KINDS)[number];
@@ -135,8 +146,9 @@ export function parseCapture(
   context: CaptureContext = {},
   force?: CaptureKind,
 ): Capture {
+  const settings = settingsOf(state);
   let text = squash(input);
-  let kind: CaptureKind = 'note';
+  let kind: CaptureKind = settings.captureAs;
   if (WAIT_PREFIX.test(text)) {
     kind = 'wait';
     text = text.replace(WAIT_PREFIX, '');
@@ -179,7 +191,14 @@ export function parseCapture(
     context.personId && state.people[context.personId]
       ? context.personId
       : null;
-  if (!projectId && context.projectId && state.projects[context.projectId]) {
+  // A note in a room can go to Unfiled instead, unless a `#word` filed it.
+  const roomFiles = kind !== 'note' || settings.roomNotes === 'room';
+  if (
+    !projectId &&
+    roomFiles &&
+    context.projectId &&
+    state.projects[context.projectId]
+  ) {
     projectId = context.projectId;
   }
 
@@ -194,7 +213,9 @@ export function parseCapture(
     }
     assignee = defaultAssignee(state);
   } else if (kind === 'task' || kind === 'decide') {
-    assignee = people[0] ?? roomPerson ?? defaultAssignee(state);
+    // `@Name` assigns unless Settings → Capture says it only mentions.
+    const named = settings.mentionAssigns ? people[0] : undefined;
+    assignee = named ?? roomPerson ?? defaultAssignee(state);
   } else if (roomPerson && !people.includes(roomPerson)) {
     // A note in a person's room mentions them, so it files there.
     text = text ? `${text} @{${roomPerson}}` : `@{${roomPerson}}`;

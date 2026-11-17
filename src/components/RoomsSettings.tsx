@@ -8,6 +8,8 @@ import {
   viewOf,
 } from '#shared/rooms';
 import { settingsOf } from '#shared/types';
+import { ResetToDefaults } from '@/components/settings/parts';
+import { RoomOptions } from '@/components/settings/RoomOptions';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
@@ -18,9 +20,11 @@ import { useMotion } from '@/providers/MotionProvider';
 const ICON_BUTTON = 'press size-11 desk:size-8';
 
 /**
- * Settings → Rooms (#329): the pinned rooms in the rail's order, each
- * with Move up, Move down and Unpin, 44px on touch. Pin and unpin from a
- * room's header too. The only navigation setting, per space.
+ * Settings → Rooms (#329, #343): the pinned rooms in the rail's order,
+ * each with Move up, Move down and Unpin, 44px on touch (pin and unpin
+ * from a room's header too), then the rooms' options (`RoomOptions`).
+ * Per space; Reset to defaults unpins everything and puts the options
+ * back, with Undo.
  */
 export function RoomsSettings() {
   const { state } = useDatapad();
@@ -71,11 +75,14 @@ export function RoomsSettings() {
 
   return (
     <>
-      <p className="text-sm text-muted-foreground">
-        The rooms pinned to the rail, in its order. Pin a project or a person
-        from its room’s header, and a saved view from its menu on All. With
-        nothing pinned, the rail lists the active projects.
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          The rooms pinned to the rail, in its order. Pin a project or a person
+          from its room’s header, and a saved view from its menu on All. With
+          nothing pinned, the rail lists the active projects.
+        </p>
+        <ResetToDefaults section="rooms" label="Rooms" />
+      </div>
       {rooms.length === 0 ? (
         <p className="text-state">Nothing pinned yet.</p>
       ) : (
@@ -147,6 +154,7 @@ export function RoomsSettings() {
           })}
         </ul>
       )}
+      <RoomOptions />
     </>
   );
 }

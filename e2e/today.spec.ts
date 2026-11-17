@@ -188,16 +188,16 @@ test('closing a loop moves it out at once; Undo brings it back', async ({
   await expect(mine).toContainText('Book the tauntaun vet');
 });
 
-test('Settings → Pages: what Mine shows, and the lanes hidden and moved', async ({
+test('Settings → Today: what Mine shows, and the lanes hidden and moved', async ({
   page,
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/settings/pages');
-  const card = page.getByRole('region', { name: 'Today', exact: true });
-  await card.getByRole('combobox', { name: 'Mine shows' }).click();
+  await openLive(page, '/settings/today');
+  await expect(page).toHaveTitle('Today · Settings · Datapad');
+  await page.getByRole('combobox', { name: 'Mine shows' }).click();
   await page.getByRole('option', { name: 'Only assigned to me' }).click();
-  const editor = page.getByRole('list', { name: 'Today sections' });
+  const editor = page.getByRole('list', { name: 'Today lanes' });
   await editor.getByRole('switch', { name: 'Show Waiting on' }).click();
   await editor.getByRole('button', { name: 'Move To decide up' }).click();
   await expectStored(request, {
@@ -206,6 +206,7 @@ test('Settings → Pages: what Mine shows, and the lanes hidden and moved', asyn
     order: ['mine', 'decide', 'waiting'],
   });
   await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
 
   await openLive(page);
   // Only Leia's own: the no one's tasks are left out.
@@ -214,4 +215,37 @@ test('Settings → Pages: what Mine shows, and the lanes hidden and moved', asyn
   ]);
   await expect(laneButton(page, 'Waiting on')).toHaveCount(0);
   await expect(laneButton(page, 'To decide')).toBeVisible();
+});
+
+test('Settings → Today starts the week on Sunday; Reset puts Monday back, with Undo (#343)', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/settings/today');
+  const start = page.getByRole('group', { name: 'Week starts on' });
+  await expect(start.getByRole('radio', { name: 'Monday' })).toBeChecked();
+  await start
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'Sunday' }) })
+    .click();
+  await expect(start.getByRole('radio', { name: 'Sunday' })).toBeChecked();
+  await expectStored(request, { filters: { weekStart: 'sun' } });
+
+  await openLive(page, '/?view=week');
+  const first = page
+    .getByRole('list', { name: 'Week' })
+    .locator('[data-week-day]')
+    .first();
+  await expect(first.getByRole('button')).toContainText('Sun');
+
+  await openLive(page, '/settings/today');
+  const reset = page.getByRole('button', { name: 'Reset to defaults' });
+  await reset.click();
+  await expect(start.getByRole('radio', { name: 'Monday' })).toBeChecked();
+  await expect(reset).toBeDisabled();
+  await expectStored(request, null);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(start.getByRole('radio', { name: 'Sunday' })).toBeChecked();
+  await expectStored(request, { filters: { weekStart: 'sun' } });
+  await expectAccessible(page);
 });

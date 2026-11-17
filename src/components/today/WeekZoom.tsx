@@ -24,7 +24,8 @@ const BUTTON = 'press h-11 desk:h-8';
 
 /**
  * Today's week zoom (#332), which replaces the Weekly digest page: the
- * seven days, Monday to Sunday (columns on desktop, rows on phones), each
+ * seven days from the week's first day (Settings → Today; columns on
+ * desktop, rows on phones), each
  * with its meetings and its counts of due, done and notes. A day's name
  * zooms into it; arrow keys, Home and End move between the days. Under
  * them, the week's digest (`buildDigest`, the same text MCP's

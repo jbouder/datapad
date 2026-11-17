@@ -257,6 +257,7 @@ describe('redirects from every old address (#329)', () => {
 
   it('sends Settings → Navigation to Settings → Rooms', () => {
     expect(landsOn('/settings/navigation')).toBe('/settings/rooms');
+    expect(landsOn('/settings/pages')).toBe('/settings/today');
   });
 });
 
@@ -354,11 +355,13 @@ describe('placeOf and titleOf', () => {
 });
 
 describe('Settings sections', () => {
-  it('lists Rooms where Navigation was, People and Orgs after Spaces', () => {
+  it('lists the v2 sections, People and Orgs after Spaces (#343)', () => {
     expect(SETTINGS_SECTIONS).toEqual([
       'appearance',
-      'pages',
+      'today',
       'rooms',
+      'capture',
+      'all',
       'templates',
       'summaries',
       'spaces',

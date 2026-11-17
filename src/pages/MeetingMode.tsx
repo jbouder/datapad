@@ -83,7 +83,7 @@ function clockTime(ms: number): string {
  * middle (the composer, always open, then each saved note) with the
  * action items under them, and the open loops on the right: a 1:1's
  * other person's, otherwise the meeting's project's, otherwise none. On
- * a phone they stack in that order. Settings → Pages can hide topics,
+ * a phone they stack in that order. Settings → Today can hide topics,
  * notes, action items or the series, and covered topics and done action
  * items (#313).
  */

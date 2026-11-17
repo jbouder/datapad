@@ -84,7 +84,7 @@ function todayOut({ space, state, today, now }: SpaceRead) {
 }
 
 const TODAY_DESCRIPTION =
-  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the next meeting (within the days Settings → Pages sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Tasks for is set to Mine) and how many notes sit in Unfiled. Projects in the archive are left out.';
+  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the next meeting (within the days Settings → Today sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Mine shows is set to Only assigned to me) and how many notes sit in Unfiled. Projects in the archive are left out.';
 
 export const getToday = defineTool({
   name: 'get_today',

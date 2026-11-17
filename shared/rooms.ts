@@ -15,7 +15,7 @@
 import { viewRoute } from './all';
 import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
-import { projectRoomOf, type Route } from './routes';
+import { projectRoomOf, type Route, roomTabRoute } from './routes';
 import { meId } from './select';
 import {
   type Person,
@@ -109,6 +109,20 @@ export function narrowedOf(route: Route, query: URLSearchParams) {
  * pinned from the person's room (`?project=`) is the same pin: both show
  * the same items.
  */
+/**
+ * Where a project's room opens from the rail, All and Search: the tab
+ * Settings → Rooms names (#343), Stream until changed.
+ */
+export function projectHome(
+  id: string,
+  state: Partial<Pick<Snapshot, 'settings'>> = {},
+): Route {
+  const tab = state.settings
+    ? settingsOf({ settings: state.settings }).roomTab
+    : 'stream';
+  return roomTabRoute(id, tab);
+}
+
 export function roomLink(
   room: Room,
   state: Partial<Pick<Snapshot, 'settings'>> = {},
@@ -118,10 +132,10 @@ export function roomLink(
     return { route: { name: 'person', id: room.id }, query: '' };
   }
   if (room.kind === 'project') {
-    return { route: { name: 'project', id: room.id }, query: '' };
+    return { route: projectHome(room.id, state), query: '' };
   }
   return {
-    route: { name: 'project', id: room.project },
+    route: projectHome(room.project, state),
     query: new URLSearchParams({ [PERSON_PARAM]: room.person }).toString(),
   };
 }

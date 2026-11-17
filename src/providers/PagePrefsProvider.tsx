@@ -293,7 +293,7 @@ export interface PageSectionsApi {
 
 /**
  * A page's sections (#310): which to render and in what order, from what
- * the page saved as it opened (Settings → Pages sets them), and setters
+ * the page saved as it opened (Settings sets them), and setters
  * that save through the debounced `save` and show at once. A page with no
  * `sectionKeys` gets empty lists. Render with `<OrderedSections>`
  * (`src/components/Section.tsx`) or map `visible` yourself.
@@ -341,7 +341,7 @@ export function usePageSections(page: PageKey): PageSectionsApi {
 /**
  * A `settingsOnly` field's value (#310), as the page opened: what is
  * saved, if the page still has it, else the field's default. Set in
- * Settings → Pages only; never in the address.
+ * Settings only; never in the address.
  */
 export function usePageSetting(page: PageKey, key: string): string {
   const values = useOpeningValues(page);

@@ -9,11 +9,9 @@ import {
 } from './fixtures';
 
 /**
- * The meeting and list pages' settings (#313), set in Settings → Pages:
- * hide covered topics and done action items, hide and reorder the
- * meeting page's sections, and show a list's done items collapsed,
- * expanded or hidden. `recapSeed()`'s Ridge patrol debrief (`e-7`) has 2 of 3
- * topics covered; Evacuation checklist has one of four items done.
+ * Meeting mode's settings (#313), set in Settings → Today since #343:
+ * hide covered topics and done action items, and hide its sections.
+ * `recapSeed()`'s Ridge patrol debrief (`e-7`) has 2 of 3 topics covered.
  */
 
 interface Stored {
@@ -31,7 +29,7 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: recapSeed() });
 });
 
-/** Pick `option` of the segmented `legend` in a page's Settings card. */
+/** Pick `option` of the segmented `legend` in a group of Settings. */
 async function choose(
   page: Page,
   card: string,
@@ -54,10 +52,14 @@ test('the meeting page hides covered topics as Settings says', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
-  const card = page.getByRole('region', { name: 'Meeting page' });
-  await expect(card.getByText('Defaults', { exact: true })).toBeVisible();
-  await choose(page, 'Meeting page', 'Covered topics', 'Hide');
+  await openLive(page, '/settings/today');
+  const group = page.getByRole('region', { name: 'Meeting mode' });
+  // Its sections keep meeting mode's own order: no moves.
+  await expect(
+    group.getByRole('list', { name: 'Meeting mode sections' }),
+  ).toBeVisible();
+  await expect(group.getByRole('button', { name: /^Move / })).toHaveCount(0);
+  await choose(page, 'Meeting mode', 'Covered topics', 'Hide');
   await expect
     .poll(() => stored(request, 'meeting'))
     .toEqual({ filters: { covered: 'hide' } });

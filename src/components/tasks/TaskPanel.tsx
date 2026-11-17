@@ -442,7 +442,7 @@ export function NewTaskPanel({
   const [initial] = useState(() => ({
     title,
     projectId,
-    // Medium, or what Settings → Pages says.
+    // Medium, or what Settings → Capture says.
     priority: (state ? defaultPriority(state) : 'med') as Priority,
     due: '',
     // Every new task starts with the default assignee: you, when
