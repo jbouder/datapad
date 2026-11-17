@@ -22,7 +22,7 @@ async function toggle(page: Page, name: string) {
     .click();
 }
 
-/** A task's row in Tasks' List or a person's page (full rows). */
+/** A task's row in All's List (full rows). */
 const row = (page: Page, title: string) =>
   page.locator('[data-task-id]').filter({ hasText: title });
 /** A task's row in a room's Open loops lanes. */
@@ -105,8 +105,8 @@ test('inline popovers change priority, due and assignee from the row', async ({
 }) => {
   test.skip(isMobile(page), 'Inline popovers are a desktop affordance.');
   await request.post('/api/import', { data: SEED });
-  // A person's open tasks keep the full rows (a room's loops do not).
-  await openLive(page, '/people/u-han');
+  // All's List keeps the full rows (a room's loops do not).
+  await openLive(page, '/all?kind=task&view=list&person=u-han');
   const task = row(page, 'Find a replacement motivator');
 
   const priority = task.getByRole('button', { name: /^Priority: Medium/ });
@@ -135,7 +135,7 @@ test('inline popovers change priority, due and assignee from the row', async ({
     'data-highlighted',
   );
   await who.press('Enter');
-  // No longer Han's, so it leaves his open tasks.
+  // No longer Han's, so it leaves the list narrowed to him.
   await expect(task).toHaveCount(0);
 
   await expectSaved(page);

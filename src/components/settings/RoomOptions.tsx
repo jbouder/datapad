@@ -17,6 +17,13 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { usePagePrefs } from '@/providers/PagePrefsProvider';
 import { Group, Hint, SwitchRow } from './parts';
 
+/** The person room's lanes: their section keys and their names' keys. */
+const PERSON_LANES = [
+  { key: 'mine', name: 'youOwe' },
+  { key: 'waiting', name: 'theyOwe' },
+  { key: 'decide', name: 'discuss' },
+] as const;
+
 const LANE_HINTS: Record<LaneKey, string> = {
   youOwe: 'Your open tasks that touch them.',
   theyOwe: 'Tasks assigned to them, or waiting on them.',
@@ -27,7 +34,8 @@ const LANE_HINTS: Record<LaneKey, string> = {
  * Settings → Rooms' options below the pinned rooms (#343): whether the
  * rail lists the people who owe you, a project room's lanes (hidden and
  * moved, saved under the `project` page) and the tab it opens on, and the
- * person room's lane names. Space-wide, each default in
+ * person room's lanes (hidden and moved under the `person` page) and
+ * their names, which the person room reads. Space-wide, each default in
  * `DEFAULT_SETTINGS`, saved as nothing.
  */
 export function RoomOptions() {
@@ -90,7 +98,17 @@ export function RoomOptions() {
           The tab a project’s room opens on from the rail, All and Search.
         </Hint>
       </Group>
-      <Group title="Person room lanes">
+      <Group title="Person rooms">
+        <SectionsEditor
+          label="Person room lanes"
+          noun="lane"
+          sections={PERSON_LANES.map(({ key, name }) => ({
+            key,
+            label: settings.laneLabels[name],
+          }))}
+          prefs={savedPrefs(state, 'person')}
+          onChange={(patch) => save('person', patch, true)}
+        />
         <Hint>Your own words for the three lanes. Empty keeps the name.</Hint>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {LANE_KEYS.map((key) => (

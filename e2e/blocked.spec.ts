@@ -81,11 +81,11 @@ test('mark a task blocked on someone; Today, People and Tasks show it', async ({
   await expect(main.getByText(TITLE).first()).toBeVisible();
   await expect(main.getByText('Insulate the hangar doors')).toHaveCount(0);
 
-  // People: waiting on Leia.
+  // Leia's room: she is you, so it is yours to unblock.
   await openLive(page, '/settings/people/u-leia');
-  await expect(
-    page.getByRole('list', { name: 'Tasks waiting on Leia Organa' }),
-  ).toContainText(TITLE);
+  await expect(page.getByRole('list', { name: 'You owe' })).toContainText(
+    TITLE,
+  );
 });
 
 test('b unblocks the focused task, with Undo', async ({ page, request }) => {

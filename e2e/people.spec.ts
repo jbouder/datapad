@@ -20,7 +20,8 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 }
 
 const people = (page: Page) => page.getByRole('list', { name: 'People' });
-const detail = (page: Page) => page.locator('[data-person-id]');
+const room = (page: Page) =>
+  page.locator('article[aria-labelledby="person-title"]');
 
 async function addPerson(page: Page, name: string, me = false) {
   await page.getByRole('button', { name: 'Add person' }).click();
@@ -66,33 +67,24 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
   await expect(write).toBeHidden();
   await expectSaved(page);
 
-  // Han's room: no projects, the task, the mention under General.
+  // Han's room: no projects, the task he owes, the note in the stream.
   await page.goto('/settings/people');
   await people(page)
     .getByRole('link', { name: /Han Solo/ })
     .click();
   await expect(page).toHaveURL(/\/people\/[^/]+$/);
-  const han = detail(page);
-  await expect(han).toContainText('Not on any project.');
+  const han = room(page);
+  await expect(han.locator('[data-state-line]')).toContainText('No projects');
   await expect(
-    han.getByRole('list', { name: 'Open tasks assigned to Han Solo' }),
+    han.getByRole('list', { name: 'Waiting on Han Solo' }),
   ).toContainText('Fix the compressor');
-  const mention = han
-    .getByRole('region', { name: 'Mentions in General' })
-    .getByRole('link');
-  await expect(mention).toHaveText(/Ask @Han Solo about the compressor/);
-  const hanUrl = page.url();
-
-  // The mention leads to the note on the Notes page.
-  await mention.click();
-  await expect(page).toHaveURL(/\/all\?kind=note&note=/);
-  await expect(page.locator('[data-highlighted]')).toContainText(
+  await expect(han.getByRole('list', { name: 'Stream' })).toContainText(
     'about the compressor',
   );
+  const hanUrl = page.url();
 
   // This is me moves to Han, and Mine follows at once.
-  await page.goto(hanUrl);
-  await page.getByRole('button', { name: 'Edit Han Solo' }).click();
+  await han.getByRole('button', { name: 'Edit', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Edit Han Solo' });
   await form.getByRole('checkbox', { name: 'This is me' }).click();
   await form.getByRole('button', { name: 'Save' }).click();
@@ -107,17 +99,16 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
   await page.goto('/all?kind=task&person=me');
   await expect(page.getByRole('main')).toContainText('Fix the compressor');
 
-  // Remove Han: the note reads @unknown, the task is unassigned.
+  // Remove Han from his room: the note reads @unknown, the task is
+  // unassigned.
   await page.goto(hanUrl);
-  await page.getByRole('button', { name: 'Edit Han Solo' }).click();
-  await form.getByRole('button', { name: 'Remove' }).click();
-  await expect(form.getByRole('alertdialog')).toContainText(
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Remove' }).click();
+  const ask = page.getByRole('dialog', { name: 'Remove person' });
+  await expect(ask).toContainText(
     'Remove Han Solo? Mentions of them show as @unknown and 1 task becomes unassigned.',
   );
-  await form
-    .getByRole('alertdialog')
-    .getByRole('button', { name: 'Remove' })
-    .click();
+  await ask.getByRole('button', { name: 'Remove' }).click();
   await expect(page).toHaveURL(/\/settings\/people$/);
   await expect(people(page).getByRole('listitem')).toHaveText([/Leia Organa/]);
   await page.goto('/all?kind=note&view=list');
@@ -138,10 +129,11 @@ test('a person’s room, and their old address under Settings', async ({
   await openLive(page, '/settings/people/u-chewie');
   await expect(page).toHaveURL(/\/people\/u-chewie$/);
   await expect(page).toHaveTitle('Chewbacca · Datapad');
-  const chewie = detail(page);
-  await expect(chewie.getByRole('list', { name: 'Projects' })).toHaveText(
-    /Echo Base relocation\s*Falcon hyperdrive refit/,
-  );
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Narrow to a project' })
+      .getByRole('link'),
+  ).toHaveText(['Echo Base relocation', 'Falcon hyperdrive refit']);
   await expectAccessible(page);
 });
 
@@ -158,12 +150,14 @@ test('Cards: counts match the detail, and a card opens the person', async ({
   await expect(han).toContainText('2 projects · 1 open task');
   await han.click();
   await expect(page).toHaveURL(/\/people\/u-han$/);
-  const pane = detail(page);
-  await expect(pane.getByRole('list', { name: 'Projects' })).toHaveText(
-    /Echo Base relocation\s*Falcon hyperdrive refit/,
-  );
+  const pane = room(page);
   await expect(
-    pane.getByRole('list', { name: 'Open tasks assigned to Han Solo' }),
+    pane
+      .getByRole('navigation', { name: 'Narrow to a project' })
+      .getByRole('link'),
+  ).toHaveText(['Echo Base relocation', 'Falcon hyperdrive refit']);
+  await expect(
+    pane.getByRole('list', { name: 'Waiting on Han Solo' }),
   ).toContainText('Find a replacement motivator');
   // The layout is remembered after navigating.
   await page.goto('/settings/people');
@@ -204,5 +198,7 @@ test('Find narrows People by name or role, and Clear filters brings them back', 
   await expect(links).toHaveCount(1);
   await links.first().click();
   await expect(page).toHaveURL(/\/people\/u-han$/);
-  await expect(detail(page)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Han Solo' }),
+  ).toBeVisible();
 });

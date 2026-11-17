@@ -320,19 +320,26 @@ describe('Reset to defaults (#343)', () => {
     expect(undone.settings[SETTINGS_ID]).toEqual(before.settings[SETTINGS_ID]);
   });
 
-  it('unpins and clears Rooms’ options', () => {
-    const before = apply(withPeople(), {
-      type: 'setSettings',
-      patch: {
-        pinned: ['falcon'],
-        roomTab: 'plan',
-        laneLabels: { theyOwe: 'Owed' },
+  it('unpins and clears Rooms’ options and both rooms’ lanes', () => {
+    const before = apply(
+      withPeople(),
+      {
+        type: 'setSettings',
+        patch: {
+          pinned: ['falcon'],
+          roomTab: 'plan',
+          laneLabels: { theyOwe: 'Owed' },
+        },
       },
-    });
+      { type: 'setPagePrefs', page: 'person', patch: { hidden: ['decide'] } },
+      { type: 'setPagePrefs', page: 'project', patch: { order: ['decide'] } },
+    );
     const reset = resetSection('rooms', before);
     const after = apply(before, ...(reset?.ops ?? []));
-    expect(after.settings[SETTINGS_ID]).toEqual({ defaultOrg: '' });
+    expect(after.settings[SETTINGS_ID]).toEqual({ defaultOrg: '', pages: {} });
     expect(settingsOf(after).pinned).toEqual([]);
+    expect(savedPrefs(after, 'person')).toEqual({});
+    expect(savedPrefs(after, 'project')).toEqual({});
     const undone = apply(after, ...(reset?.undo ?? []));
     expect(undone.settings[SETTINGS_ID]).toEqual(before.settings[SETTINGS_ID]);
   });

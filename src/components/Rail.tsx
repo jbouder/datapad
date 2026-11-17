@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { normalViewQuery } from '#shared/all';
 import {
   isRoomPage,
+  narrowedOf,
   owedBy,
-  PERSON_PARAM,
   type Room,
   railRooms,
   roomKey,
@@ -43,7 +43,7 @@ export function Rail({ route }: { route: Route }) {
   const place = placeOf(route);
   const places = usePlaces();
   const query = useQuery();
-  const narrowedTo = query.get(PERSON_PARAM);
+  const narrowedTo = narrowedOf(route, query);
 
   const rail = useMemo(() => {
     if (!state) return null;

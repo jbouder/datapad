@@ -544,6 +544,7 @@ export const PAGE_KEYS = [
   'lists',
   'people',
   'project',
+  'person',
   'task',
   'meeting',
   'list',

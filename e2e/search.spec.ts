@@ -92,7 +92,9 @@ test('archived items are marked; people open their room', async ({ page }) => {
     .click();
   // A person opens their room.
   await expect(page).toHaveURL(/\/people\/u-chewie$/);
-  await expect(page.locator('[data-person-id="u-chewie"]')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Chewbacca' }),
+  ).toBeVisible();
 });
 
 test('the New task action opens the new-task panel', async ({ page }) => {
