@@ -241,7 +241,7 @@ the AUD, so a hostname that Access does not cover gets 401.
 ## Deploy from GitHub Actions
 
 `.github/workflows/ci.yml` runs on every pull request and on `main` and
-`v2`: Biome, knip, type check, build, Vitest in workerd with
+`staging`: Biome, knip, type check, build, Vitest in workerd with
 coverage, then Playwright + axe (desktop and phone) against `vite
 preview`, split across four runners on the Playwright container image.
 The `check` job also runs `bun audit` and fails on a known advisory of
@@ -257,9 +257,9 @@ against an allowlist. Each of these fails the job:
   `shared/` and `worker/`, just under where the suite is. Raise them as
   it grows. `.github/workflows/codeql.yml`
 runs CodeQL (security-extended queries) over the TypeScript and over the
-workflows themselves, on every pull request, on `main` and `v2`, and
-weekly. `.github/workflows/deploy.yml` deploys `main` after a green CI
-run, and `v2` to staging (below).
+workflows themselves, on every pull request, on `main` and `staging`,
+and weekly. `.github/workflows/deploy.yml` deploys `main` to production
+after a green CI run, and `staging` to staging (below).
 1. Create an API token from the **Edit Cloudflare Workers** template (it
    includes Workers KV Storage, which the first deploy needs to create
    `OAUTH_KV`).
@@ -287,15 +287,23 @@ never uses real credentials.
 
 ### Staging
 
-The `v2` branch deploys to a second Worker, `datapad-v2`, so the next
-version can be used on real data before it replaces `main`. It is the
+Staging is a lasting place to try changes before production. The
+`staging` branch deploys to a second Worker, `datapad-v2`. It is the
 `staging` environment in `wrangler.jsonc`, and it shares nothing with
 production: its own Worker (and so its own Durable Objects), backups
-bucket, `OAUTH_KV`, `REGISTER_LIMIT` counter and Access application.
+bucket, `OAUTH_KV`, `REGISTER_LIMIT` counter and Access application. Its
+names date from when staging was the v2 trunk; they stay, because
+renaming the Worker or the bucket would leave staging's data behind.
+
+The usual flow:
+- A feature branch merges into `staging`. CI runs, then staging deploys
+  by itself. Try the change there.
+- `staging` merges into `main`. CI runs, then production deploys.
+- A small fix can go straight to `main`. Merge `main` back into
+  `staging` afterward so the two do not drift.
 
 `.github/workflows/deploy.yml` picks the target from the branch. A
-successful CI run on `main` deploys production, as before. One on `v2`
-builds with `CLOUDFLARE_ENV=staging` (the Vite plugin then writes the
+successful CI run on `main` deploys production. One on `staging` builds with `CLOUDFLARE_ENV=staging` (the Vite plugin then writes the
 staging config that `wrangler deploy` ships) and deploys `datapad-v2`
 under the GitHub environment `staging`. `bun scripts/check-deploy.ts`
 checks the top-level vars and every environment's, so it refuses an empty
@@ -314,9 +322,9 @@ To set it up once:
 4. Leave the `OAUTH_KV` binding without an id. The first staging deploy
    creates the Worker's own namespace. Check under Storage & Databases →
    KV that it is not production's.
-5. Protect `v2` like `main`: require `check` and `e2e`. CI and CodeQL run
-   on pushes to `v2` as well as `main`.
-6. Push to `v2`. GitHub creates the `staging` environment on the first
+5. Protect `staging` like `main`: require `check` and `e2e`. CI and
+   CodeQL run on pushes to `staging` as well as `main`.
+6. Push to `staging`. GitHub creates the `staging` environment on the first
    deploy.
 
 MCP on staging is optional. To use it, add a Bypass application for
@@ -331,7 +339,7 @@ exactly the OAuth paths on the staging hostname, as in
 Import replaces a document with the same id and keeps everything else,
 so repeating it is safe.
 Nothing on staging writes back to production. Changes made on staging
-stay there, and production's data is untouched until cutover.
+stay there, and production's data is never touched by it.
 
 ### Pull request previews: off
 

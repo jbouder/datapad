@@ -181,8 +181,17 @@ way: its tasks, notes and lists go through `migrateFormat3()` in
 `shared/migrate.ts` (the function a format 1 or 2 import runs). Open
 tasks tagged `decide` get `decide: true`, each list becomes a checklist
 note under its id (the `lists` rows stay), and the Notepad loses
-`scratch`. An upgrade that crosses several schemas runs each step in the
-same transaction and bumps each space's `seq` once.
+`scratch`.
+
+Schema version 5 (#343) carries the old Tasks, Meetings and Projects
+pages' saved layouts and sorts into All's settings: each space's
+`settings` go through `migrateSettings()` in `shared/migrate.ts`, which
+`migrateFormat3()` also ends with, so an object still on schema 3 or
+below gets it in the schema 4 step. A space that has saved something for
+All already is left as it is. The old pages' preferences stay as stored.
+
+An upgrade that crosses several schemas runs each step in the same
+transaction and bumps each space's `seq` once.
 
 ## Client
 
