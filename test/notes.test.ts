@@ -9,6 +9,7 @@ import {
   queryWords,
   selectNotes,
   taskTitleFrom,
+  unfiledNotes,
 } from '#shared/notes';
 import {
   decideOf,
@@ -216,6 +217,29 @@ describe('isUnfiled (#328)', () => {
     expect(isUnfiled({ ...loose, meetingId: 'm1' })).toBe(false);
     expect(isUnfiled({ ...loose, taskId: 't1' })).toBe(false);
     expect(isUnfiled({ ...loose, body: 'Ask @{u-leia}' })).toBe(false);
+  });
+});
+
+describe('unfiledNotes (#333)', () => {
+  const notes = {
+    a: note('a', { createdAt: '2026-10-20T09:00:00.000Z' }),
+    b: note('b', { createdAt: '2026-10-21T09:00:00.000Z' }),
+    c: note('c', { createdAt: '2026-10-21T09:00:00.000Z' }),
+    filed: note('filed', { projectId: 'live' }),
+    met: note('met', { meetingId: 'm1' }),
+    onTask: note('onTask', { taskId: 't1' }),
+    named: note('named', { body: 'Ask @{u-leia}' }),
+  };
+
+  it('keeps the notes with no home, newest first, ties by id', () => {
+    expect(unfiledNotes(notes).map((n) => n.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('leaves out notes waiting on Undo', () => {
+    expect(unfiledNotes(notes, new Set(['b'])).map((n) => n.id)).toEqual([
+      'c',
+      'a',
+    ]);
   });
 });
 
