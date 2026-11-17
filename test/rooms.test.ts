@@ -3,6 +3,7 @@ import {
   isPinned,
   isRoomPage,
   movePin,
+  narrowedOf,
   OWED_MAX,
   owedBy,
   peopleByOwed,
@@ -347,5 +348,22 @@ describe('a room’s address (#334)', () => {
         null,
       ),
     ).toBe(true);
+  });
+
+  it('knows a person’s room narrowed to a project is the pair', () => {
+    const person = { kind: 'person', id: 'u' } as const;
+    const pair = { kind: 'pair', project: 'p', person: 'u' } as const;
+    const room = { name: 'person', id: 'u' } as const;
+    expect(isRoomPage(person, room, 'p')).toBe(false);
+    expect(isRoomPage(pair, room, 'p')).toBe(true);
+    expect(isRoomPage(pair, room, 'q')).toBe(false);
+    expect(isRoomPage(pair, room, null)).toBe(false);
+    expect(isRoomPage({ ...pair, person: 'v' }, room, 'p')).toBe(false);
+  });
+
+  it('reads what a room page is narrowed to', () => {
+    const q = new URLSearchParams('person=u&project=p');
+    expect(narrowedOf({ name: 'person', id: 'u' }, q)).toBe('p');
+    expect(narrowedOf({ name: 'project', id: 'p' }, q)).toBe('u');
   });
 });

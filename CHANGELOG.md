@@ -126,6 +126,24 @@ changes the format says so here under **Export format**.
   Picking a person narrows the lanes and the stream to what touches them
   (`?person=`); capture then mentions them, or on a task assigns them,
   and Pin pins the pair. Settings → Pages shows the room's lanes.
+- **The person room** (#335) replaces the person page at `/people/:id`,
+  and is the 1:1 prep. The header has the orgs of their projects, the
+  name and a state line (role, how many projects, how many loops are
+  open), with Pin, Schedule meeting, Edit and Remove. Under it: their
+  projects to narrow the room to, the **Next meeting** card, then three
+  lanes beside one stream. **You owe** is your open tasks that touch
+  them. **They owe you** is what waits on them (assigned to them or
+  blocked on them), then anything else of theirs that waits on someone.
+  **To discuss** is the to-decide tasks that touch them and the open
+  topics of their meetings ahead. The stream has the notes that mention
+  them, the tasks that touch them and the meetings they attend, newest
+  first. Capture there mentions them on a note and assigns them a task.
+  Picking a project narrows the lanes and the stream to the same items
+  as the project room narrowed to them (`?project=`); capture then files
+  to the project too, and Pin pins the same pair the project room does.
+  Meeting mode's 1:1 column shows the same lanes. Settings → Pages has a
+  Person room card for the lanes. Settings → People still lists, adds
+  and removes people, and each row opens the room.
 - Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
   **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
   seven columns on desktop and seven rows on phones, each day with its

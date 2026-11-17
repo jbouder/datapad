@@ -4,16 +4,18 @@
  * notes, tasks (once when added, again when done), meetings and
  * milestones. A project's room narrows it, and its lanes, to one person
  * with `?person=` (`projectKeep`); the person's room (#335) builds its
- * own from the same parts.
+ * own from the same parts, and narrows to one project with `?project=`
+ * (`personKeep`, `personStream`): the same items as the project's room
+ * narrowed to the person.
  *
  * Every `at` is on the local calendar (`YYYY-MM-DDTHH:MM`), so a meeting
  * at 14:00 and a note written at 14:05 fall in the order you lived them.
  */
 import { dayOf } from './dates';
-import { taskTouches } from './loops';
+import { type Lanes, lanesOf, taskTouches } from './loops';
 import { mentionedIds } from './mentions';
 import { nextMilestone } from './milestones';
-import { localTime } from './today';
+import { localTime, meetingPast } from './today';
 import {
   type DateString,
   healthOf,
@@ -26,6 +28,9 @@ import {
   type ProjectHealth,
   type Snapshot,
   type Task,
+  type TimeString,
+  type Topic,
+  topicsOf,
 } from './types';
 
 export type StreamItem =
@@ -277,6 +282,162 @@ export function projectStateLine(
   if (project.status === 'done') parts.push('Done');
   if (project.targetDate) parts.push(`Target ${day(project.targetDate)}`);
   if (next) parts.push(`Next: ${next.title}, ${day(next.date)}`);
+  parts.push(open === 0 ? 'Nothing open' : `${open} open`);
+  return parts;
+}
+
+/**
+ * Which tasks a person's room keeps: those that touch them
+ * (`taskTouches`), and with `project` only that project's. The same set
+ * as `projectKeep(project, person)`.
+ */
+export function personKeep(
+  personId: string,
+  project?: string | null,
+): (task: Task) => boolean {
+  return (task) =>
+    taskTouches(task, personId) && (!project || task.projectId === project);
+}
+
+/**
+ * A person's lanes (#335): `lanesOf` over what `personKeep` keeps. Mine
+ * is You owe, Waiting on is They owe you (their own group first), To
+ * decide is To discuss (with `personTopics`). Meeting mode's 1:1 column
+ * shows the same.
+ */
+export function personLanes(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+  me: string | null,
+  personId: string,
+  project?: string | null,
+): Lanes {
+  const lanes = lanesOf(state, me, personKeep(personId, project));
+  const theirs = lanes.waiting.filter((g) => g.personId === personId);
+  const rest = lanes.waiting.filter((g) => g.personId !== personId);
+  return { ...lanes, waiting: [...theirs, ...rest] };
+}
+
+/** A meeting still to come, by `nextMeeting`'s rule, in a live project. */
+function meetingAhead(
+  meeting: Meeting,
+  projects: Snapshot['projects'],
+  today: DateString,
+  now: TimeString,
+): boolean {
+  if (meeting.projectId && projects[meeting.projectId]?.archived) return false;
+  return !meetingPast(meeting, today, now);
+}
+
+/**
+ * To discuss's topics: the open topics of the meetings ahead that the
+ * person attends (with `project`, that project's), soonest meeting
+ * first, each meeting's in its own order.
+ */
+export function personTopics(
+  state: Pick<Snapshot, 'meetings' | 'projects'>,
+  personId: string,
+  today: DateString,
+  now: TimeString,
+  project?: string | null,
+): { meeting: Meeting; topic: Topic }[] {
+  return Object.values(state.meetings)
+    .filter(
+      (m) =>
+        meetingTouches(m, personId) &&
+        (!project || m.projectId === project) &&
+        meetingAhead(m, state.projects, today, now),
+    )
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.time.localeCompare(b.time) ||
+        a.title.localeCompare(b.title),
+    )
+    .flatMap((meeting) =>
+      topicsOf(meeting)
+        .filter((t) => !t.done)
+        .map((topic) => ({ meeting, topic })),
+    );
+}
+
+/**
+ * A person's stream: notes that mention them (not `hidden`), tasks that
+ * touch them and meetings they attend, newest first. With `project`,
+ * exactly the project's room narrowed to them (`projectStream`).
+ */
+export function personStream(
+  state: Pick<Snapshot, 'notes' | 'tasks' | 'meetings' | 'projects'>,
+  personId: string,
+  project?: string | null,
+  hidden: ReadonlySet<string> = new Set(),
+): StreamItem[] {
+  if (project) return projectStream(state, project, personId, hidden);
+  const notes = Object.values(state.notes).filter(
+    (n) => !hidden.has(n.id) && noteTouches(n, personId),
+  );
+  const tasks = Object.values(state.tasks).filter(personKeep(personId));
+  const meetings = Object.values(state.meetings).filter((m) =>
+    meetingTouches(m, personId),
+  );
+  return buildStream({ notes, tasks, meetings });
+}
+
+/**
+ * The projects a person's room can be narrowed to: those they are a
+ * member of, by name, then those where a task touches them, a note
+ * mentions them or a meeting has them, by name. Archived ones are left
+ * out. Each once.
+ */
+export function personProjects(
+  state: Pick<Snapshot, 'tasks' | 'notes' | 'meetings' | 'projects'>,
+  personId: string,
+): Project[] {
+  const live = Object.values(state.projects).filter((p) => !p.archived);
+  const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
+  const members = live.filter((p) => p.members.includes(personId)).sort(byName);
+  const seen = new Set(members.map((p) => p.id));
+  const touched = new Set<string>();
+  const add = (id: string | null) => {
+    if (id && !seen.has(id)) touched.add(id);
+  };
+  for (const t of Object.values(state.tasks)) {
+    if (taskTouches(t, personId)) add(t.projectId);
+  }
+  for (const n of Object.values(state.notes)) {
+    if (noteTouches(n, personId)) add(n.projectId);
+  }
+  for (const m of Object.values(state.meetings)) {
+    if (meetingTouches(m, personId)) add(m.projectId);
+  }
+  const others = live.filter((p) => touched.has(p.id)).sort(byName);
+  return [...members, ...others];
+}
+
+/**
+ * The orgs of a person's projects (`personProjects`), A to Z, each once:
+ * the person's room's kicker.
+ */
+export function personOrgs(projects: readonly Project[]): string[] {
+  const orgs = new Set(projects.map((p) => p.org.trim()).filter(Boolean));
+  return [...orgs].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * A person's room's state line, as its parts: their role (when set),
+ * how many projects they are on and how many loops are open.
+ */
+export function personStateLine(
+  person: Pick<Person, 'role'>,
+  projects: number,
+  open: number,
+): string[] {
+  const parts: string[] = [];
+  if (person.role.trim()) parts.push(person.role.trim());
+  parts.push(
+    projects === 0
+      ? 'No projects'
+      : `${projects} ${projects === 1 ? 'project' : 'projects'}`,
+  );
   parts.push(open === 0 ? 'Nothing open' : `${open} open`);
   return parts;
 }
