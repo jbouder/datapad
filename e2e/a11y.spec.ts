@@ -49,8 +49,16 @@ const ROUTES = [
 
 /** Every page and layout with data in it (`e2e/seed.ts`). */
 const WITH_DATA = [
+  '/?view=week',
+  '/all?show=rooms',
   '/all?kind=project&status=all',
+  '/all?kind=project&status=all&view=cards',
+  '/all?kind=project&status=all&view=timeline',
   '/all?kind=task',
+  '/all?kind=task&view=table',
+  '/all?kind=task&view=board',
+  '/all?kind=meeting&status=all&view=calendar',
+  '/projects/p-echo',
   '/all?kind=meeting&status=all',
   '/all?kind=note&note=n-1',
   '/scratch',
