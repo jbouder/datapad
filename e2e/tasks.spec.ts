@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { addDays } from '../shared/dates';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectSaved,
   isMobile,
@@ -39,7 +39,7 @@ test('add three tasks in a project room, close one, undo', async ({
   await expect(loop(page, 'Find a replacement motivator')).toBeVisible();
   await expect(mine(page)).toHaveCount(0);
 
-  // The top bar's + opens the new-task panel, preset to the room's
+  // ⌘K's New task opens the new-task panel, preset to the room's
   // project; Enter in the title adds.
   const panel = page.getByRole('dialog', { name: 'New task' });
   for (const title of [
@@ -47,7 +47,7 @@ test('add three tasks in a project room, close one, undo', async ({
     'Clean the dejarik board',
     'Tune the deflector',
   ]) {
-    await addFromTopBar(page, 'Add task');
+    await addFromSearch(page, 'New task');
     const name = panel.getByRole('textbox', { name: 'Title' });
     await expect(name).toBeFocused();
     await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(

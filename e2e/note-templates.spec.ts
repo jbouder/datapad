@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -62,7 +62,7 @@ test('make a note template in Settings, start a note from it, then /template', a
 
   // The New note panel's picker fills the composer.
   await openLive(page, '/notes?view=list');
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   const note = page.getByRole('dialog', { name: 'New note' });
   const box = note.getByRole('combobox', { name: 'Note' });
   await note.getByRole('combobox', { name: 'Template' }).click();
@@ -137,7 +137,7 @@ test('save a note as a template, mentions and all', async ({
 
   // Only project templates in a new project's form.
   await openLive(page, '/all');
-  await addFromTopBar(page, 'Add project');
+  await addFromSearch(page, 'New project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', {
       name: 'Start from template',

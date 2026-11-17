@@ -133,6 +133,30 @@ test('Today: the day, Next up, what is due, the timeline and the loops', async (
   ).toHaveValue('Book the tauntaun vet');
 });
 
+test('a save that moves a loop to another lane keeps focus on it', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page);
+  await lane(page, 'Mine')
+    .getByRole('button', { name: 'Book the tauntaun vet' })
+    .click();
+  const panel = page.getByRole('dialog', { name: 'Task' });
+  const who = panel.getByRole('combobox', { name: 'Assignee' });
+  await who.click();
+  await who.fill('han');
+  await page.getByRole('option', { name: /^Han Solo/ }).click();
+  await panel.getByRole('button', { name: 'Save' }).click();
+  await expect(panel).toBeHidden();
+  // Assigned to Han, it waits on him now: focus follows it there.
+  await expect(
+    lane(page, 'Waiting on Han Solo').getByRole('button', {
+      name: 'Book the tauntaun vet',
+    }),
+  ).toBeFocused();
+});
+
 test('step through the days and back to today', async ({ page, request }) => {
   await request.post('/api/import', { data: SEED });
   await openLive(page);

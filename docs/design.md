@@ -98,17 +98,16 @@ stays plain Markdown.
 | `@{id}`                     | Mention chip on `accent`                                      | body, 500                  |
 
 Headings render as `h3`–`h5` so they sit under the page's own `h1` and
-section `h2`s. `.prose-compact` scales the whole set by 0.88 (grid
-cards).
+section `h2`s.
 
 ## Density and layout
 
-| Rule              | Value                                                                       |
-| ----------------- | --------------------------------------------------------------------------- |
+| Rule              | Value                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
 | Row height        | 36px desktop, 44px below 820px (`--row-height`, `.row`)                     |
 | Rail              | 232px (`--rail-width`), desktop only                                        |
 | Content max width | 1040px (`--content-max`)                                                    |
-| Breakpoint        | 820px: rail and 3:2 project grid above; bottom tab bar and one column below |
+| Breakpoint        | 820px: rail, Today's and a room's lanes beside the day or stream above; bottom tab bar and one column below |
 | Side panel        | 460px, full screen below 820px                                              |
 
 ## Mobile
@@ -120,12 +119,15 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
   `enterkeyhint` and `autocapitalize`.
 - Respect safe areas (`env(safe-area-inset-*)`) in the top bar, tab bar,
   panels and toasts.
-- Tables become stacked rows; wide layouts (board, timeline) scroll inside
-  their own container, never the page.
+- Tables become stacked rows; wide layouts (All's board and timeline,
+  the capture line's chips, All's kind chips) scroll inside their own
+  container, never the page.
+- Today's lanes sit below the day, and a room's below its state line;
+  meeting mode stacks agenda, notes and open loops in one column.
 
 ## Installing (PWA)
 
-- `public/site.webmanifest`: standalone, opens at `/focus`, scope `/`.
+- `public/site.webmanifest`: standalone, opens at `/focus`, which lands on Today, scope `/`.
   The page links it with `crossorigin="use-credentials"`: behind
   Cloudflare Access, a manifest fetched without the session cookie would
   get the login page instead.

@@ -4,11 +4,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-for (const view of ['list', 'table', 'board', 'timeline']) {
+for (const view of ['list', 'table', 'board']) {
   test.describe(`${view} layout`, () => {
     test.use({ reducedMotion: 'reduce' });
     test('is axe clean', async ({ page }) => {
-      await openLive(page, `/tasks?view=${view}`);
+      await openLive(page, `/all?kind=task&view=${view}`);
       await expectAccessible(page);
     });
   });

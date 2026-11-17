@@ -23,7 +23,7 @@ test('links a manifest that opens Today standalone, with working icons', async (
   const manifest = await response.json();
   expect(manifest).toMatchObject({
     name: 'Datapad',
-    start_url: '/focus',
+    start_url: '/',
     scope: '/',
     display: 'standalone',
   });
@@ -61,7 +61,7 @@ test('links a manifest that opens Today standalone, with working icons', async (
     expect((await request.get(href)).ok(), href).toBe(true);
   }
 
-  // The installed app's start URL, /focus, lands on Today.
+  // An app installed before v2 starts at /focus, which lands on Today.
   await openLive(page, '/focus');
   await expect(page).toHaveURL(/\/$/);
   await expect(page).toHaveTitle('Today · Datapad');

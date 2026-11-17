@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_NOTE_FILTERS,
-  groupByDay,
   isUnfiled,
-  matchBeyondPreview,
+  type NoteFilters,
   notePreview,
   projectNotes,
   queryWords,
@@ -17,6 +15,9 @@ import {
   type Note,
   type Project,
 } from '#shared/types';
+
+/** Every note, as All shows them with no filter. */
+const DEFAULT_NOTE_FILTERS: NoteFilters = { project: '', pinned: false, q: '' };
 
 function note(id: string, patch: Partial<Note>): Note {
   return {
@@ -100,12 +101,7 @@ describe('selectNotes', () => {
   });
 });
 
-describe('groupByDay and projectNotes', () => {
-  it('groups by local day, keeping order', () => {
-    const days = groupByDay(selectNotes(state, DEFAULT_NOTE_FILTERS));
-    expect(days.map((d) => ids(d.notes))).toEqual([['c', 'a'], ['b']]);
-  });
-
+describe('projectNotes', () => {
   it('puts a project’s pinned notes first', () => {
     expect(ids(projectNotes(state.notes, 'live'))).toEqual(['b', 'a']);
     expect(ids(projectNotes(state.notes, null))).toEqual(['c']);
@@ -159,44 +155,6 @@ describe('notePreview', () => {
     );
     const many = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
     expect(notePreview(many, people).split('\n')).toHaveLength(6);
-  });
-});
-
-describe('matchBeyondPreview', () => {
-  const people = state.people;
-  it('is false with no words, or when every word is in the first two lines', () => {
-    expect(matchBeyondPreview('anything', people, [])).toBe(false);
-    expect(
-      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
-        'standup',
-        'shields',
-      ]),
-    ).toBe(false);
-  });
-
-  it('is true when a word is only past the second line', () => {
-    expect(
-      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
-        'standup',
-        'heaters',
-      ]),
-    ).toBe(true);
-    // Past the six lines a preview keeps, too.
-    const long = Array.from({ length: 9 }, (_, i) => `- idea ${i + 1}`);
-    expect(matchBeyondPreview(long.join('\n'), people, ['idea 9'])).toBe(true);
-  });
-
-  it('counts a long line as the lines it wraps to', () => {
-    const line = `${'word '.repeat(20)}needle`;
-    expect(matchBeyondPreview(line, people, ['needle'])).toBe(true);
-    expect(matchBeyondPreview(`${line}\nsecond`, people, ['second'])).toBe(
-      true,
-    );
-    expect(matchBeyondPreview('short\nsecond', people, ['second'])).toBe(false);
-  });
-
-  it('finds a mention by the name it shows', () => {
-    expect(matchBeyondPreview('Ask @{leia}', people, ['leia'])).toBe(false);
   });
 });
 

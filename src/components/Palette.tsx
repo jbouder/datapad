@@ -9,7 +9,6 @@ import {
   DownloadSimpleIcon,
   FolderIcon,
   type Icon,
-  ListChecksIcon,
   MagnifyingGlassIcon,
   NoteIcon,
   PlusIcon,
@@ -43,11 +42,12 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'task', heading: 'Tasks', icon: CheckSquareIcon },
   { kind: 'note', heading: 'Notes', icon: NoteIcon },
   { kind: 'meeting', heading: 'Meetings', icon: CalendarBlankIcon },
-  { kind: 'list', heading: 'Lists', icon: ListChecksIcon },
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
   { kind: 'whiteboard', heading: 'Whiteboard', icon: ChalkboardSimpleIcon },
 ];
+
+const NO_LISTS = {};
 
 /** ⌘K's Go to for each of All's kinds (#329). */
 const ALL_KINDS_GO: { kind: AllKind; label: string; icon: Icon }[] = [
@@ -109,7 +109,8 @@ export function Palette({
         state.people,
         state.orgs,
         state.boardItems,
-        state.lists,
+        // Lists retired into checklist notes (#328); their data is kept.
+        NO_LISTS,
       )
     : null;
   const results = useMemo(
@@ -251,9 +252,6 @@ export function Palette({
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));
-      case 'list':
-        // Lists became notes (#328): All's notes.
-        return choose(() => navigate({ name: 'all', kinds: ['note'] }));
       case 'org':
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
@@ -303,8 +301,8 @@ export function Palette({
         >
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Projects, tasks, notes, meetings, lists, orgs, people, whiteboards
-            and actions. Arrow keys move, Enter opens, Esc closes.
+            Projects, tasks, notes, meetings, orgs, people, whiteboards and
+            actions. Arrow keys move, Enter opens, Esc closes.
           </Dialog.Description>
           <Command label="Search" shouldFilter={false} loop>
             <div className="flex items-center gap-2 border-b px-3">

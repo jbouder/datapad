@@ -5,7 +5,7 @@ import {
   formatDay,
   type WeekStart,
 } from './dates';
-import { byWhen, previousMeeting } from './meetings';
+import { previousMeeting } from './meetings';
 import { nextMilestone } from './milestones';
 import {
   blockedOf,
@@ -15,8 +15,6 @@ import {
   type Milestone,
   milestonesOf,
   type Note,
-  type Person,
-  type Priority,
   type Project,
   type Snapshot,
   type Task,
@@ -149,20 +147,6 @@ export type AssigneeFilter =
   | { kind: 'unassigned' }
   | { kind: 'person'; id: string };
 
-/** The filter as it sits in the URL (`who=`): anyone, mine, unassigned, p:<id>. */
-export function assigneeFromQuery(value: string | null): AssigneeFilter {
-  if (value === 'mine') return { kind: 'mine' };
-  if (value === 'unassigned') return { kind: 'unassigned' };
-  if (value?.startsWith('p:') && value.length > 2) {
-    return { kind: 'person', id: value.slice(2) };
-  }
-  return { kind: 'anyone' };
-}
-
-export function assigneeToQuery(filter: AssigneeFilter): string {
-  return filter.kind === 'person' ? `p:${filter.id}` : filter.kind;
-}
-
 export function matchesAssignee(
   task: Task,
   filter: AssigneeFilter,
@@ -258,78 +242,6 @@ export const focusBuckets = lastCall(
   },
 );
 
-/** The buckets Focus's Due draws from: Day's two, Week's three. */
-export type DueKey = Extract<
-  keyof FocusBuckets,
-  'overdue' | 'today' | 'upcoming'
->;
-
-/**
- * Focus's Due: the view's buckets, then every High priority task the
- * view would leave out, whatever its date (due later or not at all), so
- * the important work stays in sight. Blocked tasks stay in Waiting on.
- */
-export function focusDue(
-  buckets: FocusBuckets,
-  keys: readonly DueKey[],
-): Task[] {
-  const rest = (['upcoming', 'later', 'noDate'] as const).filter(
-    (key) => !(keys as readonly string[]).includes(key),
-  );
-  return [
-    ...keys.flatMap((key) => buckets[key]),
-    ...rest.flatMap((key) => buckets[key].filter((t) => t.priority === 'high')),
-  ];
-}
-
-export interface PriorityGroup {
-  priority: Priority;
-  tasks: Task[];
-}
-
-/**
- * Focus's Due (#218): tasks by priority, High first and No priority
- * last, each group keeping the order it was given; empty groups left out.
- */
-export function byPriority(tasks: readonly Task[]): PriorityGroup[] {
-  const order: Priority[] = ['high', 'med', 'low', 'none'];
-  return order.flatMap((priority) => {
-    const group = tasks.filter((t) => t.priority === priority);
-    return group.length > 0 ? [{ priority, tasks: group }] : [];
-  });
-}
-
-/** A bucket Focus's Due can group by when grouped by date (#311). */
-export type DueDateKey = Exclude<keyof FocusBuckets, 'blocked'>;
-
-export interface DueDateGroup {
-  key: DueDateKey;
-  tasks: Task[];
-}
-
-/**
- * Focus's Due grouped by date (#311): Overdue, Today, Upcoming, then the
- * High priority tasks Due keeps from past the window (Later, No date),
- * each group keeping the order it was given; empty groups left out.
- */
-export function byDueDate(
-  buckets: FocusBuckets,
-  tasks: readonly Task[],
-): DueDateGroup[] {
-  const order: DueDateKey[] = [
-    'overdue',
-    'today',
-    'upcoming',
-    'later',
-    'noDate',
-  ];
-  return order.flatMap((key) => {
-    const ids = new Set(buckets[key].map((t) => t.id));
-    const group = tasks.filter((t) => ids.has(t.id));
-    return group.length > 0 ? [{ key, tasks: group }] : [];
-  });
-}
-
 /** Each project's next milestone on or after `today`, by project id. */
 export const nextMilestones = lastCall(
   (projects: Projects, today: DateString): Map<string, Milestone> => {
@@ -402,30 +314,6 @@ export const agenda = lastCall(
         timeOf(a).localeCompare(timeOf(b)) ||
         titleOf(a).localeCompare(titleOf(b)),
     );
-  },
-);
-
-export interface Mentions {
-  notes: Note[];
-  tasks: Task[];
-}
-
-/** Every note and task whose text mentions the person (`@{id}`). */
-export const mentionsOf = lastCall(
-  (
-    notes: Snapshot['notes'],
-    tasks: Tasks,
-    personId: Person['id'],
-  ): Mentions => {
-    const token = `@{${personId}}`;
-    return {
-      notes: Object.values(notes)
-        .filter((n) => n.body.includes(token))
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-      tasks: Object.values(tasks)
-        .filter((t) => t.desc.includes(token))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    };
   },
 );
 
@@ -597,63 +485,7 @@ export function movementLine(m: WeekMovement): string {
   return `${m.closed} closed this week · ${m.added} added · ${m.overdue} overdue`;
 }
 
-/** Blocked tasks waiting on one person (or on no one listed). */
-export interface WaitingGroup {
-  /** null: Not on anyone (or on someone no longer listed). */
-  person: Person | null;
-  /** Longest waiting first. */
-  tasks: Task[];
-  /** When the longest waiting last changed (`setBlocked` bumps it). */
-  since: Timestamp;
-}
-
-/**
- * Open blocked tasks outside the archive that match the assignee filter,
- * grouped by who they wait on: by name, Not on anyone last.
- */
-export const waitingOn = lastCall(
-  (
-    tasks: Tasks,
-    projects: Projects,
-    people: Snapshot['people'],
-    me: string | null,
-    filter: AssigneeFilter,
-  ): WaitingGroup[] => {
-    const groups = new Map<string, Task[]>();
-    for (const t of Object.values(tasks)) {
-      const blocked = blockedOf(t);
-      if (!blocked || t.status !== 'open') continue;
-      if (!unarchived(projects, t.projectId)) continue;
-      if (!matchesAssignee(t, filter, me)) continue;
-      const key = blocked.on && people[blocked.on] ? blocked.on : '';
-      groups.set(key, [...(groups.get(key) ?? []), t]);
-    }
-    const out: WaitingGroup[] = [...groups].map(([key, list]) => {
-      list.sort(
-        (a, b) =>
-          a.updatedAt.localeCompare(b.updatedAt) ||
-          a.title.localeCompare(b.title),
-      );
-      return {
-        person: key ? (people[key] ?? null) : null,
-        tasks: list,
-        since: list[0]?.updatedAt ?? '',
-      };
-    });
-    return out.sort(
-      (a, b) =>
-        Number(a.person === null) - Number(b.person === null) ||
-        (a.person?.name ?? '').localeCompare(b.person?.name ?? ''),
-    );
-  },
-);
-
 const dayCount = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
-
-/** "waiting 9 days", "waiting 1 day", "waiting since today". */
-export function waitingFor(days: number): string {
-  return days <= 0 ? 'waiting since today' : `waiting ${dayCount(days)}`;
-}
 
 /** Why a project is in Attention. */
 export type AttentionReason =
@@ -730,56 +562,6 @@ export function attentionLine(reasons: readonly AttentionReason[]): string {
     })
     .join(' · ');
 }
-
-/** A recent meeting's open action items. */
-export interface FollowUp {
-  meeting: Meeting;
-  /** Oldest first, as on the meeting. */
-  tasks: Task[];
-}
-
-/**
- * Open action items (`Task.meetingId`) matching the assignee filter and
- * not blocked (those are in Waiting on), from
- * meetings outside the archive held in the last `days` days
- * (`BRIEFING_WEEK` unless Focus's settings say otherwise; today and `days`
- * ago today included, so last week's instance of a weekly meeting
- * counts), grouped by meeting, newest meeting first.
- */
-export const followUps = lastCall(
-  (
-    meetings: Snapshot['meetings'],
-    tasks: Tasks,
-    projects: Projects,
-    today: DateString,
-    me: string | null,
-    filter: AssigneeFilter,
-    days: number = BRIEFING_WEEK,
-  ): FollowUp[] => {
-    const since = addDays(today, -days);
-    const groups = new Map<string, Task[]>();
-    for (const t of Object.values(tasks)) {
-      const m = t.meetingId ? meetings[t.meetingId] : undefined;
-      if (!m || t.status !== 'open' || blockedOf(t)) continue;
-      if (m.date < since || m.date > today) continue;
-      if (!unarchived(projects, t.projectId)) continue;
-      if (!unarchived(projects, m.projectId)) continue;
-      if (!matchesAssignee(t, filter, me)) continue;
-      groups.set(m.id, [...(groups.get(m.id) ?? []), t]);
-    }
-    const out: FollowUp[] = [];
-    for (const [id, list] of groups) {
-      const meeting = meetings[id];
-      if (!meeting) continue;
-      list.sort(
-        (a, b) =>
-          a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-      );
-      out.push({ meeting, tasks: list });
-    }
-    return out.sort((a, b) => byWhen(b.meeting, a.meeting));
-  },
-);
 
 /** Where a meeting on the agenda stands, for its card. */
 export interface Prep {

@@ -1,9 +1,5 @@
 import {
-  CalendarPlusIcon,
-  CheckSquareIcon,
-  FolderPlusIcon,
   type Icon,
-  NotePencilIcon,
   SquaresFourIcon,
   SunIcon,
   TrayIcon,
@@ -29,37 +25,6 @@ export const PLACES: PlaceItem[] = [
     icon: TrayIcon,
   },
   { name: 'all', route: { name: 'all' }, label: 'All', icon: SquaresFourIcon },
-];
-
-/** What the top bar's + offers, until the capture line (#330). */
-export type QuickAddAction = 'task' | 'note' | 'meeting' | 'project';
-
-/** One of the + menu's actions. */
-export interface QuickAddItem {
-  name: QuickAddAction;
-  label: string;
-  icon: Icon;
-  /** Its page-wide key, if it has one: shown on desktop. */
-  shortcut?: { label: string; keys: string };
-}
-
-/**
- * The + menu: Add task, Write a note, Add meeting and Add project. Fixed
- * since Settings → Navigation retired (#329).
- */
-export const QUICK_ADD: QuickAddItem[] = [
-  {
-    name: 'task',
-    label: 'Add task',
-    icon: CheckSquareIcon,
-  },
-  {
-    name: 'note',
-    label: 'Write a note',
-    icon: NotePencilIcon,
-  },
-  { name: 'meeting', label: 'Add meeting', icon: CalendarPlusIcon },
-  { name: 'project', label: 'Add project', icon: FolderPlusIcon },
 ];
 
 export { placeOf, titleOf } from '#shared/routes';

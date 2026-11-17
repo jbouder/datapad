@@ -2,7 +2,7 @@ import { type ComponentType, use } from 'react';
 import type { Route } from '@/lib/router';
 
 /**
- * The pages most visits never open, each its own chunk, so the entry stays
+ * The pages a first visit to Today does not need, each its own chunk, so the entry stays
  * small. AppShell renders them inside the page's error boundary and a Suspense with a quiet
  * fallback: a chunk that fails to load shows "Reload this view" like any
  * page that throws.
@@ -47,6 +47,9 @@ function lazyPage<P extends object>(
   return Object.assign(Page, { preload });
 }
 
+export const AllPage = lazyPage(() =>
+  import('@/pages/AllPage').then((m) => m.AllPage),
+);
 export const HelpPage = lazyPage(() =>
   import('@/pages/HelpPage').then((m) => m.HelpPage),
 );
@@ -76,6 +79,7 @@ type Preload = { preload: () => Promise<unknown> };
 const ROOM_BOARD: Preload[] = [ProjectBoard, ProjectBoardMenu];
 
 const LAZY: Partial<Record<Route['name'], Preload[]>> = {
+  all: [AllPage],
   help: [HelpPage],
   meeting: [MeetingMode],
   project: ROOM_BOARD,

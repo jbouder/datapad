@@ -1,8 +1,7 @@
-import { itemsOf } from './board';
 import { addDays, formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
 import { lanesOf, NOBODY, todayLanes, waitingCount } from './loops';
-import { byWhen, timeRange } from './meetings';
+import { timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import { noteTitle } from './notes';
 import { buildRecap, recapCounts, recapMeetingLine } from './recap';
@@ -34,7 +33,6 @@ import {
 import {
   blockedOf,
   type DateString,
-  healthOf,
   type Meeting,
   milestonesOf,
   type Note,
@@ -128,13 +126,9 @@ export function withoutThinking(raw: string): string {
 export const SYSTEM_PROMPT =
   'You are summarizing one item from a personal project tracker used by an engineering leader. Write a concise summary in plain markdown using short paragraphs and "- " bullets (headings, if any, as "### "). Structure: a 1–3 sentence overview; then bullets for key points; then "Open items" and "Suggested next steps" when the data supports them. Be specific, keep names and dates, do not invent anything not in the data, and stay under 220 words.';
 
-/** How much of a project goes in (docs/SPEC.md § Claude summaries). */
+/** How many of a task's running notes go in, the latest. */
 export const SUMMARY_LIMITS = {
-  doneTasks: 15,
   notes: 20,
-  activity: 25,
-  /** Sticky and text items from its whiteboard, in drawing order. */
-  boardNotes: 30,
 } as const;
 
 const PRIORITY_WORDS = {
@@ -152,13 +146,6 @@ function projectName(state: Lookup, id: string | null): string {
 
 function personName(state: Lookup, id: string): string | undefined {
   return id ? state.people[id]?.name : undefined;
-}
-
-function names(state: Lookup, ids: string[]): string {
-  return ids
-    .map((id) => state.people[id]?.name)
-    .filter(Boolean)
-    .join(', ');
 }
 
 function day(date: string): string {
@@ -315,127 +302,6 @@ function blockedLine(task: Task, state: Lookup): string {
   if (!b) return '';
   const who = b.on ? personName(state, b.on) : undefined;
   return `blocked${who ? ` on ${who}` : ''}${b.note ? `: ${b.note}` : ''}`;
-}
-
-function indent(text: string): string {
-  return text
-    .trim()
-    .split('\n')
-    .map((line) => `  ${line}`)
-    .join('\n');
-}
-
-/**
- * A project: its fields, open tasks with their details, the last 15 done
- * tasks, every milestone, every meeting, its whiteboard's first 30 sticky
- * and text items, the last 20 notes newest first,
- * the last 25
- * activity lines.
- */
-export function projectContext(projectId: string, state: Snapshot): string {
-  const project = state.projects[projectId];
-  if (!project) return '';
-  const lines = [
-    `Project: ${project.name}`,
-    `Org: ${project.org || 'none'}`,
-    `Status: ${project.status}`,
-    `Health: ${healthOf(project) === 'none' ? 'not set' : healthOf(project)}`,
-    `Priority: ${PRIORITY_WORDS[project.priority]}`,
-    `Start date: ${project.startDate ? day(project.startDate) : 'none'}`,
-    `Target date: ${project.targetDate ? day(project.targetDate) : 'none'}`,
-    `Team: ${names(state, project.members) || 'none listed'}`,
-  ];
-  if (project.desc.trim()) {
-    lines.push(
-      'Description:',
-      tokensToNames(project.desc, state.people).trim(),
-    );
-  }
-
-  const tasks = Object.values(state.tasks).filter(
-    (t) => t.projectId === projectId,
-  );
-  const open = tasks
-    .filter((t) => t.status === 'open')
-    .sort((a, b) => a.order - b.order);
-  const done = tasks
-    .filter((t) => t.status === 'done')
-    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
-    .slice(0, SUMMARY_LIMITS.doneTasks);
-  lines.push('', `Open tasks (${open.length}):`);
-  if (open.length === 0) lines.push('none');
-  for (const t of open) {
-    lines.push(taskLine(t, state));
-    if (t.desc.trim()) lines.push(indent(tokensToNames(t.desc, state.people)));
-  }
-  if (done.length > 0) {
-    lines.push('', 'Recently done tasks:');
-    for (const t of done) lines.push(taskLine(t, state));
-  }
-
-  const milestones = milestonesOf(project);
-  if (milestones.length > 0) {
-    lines.push('', 'Milestones, by date:');
-    for (const m of milestones) lines.push(`- ${day(m.date)}: ${m.title}`);
-  }
-
-  const meetings = Object.values(state.meetings)
-    .filter((m) => m.projectId === projectId)
-    .sort(byWhen);
-  if (meetings.length > 0) {
-    lines.push('', 'Meetings:');
-    for (const m of meetings) {
-      const range = timeRange(m, '24h');
-      const topics = topicsOf(m);
-      const covered = topics.filter((t) => t.done).length;
-      lines.push(
-        `- ${day(m.date)}${range ? ` ${range}` : ''}: ${m.title}${
-          topics.length > 0
-            ? ` (${covered} of ${topics.length} topics covered)`
-            : ''
-        }`,
-      );
-    }
-  }
-
-  // Absent in a snapshot cached before whiteboards.
-  const board = itemsOf(state.boardItems ?? {}, projectId)
-    .filter((b) => (b.kind === 'sticky' || b.kind === 'text') && b.text.trim())
-    .slice(0, SUMMARY_LIMITS.boardNotes);
-  if (board.length > 0) {
-    lines.push('', 'Whiteboard notes:');
-    for (const b of board) {
-      lines.push(`- ${tokensToNames(b.text, state.people).trim()}`);
-    }
-  }
-
-  const notes = Object.values(state.notes)
-    .filter((n) => n.projectId === projectId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, SUMMARY_LIMITS.notes);
-  if (notes.length > 0) {
-    lines.push('', 'Notes, newest first:');
-    for (const n of notes) {
-      lines.push(
-        `[note] ${noteDay(n)}`,
-        tokensToNames(n.body, state.people).trim(),
-        '',
-      );
-    }
-    lines.pop();
-  }
-
-  const activity = (state.activity[projectId]?.events ?? []).slice(
-    0,
-    SUMMARY_LIMITS.activity,
-  );
-  if (activity.length > 0) {
-    lines.push('', 'Recent activity, newest first:');
-    for (const a of activity) {
-      lines.push(`- ${day(a.t.slice(0, 10))}: ${a.text}`);
-    }
-  }
-  return lines.join('\n').trimEnd();
 }
 
 /**

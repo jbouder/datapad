@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -47,7 +47,7 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
 
   // A task assigned to Han, and a note that mentions him.
   await openLive(page, '/');
-  await addFromTopBar(page, 'Add task');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   const title = panel.getByRole('textbox', { name: 'Title' });
   await title.fill('Fix the compressor');
@@ -58,7 +58,7 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
   await title.press('Enter');
   await expect(panel).toBeHidden();
 
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   const write = page.getByRole('dialog', { name: 'New note' });
   await write
     .getByRole('combobox', { name: 'Note' })

@@ -130,11 +130,7 @@ for (const theme of CHECKED) {
 
     test('with the project form open', async ({ page }) => {
       await page.goto('/all');
-      await page
-        .getByRole('banner')
-        .getByRole('button', { name: 'Add', exact: true })
-        .click();
-      await page.getByRole('menuitem', { name: 'Add project' }).click();
+      await page.getByRole('button', { name: 'New project' }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
       await expectAccessible(page);
     });
@@ -163,12 +159,8 @@ for (const theme of CHECKED) {
 
     test('with the meeting form open', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/all?kind=meeting');
-      await page
-        .getByRole('banner')
-        .getByRole('button', { name: 'Add', exact: true })
-        .click();
-      await page.getByRole('menuitem', { name: 'Add meeting' }).click();
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Add meeting' }).click();
       await expect(
         page.getByRole('dialog', { name: 'New meeting' }),
       ).toBeVisible();

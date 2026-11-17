@@ -3,11 +3,8 @@ import {
   currentValues,
   effectiveQuery,
   filterFields,
-  hasPageSettings,
   PAGES,
-  sectionCounts,
   sectionOrder,
-  sourceNoteShow,
   toggleSection,
   visibleSections,
 } from '#shared/pages';
@@ -47,50 +44,5 @@ describe('the project room', () => {
         view: 'board',
       }).toString(),
     ).toBe('');
-  });
-
-  it('remembers its lanes, Milestones and Activity open or closed', () => {
-    const prefs = {
-      sections: { mine: false, activity: true, notes: false, done: true },
-    };
-    expect(sectionCounts(prefs, PAGES.project.collapsible)).toEqual({
-      closed: 1,
-      open: 1,
-    });
-    expect(hasPageSettings('project')).toBe(true);
-  });
-});
-
-describe('the task page', () => {
-  it('is listed in Settings → Pages', () => {
-    expect(hasPageSettings('task')).toBe(true);
-    expect(PAGES.task.sectionKeys).toBeUndefined();
-  });
-
-  it('reads Source note as saved, else Expanded', () => {
-    expect(sourceNoteShow('collapsed')).toBe('collapsed');
-    expect(sourceNoteShow('hidden')).toBe('hidden');
-    expect(sourceNoteShow('expanded')).toBe('expanded');
-    expect(sourceNoteShow('')).toBe('expanded');
-    expect(sourceNoteShow('folded')).toBe('expanded');
-    expect(
-      currentValues(
-        'task',
-        { filters: { sourceNote: 'hidden' } },
-        emptySnapshot(),
-      ),
-    ).toEqual({ sourceNote: 'hidden' });
-    expect(filterFields('task')).toEqual([]);
-    expect(effectiveQuery('task', q('sourceNote=hidden'), {}).toString()).toBe(
-      '',
-    );
-  });
-
-  it('counts only its Notes among remembered sections', () => {
-    const prefs = { sections: { notes: false, gone: true } };
-    expect(sectionCounts(prefs, PAGES.task.collapsible)).toEqual({
-      closed: 1,
-      open: 0,
-    });
   });
 });

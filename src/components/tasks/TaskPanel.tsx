@@ -197,6 +197,9 @@ export function TaskPanel({
       description={task.title}
       dirty={dirty}
       onSubmit={save}
+      returnFocus={(opener) =>
+        opener?.isConnected ? null : movedTitle(task.id)
+      }
       footer={
         <>
           {summariesOn && (
@@ -648,4 +651,20 @@ function AssigneeField({
       )}
     </div>
   );
+}
+
+/**
+ * The task's title in the row it moved to: a save that sends it to
+ * another lane (Today's, a room's) or group remounts its row, so the one
+ * that opened the panel is gone. Null when it is not shown any more.
+ */
+function movedTitle(id: string): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>(
+    `#main [data-loop="${CSS.escape(id)}"], #main [data-task-id="${CSS.escape(id)}"]`,
+  );
+  for (const row of rows) {
+    const title = row.querySelector<HTMLElement>('[data-task-title]');
+    if (title && title.getClientRects().length > 0) return title;
+  }
+  return null;
 }

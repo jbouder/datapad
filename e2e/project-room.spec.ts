@@ -52,7 +52,14 @@ const people = (page: Page) =>
 
 test('the room: header, state line, people, Next meeting and the stream', async ({
   page,
+  request,
 }) => {
+  // Today's Shield review untimed, so it is still ahead at any hour.
+  const seed = structuredClone(SEED);
+  const review = seed.meetings['e-1'] as { time: string; end: string };
+  review.time = '';
+  review.end = '';
+  await request.post('/api/import', { data: seed });
   await openLive(page, '/projects/p-echo');
   await expect(page).toHaveTitle('Echo Base relocation · Datapad');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(

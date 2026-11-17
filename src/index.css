@@ -252,6 +252,13 @@
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
+
+  /* Beskar's destructive button puts red text on a 10% red tint: about
+     4:1 in Light, under AA for its 12px label. Light's deeper red keeps
+     it above 4.5:1. Dark's passes as it is. */
+  :root:not(.dark) [data-slot="button"][data-variant="destructive"] {
+    color: var(--tone-red);
+  }
 }
 
 /* ---- Type scale and density (docs/design.md) ----------------------------- */
@@ -361,17 +368,13 @@
 /* ---- Text styles (docs/design.md § Text styles) ------------------------- */
 
 /* Rendered Markdown: notes, project descriptions, meeting-linked notes and
-   summaries. Three headings, body, mono and quote, defined once here.
-   `.prose-compact` scales the whole set down (grid cards). */
+   summaries. Three headings, body, mono and quote, defined once here. */
 @layer components {
   .prose-note {
     --note-scale: 1;
     font-size: calc(15px * var(--note-scale));
     line-height: 1.45;
     overflow-wrap: anywhere;
-  }
-  .prose-note.prose-compact {
-    --note-scale: 0.88;
   }
   .prose-note > * + * {
     margin-top: 0.6em;

@@ -10,7 +10,6 @@ import {
   focusDays,
   focusOptions,
   hasPagePrefs,
-  hasPageSettings,
   isFiltered,
   layoutTable,
   legacyPrefs,
@@ -21,7 +20,6 @@ import {
   prefsAsPatch,
   savedFocusOptions,
   savedPrefs,
-  sectionCounts,
   visibleSections,
 } from '#shared/pages';
 import { PagePrefsPatchSchema } from '#shared/protocol';
@@ -54,20 +52,6 @@ describe('the registry', () => {
       const keys = PAGES[page].fields.map((f) => f.key);
       if (keys.includes('view')) expect(keys[0]).toBe('view');
     }
-  });
-
-  it('has the detail pages, listed in Settings once they have something to set (#310)', () => {
-    for (const page of ['task', 'list'] as const) {
-      expect(PAGES[page].label).toMatch(/ page$/);
-    }
-    // Meeting mode (#336) keeps the meeting page's settings (#343).
-    expect(PAGES.meeting.label).toBe('Meeting mode');
-    expect(PAGES.meeting.fixedOrder).toBe(true);
-    for (const page of ['task', 'meeting', 'list'] as const) {
-      expect(hasPageSettings(page)).toBe(true);
-    }
-    expect(hasPageSettings('project')).toBe(true);
-    expect(hasPageSettings('focus')).toBe(true);
   });
 
   it('never remembers the search text or a single item', () => {
@@ -506,25 +490,19 @@ describe('patches', () => {
         def: 'List',
       },
     ]);
+    // Only pages v2 shows (#341): no retired page's layouts.
+    expect(rows.map((r) => r.page)).toEqual([
+      'All, tasks',
+      'All, meetings',
+      'All, projects',
+      'People',
+    ]);
     // Settings-only: never read from the address.
     expect(
       effectiveQuery('all', new URLSearchParams('taskView=board'), {}).get(
         'taskView',
       ),
     ).toBeNull();
-  });
-
-  it('count sections closed and open', () => {
-    expect(
-      sectionCounts({ sections: { a: false, b: false, c: true } }),
-    ).toEqual({ closed: 2, open: 1 });
-    // Focus names its sections: an old bucket's saved state is not one.
-    expect(
-      sectionCounts(
-        { sections: { waiting: false, attention: true, noDate: false } },
-        PAGES.focus.collapsible,
-      ),
-    ).toEqual({ closed: 1, open: 0 });
   });
 
   it('read nothing saved as empty', () => {

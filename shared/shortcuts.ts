@@ -13,10 +13,9 @@ export interface Shortcut {
   scope:
     | 'Anywhere'
     | 'Capture line'
-    | 'Focus'
     | 'Task lists and tables'
-    | 'Collection pages'
-    | 'Lists'
+    | 'Today and All'
+    | 'Pages with Find'
     | 'Meeting mode'
     | 'Panels'
     | 'Whiteboard';
@@ -110,34 +109,29 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Task lists and tables',
   },
   {
-    keys: ['Alt+↑', 'Alt+↓'],
-    action: 'Move the task up or down (project page)',
-    scope: 'Task lists and tables',
-  },
-  {
     keys: ['Space'],
-    action: 'Select the focused row (Tasks table)',
+    action: 'Select the focused row (All’s task table)',
     scope: 'Task lists and tables',
   },
   {
     keys: ['⌘A', 'Ctrl+A'],
-    action: 'Select every row in the group (Tasks table)',
+    action: 'Select every row in the group (All’s task table)',
     scope: 'Task lists and tables',
   },
   {
     keys: ['v'],
-    action: 'Next layout (Table, Board, Timeline …)',
-    scope: 'Collection pages',
+    action: 'Next layout (List, Table, Board …), or Day and Week on Today',
+    scope: 'Today and All',
   },
   {
     keys: ['f'],
     action: 'Go to Find',
-    scope: 'Lists',
+    scope: 'Pages with Find',
   },
   {
     keys: ['Esc'],
     action: 'In Find: clear it, then leave it',
-    scope: 'Lists',
+    scope: 'Pages with Find',
   },
   {
     keys: ['Esc'],

@@ -271,12 +271,6 @@ export function recapCounts(recap: Recap): RecapCounts {
   };
 }
 
-/** Nothing happened in the window (that the filter shows). */
-export function recapEmpty(recap: Recap): boolean {
-  const c = recapCounts(recap);
-  return c.closed + c.added + c.meetings + c.notes + c.activity === 0;
-}
-
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n} ${n === 1 ? one : many}`;
 
