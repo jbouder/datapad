@@ -216,18 +216,3 @@ test('the Timeline labels a milestone and opens the project at it', async ({
   await expect(row(page, 'm-soon')).toHaveAttribute('data-highlighted');
   await expect(row(page, 'm-soon')).toBeInViewport();
 });
-
-test('Focus lists a milestone in the next seven days', async ({ page }) => {
-  await openLive(page, '/?view=week');
-  const agenda = page.getByRole('region', { name: 'Next 7 days' });
-  const card = agenda.locator('[data-kind="milestone"]');
-  await expect(card).toHaveCount(1);
-  await expect(card).toContainText('Hangar doors hung');
-  await expect(card).toContainText('Echo Base relocation');
-  await expectNoSidewaysScroll(page);
-  await card
-    .getByRole('link', { name: 'Milestone: Hangar doors hung' })
-    .click();
-  await expect(page).toHaveURL(/\/projects\/p-echo\?milestone=m-soon$/);
-  await expect(row(page, 'm-soon')).toHaveAttribute('data-highlighted');
-});

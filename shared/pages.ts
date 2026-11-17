@@ -111,16 +111,12 @@ export interface PageSpec {
 }
 
 /**
- * Focus's collapsible sections (#206): Since yesterday (#258), Waiting
- * on, Attention and Follow-ups. The buckets that used to be sections (Blocked, This week,
- * Later, No date, and Day's `day:` copies) are gone.
+ * Today's lanes (#331), which collapse, hide and move: Mine, Waiting on
+ * and To decide. Kept under the `focus` key, so what Focus saved
+ * (Waiting on's open or closed, its place) carries over; Focus's other
+ * sections are gone.
  */
-export const FOCUS_SECTIONS = [
-  'recap',
-  'waiting',
-  'attention',
-  'followUps',
-] as const;
+export const FOCUS_SECTIONS = ['mine', 'waiting', 'decide'] as const;
 
 const PROJECT_LAYOUTS = [
   { value: 'cards', label: 'Cards' },
@@ -151,18 +147,6 @@ export function currentName(field: PrefField, value: string): string {
     : value;
 }
 
-/** How far Focus's Week looks ahead: set in Settings → Pages only. */
-const focusDaysField: PrefField = {
-  key: 'days',
-  label: 'Week shows',
-  def: String(FOCUS_DAYS),
-  options: FOCUS_DAY_CHOICES.map((n) => ({
-    value: String(n),
-    label: `${n} days`,
-  })),
-  control: 'select',
-};
-
 /** Focus's Week window from a page query or saved values (`?days=`). */
 export function focusDays(value: string | null | undefined): number {
   return choice(value, FOCUS_DAY_CHOICES, FOCUS_DAYS);
@@ -182,64 +166,32 @@ const dayOptions = (choices: readonly number[]): PrefOption[] =>
   choices.map((n) => ({ value: String(n), label: `${n} days` }));
 
 /**
- * Focus's other settings (#311): whose tasks it shows and how Due is
- * grouped (both in the address, `?who=` and `?group=`), and the rules
- * behind Attention and Follow-ups (Settings → Pages only).
+ * Today's settings (#331), set in Settings → Pages only. They are what
+ * Focus saved (#311), under the same keys: `who` is what Mine holds
+ * (Focus's Tasks for: Anyone reads as Mine and unassigned, Mine as only
+ * what is assigned to me), and `days` how far Next up looks ahead
+ * (Focus's Week window). Focus's other rules (`target`, `quiet`,
+ * `yellow`, `followDays`) stay saved and still feed MCP's `get_focus`
+ * (`savedFocusOptions`); Settings no longer shows them.
  */
-const focusFields: readonly PrefField[] = [
+const todayFields: readonly PrefField[] = [
   {
     key: 'who',
-    label: 'Tasks for',
+    label: 'Mine shows',
     def: 'anyone',
-    kind: 'me',
-    control: 'select',
-  },
-  {
-    key: 'group',
-    label: 'Group Due by',
-    def: 'priority',
     options: [
-      { value: 'priority', label: 'Priority' },
-      { value: 'date', label: 'Date' },
-    ],
-    control: 'segmented',
-  },
-  {
-    key: 'target',
-    label: 'Attention: target within',
-    def: String(FOCUS_DEFAULTS.targetDays),
-    options: dayOptions(ATTENTION_TARGET_CHOICES),
-    control: 'select',
-    settingsOnly: true,
-  },
-  {
-    key: 'quiet',
-    label: 'Attention: quiet after',
-    def: String(FOCUS_DEFAULTS.quietDays),
-    options: [
-      ...dayOptions(ATTENTION_QUIET_CHOICES),
-      { value: 'off', label: 'Off' },
+      { value: 'anyone', label: 'Mine and unassigned' },
+      { value: 'mine', label: 'Only assigned to me' },
     ],
     control: 'select',
     settingsOnly: true,
   },
   {
-    key: 'yellow',
-    label: 'Attention: yellow health',
-    def: 'include',
-    options: [
-      { value: 'include', label: 'Include' },
-      { value: 'leave', label: 'Leave out' },
-    ],
-    control: 'segmented',
-    settingsOnly: true,
-  },
-  {
-    key: 'followDays',
-    label: 'Follow-ups from the last',
-    def: String(FOCUS_DEFAULTS.followUpDays),
-    options: dayOptions(FOLLOW_UP_CHOICES),
-    control: 'segmented',
+    key: 'days',
+    label: 'Next up looks ahead',
+    def: String(FOCUS_DAYS),
+    options: dayOptions(FOCUS_DAY_CHOICES),
+    control: 'select',
     settingsOnly: true,
   },
 ];
@@ -276,8 +228,10 @@ export function focusOptions(
 export function savedFocusOptions(
   snapshot: Pick<Snapshot, 'settings' | 'people' | 'projects' | 'orgs'>,
 ): FocusOptions {
+  // The raw values: `focusOptions` checks each one, and Focus's rules
+  // that Today has no field for still count.
   return focusOptions(
-    currentValues('focus', savedPrefs(snapshot, 'focus'), snapshot),
+    prefValues(savedPrefs(snapshot, 'focus')),
     snapshot.people,
   );
 }
@@ -531,27 +485,14 @@ export function listDoneMode(value: string): ListDoneMode {
 /** What each page remembers, in the order Settings → Pages shows them. */
 export const PAGES: Record<PageKey, PageSpec> = {
   focus: {
-    label: 'Focus',
-    fields: [
-      layout(
-        [
-          { value: 'day', label: 'Day' },
-          { value: 'week', label: 'Week' },
-        ],
-        'day',
-      ),
-      focusDaysField,
-      ...focusFields,
-    ],
+    label: 'Today',
+    fields: todayFields,
     sections: true,
     collapsible: FOCUS_SECTIONS,
     sectionKeys: [
-      { key: 'recap', label: 'Since yesterday' },
-      { key: 'agenda', label: 'Agenda' },
+      { key: 'mine', label: 'Mine' },
       { key: 'waiting', label: 'Waiting on' },
-      { key: 'attention', label: 'Attention' },
-      { key: 'followUps', label: 'Follow-ups' },
-      { key: 'due', label: 'Due' },
+      { key: 'decide', label: 'To decide' },
     ],
   },
   projects: {

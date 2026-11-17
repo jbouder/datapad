@@ -132,9 +132,7 @@ test('the draft survives leaving and coming back', async ({ page }) => {
     .filter({ visible: true })
     .first()
     .click();
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Focus' }),
-  ).toBeVisible();
+  await expect(page.locator('[data-day-line]')).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('combobox', { name: 'Composer' })).toHaveValue(
     'half a thought',

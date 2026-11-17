@@ -127,13 +127,14 @@ test('action items on a meeting’s page: add, close, reopen and open', async ({
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Ordinary tasks: on Focus (a follow-up of today's meeting), Tasks and
-  // the project too.
+  // Ordinary tasks: on Today (due today, no one's: Mine), Tasks and the
+  // project too.
   await expectSaved(page);
   await openLive(page, '/');
   await expect(
-    page.getByRole('list', { name: 'Action items from Shield review' }),
+    page.getByRole('list', { name: 'Due', exact: true }),
   ).toContainText(ITEM);
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(ITEM);
   await openLive(page, '/all?kind=task');
   await expect(page.getByRole('main')).toContainText(ITEM);
   await openLive(page, '/projects/p-echo');

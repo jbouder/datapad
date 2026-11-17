@@ -10,15 +10,10 @@
  * only navigation setting: Settings → Navigation and its `nav` prefs
  * retired with v2.
  */
+import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
 import { meId } from './select';
-import {
-  blockedOf,
-  type Person,
-  type Project,
-  type Settings,
-  type Snapshot,
-} from './types';
+import type { Person, Project, Settings, Snapshot } from './types';
 
 export type Room =
   | { kind: 'project'; id: string }
@@ -140,9 +135,10 @@ export function railRooms(
 export const OWED_MAX = 5;
 
 /**
- * The people who owe you something, most first, then by name: those an
- * open task waits on (blocked on them), or that is assigned to them and
- * not to you. Archived projects' tasks do not count, nor does the person
+ * The people who owe you something, most first, then by name: Today's
+ * Waiting on lane (`lanesOf`), by person: open tasks blocked on them, or
+ * assigned to them and not to you, that are not to decide. Archived
+ * projects' tasks do not count, nor does the person
  * marked as you, nor anyone already pinned as a room. `OWED_MAX` at most.
  */
 export function owedBy(
@@ -151,18 +147,9 @@ export function owedBy(
 ): { person: Person; count: number }[] {
   const me = meId(state.people);
   const pinned = new Set(pinnedOf(settings));
-  const counts = new Map<string, number>();
-  for (const task of Object.values(state.tasks)) {
-    if (task.status !== 'open') continue;
-    if (task.projectId && state.projects[task.projectId]?.archived) continue;
-    const blocked = blockedOf(task);
-    const on = blocked ? blocked.on : task.assignee;
-    if (!on || on === me || pinned.has(on)) continue;
-    counts.set(on, (counts.get(on) ?? 0) + 1);
-  }
-  return [...counts]
-    .map(([id, count]) => ({ person: state.people[id], count }))
-    .filter((p): p is { person: Person; count: number } => Boolean(p.person))
+  return waitingPeople(lanesOf(state, me), state.people)
+    .filter(({ person }) => person.id !== me && !pinned.has(person.id))
+    .map(({ person, tasks }) => ({ person, count: tasks.length }))
     .sort(
       (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
     )

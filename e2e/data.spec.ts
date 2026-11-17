@@ -37,10 +37,12 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
     .filter({ visible: true })
     .first()
     .click();
-  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(
     'Confirm shield generator delivery',
   );
-  await expect(page.locator('[data-attention="p-echo"]')).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText(
+    'Write the Yavin report',
+  );
 });
 
 test('a malformed file is refused with its first problem, and nothing is written', async ({
@@ -86,7 +88,7 @@ test('export downloads every document as datapad-<date>.json', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await page.goto('/');
-  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(
     'Confirm shield generator delivery',
   );
   await page.goto('/settings/data');
