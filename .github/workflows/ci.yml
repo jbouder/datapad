@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, v2]
+    branches: [main, staging]
   workflow_dispatch:
 
 # Least privilege by default. `pull_request` (never `pull_request_target`)
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 
-# A new push to a PR cancels that PR's older run. Runs on `main` and `v2`
+# A new push to a PR cancels that PR's older run. Runs on `main` and `staging`
 # queue instead of cancelling, so every commit on them gets a result (and
 # .github/workflows/deploy.yml, which follows a successful run, a trigger).
 concurrency:

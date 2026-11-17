@@ -31,6 +31,15 @@ them. Everyone starts with one, Main (id `main`); data from before spaces
 is in it. You can have up to 12. Each browser remembers which space it
 has open; the URL does not say.
 
+**Staging has its own copy.** If you run staging (the `datapad-v2`
+Worker, [self-hosting.md](self-hosting.md#staging)), it keeps its data
+apart from production: its own Durable Object, its own backups bucket
+(`datapad-v2-backups`) and its own `OAUTH_KV`. Nothing is shared or
+synced either way. Staging starts empty. It holds your data only if you
+put it there: export each space on production (Settings → Data →
+**Export**) and import the file on staging (**Import…**). From then on
+the two copies drift apart, and the steps below apply to each one.
+
 Cloudflare Access logs record your email and sign-ins, by design. Worker
 logs follow your account's Workers observability settings; the Worker logs
 errors with the path only, never document content.
@@ -479,6 +488,11 @@ if you might want it back.
    ```
 
    Do this last: erasing and deleting spaces write `before-*` copies.
+
+If you run staging and imported your data there, do all three again on
+staging: its Settings → Connected apps and `OAUTH_KV` (add `--env
+staging` to the `wrangler kv` commands), its object, and the
+`you@example.com/` folder in `datapad-v2-backups`.
 
 Access keeps its own sign-in logs (Zero Trust → Logs) for its retention
 period; they are not Datapad's to delete.
