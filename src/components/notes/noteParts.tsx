@@ -6,7 +6,7 @@ import {
 import { type RefObject, useEffect, useId, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
-import { taskTitleFrom } from '#shared/notes';
+import { inScratch, taskTitleFrom } from '#shared/notes';
 import type { Note, Person, Snapshot } from '#shared/types';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
@@ -77,18 +77,17 @@ export function NoteChips({
   return (
     <>
       {showProject &&
-        // `note.scratch` is the old Notepad flag; the `scratch` route is Scratch.
-        (note.scratch || project ? (
+        (project || inScratch(note) ? (
           <a
             {...linkProps(
-              project && !note.scratch
+              project
                 ? { name: 'project', id: project.id }
                 : { name: 'scratch' },
             )}
             className={CHIP}
           >
             <span className="truncate border px-1.5 py-0.5 text-foreground hover:bg-accent">
-              {project && !note.scratch ? project.name : 'Notepad'}
+              {project ? project.name : 'Scratch'}
             </span>
           </a>
         ) : (
