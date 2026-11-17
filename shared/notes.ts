@@ -249,3 +249,20 @@ export function isUnfiled(
     mentionedIds(note.body).length === 0
   );
 }
+
+/**
+ * Unfiled's blocks (#333): the notes with no home (`isUnfiled`), newest
+ * first, ties by id so the order is stable. `hidden` are notes on their
+ * way out (a delete waiting on Undo).
+ */
+export function unfiledNotes(
+  notes: Snapshot['notes'],
+  hidden: ReadonlySet<string> = new Set(),
+): Note[] {
+  return Object.values(notes)
+    .filter((n) => isUnfiled(n) && !hidden.has(n.id))
+    .sort(
+      (a, b) =>
+        b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
+    );
+}
