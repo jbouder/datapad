@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_ROOMS_QUERY,
   type AllFilters,
   activeAllFilters,
   addView,
@@ -17,6 +18,7 @@ import {
   renameView,
   rowStatus,
   selectAll,
+  showsRooms,
   sortsFor,
   viewQuery,
   viewRoute,
@@ -393,6 +395,21 @@ describe('selectAll', () => {
         TODAY,
       ).map((r) => r.id),
     ).toEqual(['m2', 'm1']);
+  });
+});
+
+describe('the rooms list', () => {
+  it('is on for show=rooms only', () => {
+    expect(showsRooms(new URLSearchParams(ALL_ROOMS_QUERY))).toBe(true);
+    expect(showsRooms(new URLSearchParams('show=items'))).toBe(false);
+    expect(showsRooms(new URLSearchParams('kind=project'))).toBe(false);
+  });
+
+  it('is not a filter: All writes no show, so a kind leaves it', () => {
+    const filters = parseAllQuery(new URLSearchParams(ALL_ROOMS_QUERY));
+    expect(filters).toEqual(defaultAllFilters());
+    expect(Object.keys(allQuery(filters))).not.toContain('show');
+    expect(normalViewQuery(ALL_ROOMS_QUERY)).toBe('');
   });
 });
 

@@ -3,6 +3,7 @@ import {
   ChalkboardSimpleIcon,
   ChartBarHorizontalIcon,
   CheckSquareIcon,
+  DoorOpenIcon,
   FolderPlusIcon,
   FoldersIcon,
   type Icon,
@@ -15,6 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ALL_ROOMS_QUERY,
   ALL_STATUS_OPTIONS,
   type AllFilters,
   type AllRow,
@@ -26,6 +28,7 @@ import {
   type BoardBy,
   clearedAllFilters,
   currentView,
+  defaultAllFilters,
   defaultSort,
   filtersFor,
   KIND_LABELS,
@@ -34,6 +37,7 @@ import {
   layoutsFor,
   parseAllQuery,
   selectAll,
+  showsRooms,
   sortsFor,
   viewQuery,
 } from '#shared/all';
@@ -146,8 +150,9 @@ const tasksOf = (rows: readonly AllRow[]): Task[] =>
  * (`shared/all.ts` reads and writes it). Each kind keeps its own row:
  * a task opens its panel, a note opens in place (`?note=<id>` opens and
  * highlights one), a meeting goes to its page, a project or a person to
- * their room. Below the list, the rooms with their pins, and the space's
- * whiteboard from the header.
+ * their room. The Rooms chip beside the kinds (`?show=rooms`) shows the
+ * rooms in place of the items, with their pins; the space's whiteboard is
+ * in the header.
  *
  * #338 adds layouts for one kind alone (tasks: list, table, board by
  * status or priority; meetings: list, calendar; projects: list, cards,
@@ -183,6 +188,8 @@ export function AllPage() {
     [value, sorts],
   );
   const target = query.get('note');
+  // The Rooms chip: the rooms list in place of the items.
+  const rooms = showsRooms(query);
   const [limit, setLimit] = useState(PAGE);
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
@@ -239,18 +246,18 @@ export function AllPage() {
   };
 
   const rows = useMemo(
-    () => (state ? selectAll(state, filters, today, hidden) : []),
-    [state, filters, today, hidden],
+    () => (state && !rooms ? selectAll(state, filters, today, hidden) : []),
+    [state, rooms, filters, today, hidden],
   );
   const tasks = useMemo(() => tasksOf(rows), [rows]);
   // The board's Done column while Status is Open: the done tasks the
   // other filters keep.
   const extraDone = useMemo(() => {
-    if (!state || !board || filters.status !== 'open') return [];
+    if (!state || rooms || !board || filters.status !== 'open') return [];
     return tasksOf(
       selectAll(state, { ...filters, status: 'done' }, today, hidden),
     );
-  }, [state, board, filters, today, hidden]);
+  }, [state, rooms, board, filters, today, hidden]);
 
   /* ---------- selection, for the bulk bar ---------- */
 
@@ -357,19 +364,31 @@ export function AllPage() {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
+  // On the rooms list no kind is picked, and a kind leaves it: `change`
+  // writes no `show`.
+  const from = rooms ? defaultAllFilters([], sorts) : filters;
   const toggleKind = (kind: AllKind) => {
-    const kinds = filters.kinds.includes(kind)
-      ? filters.kinds.filter((k) => k !== kind)
-      : ALL_KINDS.filter((k) => k === kind || filters.kinds.includes(k));
+    const kinds = from.kinds.includes(kind)
+      ? from.kinds.filter((k) => k !== kind)
+      : ALL_KINDS.filter((k) => k === kind || from.kinds.includes(k));
     // The new kinds start at their own sort and layout.
     change({
-      ...filters,
+      ...from,
       kinds,
       sort: defaultSort(kinds, sorts),
       dir: 'asc',
       view: '',
       board: 'status',
     });
+  };
+  /** The Rooms chip: on clears the kinds and filters; off is plain All. */
+  const toggleRooms = () => {
+    withViewTransition(
+      () => navigate({ name: 'all' }, { query: rooms ? '' : ALL_ROOMS_QUERY }),
+      active,
+      'filter',
+    );
+    setLimit(PAGE);
   };
 
   const people = Object.values(state.people).sort((a, b) =>
@@ -554,7 +573,7 @@ export function AllPage() {
           <h1 id="all-title" className="text-page-title flex-1">
             All
           </h1>
-          {layouts.length > 0 && (
+          {!rooms && layouts.length > 0 && (
             <ViewSwitcher views={layouts} value={layout} onChange={setLayout} />
           )}
           <a
@@ -570,10 +589,10 @@ export function AllPage() {
         </div>
 
         <fieldset className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <legend className="sr-only">Kinds</legend>
+          <legend className="sr-only">Show</legend>
           <div className="flex w-max gap-1 pr-4 sm:w-auto sm:flex-wrap sm:pr-0">
             {ALL_KINDS.map((kind) => {
-              const on = filters.kinds.includes(kind);
+              const on = !rooms && filters.kinds.includes(kind);
               const KindIcon = KIND_ICONS[kind];
               return (
                 <Toggle
@@ -588,123 +607,142 @@ export function AllPage() {
                 </Toggle>
               );
             })}
+            <Toggle
+              variant="outline"
+              className="press h-11 px-3 desk:h-8"
+              pressed={rooms}
+              onPressedChange={toggleRooms}
+            >
+              <DoorOpenIcon weight={rooms ? 'fill' : 'regular'} aria-hidden />
+              Rooms
+            </Toggle>
           </div>
         </fieldset>
 
-        <SavedViews query={viewQuery(showing)} current={here} />
+        {rooms ? (
+          <Rooms />
+        ) : (
+          <>
+            <SavedViews query={viewQuery(showing)} current={here} />
 
-        <ListToolbar
-          state={listFilters}
-          find={
-            <FindField
-              value={filters.q}
-              placeholder="Words in anything"
-              onChange={(q) => set({ q }, false)}
+            <ListToolbar
+              state={listFilters}
+              find={
+                <FindField
+                  value={filters.q}
+                  placeholder="Words in anything"
+                  onChange={(q) => set({ q }, false)}
+                />
+              }
+              filters={
+                <>
+                  {offered.includes('room') && (
+                    <SelectField
+                      label="Room"
+                      value={filters.room || ANY}
+                      options={[
+                        { value: ANY, label: 'Any room' },
+                        { value: 'general', label: 'General' },
+                        ...projects.map((p) => ({
+                          value: p.id,
+                          label: p.name,
+                        })),
+                      ]}
+                      onChange={(v) => set({ room: v === ANY ? '' : v })}
+                    />
+                  )}
+                  {offered.includes('person') && (
+                    <SelectField
+                      label="Person"
+                      value={filters.person || ANY}
+                      options={[
+                        { value: ANY, label: 'Anyone' },
+                        ...(me ? [{ value: 'me', label: 'Me' }] : []),
+                        ...people
+                          .filter((p) => p.id !== me)
+                          .map((p) => ({ value: p.id, label: p.name })),
+                      ]}
+                      onChange={(v) => set({ person: v === ANY ? '' : v })}
+                    />
+                  )}
+                  {offered.includes('status') && (
+                    <SelectField
+                      label="Status"
+                      value={filters.status}
+                      options={[...ALL_STATUS_OPTIONS]}
+                      onChange={(status) => set({ status })}
+                    />
+                  )}
+                  {offered.includes('due') && (
+                    <SelectField
+                      label="Due"
+                      value={filters.due || ANY}
+                      options={[
+                        { value: ANY, label: 'Any time' },
+                        ...DUE_BUCKETS.map((b) => ({
+                          value: b.id,
+                          label: b.label,
+                        })),
+                      ]}
+                      onChange={(v) =>
+                        set({ due: v === ANY ? '' : (v as AllFilters['due']) })
+                      }
+                    />
+                  )}
+                  {offered.includes('tag') && tags.length > 0 && (
+                    <SelectField
+                      label="Tag"
+                      value={filters.tag || ANY}
+                      options={[
+                        { value: ANY, label: 'Any tag' },
+                        ...tags.map((t) => ({ value: t, label: t })),
+                      ]}
+                      onChange={(v) => set({ tag: v === ANY ? '' : v })}
+                    />
+                  )}
+                  {offered.includes('decide') && (
+                    <Segmented
+                      legend="Tasks"
+                      value={
+                        filters.decide
+                          ? 'decide'
+                          : filters.waiting
+                            ? 'waiting'
+                            : ANY
+                      }
+                      options={[
+                        { value: ANY, label: 'Any' },
+                        { value: 'decide', label: 'To decide' },
+                        { value: 'waiting', label: 'Waiting on' },
+                      ]}
+                      onChange={(v) =>
+                        set({
+                          decide: v === 'decide',
+                          waiting: v === 'waiting',
+                        })
+                      }
+                    />
+                  )}
+                </>
+              }
+              sort={
+                <SortField
+                  value={filters.sort}
+                  options={sortsFor(filters.kinds)}
+                  dir={filters.dir}
+                  onChange={(sort, dir) => set({ sort, dir }, false)}
+                />
+              }
             />
-          }
-          filters={
-            <>
-              {offered.includes('room') && (
-                <SelectField
-                  label="Room"
-                  value={filters.room || ANY}
-                  options={[
-                    { value: ANY, label: 'Any room' },
-                    { value: 'general', label: 'General' },
-                    ...projects.map((p) => ({ value: p.id, label: p.name })),
-                  ]}
-                  onChange={(v) => set({ room: v === ANY ? '' : v })}
-                />
-              )}
-              {offered.includes('person') && (
-                <SelectField
-                  label="Person"
-                  value={filters.person || ANY}
-                  options={[
-                    { value: ANY, label: 'Anyone' },
-                    ...(me ? [{ value: 'me', label: 'Me' }] : []),
-                    ...people
-                      .filter((p) => p.id !== me)
-                      .map((p) => ({ value: p.id, label: p.name })),
-                  ]}
-                  onChange={(v) => set({ person: v === ANY ? '' : v })}
-                />
-              )}
-              {offered.includes('status') && (
-                <SelectField
-                  label="Status"
-                  value={filters.status}
-                  options={[...ALL_STATUS_OPTIONS]}
-                  onChange={(status) => set({ status })}
-                />
-              )}
-              {offered.includes('due') && (
-                <SelectField
-                  label="Due"
-                  value={filters.due || ANY}
-                  options={[
-                    { value: ANY, label: 'Any time' },
-                    ...DUE_BUCKETS.map((b) => ({
-                      value: b.id,
-                      label: b.label,
-                    })),
-                  ]}
-                  onChange={(v) =>
-                    set({ due: v === ANY ? '' : (v as AllFilters['due']) })
-                  }
-                />
-              )}
-              {offered.includes('tag') && tags.length > 0 && (
-                <SelectField
-                  label="Tag"
-                  value={filters.tag || ANY}
-                  options={[
-                    { value: ANY, label: 'Any tag' },
-                    ...tags.map((t) => ({ value: t, label: t })),
-                  ]}
-                  onChange={(v) => set({ tag: v === ANY ? '' : v })}
-                />
-              )}
-              {offered.includes('decide') && (
-                <Segmented
-                  legend="Tasks"
-                  value={
-                    filters.decide
-                      ? 'decide'
-                      : filters.waiting
-                        ? 'waiting'
-                        : ANY
-                  }
-                  options={[
-                    { value: ANY, label: 'Any' },
-                    { value: 'decide', label: 'To decide' },
-                    { value: 'waiting', label: 'Waiting on' },
-                  ]}
-                  onChange={(v) =>
-                    set({ decide: v === 'decide', waiting: v === 'waiting' })
-                  }
-                />
-              )}
-            </>
-          }
-          sort={
-            <SortField
-              value={filters.sort}
-              options={sortsFor(filters.kinds)}
-              dir={filters.dir}
-              onChange={(sort, dir) => set({ sort, dir }, false)}
-            />
-          }
-        />
 
-        <p className="text-xs text-muted-foreground tabular-nums">
-          {rows.length === 1 ? '1 item' : `${rows.length} items`}
-        </p>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {rows.length === 1 ? '1 item' : `${rows.length} items`}
+            </p>
 
-        {body()}
+            {body()}
+          </>
+        )}
       </section>
-
-      <Rooms />
 
       {selected.size > 0 && (
         <BulkBar tasks={selectedTasks} onDone={() => setSelected(new Set())} />
@@ -780,8 +818,11 @@ function PersonLine({ person }: { person: Person }) {
 }
 
 /**
- * The rooms, below the list: project rooms under their orgs, and people
- * by how much they owe you, each with Pin.
+ * The rooms, in place of the items while the Rooms chip is on: every
+ * project room under its org, with New project, and every person by how
+ * much they owe you, each with Pin. Not `RoomLists`: that lists only the
+ * pinned rooms (or the active projects) and the people owed, with no Pin
+ * and no orgs; this is where the rest are found and pinned.
  */
 function Rooms() {
   const { state } = useDatapad();
@@ -792,7 +833,8 @@ function Rooms() {
   const grouped = orgs.some((g) => g.org);
   return (
     <section aria-labelledby="rooms-title" className="flex flex-col gap-4">
-      <h2 id="rooms-title" className="font-heading text-xl font-semibold">
+      {/* The Rooms chip, pressed, says what this is. */}
+      <h2 id="rooms-title" className="sr-only">
         Rooms
       </h2>
       <div className="grid gap-8 desk:grid-cols-2">

@@ -1,10 +1,11 @@
+import { ALL_ROOMS_QUERY } from '#shared/all';
 import { RoomLists } from '@/components/RoomLists';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useRooms } from '@/hooks/useRooms';
-import { linkProps, type Route } from '@/lib/router';
+import { linkProps } from '@/lib/router';
 
-/** All, on its projects and people: where every room is found. */
-const ALL_ROOMS: Route = { name: 'all', kinds: ['project', 'person'] };
+/** All's rooms list: where every room is found and pinned. */
+const allRooms = () => linkProps({ name: 'all' }, ALL_ROOMS_QUERY);
 
 /**
  * Rooms (`/rooms`): the phone's Rooms tab, the rail's rooms as a page
@@ -33,7 +34,7 @@ export function RoomsPage() {
       ) : empty ? (
         <p className="text-state">
           No rooms yet. Find a project or person in{' '}
-          <a {...linkProps(ALL_ROOMS)} className="underline underline-offset-4">
+          <a {...allRooms()} className="underline underline-offset-4">
             All
           </a>{' '}
           and pin it.
@@ -44,7 +45,7 @@ export function RoomsPage() {
 
       <p>
         <a
-          {...linkProps(ALL_ROOMS)}
+          {...allRooms()}
           className="inline-flex min-h-11 items-center text-sm underline underline-offset-4 desk:min-h-8"
         >
           All projects and people

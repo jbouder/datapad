@@ -117,8 +117,9 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="All" to={{ name: 'all' }}>
             Every task, note, meeting, project and person in one list. Pick
-            kinds with the chips, then narrow with Find and the filters. Below
-            the list are the rooms, and the space’s whiteboard is in the header.
+            kinds with the chips, then narrow with Find and the filters. The
+            Rooms chip shows every project and person room instead, each with
+            Pin. The space’s whiteboard is in the header.
           </Term>
           <Term name="Unfiled" to={{ name: 'unfiled' }}>
             The notes with no home yet. Write at the top, then{' '}
@@ -147,8 +148,8 @@ export function HelpPage({ section }: { section?: string }) {
           you something. A phone has Today, Unfiled, Rooms and All along the
           bottom; Rooms lists what the rail does, and stays lit inside a room.
           Add meeting is beside Today’s timeline and Schedule meeting in each
-          room; New project is beside All’s project rooms. People and Orgs are
-          in Settings, and each person opens their room.
+          room; New project is beside the project rooms on All’s Rooms chip.
+          People and Orgs are in Settings, and each person opens their room.
         </p>
       </Section>
 
