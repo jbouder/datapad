@@ -107,7 +107,7 @@ section `h2`s.
 | Row height        | 36px desktop, 44px below 820px (`--row-height`, `.row`)                     |
 | Rail              | 232px (`--rail-width`), desktop only                                        |
 | Content max width | 1040px (`--content-max`)                                                    |
-| Breakpoint        | 820px: rail, Today's and a room's lanes beside the day or stream above; bottom tab bar (Today, Unfiled, Rooms, All) and one column below |
+| Breakpoint        | 820px: rail, Today's and a room's lanes beside the day or stream above; bottom tab bar (Today, Scratch, Rooms, All) and one column below |
 | Side panel        | 460px, full screen below 820px                                              |
 
 ## Mobile

@@ -38,8 +38,8 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonRoom } from '@/pages/PersonRoom';
 import { ProjectRoom } from '@/pages/ProjectRoom';
 import { RoomsPage } from '@/pages/RoomsPage';
+import { ScratchPage } from '@/pages/ScratchPage';
 import { TodayPage } from '@/pages/TodayPage';
-import { UnfiledPage } from '@/pages/UnfiledPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -286,8 +286,8 @@ function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'today':
       return <TodayPage />;
-    case 'unfiled':
-      return <UnfiledPage />;
+    case 'scratch':
+      return <ScratchPage />;
     case 'rooms':
       return <RoomsPage />;
     case 'all':

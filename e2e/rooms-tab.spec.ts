@@ -99,7 +99,7 @@ test('desktop has no Rooms tab; /rooms still renders', async ({ page }) => {
     .first();
   await expect(places.getByRole('link')).toHaveText([
     /^Today$/,
-    /^Unfiled/,
+    /^Scratch/,
     /^All$/,
   ]);
   await expect(

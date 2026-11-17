@@ -73,14 +73,14 @@ const parse = (
 ) => parseCapture(text, state, TODAY, context, force);
 
 describe('parseCapture: kinds', () => {
-  it('reads a plain line as a note, unfiled', () => {
+  it('reads a plain line as a note, to Scratch', () => {
     const c = parse('The hyperdrive hums at idle');
     expect(c).toMatchObject({
       kind: 'note',
       text: 'The hyperdrive hums at idle',
       projectId: null,
       due: '',
-      unfiled: true,
+      toScratch: true,
     });
   });
 
@@ -169,7 +169,7 @@ describe('parseCapture: # and @', () => {
     expect(c).toMatchObject({
       projectId: 'falcon',
       text: 'Order the coils',
-      unfiled: false,
+      toScratch: false,
     });
     expect(parse('#echobase check the doors').projectId).toBe('echo');
     expect(parse('Check it #FalconRefit.').text).toBe('Check it .');
@@ -205,7 +205,7 @@ describe('parseCapture: # and @', () => {
       kind: 'note',
       text: 'Talked to @{han} about the coils',
       people: ['han'],
-      unfiled: false,
+      toScratch: false,
     });
   });
 
@@ -285,7 +285,7 @@ describe('parseCapture: room context', () => {
     const c = parse('Likes the plan', { personId: 'han' });
     expect(c.text).toBe('Likes the plan @{han}');
     expect(c.people).toEqual(['han']);
-    expect(c.unfiled).toBe(false);
+    expect(c.toScratch).toBe(false);
   });
 
   it('presets the person: a task is theirs, a wait is on them', () => {
@@ -303,7 +303,7 @@ describe('parseCapture: room context', () => {
   it('ignores a room that is gone', () => {
     expect(
       parse('Hello', { projectId: 'nope', personId: 'nope' }),
-    ).toMatchObject({ projectId: null, people: [], unfiled: true });
+    ).toMatchObject({ projectId: null, people: [], toScratch: true });
   });
 });
 
@@ -374,11 +374,11 @@ describe('saving a capture', () => {
 });
 
 describe('chips and the toast', () => {
-  it('says the kind, project, people, date and Unfiled', () => {
+  it('says the kind, project, people, date and Scratch', () => {
     const state = snapshot();
     const chips = (text: string, context = {}) =>
       captureChips(parse(text, context), state, TODAY).map((c) => c.label);
-    expect(chips('A thought')).toEqual(['Note', 'Unfiled']);
+    expect(chips('A thought')).toEqual(['Note', 'Scratch']);
     expect(chips('[ ] Fix it @Han Solo #falcon fri')).toEqual([
       'Task',
       'Falcon Refit',
@@ -400,7 +400,7 @@ describe('chips and the toast', () => {
   it('says where it went', () => {
     const state = snapshot();
     const toast = (text: string) => captureToast(parse(text), state);
-    expect(toast('A thought')).toBe('Added a note to Unfiled');
+    expect(toast('A thought')).toBe('Added a note to Scratch');
     expect(toast('A thought #falcon')).toBe('Added a note to Falcon Refit');
     expect(toast('Saw @Han Solo')).toBe('Added a note about Han Solo');
     expect(toast('[ ] Fix it')).toBe('Added a task to General');

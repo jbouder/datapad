@@ -1,5 +1,5 @@
 import { type Clock, formatTime, formatTimeRange } from '#shared/dates';
-import { isUnfiled, notePreview } from '#shared/notes';
+import { inScratch, notePreview } from '#shared/notes';
 import { type DayEntry, meetingPast } from '#shared/today';
 import type { Note, Snapshot, TimeString } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -71,7 +71,7 @@ export function DayTimeline({
     ) : null;
   };
 
-  /** Where a note lives: its meeting, task, room, or Unfiled. */
+  /** Where a note lives: its meeting, task, room, or Scratch. */
   const noteHome = (note: Note) => {
     const query = `note=${encodeURIComponent(note.id)}`;
     const meeting = note.meetingId ? state.meetings[note.meetingId] : undefined;
@@ -91,7 +91,7 @@ export function DayTimeline({
       );
     }
     if (note.projectId) return projectLink(note.projectId, query);
-    if (isUnfiled(note)) return link({ name: 'unfiled' }, 'Unfiled', query);
+    if (inScratch(note)) return link({ name: 'scratch' }, 'Scratch', query);
     return 'General';
   };
 

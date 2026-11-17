@@ -19,9 +19,9 @@ SQLite-backed Durable Object per email holds your data, pushes live updates
 over WebSockets, and backs itself up to R2 every night.
 
 <p align="center">
-  <img src="docs/screenshots/today.png" alt="Today on a laptop: the day's line, the capture line, Next up with Enter meeting, what is due and the timeline of the day, with the Unfiled card and the Mine, Waiting on and To decide lanes on the right." width="72%" />
+  <img src="docs/screenshots/today.png" alt="Today on a laptop: the day's line, the capture line, Next up with Enter meeting, what is due and the timeline of the day, with the Scratch card and the Mine, Waiting on and To decide lanes on the right." width="72%" />
   &nbsp;
-  <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Unfiled and All." width="22%" />
+  <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Scratch and All." width="22%" />
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ over WebSockets, and backs itself up to R2 every night.
   a task (`[ ]`, `todo` or a date), something to decide (`?`) or
   something you are waiting on (`waiting on @Name`). `#project` files
   it, `@Name` mentions or assigns. Enter saves, with Undo.
-- **Unfiled.** The notes with no home yet, as one running pad: write at
+- **Scratch.** The notes with no home yet, as one running pad: write at
   the top, then file each to a project, make a task of it or mark it to
   decide.
 - **Rooms.** A page for each project and each person. A project room has
@@ -160,7 +160,7 @@ Datapad is an MCP server at `/mcp`: `claude mcp add --transport http
 datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
 Desktop. You sign in through Access and approve the client on a consent
 page. Claude can then read everything the app shows: Today and its open
-loops, Unfiled, a project's or a person's room, what happened since the
+loops, Scratch, a project's or a person's room, what happened since the
 last working day, projects, tasks, notes, meetings, people, orgs, the
 week's digest and search. With write access it can capture tasks and
 notes, mark a task to decide and file a note. See

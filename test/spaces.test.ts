@@ -166,7 +166,7 @@ describe('routeAfterSwitch', () => {
 
   it('keeps the places', () => {
     expect(routeAfterSwitch({ name: 'all', kinds: ['task'] })).toBeNull();
-    expect(routeAfterSwitch({ name: 'unfiled' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'scratch' })).toBeNull();
     expect(routeAfterSwitch({ name: 'whiteboard' })).toBeNull();
     expect(routeAfterSwitch({ name: 'people' })).toBeNull();
     expect(routeAfterSwitch({ name: 'orgs' })).toBeNull();

@@ -373,7 +373,7 @@ export function CaptureLine({
                 key={`${chip.kind}:${chip.label}`}
                 className={cn(
                   'inline-flex h-6 items-center border px-2',
-                  chip.kind === 'unfiled'
+                  chip.kind === 'scratch'
                     ? 'border-dashed text-muted-foreground'
                     : 'bg-muted text-foreground',
                 )}

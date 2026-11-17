@@ -1,6 +1,13 @@
 import type { McpTool } from '../tool';
 import { getDigest, searchTool } from './digest';
-import { getFocus, getLoops, getRoom, getToday, listUnfiled } from './loops';
+import {
+  getFocus,
+  getLoops,
+  getRoom,
+  getToday,
+  listScratch,
+  listUnfiled,
+} from './loops';
 import { listMeetings, listNotes } from './notes';
 import { listOrgs, listPeople } from './people';
 import { getOverview, getProject, listProjects } from './projects';
@@ -40,7 +47,7 @@ import {
  * tool is a `defineTool` in a file here, added to this list: reads (#153)
  * with `scope: 'read'`, writes (#154) with `scope: 'write'`. A token sees
  * and may call only the tools its scopes allow. v2 (#340) adds Today, the
- * loops, Unfiled and the rooms; the list tools are retired (`retired.ts`)
+ * loops, Scratch and the rooms; the list tools are retired (`retired.ts`)
  * and go in the next release.
  */
 export const TOOLS: readonly McpTool[] = [
@@ -51,6 +58,7 @@ export const TOOLS: readonly McpTool[] = [
   getFocus,
   getRecap,
   getLoops,
+  listScratch,
   listUnfiled,
   getRoom,
   listProjects,

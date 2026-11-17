@@ -6,7 +6,7 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
  */
 const ROUTES = [
   '/',
-  '/unfiled',
+  '/scratch',
   '/rooms',
   '/all',
   '/all?kind=project',
@@ -35,7 +35,7 @@ for (const width of [320, 1280]) {
         const rail = page.getByRole('complementary', { name: 'Datapad' });
         const tabs = page
           .getByRole('navigation', { name: 'Sections' })
-          .filter({ has: page.getByRole('link', { name: 'Unfiled' }) })
+          .filter({ has: page.getByRole('link', { name: 'Scratch' }) })
           .last();
         if (width >= 820) {
           await expect(rail).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('on a phone', () => {
     const controls = [
       banner.getByRole('button', { name: 'Account and settings' }),
       banner.getByRole('button', { name: 'Search', exact: true }),
-      ...['Today', 'Unfiled', 'All'].map((name) =>
+      ...['Today', 'Scratch', 'All'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })
           .last()

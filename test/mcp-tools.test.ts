@@ -259,7 +259,7 @@ describe('the read tools', () => {
     );
   });
 
-  describe('v2: Today, loops, Unfiled and rooms (#340)', () => {
+  describe('v2: Today, loops, Scratch and rooms (#340)', () => {
     const lane = (out: Json) => ({
       mine: ids(out.mine.items),
       waiting: out.waiting.map((g: Json) => [
@@ -290,6 +290,7 @@ describe('the read tools', () => {
         decide: [],
       });
       expect(out.lanes.counts).toEqual({ mine: 3, waiting: 2, decide: 0 });
+      expect(out.scratch).toBe(1);
       expect(out.unfiled).toBe(1);
       expect(out.me).toEqual({ id: 'u-leia', name: 'Leia Organa' });
       // The next day: Shield review is behind it, Quarterly planning is
@@ -308,6 +309,17 @@ describe('the read tools', () => {
       expect(INSTRUCTIONS).toContain('get_focus is the same');
       expect(tool('get_focus').input.shape).toEqual(
         tool('get_today').input.shape,
+      );
+    });
+
+    it('list_unfiled is list_scratch under its old name', async () => {
+      const ctx = await seeded();
+      const scratch = await call(ctx, 'list_scratch', {});
+      expect(await call(ctx, 'list_unfiled', {})).toEqual(scratch);
+      expect(INSTRUCTIONS).toContain('list_scratch for notes');
+      expect(INSTRUCTIONS).toContain('list_unfiled is the same');
+      expect(tool('list_unfiled').input.shape).toEqual(
+        tool('list_scratch').input.shape,
       );
     });
 
@@ -376,18 +388,19 @@ describe('the read tools', () => {
       expect(after.decide.items[0].decide).toBe(true);
     });
 
-    it('list_unfiled: notes with no home, newest first', async () => {
+    it('list_scratch: notes with no home, newest first', async () => {
       const ctx = await seeded();
-      const out = await call(ctx, 'list_unfiled', {});
+      const out = await call(ctx, 'list_scratch', {});
       expect(ids(out.notes.items)).toEqual(['n-3']);
       expect(out.notes.items[0]).toMatchObject({
         project: null,
+        scratch: true,
         unfiled: true,
       });
       // A note that mentions someone has a home.
       const notes = await call(ctx, 'list_notes', { project: 'general' });
       for (const n of notes.notes.items) {
-        expect(n.unfiled, n.id).toBe(n.id === 'n-3');
+        expect(n.scratch, n.id).toBe(n.id === 'n-3');
       }
     });
 
@@ -815,8 +828,10 @@ describe('the read tools', () => {
     ).toBe(true);
     const general = await call(ctx, 'list_notes', { project: 'general' });
     expect(ids(general.notes.items)).toEqual(['n-pad', 'n-3']);
+    // `notepad` is the old Notepad flag (`Note.scratch`); `scratch` is Scratch.
     expect(general.notes.items[0]).toMatchObject({
       notepad: true,
+      scratch: false,
       project: null,
       body: 'Ask @Han Solo about the heaters',
     });
@@ -1010,7 +1025,7 @@ describe('the conventions', () => {
 
   it('every read tool is read-only and needs only the read scope', () => {
     const reads = TOOLS.filter((t) => t.scope === 'read');
-    expect(reads).toHaveLength(20);
+    expect(reads).toHaveLength(21);
     for (const t of reads) {
       expect(t.scope, t.name).toBe('read');
       expect(t.annotations.readOnlyHint, t.name).toBe(true);
@@ -1302,14 +1317,14 @@ describe('the write tools', () => {
     expect(lines(decided)).toEqual(['Decided "Book the tauntaun vet"']);
   });
 
-  it('add_note with no home lands in Unfiled; file_note files it', async () => {
+  it('add_note with no home lands in Scratch; file_note files it', async () => {
     const ctx = await writer();
     const loose = await call(ctx, 'add_note', { body: 'Spare parts idea.' });
-    expect(loose.note).toMatchObject({ project: null, unfiled: true });
+    expect(loose.note).toMatchObject({ project: null, scratch: true });
     const mention = await call(ctx, 'add_note', { body: 'Ask @Han Solo.' });
-    expect(mention.note.unfiled).toBe(false);
-    const unfiled = await call(ctx, 'list_unfiled', {});
-    expect(ids(unfiled.notes.items)).toEqual([loose.note.id, 'n-3']);
+    expect(mention.note.scratch).toBe(false);
+    const scratch = await call(ctx, 'list_scratch', {});
+    expect(ids(scratch.notes.items)).toEqual([loose.note.id, 'n-3']);
 
     const filed = await call(ctx, 'file_note', {
       note: loose.note.id,
@@ -1319,7 +1334,7 @@ describe('the write tools', () => {
       id: loose.note.id,
       project: { id: 'p-falcon', name: 'Falcon hyperdrive refit' },
       body: 'Spare parts idea.',
-      unfiled: false,
+      scratch: false,
       createdAt: loose.note.createdAt,
     });
     expect(filed.activity).toEqual([
@@ -1328,7 +1343,7 @@ describe('the write tools', () => {
         text: 'Filed a note to "Falcon hyperdrive refit"',
       },
     ]);
-    const after = await call(ctx, 'list_unfiled', {});
+    const after = await call(ctx, 'list_scratch', {});
     expect(ids(after.notes.items)).toEqual(['n-3']);
     // Where it already is: nothing changes.
     const same = await call(ctx, 'file_note', {
@@ -1746,7 +1761,7 @@ describe('the write tools', () => {
       ).json()) as Json;
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toHaveLength(20);
+    expect(names).toHaveLength(21);
     expect(names).not.toContain('add_task');
     const refused = await post({
       jsonrpc: '2.0',

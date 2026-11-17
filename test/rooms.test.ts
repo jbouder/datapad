@@ -14,7 +14,7 @@ import {
   roomKey,
   roomLink,
   roomOf,
-  unfiledCount,
+  scratchCount,
   viewOf,
   withPin,
 } from '#shared/rooms';
@@ -288,7 +288,7 @@ describe('projectRoomsByOrg', () => {
   });
 });
 
-describe('unfiledCount', () => {
+describe('scratchCount', () => {
   it('counts the notes with no home', () => {
     const note = (id: string, patch: Partial<Note> = {}): Note =>
       ({
@@ -302,7 +302,7 @@ describe('unfiledCount', () => {
         ...patch,
       }) as Note;
     expect(
-      unfiledCount({
+      scratchCount({
         a: note('a'),
         b: note('b', { projectId: 'p-echo' }),
         c: note('c', { meetingId: 'e-1' }),

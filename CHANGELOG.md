@@ -19,6 +19,11 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **Scratch** is the new name for Unfiled, the notes with no home: on the
+  rail, the tab bar, Today, ⌘K, Help and the capture line. Its address is
+  `/scratch`, and `/unfiled` lands there. Over MCP, `list_scratch`
+  lists it and `list_unfiled` still answers.
+
 - **Rooms on All**: a Rooms chip sits beside the kind chips. It shows
   every project room under its org and every person, each with Pin, in
   place of the item list (`/all?show=rooms`). Picking a kind turns it off.
@@ -26,7 +31,7 @@ changes the format says so here under **Export format**.
   links here to find and pin the rest.
 
 - **Rooms on phones**: the tab bar has a fourth tab, Rooms, between
-  Unfiled and All. It lists what the desktop rail does: the pinned rooms
+  Scratch and All. It lists what the desktop rail does: the pinned rooms
   (or the active projects before anything is pinned) with their open
   counts, then the people you are waiting on. The tab stays lit inside a
   room. With nothing to list it points to All.
@@ -110,7 +115,7 @@ changes the format says so here under **Export format**.
   can be added to People. Enter saves with Undo, Esc clears, Tab or the
   kind chip changes the kind, and Shift+Enter or the expand button opens
   the full note composer. `n` goes to it.
-- **Unfiled** (#333) replaces the Notepad: one running pad of the notes
+- **Scratch** (#333) replaces the Notepad: one running pad of the notes
   with no home, newest first. Write at the top and ⌘Enter, or Add block,
   makes a note. Each block shows when it was written and has **File
   to…** (a project picker; the note moves, same id and time, with
@@ -118,10 +123,10 @@ changes the format says so here under **Export format**.
   line, pointing back at it; the block stays), Edit in place and Delete
   with Undo. Checklists tick in place, so old lists work here. Adding a
   mention files a block too.
-- **The v2 shell** (#329): the rail has Today, Unfiled (with its count)
+- **The v2 shell** (#329): the rail has Today, Scratch (with its count)
   and All, then Rooms: the rooms you pin, or the active projects until
   you pin one, then the people who owe you something. A phone's tab bar
-  has Today, Unfiled and All. **Pin** in a project's or a person's
+  has Today, Scratch and All. **Pin** in a project's or a person's
   header puts it in the rail; Settings → Rooms orders and unpins them.
   A person has a room of their own at `/people/:id`. Until the pages
   that follow arrive, All shows Projects, Tasks, Notes and Meetings by
@@ -144,7 +149,7 @@ changes the format says so here under **Export format**.
   day's meetings as anchors, untimed ones first, and the tasks added and
   done and the notes written that day at their times, with a Now line on
   today and the meetings that are over dimmed. Beside it on desktop and
-  below it on phones: the Unfiled card and the three lanes of open
+  below it on phones: the Scratch card and the three lanes of open
   loops. **Mine** is yours or no one's, **Waiting on** is blocked on
   someone (or no one listed) or assigned to someone else, grouped by
   person, and **To decide** is every task marked to decide. A loop's
@@ -199,13 +204,14 @@ changes the format says so here under **Export format**.
   and its brief now includes the three lanes.
 - **MCP tools for v2** (#340). `get_today` reads Today: the day's line,
   its meetings, what is due, the next meeting, the three lanes and how
-  many notes are in Unfiled. `get_loops` reads the lanes, for a project
-  or a person too. `list_unfiled` lists Unfiled. `get_room` reads a
-  project's or a person's room: for a project, what `get_project` gives
-  plus its state line, lanes and stream. `set_decide` marks a task to
-  decide or decided, and `add_task` and `edit_task` take `decide`.
+  many notes are in Scratch. `get_loops` reads the lanes, for a project
+  or a person too. `list_scratch` lists Scratch (`list_unfiled`, its
+  old name, still answers). `get_room` reads a project's or a person's
+  room: for a project, what `get_project` gives plus its state line,
+  lanes and stream. `set_decide` marks a task to decide or decided, and
+  `add_task` and `edit_task` take `decide`.
   `file_note` files a note to a project. Tasks now carry `decide` and
-  notes `unfiled` in every tool's results.
+  notes `scratch` (and `unfiled`, its old name) in every tool's results.
 
 ### Changed
 
@@ -217,9 +223,9 @@ changes the format says so here under **Export format**.
 - MCP's `get_focus` is now an alias of `get_today` and returns the same
   thing: the old Focus shape (due buckets, follow-ups, attention,
   agenda) is gone, and `assignee` is ignored. `add_note` with no
-  project, meeting, task or mention lands in Unfiled. `get_project` and
+  project, meeting, task or mention lands in Scratch. `get_project` and
   `get_overview` no longer show lists. The server's `initialize`
-  instructions describe loops, Unfiled and rooms.
+  instructions describe loops, Scratch and rooms.
 - MCP's list tools (`list_lists`, `get_list`, `add_list`,
   `add_list_item`, `check_list_item`) are retired: each answers with an
   error pointing to checklist notes and changes nothing. They go in the
@@ -227,7 +233,7 @@ changes the format says so here under **Export format**.
   now send `setDecide` and `moveNote`.
 
 - Every old address lands on its new home: `/focus` on Today, `/digest`
-  on Today's week zoom, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
+  on Today's week zoom, `/notepad` and `/unfiled` on Scratch, `/projects`, `/tasks`, `/notes`,
   `/meetings` and `/archive` on All with that kind (filters kept),
   `/lists` on All's notes, `/tasks/:id` on the task's project with its
   panel open, and `/settings/people/:id` on the person's room. A task
@@ -252,7 +258,7 @@ changes the format says so here under **Export format**.
   beside All's project rooms. On All filtered to a room, ⌘K's New task,
   New note and New meeting start in that room.
 - Help describes v2 only, with a new **How Datapad works** section on
-  Today, Rooms, All, Unfiled and the capture line. Its Layouts table
+  Today, Rooms, All, Scratch and the capture line. Its Layouts table
   lists only All's kinds and People. The docs and the README, with new
   screenshots, describe v2 only.
 - An installed app starts at `/` (Today); one installed before still

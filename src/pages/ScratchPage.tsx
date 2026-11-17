@@ -1,12 +1,12 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMemo, useRef, useState } from 'react';
 import { mentionedIds, namesToTokens } from '#shared/mentions';
-import { unfiledNotes } from '#shared/notes';
+import { scratchNotes } from '#shared/notes';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useNoteCommands } from '@/components/notes/useNoteCommands';
+import { ScratchBlock } from '@/components/scratch/ScratchBlock';
 import { Button } from '@/components/ui/button';
-import { UnfiledBlock } from '@/components/unfiled/UnfiledBlock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { newId } from '@/lib/ids';
@@ -14,18 +14,21 @@ import { keyFor } from '@/lib/spaces';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useToast } from '@/providers/ToastProvider';
 
-/** Where the writing area keeps its unsaved draft (per space). */
+/**
+ * Where the writing area keeps its unsaved draft (per space). The key
+ * keeps Scratch's old name, Unfiled, so a draft in progress survives.
+ */
 const DRAFT_KEY = 'datapad:draft:unfiled';
 
 /**
- * Unfiled (`/unfiled`, #333): one running pad of notes with no home,
+ * Scratch (`/scratch`, #333): one running pad of notes with no home,
  * newest first. It replaces the Notepad. The writing area on top uses
  * the full composer; ⌘Enter or Add block makes a General note, which
  * lands at the top. Each block below can be filed, made a task, marked
- * to decide, edited or deleted (`UnfiledBlock`).
+ * to decide, edited or deleted (`ScratchBlock`).
  */
-export function UnfiledPage() {
-  usePageTitle('Unfiled');
+export function ScratchPage() {
+  usePageTitle('Scratch');
   const { state, actions } = useDatapad();
   const { current } = useSpaces();
   const { hidden } = useNotes();
@@ -35,7 +38,7 @@ export function UnfiledPage() {
   /** The id the next block will have, known before it is added. */
   const nextId = useRef(newId());
   const notes = useMemo(
-    () => unfiledNotes(state?.notes ?? {}, hidden),
+    () => scratchNotes(state?.notes ?? {}, hidden),
     [state?.notes, hidden],
   );
   const people = state?.people ?? {};
@@ -58,12 +61,12 @@ export function UnfiledPage() {
 
   return (
     <section
-      aria-labelledby="unfiled-title"
+      aria-labelledby="scratch-title"
       className="enter flex flex-col gap-4"
     >
       <div className="flex flex-col gap-1">
-        <h1 id="unfiled-title" className="text-page-title">
-          Unfiled
+        <h1 id="scratch-title" className="text-page-title">
+          Scratch
         </h1>
         <p className="text-sm text-muted-foreground">
           Write first, file later. Notes with no project, meeting, task or
@@ -99,11 +102,11 @@ export function UnfiledPage() {
       {!state ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : notes.length === 0 ? (
-        <p className="text-state">Nothing unfiled.</p>
+        <p className="text-state">Nothing in Scratch.</p>
       ) : (
-        <ul aria-label="Unfiled notes" className="flex flex-col gap-3">
+        <ul aria-label="Scratch notes" className="flex flex-col gap-3">
           {notes.map((n) => (
-            <UnfiledBlock key={n.id} note={n} state={state} />
+            <ScratchBlock key={n.id} note={n} state={state} />
           ))}
         </ul>
       )}

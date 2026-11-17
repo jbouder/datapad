@@ -16,7 +16,7 @@ import {
 import { lanesOf, waitingCount } from '#shared/loops';
 import { briefOn, focusDays, savedFocusOptions } from '#shared/pages';
 import { buildRecap, recapLine } from '#shared/recap';
-import { unfiledCount } from '#shared/rooms';
+import { scratchCount } from '#shared/rooms';
 import { meId } from '#shared/select';
 import {
   dayEntries,
@@ -72,7 +72,7 @@ const HEADING =
  * ahead (within the days Settings → Today says); what is due (and late,
  * on today); and the timeline, with meetings as anchors and the Now line
  * at the current minute. Beside it on desktop, below it on phones: the
- * Unfiled card and the three lanes of open loops (`lanesOf`), each a
+ * Scratch card and the three lanes of open loops (`lanesOf`), each a
  * section that collapses, hides and moves (Settings → Today, saved under
  * Focus's key so its old settings carry over). Everything follows the
  * local date and rolls over at midnight; the day you step to is an
@@ -152,7 +152,7 @@ export function TodayPage() {
   const entries = dayEntries(state, day);
   const due = dueOn(state, day, today);
   const next = isToday ? nextMeeting(state, today, now, days) : null;
-  const unfiled = unfiledCount(state.notes);
+  const scratch = scratchCount(state.notes);
   const line = dayLine({
     meetings: entries.filter((e) => e.kind === 'meeting').length,
     due: due.length,
@@ -340,15 +340,15 @@ export function TodayPage() {
             className="flex min-w-0 flex-col gap-4"
           >
             <a
-              {...linkProps({ name: 'unfiled' })}
-              data-unfiled-card
+              {...linkProps({ name: 'scratch' })}
+              data-scratch-card
               className="press flex min-h-11 flex-col gap-0.5 border p-3 outline-ring/50 hover:bg-accent focus-visible:outline-2"
             >
-              <span className="text-sm font-medium">Unfiled</span>
+              <span className="text-sm font-medium">Scratch</span>
               <span className="text-sm text-muted-foreground">
-                {unfiled === 0
+                {scratch === 0
                   ? 'Nothing waiting for a home.'
-                  : `${unfiled} ${unfiled === 1 ? 'note' : 'notes'} with no home yet.`}
+                  : `${scratch} ${scratch === 1 ? 'note' : 'notes'} with no home yet.`}
               </span>
             </a>
             <div ref={lanesRoot} className="flex flex-col gap-4">

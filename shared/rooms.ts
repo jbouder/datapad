@@ -1,7 +1,7 @@
 /**
  * Rooms and the rail (#329), as pure functions. A room is one project's
  * or one person's page, or a project seen through one person (#334,
- * #335). The rail lists Today, Unfiled and All, then the rooms: the
+ * #335). The rail lists Today, Scratch and All, then the rooms: the
  * pinned ones in your order, or before anything is pinned the active
  * projects by recent change, then the people who owe you something.
  *
@@ -14,7 +14,7 @@
 
 import { viewRoute } from './all';
 import { lanesOf, waitingPeople } from './loops';
-import { isUnfiled } from './notes';
+import { inScratch } from './notes';
 import { projectRoomOf, type Route, roomTabRoute } from './routes';
 import { meId } from './select';
 import {
@@ -316,9 +316,9 @@ export function projectRoomsByOrg(
     );
 }
 
-/** How many notes have no home yet: Unfiled's count. */
-export function unfiledCount(notes: Snapshot['notes']): number {
+/** How many notes have no home yet: Scratch's count. */
+export function scratchCount(notes: Snapshot['notes']): number {
   let count = 0;
-  for (const note of Object.values(notes)) if (isUnfiled(note)) count++;
+  for (const note of Object.values(notes)) if (inScratch(note)) count++;
   return count;
 }

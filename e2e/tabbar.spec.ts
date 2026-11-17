@@ -127,8 +127,8 @@ test.describe('with prefers-reduced-motion: reduce', () => {
     await openLive(page, '/');
     await tabs(page).getByRole('link', { name: 'All' }).click();
     await expect(page).toHaveURL(/\/all\?kind=task$/);
-    await tabs(page).getByRole('link', { name: 'Unfiled' }).click();
-    await expect(page).toHaveURL(/\/unfiled$/);
+    await tabs(page).getByRole('link', { name: 'Scratch' }).click();
+    await expect(page).toHaveURL(/\/scratch$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });

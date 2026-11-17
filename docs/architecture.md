@@ -202,7 +202,7 @@ waiting"; only connecting and offline are announced, and it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition. Its pure half (parsing, paths, page titles, and
 the redirects from every address from before v2 (#329): `/tasks` is
-`/all?kind=task`, `/notepad` is `/unfiled`, `/settings/people/:id` is
+`/all?kind=task`, `/notepad` and `/scratch` are `/scratch`, `/settings/people/:id` is
 `/people/:id`, …, all in `landRoute()`) is `shared/routes.ts`, so Vitest
 tests it without a DOM; `src/lib/router.ts` re-exports it. `/tasks/:id`
 needs the data to find the task's room, so the shell settles that one.

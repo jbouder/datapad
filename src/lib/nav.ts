@@ -16,20 +16,20 @@ export interface PlaceItem {
   icon: Icon;
 }
 
-/** Today, Unfiled and All: the rail's top and the phone's three tabs. */
+/** Today, Scratch and All: the rail's top and the phone's three tabs. */
 export const PLACES: PlaceItem[] = [
   { name: 'today', route: { name: 'today' }, label: 'Today', icon: SunIcon },
   {
-    name: 'unfiled',
-    route: { name: 'unfiled' },
-    label: 'Unfiled',
+    name: 'scratch',
+    route: { name: 'scratch' },
+    label: 'Scratch',
     icon: TrayIcon,
   },
   { name: 'all', route: { name: 'all' }, label: 'All', icon: SquaresFourIcon },
 ];
 
 /**
- * The phone's Rooms tab, between Unfiled and All: the rail's rooms as a
+ * The phone's Rooms tab, between Scratch and All: the rail's rooms as a
  * page. The rail lists the rooms themselves, so it has no such row.
  */
 export const ROOMS_TAB: PlaceItem = {

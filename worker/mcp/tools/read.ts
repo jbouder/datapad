@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { type Lanes, NOBODY, waitingCount } from '#shared/loops';
 import { tokensToNames } from '#shared/mentions';
-import { isUnfiled } from '#shared/notes';
+import { inScratch } from '#shared/notes';
 import { orgName } from '#shared/orgs';
 import { zonedDay, zonedParts } from '#shared/schedule';
 import type { StreamItem } from '#shared/stream';
@@ -216,13 +216,13 @@ export const NoteArg = z
   .string()
   .min(1)
   .max(64)
-  .describe('A note id, from list_unfiled, list_notes or search.');
+  .describe('A note id, from list_scratch, list_notes or search.');
 
 export function resolveNote(state: Snapshot, asked: string): Note {
   const note = state.notes[asked];
   if (!note) {
     throw new ToolError(
-      `No note has the id "${asked}". list_unfiled, list_notes and search give note ids.`,
+      `No note has the id "${asked}". list_scratch, list_notes and search give note ids.`,
     );
   }
   return note;
@@ -296,8 +296,11 @@ export function noteOut(state: Snapshot, n: Note) {
       : null,
     task: task ? { id: task.id, title: task.title } : null,
     pinned: n.pinned,
-    // No project, meeting, task or mention: it sits in Unfiled (#333).
-    unfiled: isUnfiled(n),
+    // No project, meeting, task or mention: it sits in Scratch (#333).
+    // `unfiled` is the same, under Scratch's old name, for older clients.
+    // Not `n.scratch`, the old Notepad flag, which reads as `notepad`.
+    scratch: inScratch(n),
+    unfiled: inScratch(n),
     // The space's Notepad (#218), its running General note.
     ...(n.scratch ? { notepad: true } : {}),
     body: text(state, n.body),

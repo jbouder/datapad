@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  isUnfiled,
+  inScratch,
   type NoteFilters,
   notePreview,
   projectNotes,
   queryWords,
+  scratchNotes,
   selectNotes,
   taskTitleFrom,
-  unfiledNotes,
 } from '#shared/notes';
 import {
   decideOf,
@@ -158,7 +158,7 @@ describe('notePreview', () => {
   });
 });
 
-describe('isUnfiled (#328)', () => {
+describe('inScratch (#328)', () => {
   const loose = {
     projectId: null,
     meetingId: null,
@@ -166,19 +166,19 @@ describe('isUnfiled (#328)', () => {
   };
 
   it('is a General note on no meeting or task that mentions nobody', () => {
-    expect(isUnfiled(loose)).toBe(true);
-    expect(isUnfiled({ ...loose, taskId: null })).toBe(true);
+    expect(inScratch(loose)).toBe(true);
+    expect(inScratch({ ...loose, taskId: null })).toBe(true);
   });
 
   it('is filed once it has a project, a meeting, a task or a mention', () => {
-    expect(isUnfiled({ ...loose, projectId: 'p1' })).toBe(false);
-    expect(isUnfiled({ ...loose, meetingId: 'm1' })).toBe(false);
-    expect(isUnfiled({ ...loose, taskId: 't1' })).toBe(false);
-    expect(isUnfiled({ ...loose, body: 'Ask @{u-leia}' })).toBe(false);
+    expect(inScratch({ ...loose, projectId: 'p1' })).toBe(false);
+    expect(inScratch({ ...loose, meetingId: 'm1' })).toBe(false);
+    expect(inScratch({ ...loose, taskId: 't1' })).toBe(false);
+    expect(inScratch({ ...loose, body: 'Ask @{u-leia}' })).toBe(false);
   });
 });
 
-describe('unfiledNotes (#333)', () => {
+describe('scratchNotes (#333)', () => {
   const notes = {
     a: note('a', { createdAt: '2026-10-20T09:00:00.000Z' }),
     b: note('b', { createdAt: '2026-10-21T09:00:00.000Z' }),
@@ -190,11 +190,11 @@ describe('unfiledNotes (#333)', () => {
   };
 
   it('keeps the notes with no home, newest first, ties by id', () => {
-    expect(unfiledNotes(notes).map((n) => n.id)).toEqual(['b', 'c', 'a']);
+    expect(scratchNotes(notes).map((n) => n.id)).toEqual(['b', 'c', 'a']);
   });
 
   it('leaves out notes waiting on Undo', () => {
-    expect(unfiledNotes(notes, new Set(['b'])).map((n) => n.id)).toEqual([
+    expect(scratchNotes(notes, new Set(['b'])).map((n) => n.id)).toEqual([
       'c',
       'a',
     ]);

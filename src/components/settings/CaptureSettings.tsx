@@ -97,7 +97,7 @@ export function CaptureSettings() {
           onChange={(value) => set('roomNotes', value)}
           options={[
             { value: 'room', label: 'The room' },
-            { value: 'unfiled', label: 'Unfiled' },
+            { value: 'unfiled', label: 'Scratch' },
           ]}
           className="max-w-sm"
         />

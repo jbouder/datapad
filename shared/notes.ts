@@ -192,7 +192,7 @@ export function notePreview(body: string, people: Snapshot['people']): string {
  * and mentioning nobody. A selector, not a field: filing a note is moving
  * it to a project (`moveNote`) or mentioning someone in it.
  */
-export function isUnfiled(
+export function inScratch(
   note: Pick<Note, 'projectId' | 'meetingId' | 'taskId' | 'body'>,
 ): boolean {
   return (
@@ -204,16 +204,16 @@ export function isUnfiled(
 }
 
 /**
- * Unfiled's blocks (#333): the notes with no home (`isUnfiled`), newest
+ * Scratch's blocks (#333): the notes with no home (`inScratch`), newest
  * first, ties by id so the order is stable. `hidden` are notes on their
  * way out (a delete waiting on Undo).
  */
-export function unfiledNotes(
+export function scratchNotes(
   notes: Snapshot['notes'],
   hidden: ReadonlySet<string> = new Set(),
 ): Note[] {
   return Object.values(notes)
-    .filter((n) => isUnfiled(n) && !hidden.has(n.id))
+    .filter((n) => inScratch(n) && !hidden.has(n.id))
     .sort(
       (a, b) =>
         b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),

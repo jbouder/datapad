@@ -10,7 +10,7 @@ import {
   test,
 } from './fixtures';
 
-/** Unfiled (#333), desktop and phone. */
+/** Scratch (#333), desktop and phone. */
 
 interface Stored {
   tasks: Record<
@@ -33,7 +33,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 }
 
 const blocks = (page: Page) =>
-  page.getByRole('list', { name: 'Unfiled notes' }).getByRole('article');
+  page.getByRole('list', { name: 'Scratch notes' }).getByRole('article');
 const block = (page: Page, text: string | RegExp) =>
   blocks(page).filter({ hasText: text });
 const toast = (page: Page) => page.getByRole('status').filter({ hasText: /./ });
@@ -70,9 +70,9 @@ test('add a block, file it, and Undo moves it back', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/unfiled');
+  await openLive(page, '/scratch');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Unfiled' }),
+    page.getByRole('heading', { level: 1, name: 'Scratch' }),
   ).toBeVisible();
   // The seed's Ideas note is the one block.
   await expect(blocks(page)).toHaveCount(1);
@@ -120,7 +120,7 @@ test('Make task and To decide make the right task; the block stays', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/unfiled');
+  await openLive(page, '/scratch');
   await addBlock(
     page,
     '**Order** more heaters\nThe old ones rattle',
@@ -155,7 +155,7 @@ test('tick a checklist, edit in place, delete and Undo', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/unfiled');
+  await openLive(page, '/scratch');
   await addBlock(page, 'Packing\n- [ ] Snow goggles\n- [ ] Thermal cape');
   const item = block(page, 'Packing');
 
@@ -214,11 +214,12 @@ test('a migrated Notepad and a migrated list show and work here', async ({
     meetingId: null,
     phase: null,
     createdAt: seedTime('2026-10-25T09:00:00.000Z'),
+    // The old Notepad flag (`Note.scratch`), not Scratch the page.
     scratch: true,
   };
   await request.post('/api/import', { data: old });
 
-  await openLive(page, '/unfiled');
+  await openLive(page, '/scratch');
   await expect(block(page, 'Notepad: call the quartermaster')).toBeVisible();
   const list = block(page, 'Reading list');
   await expect(list).toBeVisible();
