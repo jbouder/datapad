@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { LIMITS } from '#shared/limits';
 import type { BaseOp } from '#shared/protocol';
-import { defaultAssignee } from '#shared/tasks';
+import { defaultAssignee, defaultPriority } from '#shared/tasks';
 import { PRIORITIES, type Task } from '#shared/types';
 import {
   defineTool,
@@ -70,7 +70,12 @@ export const addTask = defineTool({
       'A person id or name (ignoring case), "me" for the person marked as you, or "unassigned". Omitted, the task goes to the person marked as you when the owner’s "Assign new tasks to me" setting is on, else to nobody.',
     ),
     due: DayOrNoneText.optional(),
-    priority: z.enum(PRIORITIES).optional().describe('Defaults to "none".'),
+    priority: z
+      .enum(PRIORITIES)
+      .optional()
+      .describe(
+        'Omitted, the owner’s default for new tasks ("med" unless they changed it).',
+      ),
     desc: MarkdownArg.optional(),
     tags: TagsArg.optional(),
     today: TodayArg,
@@ -102,7 +107,7 @@ export const addTask = defineTool({
           id,
           projectId,
           title: args.title,
-          ...(args.priority ? { priority: args.priority } : {}),
+          priority: args.priority ?? defaultPriority(state),
           ...(args.due !== undefined
             ? { due: day(args.due, today, 'a due date') }
             : {}),

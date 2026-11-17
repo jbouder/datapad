@@ -117,7 +117,9 @@ as it is (migrated on the way in, below):
   default org for new projects (none until you pick one in Orgs; a new
   space starts with no orgs), optionally `assignToMe` (`true` when new
   tasks go to the person marked as you, from Settings → People; absent
-  is off) and, optionally, `nav`, the navigation
+  is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
+  what a new task starts with, from Settings → Pages; absent is `med`)
+  and, optionally, `nav`, the navigation
   preferences from Settings → Navigation (#187):
   `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "archived": true }, "tools": { "order": ["digest", "notepad", "whiteboard"], "hidden": ["notepad"], "phoneHidden": ["digest", "whiteboard"] }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
   (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,

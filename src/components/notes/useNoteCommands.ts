@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { TemplateChoice } from '#shared/composer';
 import { tokensToNames } from '#shared/mentions';
-import { defaultAssignee } from '#shared/tasks';
+import { defaultAssignee, defaultPriority } from '#shared/tasks';
 import { templatesOf } from '#shared/templates';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
@@ -36,7 +36,8 @@ export function useNoteCommands(projectId: string | null): {
   return {
     onTask: (title) => {
       const assignee = state ? defaultAssignee(state) : '';
-      if (actions.addTask({ projectId, title, assignee }) === null) {
+      const priority = state ? defaultPriority(state) : 'med';
+      if (actions.addTask({ projectId, title, assignee, priority }) === null) {
         return false;
       }
       show(`Added “${title}”`);

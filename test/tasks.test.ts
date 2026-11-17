@@ -3,6 +3,7 @@ import { ExportSchema } from '#shared/protocol';
 import {
   DEFAULT_TASK_FILTERS,
   defaultAssignee,
+  defaultPriority,
   dueBucket,
   dueForBucket,
   selectTasks,
@@ -16,6 +17,25 @@ function seeded(): Snapshot {
   return state;
 }
 const ids = (rows: Task[]) => rows.map((t) => t.id);
+
+describe('defaultPriority', () => {
+  it('is Medium until the setting says otherwise', () => {
+    expect(defaultPriority({ settings: {} })).toBe('med');
+    expect(defaultPriority({ settings: { user: { defaultOrg: '' } } })).toBe(
+      'med',
+    );
+    expect(
+      defaultPriority({
+        settings: { user: { defaultOrg: '', defaultPriority: 'none' } },
+      }),
+    ).toBe('none');
+    expect(
+      defaultPriority({
+        settings: { user: { defaultOrg: '', defaultPriority: 'high' } },
+      }),
+    ).toBe('high');
+  });
+});
 
 describe('defaultAssignee', () => {
   const s = seeded();

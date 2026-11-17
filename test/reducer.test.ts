@@ -2614,6 +2614,23 @@ describe('settings', () => {
     const off = run(on, { type: 'setSettings', patch: { assignToMe: false } });
     expect(settingsOf(off).assignToMe).toBe(false);
   });
+
+  it('stores the new task priority and keeps the rest', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const { state: low, changed } = at(state, {
+      type: 'setSettings',
+      patch: { defaultPriority: 'low' },
+    });
+    expect(settingsOf(low)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      defaultPriority: 'low',
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(low.activity).toBe(state.activity);
+  });
 });
 
 describe('page preferences (#186)', () => {

@@ -7,6 +7,7 @@ import {
   routePath,
   settingsSectionOf,
 } from '#shared/routes';
+import { holdLeave } from '@/lib/leave';
 
 /**
  * A small `history.pushState` router, holocron's. Route changes go through
@@ -152,6 +153,9 @@ export function navigate(
 ) {
   const query = options.query ? `?${options.query.replace(/^\?/, '')}` : '';
   const path = pathFor(route) + query;
+  // Unsaved work on the page asks first, then finishes the trip.
+  if (!samePage(route, current) && holdLeave(() => navigate(route, options)))
+    return;
   if (options.replace) {
     window.history.replaceState(null, '', path);
   } else if (path !== here()) {
@@ -163,6 +167,21 @@ export function navigate(
 window.addEventListener('popstate', () => {
   const { pathname, search: query, hash } = window.location;
   const [route, nextSearch] = land(pathname, query, hash);
+  // Back or Forward over unsaved work: stay on this page and ask; going on
+  // afterward goes to where the history pointed.
+  if (!samePage(route, current)) {
+    const target = pathname + query + hash;
+    const stay = pathFor(current) + search;
+    if (
+      holdLeave(() => {
+        window.history.pushState(null, '', target);
+        commit(route, nextSearch);
+      })
+    ) {
+      window.history.pushState(null, '', stay);
+      return;
+    }
+  }
   // An old meeting or Notepad link in the history: settle it as on load.
   if (
     (route.name === 'meeting' || route.name === 'notepad') &&

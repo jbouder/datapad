@@ -17,13 +17,29 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- Settings → Pages has New task priority: what a new task starts with when
+  you do not pick one, from the New task panel, `/task`, Make task, action
+  items and MCP's `add_task`.
+- A note being written under a task, a meeting or a meeting row asks
+  "Save this note?" (Discard or Save note) when you click away, and holds
+  any link, Back or panel close until you answer, then goes on.
+
 ### Changed
+
+- New tasks start at Medium priority instead of none.
 
 - The components in `src/components/ui` now come from the
   [Beskar](https://github.com/jbouder/beskar) registry in place of stock
   shadcn. Nothing looks different. Combobox buttons gain accessible names,
   and calendar days are named with the full date ("Sunday, November 1,
   2026").
+
+### Export format
+
+- `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
+  `high`). Absent reads as `med`.
 
 ## [1.0.0] — 2026-11-06
 
