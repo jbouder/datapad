@@ -138,5 +138,8 @@ test('a deleted source note leaves the task, which says so', async ({
     .click();
   const panel = page.getByRole('dialog');
   await expect(panel.getByRole('heading', { name: 'From note' })).toBeVisible();
-  await expect(panel.getByText('Note deleted')).toBeVisible();
+  // The delete goes out when its Undo ends (5 seconds), not before.
+  await expect(panel.getByText('Note deleted')).toBeVisible({
+    timeout: 10_000,
+  });
 });

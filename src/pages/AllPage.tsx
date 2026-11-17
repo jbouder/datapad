@@ -64,7 +64,7 @@ function KindLinks({ kind }: { kind?: AllKind }) {
       aria-label="Kinds"
       className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
     >
-      <ul className="flex w-max gap-1">
+      <ul className="flex w-max gap-1 pr-4 sm:pr-0">
         {KINDS.map(({ kind: k, label, icon: KindIcon }) => {
           const current = k === kind;
           return (
