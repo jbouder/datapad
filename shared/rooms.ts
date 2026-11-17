@@ -10,15 +10,10 @@
  * only navigation setting: Settings → Navigation and its `nav` prefs
  * retired with v2.
  */
+import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
 import { meId } from './select';
-import {
-  blockedOf,
-  type Person,
-  type Project,
-  type Settings,
-  type Snapshot,
-} from './types';
+import type { Person, Project, Settings, Snapshot } from './types';
 
 export type Room =
   | { kind: 'project'; id: string }
@@ -140,50 +135,41 @@ export function railRooms(
 export const OWED_MAX = 5;
 
 /**
- * The people who owe you something, most first, then by name: those an
- * open task waits on (blocked on them), or that is assigned to them and
- * not to you. Archived projects' tasks do not count, nor does the person
+ * The people who owe you something, most first, then by name: Today's
+ * Waiting on lane (`lanesOf`), by person: open tasks blocked on them, or
+ * assigned to them and not to you, that are not to decide. Archived
+ * projects' tasks do not count, nor does the person
  * marked as you, nor anyone already pinned as a room. `OWED_MAX` at most.
  */
 export function owedBy(
   state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
   settings: Pick<Settings, 'pinned'> = {},
 ): { person: Person; count: number }[] {
+  const me = meId(state.people);
   const pinned = new Set(pinnedOf(settings));
-  return peopleByOwed(state)
-    .filter(({ person, count }) => count > 0 && !pinned.has(person.id))
+  return waitingPeople(lanesOf(state, me), state.people)
+    .filter(({ person }) => person.id !== me && !pinned.has(person.id))
+    .map(({ person, tasks }) => ({ person, count: tasks.length }))
+    .sort(
+      (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
+    )
     .slice(0, OWED_MAX);
 }
 
 /**
- * How many open tasks each person owes you, by person id (as `owedBy`
- * counts them); nobody owing anything is absent.
- */
-function owedCounts(
-  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
-): Map<string, number> {
-  const me = meId(state.people);
-  const counts = new Map<string, number>();
-  for (const task of Object.values(state.tasks)) {
-    if (task.status !== 'open') continue;
-    if (task.projectId && state.projects[task.projectId]?.archived) continue;
-    const blocked = blockedOf(task);
-    const on = blocked ? blocked.on : task.assignee;
-    if (!on || on === me) continue;
-    counts.set(on, (counts.get(on) ?? 0) + 1);
-  }
-  return counts;
-}
-
-/**
- * Every person but you, by how much they owe you (most first), then by
- * name: All's people rooms (#337).
+ * Every person but you, by how much they owe you (as `owedBy` counts it),
+ * most first, then by name: All's people rooms (#337).
  */
 export function peopleByOwed(
   state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
 ): { person: Person; count: number }[] {
   const me = meId(state.people);
-  const counts = owedCounts(state);
+  const counts = new Map(
+    waitingPeople(lanesOf(state, me), state.people).map(({ person, tasks }) => [
+      person.id,
+      tasks.length,
+    ]),
+  );
   return Object.values(state.people)
     .filter((person) => person.id !== me)
     .map((person) => ({ person, count: counts.get(person.id) ?? 0 }))

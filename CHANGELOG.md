@@ -58,14 +58,38 @@ changes the format says so here under **Export format**.
   can be added to People. Enter saves with Undo, Esc clears, Tab or the
   kind chip changes the kind, and Shift+Enter or the expand button opens
   the full note composer. `n` goes to it.
+- **Unfiled** (#333) replaces the Notepad: one running pad of the notes
+  with no home, newest first. Write at the top and ⌘Enter, or Add block,
+  makes a note. Each block shows when it was written and has **File
+  to…** (a project picker; the note moves, same id and time, with
+  Undo), **Make task** and **To decide** (a task titled from its first
+  line, pointing back at it; the block stays), Edit in place and Delete
+  with Undo. Checklists tick in place, so old lists work here. Adding a
+  mention files a block too.
 - **The v2 shell** (#329): the rail has Today, Unfiled (with its count)
   and All, then Rooms: the rooms you pin, or the active projects until
   you pin one, then the people who owe you something. A phone's tab bar
   has Today, Unfiled and All. **Pin** in a project's or a person's
   header puts it in the rail; Settings → Rooms orders and unpins them.
   A person has a room of their own at `/people/:id`. Until the pages
-  that follow arrive, Today shows Focus, Unfiled lists the notes with no
-  home, and All shows Projects, Tasks, Notes and Meetings by kind.
+  that follow arrive, All shows Projects, Tasks, Notes and Meetings by
+  kind.
+- **Today** (#331), the home page at `/`: one day at a time. The header
+  has the long day, a line that counts it ("2 meetings, 3 due, 4 waiting
+  on others, 1 to decide") and Previous day, Today and Next day. Then the
+  capture line, a **Next up** card with Enter meeting while a meeting is
+  ahead, what is due (and late, on today) and the **Timeline**: the
+  day's meetings as anchors, untimed ones first, and the tasks added and
+  done and the notes written that day at their times, with a Now line on
+  today and the meetings that are over dimmed. Beside it on desktop and
+  below it on phones: the Unfiled card and the three lanes of open
+  loops. **Mine** is yours or no one's, **Waiting on** is blocked on
+  someone (or no one listed) or assigned to someone else, grouped by
+  person, and **To decide** is every task marked to decide. A loop's
+  checkbox closes it at once, with Undo. Settings → Pages shows Today's
+  options: what Mine shows (with unassigned, or only what is assigned to
+  you), how far Next up looks ahead, and which lanes show and in what
+  order. What Focus saved carries over.
 
 ### Changed
 
@@ -79,6 +103,11 @@ changes the format says so here under **Export format**.
   project. New list is gone from +, ⌘K and Shift+L, and the Lists,
   Notepad, Weekly digest and task pages are gone, as lists and the
   Notepad became notes.
+- Focus is gone, with its agenda strip, Since yesterday, Attention,
+  Follow-ups and Brief me; Today replaces it. Since yesterday and Brief me
+  come back on Today in #332. The rail's Waiting on counts what Today's
+  Waiting on lane holds, so a task to decide no longer counts there, and
+  a task blocked on you is yours.
 - The phone's tab bar is opaque, so its labels keep their contrast over
   whatever scrolls under it.
 - New tasks start at Medium priority instead of none.

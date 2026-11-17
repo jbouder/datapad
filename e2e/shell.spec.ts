@@ -1,3 +1,4 @@
+import { longDay } from '../shared/dates';
 import {
   expect,
   openHelp,
@@ -6,6 +7,7 @@ import {
   SEED,
   SEED_COUNTS,
   test,
+  today,
 } from './fixtures';
 
 test('signs in through the dev bypass as this test’s own address', async ({
@@ -14,7 +16,7 @@ test('signs in through the dev bypass as this test’s own address', async ({
 }) => {
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Focus' }),
+    page.getByRole('heading', { level: 1, name: longDay(today(), today()) }),
   ).toBeVisible();
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
@@ -59,12 +61,12 @@ test('deep links load the app, not a 404', async ({ page }) => {
 
 test('every page has its own title', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle('Focus · Datapad');
+  await expect(page).toHaveTitle('Today · Datapad');
   await openHelp(page);
   await expect(page).toHaveURL(/\/help$/);
   await expect(page).toHaveTitle('Help · Datapad');
   await page.goBack();
-  await expect(page).toHaveTitle('Focus · Datapad');
+  await expect(page).toHaveTitle('Today · Datapad');
 });
 
 test('the top bar shows the title only once the h1 scrolls away', async ({

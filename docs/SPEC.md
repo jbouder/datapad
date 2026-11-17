@@ -86,6 +86,8 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 
 **Unfiled** (#328). A note is Unfiled when it is General, on no meeting or task, and mentions nobody: `isUnfiled()` in `shared/notes.ts`. It is a selector, not a field, so filing is `moveNote` or adding a mention.
 
+**The Unfiled page** (#333, `/unfiled`) replaces the Notepad. On top, a writing area with the full composer: ⌘Enter or **Add block** adds a General note (one that mentions someone is filed at once, and the toast says so). Below, the blocks (`unfiledNotes()`: the unfiled notes, newest first), each with its relative time, its rendered body (checklists tick in place, through `editNote`) and its actions, always shown: **File to…** (a picker of the projects not archived; `moveNote`, and the toast's Undo moves it back to General), **Make task** and **To decide** (a task in General titled `taskTitleFrom()` of the body, with `sourceNoteId`, and `decide` for To decide; the block stays), **Edit** in place and **Delete** with Undo. On a phone Edit and Delete are icons. Selected text offers Make task, as in any note.
+
 ### Meeting
 
 A dated meeting, in a project or General (the collection is `meetings`). Milestones are not meetings: they live on their project, and a deadline is the project's `targetDate`. Files from before meetings carry the old typed collection instead; import migrates them (see [data.md](data.md#the-format)).
@@ -523,9 +525,9 @@ v2 (#329) replaced the type-by-type navigation with three places and the rooms. 
 
 | Part      | Behavior |
 | --------- | -------- |
-| Rail      | Desktop (≥ 820px): the space switcher; **Today**, **Unfiled** (with how many notes have no home) and **All**; then **Rooms**: the pinned rooms in your order, or, before anything is pinned, the active projects (not archived, not done), most recently changed first, each with its open count; then **Waiting on**: up to five people who owe you something (an open task blocked on them, or assigned to them and not to you, outside archived projects), most first, until they are pinned; the sync status at the foot. |
+| Rail      | Desktop (≥ 820px): the space switcher; **Today**, **Unfiled** (with how many notes have no home) and **All**; then **Rooms**: the pinned rooms in your order, or, before anything is pinned, the active projects (not archived, not done), most recently changed first, each with its open count; then **Waiting on**: up to five people who owe you something (Today's Waiting on lane by person, `owedBy()` over `lanesOf()`: an open task not to decide, blocked on them, or assigned to them and not to you, outside archived projects), most first, until they are pinned; the sync status at the foot. |
 | Tab bar   | Phone: Today, Unfiled and All, in three columns, 44px targets. Rooms open from All and from links. |
-| Addresses | `/` Today, `/unfiled`, `/all` (`?kind=` one or more of `task`, `note`, `meeting`, `project`, `person`, comma separated; its filters and sort after it), `/projects/:id` and `/projects/:id/whiteboard`, `/people/:id` (a person's room), `/meetings/:id`, `/whiteboard`, Settings and Help. Until the pages that follow land, Today shows Focus, Unfiled lists the unfiled notes, and a person's room shows their detail. |
+| Addresses | `/` Today, `/unfiled`, `/all` (`?kind=` one or more of `task`, `note`, `meeting`, `project`, `person`, comma separated; its filters and sort after it), `/projects/:id` and `/projects/:id/whiteboard`, `/people/:id` (a person's room), `/meetings/:id`, `/whiteboard`, Settings and Help. Until the pages that follow land, a person's room shows their detail. |
 | Redirects | `/focus`, `/digest` and `/decisions…` go to `/`; `/notepad` (and `/notes?view=notepad`) to `/unfiled`; `/projects`, `/tasks`, `/notes`, `/meetings` and `/events` to All with that kind, their filters as All reads them; `/archive` (and #329's `/all?archived=1`) to `/all?kind=project&status=archived`; `/lists` and `/lists/:id` to `/all?kind=note`; `/meetings?meeting=<id>` and `/events?event=<id>` to that meeting; `/tasks/:id` to the task's room (its project's, or Today for a General task) with its panel open; `/settings/people/:id` to `/people/:id`; `/settings/navigation` to `/settings/rooms`. `landRoute()` in `shared/routes.ts` holds them all. |
 | Pin       | **Pin** in a project's or a person's room header pins it (at the end) or unpins it; the rail follows at once. |
 | Settings  | Settings → Rooms (`/settings/rooms`) lists the pinned rooms in the rail's order, each with **Move up**, **Move down** and **Unpin**. The only navigation setting. |
@@ -557,6 +559,21 @@ One log per project plus one for General. Entries are `{t, text}`, prepended, ca
 | Project moved in from a space                 | Moved from <space> (rebuild only, in the target space)                                                                |
 
 Pinning a note, reordering tasks, and editing, ticking or reordering topics are not logged. The log is the data source for the deferred weekly digest.
+
+## Today
+
+Today (`/`, #331) replaces Focus: one day at a time, with the open loops beside it. `shared/loops.ts` and `shared/today.ts` hold the rules; the rooms (#334, #335) and MCP (#340) reuse them.
+
+| Part | Behavior |
+| ---- | -------- |
+| Header | "Today" (or "Looking back", "Looking ahead"), the long day, then one line: "2 meetings, 3 due, 4 waiting on others, 1 to decide" (the day's meetings, what `dueOn()` gives, and the lanes' counts). **Previous day**, **Today** and **Next day** step through the days; the day is kept as an offset from today, so it rolls over at midnight. The week zoom, the recap and Brief me join the header in #332. |
+| Capture | The capture line (#330). |
+| Next up | On today, the next meeting from now (`nextMeeting()`): one going on counts, an untimed one today counts all day, untimed first on a day, within the days Settings → Pages says (7 by default). Its title, when, its project, attendees and open topics, and **Enter meeting**, which opens the meeting's page until meeting mode (#336). |
+| Due | "Due today or late" on today (open tasks due today or earlier), "Due" on another day (due that day); live projects only, by due date then manual order. Task rows as everywhere. |
+| Timeline | `dayEntries()`: the day's meetings (untimed ones first, as All day), the tasks added and the tasks done that day (a task can be both) and the notes written that day, each at its local time, archived projects left out. On today a Now line sits at the current minute and the meetings that are over are muted. A day with nothing says "Nothing on this day." |
+| Unfiled card | How many notes have no home yet, linking to Unfiled. |
+| Lanes | `lanesOf()`: every open task in a project that is not archived (or General), split three ways. **To decide**: marked to decide (`decideOf`). **Waiting on**: blocked on someone, or on no one listed ("Not on anyone", last), or assigned to someone other than you; grouped by that person, most first, the name linking to their room. A task blocked on you is yours. **Mine**: the rest, yours or no one's. Each by due date (none last), then manual order. A row has its checkbox (closing it moves it out at once; the toast offers Undo), its title (opens the task panel), its room and person (linking to their rooms; you are not named) and its due date. Each lane collapses, remembered with the page. Desktop puts them in a right column; phones below the day. |
+| Settings | Settings → Pages → Today (saved under Focus's `focus` key, so what Focus saved carries over): **Mine shows** (Mine and unassigned, or Only assigned to me; Focus's Tasks for), **Next up looks ahead** (3, 5, 7, 10 or 14 days; Focus's Week window) and the lanes, hidden and reordered. Focus's Attention and Follow-ups rules stay saved for MCP's `get_focus`. |
 
 ## Design system
 

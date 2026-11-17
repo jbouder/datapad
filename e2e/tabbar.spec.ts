@@ -78,7 +78,7 @@ test.beforeEach(async ({ page, request }) => {
 test.describe('with motion on', () => {
   test.use({ reducedMotion: 'no-preference' });
 
-  test('the tab bar stays opaque and still through page, layout and space transitions', async ({
+  test('the tab bar stays opaque and still through page, filter and space transitions', async ({
     page,
     request,
   }) => {
@@ -86,18 +86,16 @@ test.describe('with motion on', () => {
     await watchTransitions(page);
     await openLive(page, '/all');
 
+    // A filter change (Today has none): one of All's kinds.
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Tasks', exact: true })
+      .click();
+    await expect.poll(async () => (await seen(page)).length).toBe(1);
+
     // A page change.
     await tabs(page).getByRole('link', { name: 'Today' }).click();
     await expect(page).toHaveURL(/localhost:\d+\/$/);
-    await expect.poll(async () => (await seen(page)).length).toBe(1);
-
-    // A layout change.
-    const group = page.getByRole('group', { name: /^Layout/ });
-    await group
-      .locator('label')
-      .filter({ has: page.getByRole('radio', { checked: false }) })
-      .first()
-      .click();
     await expect.poll(async () => (await seen(page)).length).toBe(2);
 
     // A space change (the account menu on a phone).
@@ -107,14 +105,14 @@ test.describe('with motion on', () => {
     await expect.poll(async () => (await seen(page)).length).toBe(3);
 
     const all = await seen(page);
-    expect(all.map((s) => s.type)).toEqual(['page', 'layout', 'space']);
+    expect(all.map((s) => s.type)).toEqual(['filter', 'page', 'space']);
     for (const s of all) {
       expect(s.name, s.type).toBe('tabbar');
       expect(opaque(s.background), `${s.type}: ${s.background}`).toBe(true);
       expect(s.tabbar, s.type).toEqual([]);
     }
     // The page itself did move.
-    expect(all[0]?.others).toBeGreaterThan(0);
+    expect(all[1]?.others).toBeGreaterThan(0);
 
     // Between transitions it has no snapshot name of its own.
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');

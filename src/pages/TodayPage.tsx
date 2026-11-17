@@ -1,0 +1,279 @@
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
+import { useMemo, useRef, useState } from 'react';
+import { addDays, formatTimeRange, longDay } from '#shared/dates';
+import { lanesOf, waitingCount } from '#shared/loops';
+import { focusDays } from '#shared/pages';
+import { unfiledCount } from '#shared/rooms';
+import { meId } from '#shared/select';
+import {
+  dayEntries,
+  dayLine,
+  dueOn,
+  localTime,
+  nextMeeting,
+} from '#shared/today';
+import { type Meeting, type Snapshot, topicsOf } from '#shared/types';
+import { CaptureLine } from '@/components/capture/CaptureLine';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
+import { TaskRow } from '@/components/tasks/TaskRow';
+import { DayTimeline } from '@/components/today/DayTimeline';
+import { LoopLanes } from '@/components/today/LoopLanes';
+import { Button } from '@/components/ui/button';
+import { useClock } from '@/hooks/useClock';
+import { useDatapad } from '@/hooks/useDatapad';
+import { useFlip } from '@/hooks/useFlip';
+import { useNow, useToday } from '@/hooks/useNow';
+import { usePageTitle } from '@/hooks/usePageTitle';
+import { useTaskToggle } from '@/hooks/useTaskToggle';
+import { linkProps } from '@/lib/router';
+import { useMotion } from '@/providers/MotionProvider';
+import { usePageSetting } from '@/providers/PagePrefsProvider';
+
+const HEADING =
+  'flex min-h-11 items-center gap-1.5 font-heading text-sm font-semibold desk:min-h-8';
+
+/**
+ * Today (`/`, #331), the home page: one day at a time. The header has
+ * the long day, one line that counts it, and Previous, Today and Next.
+ * Then the capture line; on today, the Next up card while a meeting is
+ * ahead (within the days Settings → Pages says); what is due (and late,
+ * on today); and the timeline, with meetings as anchors and the Now line
+ * at the current minute. Beside it on desktop, below it on phones: the
+ * Unfiled card and the three lanes of open loops (`lanesOf`), each a
+ * section that collapses, hides and moves (Settings → Pages, saved under
+ * Focus's key so its old settings carry over). Everything follows the
+ * local date and rolls over at midnight; the day you step to is an
+ * offset from today, so it rolls over too.
+ */
+export function TodayPage() {
+  usePageTitle('Today');
+  const { state, actions } = useDatapad();
+  const { openTask } = useTaskPanels();
+  const { toggle, isDone } = useTaskToggle();
+  const { active } = useMotion();
+  const clock = useClock();
+  const today = useToday();
+  const nowMs = useNow();
+  const [offset, setOffset] = useState(0);
+  const day = addDays(today, offset);
+  const lanesRoot = useRef<HTMLDivElement>(null);
+  useFlip(lanesRoot, active);
+
+  const who = usePageSetting('focus', 'who');
+  const days = focusDays(usePageSetting('focus', 'days'));
+  const me = state ? meId(state.people) : null;
+  const lanes = useMemo(() => {
+    if (!state) return null;
+    const all = lanesOf(state, me);
+    // Mine shows only what is assigned to me, when Settings says so.
+    return who === 'mine' && me
+      ? { ...all, mine: all.mine.filter((t) => t.assignee === me) }
+      : all;
+  }, [state, me, who]);
+
+  if (!state || !lanes) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+
+  const isToday = offset === 0;
+  const now = localTime(nowMs);
+  const entries = dayEntries(state, day);
+  const due = dueOn(state, day, today);
+  const next = isToday ? nextMeeting(state, today, now, days) : null;
+  const unfiled = unfiledCount(state.notes);
+  const line = dayLine({
+    meetings: entries.filter((e) => e.kind === 'meeting').length,
+    due: due.length,
+    waiting: waitingCount(lanes),
+    decide: lanes.decide.length,
+  });
+
+  return (
+    <section
+      aria-labelledby="today-title"
+      className="enter flex min-w-0 flex-col gap-4"
+    >
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            {isToday ? 'Today' : offset < 0 ? 'Looking back' : 'Looking ahead'}
+          </p>
+          <h1 id="today-title" className="text-page-title">
+            {longDay(day, today)}
+          </h1>
+          <p
+            data-day-line
+            className="text-sm text-muted-foreground tabular-nums"
+          >
+            {line}
+          </p>
+        </div>
+        {/* The week zoom and Brief me join these (#332). */}
+        <nav aria-label="Day" className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="press size-11 desk:size-8"
+            onClick={() => setOffset((o) => o - 1)}
+          >
+            <CaretLeftIcon />
+            <span className="sr-only">Previous day</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="press h-11 desk:h-8"
+            aria-current={isToday ? 'date' : undefined}
+            onClick={() => setOffset(0)}
+          >
+            Today
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="press size-11 desk:size-8"
+            onClick={() => setOffset((o) => o + 1)}
+          >
+            <CaretRightIcon />
+            <span className="sr-only">Next day</span>
+          </Button>
+        </nav>
+      </header>
+
+      <CaptureLine />
+
+      <div className="grid gap-6 desk:grid-cols-[minmax(0,1fr)_20rem] desk:gap-8">
+        <div className="flex min-w-0 flex-col gap-6">
+          {next && (
+            <NextUp meeting={next} state={state} today={today} clock={clock} />
+          )}
+
+          {due.length > 0 && (
+            <section aria-labelledby="due-title" className="flex flex-col">
+              <h2 id="due-title" className={HEADING}>
+                <span>{isToday ? 'Due today or late' : 'Due'}</span>
+                <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
+                  {due.length}
+                </span>
+              </h2>
+              <ul aria-label="Due" className="flex flex-col border-t">
+                {due.map((task) => (
+                  <li key={task.id}>
+                    <TaskRow
+                      task={task}
+                      done={isDone(task)}
+                      today={today}
+                      projects={state.projects}
+                      people={state.people}
+                      onToggle={toggle}
+                      onOpen={(t) => openTask(t.id)}
+                      onEdit={(t, patch) =>
+                        actions.editTask({ id: t.id, patch })
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section aria-labelledby="timeline-title" className="flex flex-col">
+            <h2 id="timeline-title" className={HEADING}>
+              Timeline
+            </h2>
+            <DayTimeline
+              entries={entries}
+              state={state}
+              today={today}
+              now={isToday ? now : null}
+              clock={clock}
+            />
+          </section>
+        </div>
+
+        <aside aria-label="Open loops" className="flex min-w-0 flex-col gap-4">
+          <a
+            {...linkProps({ name: 'unfiled' })}
+            data-unfiled-card
+            className="press flex min-h-11 flex-col gap-0.5 border p-3 outline-ring/50 hover:bg-accent focus-visible:outline-2"
+          >
+            <span className="text-sm font-medium">Unfiled</span>
+            <span className="text-sm text-muted-foreground">
+              {unfiled === 0
+                ? 'Nothing waiting for a home.'
+                : `${unfiled} ${unfiled === 1 ? 'note' : 'notes'} with no home yet.`}
+            </span>
+          </a>
+          <div ref={lanesRoot} className="flex flex-col gap-4">
+            <LoopLanes
+              lanes={lanes}
+              page="focus"
+              today={today}
+              projects={state.projects}
+              people={state.people}
+            />
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The meeting coming up (or going on), with Enter meeting. It opens the
+ * meeting's page until meeting mode lands (#336).
+ */
+function NextUp({
+  meeting,
+  state,
+  today,
+  clock,
+}: {
+  meeting: Meeting;
+  state: Snapshot;
+  today: string;
+  clock: ReturnType<typeof useClock>;
+}) {
+  const project = meeting.projectId
+    ? state.projects[meeting.projectId]
+    : undefined;
+  const open = topicsOf(meeting).filter((t) => !t.done).length;
+  const people = meeting.attendees
+    .map((id) => state.people[id]?.name)
+    .filter(Boolean);
+  const when = [
+    meeting.date === today
+      ? 'Today'
+      : meeting.date === addDays(today, 1)
+        ? 'Tomorrow'
+        : longDay(meeting.date, today),
+    meeting.time
+      ? formatTimeRange(meeting.time, meeting.end, clock)
+      : 'All day',
+  ].join(', ');
+  return (
+    <section
+      aria-labelledby="next-up-title"
+      data-next-up={meeting.id}
+      className="flex flex-wrap items-center justify-between gap-3 border border-primary/50 bg-primary/5 p-4"
+    >
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h2 id="next-up-title" className="text-xs font-medium text-primary">
+          Next up
+        </h2>
+        <p className="font-medium">{meeting.title}</p>
+        <p className="text-sm text-muted-foreground">
+          {when}
+          {project && ` · ${project.name}`}
+          {people.length > 0 && ` · ${people.join(', ')}`}
+          {open > 0 && ` · ${open} ${open === 1 ? 'topic' : 'topics'}`}
+        </p>
+      </div>
+      <a
+        {...linkProps({ name: 'meeting', id: meeting.id })}
+        className="press inline-flex h-11 items-center bg-primary px-4 text-sm font-medium text-primary-foreground outline-ring/50 focus-visible:outline-2 focus-visible:outline-offset-2 desk:h-8"
+      >
+        Enter meeting
+      </a>
+    </section>
+  );
+}

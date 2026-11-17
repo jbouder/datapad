@@ -31,7 +31,7 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
+test('mark a task blocked on someone; Today, People and Tasks show it', async ({
   page,
   request,
 }) => {
@@ -66,14 +66,11 @@ test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
     `Blocked "${TITLE}" on Leia Organa`,
   );
 
-  // Focus: Waiting on, under Leia, waiting since today.
+  // Today: Leia is marked as me, so a task blocked on her is hers to
+  // unblock: in Mine, not Waiting on.
   await openLive(page, '/');
-  await expect(page.locator('[data-waiting="u-leia"]')).toContainText(
-    'waiting since today',
-  );
-  await expect(
-    page.getByRole('list', { name: 'Waiting on Leia Organa' }),
-  ).toContainText(TITLE);
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(TITLE);
+  await expect(page.locator('[data-waiting="u-leia"]')).toHaveCount(0);
 
   // Tasks: Show Blocked lists only it.
   await openLive(page, '/tasks?status=blocked');

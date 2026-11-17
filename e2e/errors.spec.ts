@@ -180,14 +180,15 @@ test('a socket whose session ended shows Sign in again when Access says so', asy
     }),
   );
   await openEnding(page);
-  // Any change will do: closing a task on Focus (its checkbox is visually
-  // hidden; its label is what gets clicked).
+  // Any change will do: closing a task on Today (its checkbox is visually
+  // hidden; its label is what gets clicked). It is in Due and in Mine.
   await page
     .locator('label', {
       has: page.getByRole('checkbox', {
         name: 'Close “Confirm shield generator delivery”',
       }),
     })
+    .first()
     .click();
   const heading = page.getByRole('heading', {
     level: 1,

@@ -142,9 +142,10 @@ describe('how far Focus’s Week looks ahead', () => {
     const s = state();
     const saved = applyPagePatch({}, { filters: { days: '10' } }) ?? {};
     expect(currentValues('focus', saved, s).days).toBe('10');
-    expect(effectiveQuery('focus', q(''), { days: '10' }).get('days')).toBe(
-      '10',
-    );
+    // Today sets it in Settings only (#331): never in the address.
+    expect(
+      effectiveQuery('focus', q(''), { days: '10' }).get('days'),
+    ).toBeNull();
     expect(
       currentValues('focus', { filters: { days: '6' } }, s).days,
     ).toBeUndefined();
@@ -209,37 +210,25 @@ describe('Focus’s settings (#311)', () => {
     expect(focusOptions({ who: 'mine' }, {}).who).toEqual({ kind: 'anyone' });
   });
 
-  it('offers Mine in Tasks for only when someone is marked as me', () => {
+  it('carries Focus’s Tasks for over as what Today’s Mine shows (#331)', () => {
     const field = PAGES.focus.fields.find((f) => f.key === 'who');
-    if (!field) throw new Error('no Tasks for');
-    const s = state();
-    expect(optionsFor(field, s).map((o) => o.value)).toEqual([
+    if (!field) throw new Error('no Mine shows');
+    expect(optionsFor(field, state()).map((o) => o.value)).toEqual([
       'anyone',
       'mine',
     ]);
-    const nobody = { ...s, people: {} };
-    expect(optionsFor(field, nobody).map((o) => o.value)).toEqual(['anyone']);
     expect(
-      currentValues('focus', { filters: { who: 'mine' } }, nobody),
-    ).toEqual({});
+      currentValues('focus', { filters: { who: 'mine' } }, state()),
+    ).toEqual({ who: 'mine' });
   });
 
-  it('keeps who and group in the address and the rules out of it', () => {
-    const plan = planChange(
-      'focus',
-      { who: 'mine', group: 'date', quiet: 'off', followDays: '14' },
-      {},
-    );
-    expect(plan.url).toEqual({ who: 'mine', group: 'date' });
-    expect(plan.patch).toEqual({
-      group: 'date',
-      filters: { who: 'mine', quiet: 'off', followDays: '14' },
-    });
-    const read = effectiveQuery('focus', q('quiet=7&who=mine'), {
-      quiet: 'off',
-    });
-    expect(read.get('quiet')).toBeNull();
-    expect(read.get('who')).toBe('mine');
+  it('keeps Today’s settings out of the address', () => {
+    const plan = planChange('focus', { who: 'mine', days: '14' }, {});
+    expect(plan.url).toEqual({});
+    expect(plan.patch).toEqual({ filters: { who: 'mine', days: '14' } });
+    expect(
+      effectiveQuery('focus', q(''), { who: 'mine' }).get('who'),
+    ).toBeNull();
   });
 
   it('reads what the space saved (MCP)', () => {
@@ -264,21 +253,20 @@ describe('Focus’s settings (#311)', () => {
     });
   });
 
-  it('has six sections in today’s order', () => {
+  it('has Today’s three lanes, Focus’s Waiting on kept in its place', () => {
+    expect(PAGES.focus.label).toBe('Today');
     expect(PAGES.focus.sectionKeys?.map((x) => x.key)).toEqual([
-      'recap',
-      'agenda',
+      'mine',
       'waiting',
-      'attention',
-      'followUps',
-      'due',
+      'decide',
     ]);
+    // Focus's saved order and hidden list: its other sections drop out.
     expect(
       visibleSections('focus', {
-        hidden: ['agenda'],
-        order: ['due', 'recap', 'agenda', 'waiting', 'attention', 'followUps'],
+        hidden: ['agenda', 'mine'],
+        order: ['due', 'waiting', 'recap', 'agenda', 'attention'],
       }),
-    ).toEqual(['due', 'recap', 'waiting', 'attention', 'followUps']);
+    ).toEqual(['waiting', 'decide']);
   });
 });
 
@@ -497,7 +485,7 @@ describe('patches', () => {
     // Focus names its sections: an old bucket's saved state is not one.
     expect(
       sectionCounts(
-        { sections: { attention: false, 'day:later': true, noDate: false } },
+        { sections: { waiting: false, attention: true, noDate: false } },
         PAGES.focus.collapsible,
       ),
     ).toEqual({ closed: 1, open: 0 });

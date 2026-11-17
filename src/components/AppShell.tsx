@@ -37,7 +37,6 @@ import {
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { AllPage } from '@/pages/AllPage';
-import { FocusPage } from '@/pages/FocusPage';
 import {
   HelpPage,
   MeetingPage,
@@ -48,6 +47,7 @@ import {
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonPage } from '@/pages/PersonPage';
 import { ProjectPage } from '@/pages/ProjectPage';
+import { TodayPage } from '@/pages/TodayPage';
 import { UnfiledPage } from '@/pages/UnfiledPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
@@ -280,8 +280,7 @@ function pageKey(route: Route): string {
 function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'today':
-      // Focus, until Today (#331).
-      return <FocusPage />;
+      return <TodayPage />;
     case 'unfiled':
       return <UnfiledPage />;
     case 'all':

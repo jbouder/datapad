@@ -82,7 +82,7 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
   await places.getByRole('link', { name: /Unfiled/ }).click();
   await expect(page).toHaveURL(/\/unfiled$/);
   await expect(
-    page.getByRole('list', { name: 'Unfiled notes' }).getByRole('listitem'),
+    page.getByRole('list', { name: 'Unfiled notes' }).getByRole('article'),
   ).toHaveCount(1);
   await expectAccessible(page);
 });

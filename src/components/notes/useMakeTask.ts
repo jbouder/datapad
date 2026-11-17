@@ -9,28 +9,39 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * Make a task from a note: in the note's project, pointing back at it
  * (`sourceNoteId`), with a toast that opens the task. The note itself is
- * not changed. Returns whether the task was made.
+ * not changed. Returns whether the task was made. With `decide`, it is
+ * something to decide (#328), as Unfiled's To decide makes (#333).
  */
-export function useMakeTask(): (note: Note, title: string) => boolean {
+export function useMakeTask(): (
+  note: Note,
+  title: string,
+  options?: { decide?: boolean },
+) => boolean {
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { show } = useToast();
   return useCallback(
-    (note, title) => {
+    (note, title, options) => {
       const clean = title.trim().slice(0, 200);
       if (!clean) return false;
+      const decide = options?.decide === true;
       const id = actions.addTask({
         projectId: note.projectId,
         title: clean,
         sourceNoteId: note.id,
         assignee: state ? defaultAssignee(state) : '',
         priority: state ? defaultPriority(state) : 'med',
+        ...(decide ? { decide: true } : {}),
       });
       if (id === null) return false;
-      show(`Added “${clean}”`, undefined, {
-        label: 'Open',
-        run: () => openTask(id),
-      });
+      show(
+        decide ? `Added “${clean}” to decide` : `Added “${clean}”`,
+        undefined,
+        {
+          label: 'Open',
+          run: () => openTask(id),
+        },
+      );
       return true;
     },
     [state, actions, openTask, show],

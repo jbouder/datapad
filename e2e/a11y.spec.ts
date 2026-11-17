@@ -20,7 +20,8 @@ import {
  */
 const CHECKED = THEMES.filter((t) => t.id !== 'system');
 const ROUTES = [
-  { path: '/', heading: 'Focus' },
+  // Today's heading is the day: "Tuesday 17 November".
+  { path: '/', heading: /^\w+day \d{1,2} \w+/ },
   { path: '/unfiled', heading: 'Unfiled' },
   { path: '/all', heading: 'All' },
   { path: '/all?kind=task', heading: 'All' },
@@ -95,14 +96,14 @@ for (const theme of CHECKED) {
       });
     }
 
-    test('Focus with the whole briefing', async ({ page, request }) => {
-      await request.post('/api/import', { data: briefingSeed() });
-      await page.goto('/?view=week');
+    test('Today with every lane filled', async ({ page, request }) => {
+      const seed = briefingSeed();
+      Object.assign(seed.tasks['t-6'] ?? {}, { decide: true });
+      await request.post('/api/import', { data: seed });
+      await page.goto('/');
+      await expect(page.getByRole('list', { name: 'To decide' })).toBeVisible();
       await expect(
-        page.getByRole('region', { name: 'Next 7 days' }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole('list', { name: 'Projects that need attention' }),
+        page.getByRole('list', { name: 'Waiting on Han Solo' }),
       ).toBeVisible();
       await expectAccessible(page);
     });
