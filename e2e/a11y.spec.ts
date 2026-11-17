@@ -21,16 +21,17 @@ import {
 const CHECKED = THEMES.filter((t) => t.id !== 'system');
 const ROUTES = [
   { path: '/', heading: 'Focus' },
-  { path: '/projects', heading: 'Projects' },
-  { path: '/archive', heading: 'Archived' },
-  { path: '/tasks', heading: 'Tasks' },
-  { path: '/notes', heading: 'Notes' },
-  { path: '/meetings', heading: 'Meetings' },
-  { path: '/lists', heading: 'Lists' },
-  { path: '/lists/nope', heading: 'Not found' },
+  { path: '/unfiled', heading: 'Unfiled' },
+  { path: '/all', heading: 'All' },
+  { path: '/all?kind=project', heading: 'Projects' },
+  { path: '/all?kind=project&archived=1', heading: 'Archived' },
+  { path: '/all?kind=task', heading: 'Tasks' },
+  { path: '/all?kind=note', heading: 'Notes' },
+  { path: '/all?kind=meeting', heading: 'Meetings' },
+  { path: '/people/nope', heading: 'Not found' },
   { path: '/settings', heading: 'Settings' },
   { path: '/settings/pages', heading: 'Settings' },
-  { path: '/settings/navigation', heading: 'Settings' },
+  { path: '/settings/rooms', heading: 'Settings' },
   { path: '/settings/templates', heading: 'Settings' },
   { path: '/settings/summaries', heading: 'Settings' },
   { path: '/settings/spaces', heading: 'Settings' },
@@ -39,9 +40,7 @@ const ROUTES = [
   { path: '/settings/data', heading: 'Settings' },
   { path: '/settings/connections', heading: 'Settings' },
   { path: '/settings/account', heading: 'Settings' },
-  { path: '/digest', heading: 'Weekly digest' },
   { path: '/whiteboard', heading: 'Whiteboard' },
-  { path: '/notepad', heading: 'Notepad' },
   { path: '/projects/nope', heading: 'Not found' },
   { path: '/help', heading: 'Help' },
   // The shared inputs (#19), only in the e2e build.
@@ -50,17 +49,19 @@ const ROUTES = [
 
 /** Every page and layout with data in it (`e2e/seed.ts`). */
 const WITH_DATA = [
-  ...['cards', 'table', 'timeline'].map((v) => `/projects?view=${v}`),
-  '/archive',
-  ...['list', 'table', 'board', 'timeline'].map((v) => `/tasks?view=${v}`),
-  '/tasks/t-2',
-  ...['list', 'grid'].map((v) => `/notes?view=${v}`),
-  '/notepad',
-  '/notes?note=n-1',
+  ...['cards', 'table', 'timeline'].map(
+    (v) => `/all?kind=project&view=${v}`,
+  ),
+  '/all?kind=project&archived=1',
+  ...['list', 'table', 'board', 'timeline'].map(
+    (v) => `/all?kind=task&view=${v}`,
+  ),
+  ...['list', 'grid'].map((v) => `/all?kind=note&view=${v}`),
+  '/all?kind=note&note=n-1',
+  '/unfiled',
+  '/all',
   '/meetings/e-1',
-  ...['cards', 'table'].map((v) => `/lists?view=${v}`),
-  '/lists/l-evac',
-  '/digest',
+  '/people/u-han',
   '/projects/p-echo/whiteboard',
   '/settings/orgs',
 ];
@@ -119,15 +120,15 @@ for (const theme of CHECKED) {
       const seed = structuredClone(SEED);
       seed.notes['n-1'].body = 'Ask @{u-han} about the hyperdrive';
       await request.post('/api/import', { data: seed });
-      await page.goto('/settings/people/u-han');
+      await page.goto('/people/u-han');
       await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
       await expectAccessible(page);
     });
 
     test('People as Cards', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/settings/people/u-han?view=cards');
-      await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
+      await page.goto('/settings/people?view=cards');
+      await expect(page.getByRole('list', { name: 'People' })).toBeVisible();
       await expectAccessible(page);
     });
 

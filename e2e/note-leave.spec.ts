@@ -21,9 +21,10 @@ const asking = (page: Page) =>
   page.getByRole('alertdialog', { name: 'Save this note?' });
 
 /** The rail's (or the tab bar's) Tasks link: an in-app page change. */
+/** All, from the rail or the tab bar. */
 const tasksLink = (page: Page) =>
   page
-    .getByRole('link', { name: /^Tasks/ })
+    .getByRole('link', { name: 'All', exact: true })
     .filter({ visible: true })
     .first();
 
@@ -50,12 +51,15 @@ test('an unsaved note holds a link until Discard, then goes on', async ({
   await expect(
     asking(page).getByRole('button', { name: 'Save note' }),
   ).toBeFocused();
+  // Checked scrolled to the end, so nothing sits under the phone's
+  // translucent tab bar.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expectAccessible(page);
 
   await asking(page).getByRole('button', { name: 'Discard' }).click();
-  await expect(page).toHaveURL(/\/tasks/);
+  await expect(page).toHaveURL(/\/all$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Tasks', exact: true }),
+    page.getByRole('heading', { level: 1, name: 'All', exact: true }),
   ).toBeVisible();
   const kept = Object.values((await stored(request)).notes).filter(
     (n) => n.meetingId === 'e-1',
@@ -81,7 +85,7 @@ test('a click away asks; back in the text it goes; Save note saves and goes on',
   await tasksLink(page).click();
   await expect(asking(page)).toBeVisible();
   await asking(page).getByRole('button', { name: 'Save note' }).click();
-  await expect(page).toHaveURL(/\/tasks/);
+  await expect(page).toHaveURL(/\/all$/);
   await expect
     .poll(async () =>
       Object.values((await stored(request)).notes)
@@ -97,7 +101,7 @@ test('Back and Forward over an unsaved note wait for the answer', async ({
   await openLive(page, '/meetings/e-1');
   // In-app history: the meeting, then Tasks, then Back to the meeting.
   await tasksLink(page).click();
-  await expect(page).toHaveURL(/\/tasks/);
+  await expect(page).toHaveURL(/\/all$/);
   await page.goBack();
   await expect(notes(page)).toBeVisible();
   await write(page, 'Ask about the ridge');

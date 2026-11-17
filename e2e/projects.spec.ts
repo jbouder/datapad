@@ -142,7 +142,7 @@ test('empty filters say so and clear, keeping the sort', async ({
     .first()
     .click();
   // Clear filters leaves the sort alone (#270).
-  await expect(page).toHaveURL(/\/projects\?sort=name$/);
+  await expect(page).toHaveURL(/\/all\?kind=project&sort=name$/);
   await expect(cards(page)).toHaveText([/Echo Base relocation/]);
 });
 
@@ -168,7 +168,7 @@ test('Find matches name, org, tags and description', async ({
   // Esc clears Find; the filters stay.
   await find.press('Escape');
   await expect(find).toHaveValue('');
-  await expect(page).toHaveURL(/\/projects\?status=all$/);
+  await expect(page).toHaveURL(/\/all\?kind=project&status=all$/);
   await expect(cards(page)).toHaveCount(2);
 
   // On phones the filters are in the sheet, counted on its button.

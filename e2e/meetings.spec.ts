@@ -168,7 +168,9 @@ test('old addresses land on Meetings, or on the meeting they opened', async ({
 
   // Other parameters come along unchanged.
   await page.goto('/events?project=p-echo&view=calendar');
-  await expect(page).toHaveURL(/\/meetings\?project=p-echo&view=calendar$/);
+  await expect(page).toHaveURL(
+    /\/all\?kind=meeting&project=p-echo&view=calendar$/,
+  );
   await expect(
     page.getByRole('heading', { level: 1, name: 'Meetings' }),
   ).toBeVisible();

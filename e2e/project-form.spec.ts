@@ -186,7 +186,7 @@ test('archive with undo, then delete with the counts', async ({
     'Delete Echo Base relocation and its 4 tasks, 2 notes, 1 milestone and activity?',
   );
   await ask.getByRole('button', { name: 'Delete project' }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/all\?kind=project$/);
   await expect(page.getByText('Deleted Echo Base relocation')).toBeVisible();
 
   await expectSaved(page);

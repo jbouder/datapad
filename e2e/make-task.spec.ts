@@ -73,16 +73,15 @@ test('select text, make a task, open it, follow the source link back', async ({
     'Added task "Prep: Shield review — 2026-10-27"',
   );
 
-  // Back to the note from the task's page: the row is open, focused and
-  // ringed.
-  await page.goto('/tasks');
+  // Back to the note from the task's panel (a task opens in its panel
+  // everywhere, #329): the row is open, focused and ringed.
+  await page.goto('/all?kind=task');
   await page
     .getByRole('button', { name: 'Prep: Shield review — 2026-10-27' })
     .first()
     .click();
-  await expect(page).toHaveURL(/\/tasks\/[^/]+$/);
   await page
-    .getByRole('main')
+    .getByRole('dialog', { name: 'Task' })
     .getByRole('link', { name: 'Show the note' })
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo\?note=n-2/);

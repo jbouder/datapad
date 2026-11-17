@@ -122,11 +122,11 @@ test('make a space, work in it, and switch back and forth', async ({
   await name.fill('Personal');
   await name.press('Enter');
   await expect(dialog).toBeHidden();
-  // Made from Settings on a phone: back to Focus.
+  // Made from Settings on a phone: back to Today.
   if (isMobile(page)) {
     await page
       .getByRole('navigation', { name: 'Sections' })
-      .getByRole('link', { name: 'Focus' })
+      .getByRole('link', { name: 'Today' })
       .click();
   }
 
@@ -203,7 +203,7 @@ test('switching away from a project lands on Focus; sections stay', async ({
   await page.goto('/tasks');
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await switchTo(page, 'Main');
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
   await expect(page).toHaveTitle('Tasks · Main · Datapad');
 });
 
@@ -310,7 +310,7 @@ test.describe('Moving a project', () => {
       hasText: 'Moved Echo Base relocation to Personal',
     });
     await expect(toast).toBeVisible();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/all\?kind=project$/);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Projects' }),
     ).toBeVisible();
