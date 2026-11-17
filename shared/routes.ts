@@ -200,7 +200,8 @@ function oldListQuery(
  * Where an address lands, query and all. An old address settles on its
  * new home:
  *
- * - `/focus`, `/digest` and `/decisions…` are Today (`/`)
+ * - `/focus` and `/decisions…` are Today (`/`); `/digest` is its week
+ *   zoom (`/?view=week`)
  * - `/notepad` (and Notes' old Notepad layout) is `/unfiled`
  * - `/projects`, `/tasks`, `/notes`, `/meetings` (and `/events`) are All
  *   with that kind, their filters as All reads them (`oldListQuery`);
@@ -225,9 +226,9 @@ export function landRoute(
   const params = new URLSearchParams(search);
 
   if (clean === '/' || clean === '/focus') return [{ name: 'today' }, search];
-  if (clean === '/digest' || DECISIONS.test(clean)) {
-    return [{ name: 'today' }, ''];
-  }
+  // The Weekly digest is Today's week zoom (#332).
+  if (clean === '/digest') return [{ name: 'today' }, '?view=week'];
+  if (DECISIONS.test(clean)) return [{ name: 'today' }, ''];
   if (clean === '/notepad') return [{ name: 'unfiled' }, ''];
   if (clean === '/unfiled') return [{ name: 'unfiled' }, search];
   if (clean === '/all') {

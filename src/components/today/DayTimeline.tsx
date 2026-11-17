@@ -64,7 +64,7 @@ export function DayTimeline({
     return project ? (
       <a
         {...linkProps({ name: 'project', id: project.id }, query)}
-        className={LINK}
+        className={cn(LINK, 'inline-flex min-h-6 items-center')}
       >
         {project.name}
       </a>

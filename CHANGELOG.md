@@ -100,11 +100,21 @@ changes the format says so here under **Export format**.
   options: what Mine shows (with unassigned, or only what is assigned to
   you), how far Next up looks ahead, and which lanes show and in what
   order. What Focus saved carries over.
+- Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
+  **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
+  seven columns on desktop and seven rows on phones, each day with its
+  meetings and its counts of due, done and notes; a day's name opens it,
+  and Previous and Next step a week. Under the days is the week's
+  digest with Copy as Markdown, Save as note and Summarize. It replaces
+  the Weekly digest page, and `/digest` lands on it. Stepping back to
+  the last working day shows the recap (Since yesterday) above its
+  timeline, and today's line links to it. Brief me is back on today,
+  and its brief now includes the three lanes.
 
 ### Changed
 
-- Every old address lands on its new home: `/focus` and `/digest` on
-  Today, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
+- Every old address lands on its new home: `/focus` on Today, `/digest`
+  on Today's week zoom, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
   `/meetings` and `/archive` on All with that kind (filters kept),
   `/lists` on All's notes, `/tasks/:id` on the task's project with its
   panel open, and `/settings/people/:id` on the person's room. A task
@@ -115,7 +125,7 @@ changes the format says so here under **Export format**.
   Notepad became notes.
 - Focus is gone, with its agenda strip, Since yesterday, Attention,
   Follow-ups and Brief me; Today replaces it. Since yesterday and Brief me
-  come back on Today in #332. The rail's Waiting on counts what Today's
+  are back on Today (#332). The rail's Waiting on counts what Today's
   Waiting on lane holds, so a task to decide no longer counts there, and
   a task blocked on you is yours.
 - The phone's tab bar is opaque, so its labels keep their contrast over
