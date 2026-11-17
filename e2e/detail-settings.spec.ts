@@ -93,7 +93,7 @@ test('the meeting page hides covered topics as Settings says', async ({
   );
 });
 
-test('the meeting page hides done action items and orders its sections', async ({
+test('meeting mode hides done action items and the series links', async ({
   page,
   request,
 }) => {
@@ -114,10 +114,13 @@ test('the meeting page hides done action items and orders its sections', async (
     },
   });
   await openLive(page, '/meetings/e-7');
-  // Notes first, then Topics and Action items; no series links.
-  await expect(
-    page.getByRole('main').getByRole('heading', { level: 2 }),
-  ).toHaveText([/^Notes/, /^Topics/, /^Action items/]);
+  // Meeting mode keeps its own layout (#336): the saved order no longer
+  // applies, but hiding does. No series links.
+  for (const name of [/^Topics/, /^Notes$/, /^Action items/]) {
+    await expect(
+      page.getByRole('main').getByRole('heading', { level: 2, name }),
+    ).toBeVisible();
+  }
   await expect(
     page.getByRole('navigation', { name: 'This series' }),
   ).toHaveCount(0);

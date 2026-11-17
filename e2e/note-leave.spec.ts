@@ -9,9 +9,6 @@ async function stored(request: APIRequestContext): Promise<Stored> {
   return (await request.get('/api/export.json')).json();
 }
 
-const notes = (page: Page) =>
-  page.getByRole('main').getByRole('region', { name: 'Notes', exact: true });
-
 const box = (page: Page) =>
   page
     .getByRole('main')
@@ -20,15 +17,15 @@ const box = (page: Page) =>
 const asking = (page: Page) =>
   page.getByRole('alertdialog', { name: 'Save this note?' });
 
-/** All, from the rail or the tab bar: an in-app page change. */
-const tasksLink = (page: Page) =>
+/** The meeting's room, in meeting mode's header: an in-app page change. */
+const roomLink = (page: Page) =>
   page
-    .getByRole('link', { name: 'All', exact: true })
-    .filter({ visible: true })
-    .first();
+    .getByRole('list', { name: 'Details' })
+    .getByRole('link', { name: 'Echo Base relocation' });
 
+/** Meeting mode's composer is always open (#336): write in it. */
 async function write(page: Page, text: string) {
-  await notes(page).getByRole('button', { name: 'Add note' }).click();
+  await box(page).click();
   await expect(box(page)).toBeFocused();
   await page.keyboard.type(text);
 }
@@ -37,14 +34,14 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('an unsaved note holds a link until Discard, then goes on', async ({
+test('an unsaved note holds Leave until Discard, then goes on', async ({
   page,
   request,
 }) => {
   await openLive(page, '/meetings/e-1');
   await write(page, 'Shields hold at ninety');
 
-  await tasksLink(page).click();
+  await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(asking(page)).toBeVisible();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
   await expect(
@@ -53,35 +50,31 @@ test('an unsaved note holds a link until Discard, then goes on', async ({
   await expectAccessible(page);
 
   await asking(page).getByRole('button', { name: 'Discard' }).click();
-  await expect(page).toHaveURL(/\/all$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'All', exact: true }),
-  ).toBeVisible();
+  // Opened from its address: Leave goes to Today.
+  await expect(page).toHaveURL(/\/$/);
   const kept = Object.values((await stored(request)).notes).filter(
     (n) => n.meetingId === 'e-1',
   );
   expect(kept.map((n) => n.body)).not.toContain('Shields hold at ninety');
 });
 
-test('a click away asks; back in the text it goes; Save note saves and goes on', async ({
+test('a click away keeps the text; a link asks; Save note saves and goes on', async ({
   page,
   request,
 }) => {
   await openLive(page, '/meetings/e-1');
   await write(page, 'Bring the charts');
 
-  // A click on nothing in particular asks, and stays.
+  // Meeting mode's composer stays: a click elsewhere does not ask.
   await page.getByRole('heading', { level: 1 }).click();
-  await expect(asking(page)).toBeVisible();
-  await box(page).click();
   await expect(asking(page)).toBeHidden();
   await expect(box(page)).toHaveValue('Bring the charts');
 
   // A link waits for Save note, then follows it.
-  await tasksLink(page).click();
+  await roomLink(page).click();
   await expect(asking(page)).toBeVisible();
   await asking(page).getByRole('button', { name: 'Save note' }).click();
-  await expect(page).toHaveURL(/\/all$/);
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await expect
     .poll(async () =>
       Object.values((await stored(request)).notes)
@@ -95,25 +88,28 @@ test('Back and Forward over an unsaved note wait for the answer', async ({
   page,
 }) => {
   await openLive(page, '/meetings/e-1');
-  // In-app history: the meeting, then Tasks, then Back to the meeting.
-  await tasksLink(page).click();
-  await expect(page).toHaveURL(/\/all$/);
+  // In-app history: the meeting, then its room, then Back to the meeting.
+  await roomLink(page).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
   await page.goBack();
-  await expect(notes(page)).toBeVisible();
+  await expect(box(page)).toBeVisible();
   await write(page, 'Ask about the ridge');
 
   await page.goForward();
   await expect(asking(page)).toBeVisible();
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
 
-  // Esc goes back to writing.
+  // Esc goes back to writing; it does not leave.
   await page.keyboard.press('Escape');
   await expect(asking(page)).toBeHidden();
   await expect(box(page)).toBeFocused();
   await expect(box(page)).toHaveValue('Ask about the ridge');
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
 });
 
-test('an unsaved note in a panel holds closing it', async ({ page }) => {
+test('an unsaved note in a panel asks on a click away and holds closing it', async ({
+  page,
+}) => {
   await openLive(page, '/meetings/e-1');
   await page
     .getByRole('main')
@@ -123,10 +119,20 @@ test('an unsaved note in a panel holds closing it', async ({ page }) => {
   const region = form.getByRole('region', { name: 'Notes', exact: true });
   await region.getByRole('button', { name: 'Add note' }).click();
   // Typed once the composer has focus, or the letters are shortcuts.
-  await expect(region.getByRole('combobox').first()).toBeFocused();
+  const composer = region.getByRole('combobox').first();
+  await expect(composer).toBeFocused();
   await page.keyboard.type('Check the generator');
-  await form.getByRole('button', { name: 'Close' }).click();
   const ask = form.getByRole('alertdialog', { name: 'Save this note?' });
+
+  // A click on nothing in particular asks, and stays; back in the text
+  // it goes.
+  await region.getByRole('heading', { name: 'Notes' }).click();
+  await expect(ask).toBeVisible();
+  await composer.click();
+  await expect(ask).toBeHidden();
+  await expect(composer).toHaveValue('Check the generator');
+
+  await form.getByRole('button', { name: 'Close' }).click();
   await expect(ask).toBeVisible();
   await expect(form).toBeVisible();
   await ask.getByRole('button', { name: 'Discard' }).click();

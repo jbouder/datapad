@@ -446,3 +446,57 @@ export function carryForward(
 export function topicsNoun(count: number): string {
   return `${count} ${count === 1 ? 'topic' : 'topics'}`;
 }
+
+/* ---------- meeting mode (#336) ---------- */
+
+/** Where a meeting stands: before it, while it runs, or after it. */
+export type MeetingPhase = 'prep' | 'live' | 'debrief';
+
+/** How each phase reads in meeting mode's header. */
+export const PHASE_LABEL: Record<MeetingPhase, string> = {
+  prep: 'Prep',
+  live: 'Live',
+  debrief: 'Debrief',
+};
+
+/** How long a meeting with a start and no end is taken to run. */
+export const DEFAULT_MINUTES = 60;
+
+function minutesOf(hhmm: string): number {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * The phase of `meeting` at `now` (`HH:MM`) on `today`. Another day is
+ * Prep (later) or Debrief (earlier). Today, an untimed meeting is Live
+ * all day; a timed one is Prep before its start, Live until its end (or
+ * for `DEFAULT_MINUTES` without one), and Debrief after.
+ */
+export function meetingPhase(
+  meeting: Pick<Meeting, 'date' | 'time' | 'end'>,
+  today: DateString,
+  now: TimeString,
+): MeetingPhase {
+  if (meeting.date > today) return 'prep';
+  if (meeting.date < today) return 'debrief';
+  if (!meeting.time) return 'live';
+  const at = minutesOf(now);
+  const start = minutesOf(meeting.time);
+  if (at < start) return 'prep';
+  const end = meeting.end ? minutesOf(meeting.end) : start + DEFAULT_MINUTES;
+  return at < end ? 'live' : 'debrief';
+}
+
+/**
+ * Who a meeting is a 1:1 with: the one attendee other than you (`me`,
+ * the person marked as you, or null), when there is exactly one; else
+ * null. Meeting mode shows that person's open loops (#336).
+ */
+export function oneOnOneWith(
+  meeting: Pick<Meeting, 'attendees'>,
+  me: string | null,
+): string | null {
+  const others = [...new Set(meeting.attendees)].filter((id) => id !== me);
+  return others.length === 1 ? (others[0] ?? null) : null;
+}
