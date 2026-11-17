@@ -1,84 +1,46 @@
-import { CaretLeftIcon } from '@phosphor-icons/react';
-import { GENERAL, GENERAL_BOARD } from '#shared/types';
+import { GENERAL_BOARD, type Project } from '#shared/types';
 import { Board } from '@/components/board/Board';
 import { BoardMenu } from '@/components/board/BoardMenu';
 import { useDatapad } from '@/hooks/useDatapad';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { linkProps } from '@/lib/router';
-import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useSpaces } from '@/providers/DatapadProvider';
 
 /**
- * A whiteboard, full height below the top bar: a project's
- * (`/projects/:id/whiteboard`, with its way back to the project) or the
- * space's own (`/whiteboard`).
+ * The space's own whiteboard (`/whiteboard`), full height below the top
+ * bar, reached from All and ⌘K. A project's board is its room's
+ * Whiteboard tab (#334): `ProjectBoard` and `ProjectBoardMenu` below,
+ * in this same chunk.
  */
-export function WhiteboardPage({ project: id }: { project?: string }) {
+export function WhiteboardPage() {
   const { state } = useDatapad();
   const { current: space } = useSpaces();
-  const project = id ? state?.projects[id] : undefined;
-  usePageTitle(
-    id
-      ? project
-        ? `${project.name} whiteboard`
-        : state
-          ? 'Not found'
-          : 'Whiteboard'
-      : 'Whiteboard',
-  );
-
-  if (id && state && (!project || id === GENERAL)) {
-    return (
-      <div className="px-4 pt-6 sm:px-6">
-        <NotFoundPage
-          what="project"
-          back={{ name: 'all', kind: 'project' }}
-          backLabel="Back to Projects"
-        />
-      </div>
-    );
-  }
+  usePageTitle('Whiteboard');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex min-h-12 items-center gap-1 border-b px-2 sm:px-4">
-        {project && (
-          <a
-            {...linkProps({ name: 'project', id: project.id })}
-            className="press -ml-1 flex h-11 min-w-0 shrink items-center gap-1 pr-2 text-sm text-muted-foreground outline-ring/50 hover:text-foreground focus-visible:outline-2 desk:h-9"
-          >
-            <CaretLeftIcon aria-hidden className="size-4 shrink-0" />
-            <span className="truncate">
-              <span className="sr-only">Back to </span>
-              {project.name}
-            </span>
-          </a>
-        )}
-        {project && (
-          <span aria-hidden className="text-muted-foreground">
-            /
-          </span>
-        )}
         <h1 className="shrink-0 px-1 font-heading text-base font-semibold tracking-tight">
           Whiteboard
         </h1>
-        {state && (
-          <BoardMenu
-            boardId={project ? project.id : GENERAL_BOARD}
-            name={project ? project.name : space.name}
-          />
-        )}
+        {state && <BoardMenu boardId={GENERAL_BOARD} name={space.name} />}
       </header>
       {state ? (
-        <Board
-          boardId={project ? project.id : GENERAL_BOARD}
-          label={
-            project ? `Whiteboard for ${project.name}` : 'Space whiteboard'
-          }
-        />
+        <Board boardId={GENERAL_BOARD} label="Space whiteboard" />
       ) : (
         <p className="px-4 pt-6 text-sm text-muted-foreground">Loading…</p>
       )}
     </div>
   );
+}
+
+/** A project's board, filling what its room leaves below the tabs. */
+export function ProjectBoard({ project }: { project: Project }) {
+  return (
+    <Board boardId={project.id} label={`Whiteboard for ${project.name}`} />
+  );
+}
+
+/** A project board's menu (export), at the end of the room's tabs. */
+export function ProjectBoardMenu({ project }: { project: Project }) {
+  return <BoardMenu boardId={project.id} name={project.name} />;
 }

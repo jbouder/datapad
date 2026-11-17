@@ -5,8 +5,6 @@ import {
   filterFields,
   hasPageSettings,
   PAGES,
-  planChange,
-  projectColumns,
   sectionCounts,
   sectionOrder,
   sourceNoteShow,
@@ -19,91 +17,47 @@ import { emptySnapshot } from '#shared/types';
 
 const q = (s: string) => new URLSearchParams(s);
 
-describe('the project page', () => {
-  it('has its seven sections in today’s order', () => {
-    expect(sectionOrder('project', {})).toEqual([
-      'milestones',
-      'tasks',
-      'meetings',
-      'notes',
-      'lists',
-      'whiteboard',
-      'activity',
-    ]);
+describe('the project room', () => {
+  it('has the three lanes as its sections (#334)', () => {
+    expect(sectionOrder('project', {})).toEqual(['mine', 'waiting', 'decide']);
+    expect(PAGES.project.label).toBe('Project room');
   });
 
-  it('shows them in the saved order without the hidden ones', () => {
+  it('ignores what the project page saved for its old sections', () => {
     const prefs = {
-      order: ['notes', 'tasks', 'milestones'],
-      hidden: ['whiteboard', 'meetings'],
+      order: ['notes', 'decide', 'tasks', 'mine'],
+      hidden: ['whiteboard', 'waiting'],
     };
-    expect(visibleSections('project', prefs)).toEqual([
-      'notes',
-      'lists',
-      'activity',
-      'tasks',
-      'milestones',
-    ]);
-    expect(toggleSection('project', {}, 'activity', false)).toEqual({
-      hidden: ['activity'],
+    expect(visibleSections('project', prefs)).toEqual(['decide', 'mine']);
+    expect(toggleSection('project', {}, 'decide', false)).toEqual({
+      hidden: ['decide'],
     });
+    expect(toggleSection('project', {}, 'notes', false)).toBeNull();
   });
 
-  it('splits them into its columns, keeping the order in each', () => {
-    expect(
-      projectColumns(['notes', 'tasks', 'activity', 'milestones', 'lists']),
-    ).toEqual({
-      left: ['tasks', 'milestones'],
-      right: ['notes', 'activity', 'lists'],
-    });
-    expect(projectColumns(['notes'])).toEqual({ left: [], right: ['notes'] });
-  });
-
-  it('has Show past, not Meetings shows, and keeps it out of the address (#320)', () => {
-    expect(PAGES.project.fields.map((f) => f.key)).not.toContain('meetings');
-    const field = PAGES.project.fields.find((f) => f.key === 'past');
-    expect(field).toMatchObject({
-      label: 'Past meetings',
-      def: 'hide',
-      settingsOnly: true,
-    });
-    expect(field?.options?.map((o) => o.value)).toEqual(['hide', 'show']);
+  it('has no fields: what the project page saved adds nothing (#334)', () => {
+    expect(PAGES.project.fields).toEqual([]);
     expect(filterFields('project')).toEqual([]);
     expect(
       currentValues('project', { filters: { past: 'show' } }, emptySnapshot()),
-    ).toEqual({ past: 'show' });
-    // A value it does not have reads as the default.
-    expect(
-      currentValues('project', { filters: { past: 'all' } }, emptySnapshot()),
     ).toEqual({});
     expect(
-      effectiveQuery('project', q('past=show'), {
+      effectiveQuery('project', q(''), {
         past: 'show',
         view: 'board',
       }).toString(),
-    ).toBe('view=board');
-    expect(planChange('project', { past: 'show' }, {})).toEqual({
-      url: {},
-      pin: {},
-      patch: { filters: { past: 'show' } },
-    });
-    // The default is saved as nothing.
-    expect(planChange('project', { past: 'hide' }, {})).toEqual({
-      url: {},
-      pin: {},
-      patch: { filters: { past: null } },
-    });
+    ).toBe('');
   });
 
-  it('reads a saved Meetings shows as Hide (#320)', () => {
-    for (const meetings of ['upcoming', 'all']) {
-      expect(
-        currentValues('project', { filters: { meetings } }, emptySnapshot()),
-      ).toEqual({});
-      expect(effectiveQuery('project', q(''), { meetings }).toString()).toBe(
-        '',
-      );
-    }
+  it('remembers its lanes, Milestones and Activity open or closed', () => {
+    const prefs = {
+      sections: { mine: false, activity: true, notes: false, done: true },
+    };
+    expect(sectionCounts(prefs, PAGES.project.collapsible)).toEqual({
+      closed: 1,
+      open: 1,
+    });
+    expect(hasPageSettings('project')).toBe(true);
   });
 });
 

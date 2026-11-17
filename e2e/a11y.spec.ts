@@ -61,6 +61,8 @@ const WITH_DATA = [
   '/all',
   '/meetings/e-1',
   '/people/u-han',
+  '/projects/p-echo/plan',
+  '/projects/p-echo?person=u-chewie',
   '/projects/p-echo/whiteboard',
   '/settings/orgs',
 ];
@@ -143,7 +145,7 @@ for (const theme of CHECKED) {
     test('a project with tasks', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
       await page.goto('/projects/p-echo');
-      await expect(page.locator('[data-task-id]').first()).toBeVisible();
+      await expect(page.locator('[data-loop]').first()).toBeVisible();
       await expectAccessible(page);
     });
 
@@ -171,7 +173,7 @@ for (const theme of CHECKED) {
       await request.post('/api/import', { data: SEED });
       await page.goto('/projects/p-echo');
       await page
-        .locator('[data-task-id]')
+        .locator('[data-loop]')
         .first()
         .getByRole('button', {
           name: 'Confirm shield generator delivery',

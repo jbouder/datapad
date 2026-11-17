@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isPinned,
+  isRoomPage,
   movePin,
   OWED_MAX,
   owedBy,
@@ -8,6 +9,7 @@ import {
   pinnedRooms,
   railRooms,
   roomKey,
+  roomLink,
   roomOf,
   unfiledCount,
   withPin,
@@ -247,5 +249,42 @@ describe('unfiledCount', () => {
         f: note('f'),
       }),
     ).toBe(2);
+  });
+});
+
+describe('a room’s address (#334)', () => {
+  it('opens a pair as the project’s room narrowed to the person', () => {
+    expect(roomLink({ kind: 'project', id: 'p' })).toEqual({
+      route: { name: 'project', id: 'p' },
+      query: '',
+    });
+    expect(roomLink({ kind: 'person', id: 'u' })).toEqual({
+      route: { name: 'person', id: 'u' },
+      query: '',
+    });
+    expect(roomLink({ kind: 'pair', project: 'p', person: 'u 1' })).toEqual({
+      route: { name: 'project', id: 'p' },
+      query: 'person=u+1',
+    });
+  });
+
+  it('knows which room a page is, on any tab', () => {
+    const project = { kind: 'project', id: 'p' } as const;
+    const pair = { kind: 'pair', project: 'p', person: 'u' } as const;
+    const plan = { name: 'project', id: 'p', tab: 'plan' } as const;
+    const board = { name: 'whiteboard', project: 'p' } as const;
+    expect(isRoomPage(project, plan, null)).toBe(true);
+    expect(isRoomPage(project, board, null)).toBe(true);
+    expect(isRoomPage(project, plan, 'u')).toBe(false);
+    expect(isRoomPage(pair, plan, 'u')).toBe(true);
+    expect(isRoomPage(pair, plan, null)).toBe(false);
+    expect(isRoomPage(pair, { name: 'whiteboard' }, 'u')).toBe(false);
+    expect(
+      isRoomPage(
+        { kind: 'person', id: 'u' },
+        { name: 'person', id: 'u' },
+        null,
+      ),
+    ).toBe(true);
   });
 });

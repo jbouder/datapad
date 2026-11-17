@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 import {
+  isRoomPage,
   owedBy,
+  PERSON_PARAM,
   type Room,
   railRooms,
   roomKey,
+  roomLink,
   unfiledCount,
 } from '#shared/rooms';
 import { openCounts } from '#shared/select';
@@ -12,7 +15,7 @@ import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { PLACES, placeOf } from '@/lib/nav';
-import { linkProps, type Route } from '@/lib/router';
+import { linkProps, type Route, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /** A place's or a room's row: the same look, `aria-current` on its page. */
@@ -21,17 +24,6 @@ const ROW =
 const CURRENT =
   'bg-sidebar-accent font-semibold text-sidebar-accent-foreground';
 const HEADING = 'px-2 pb-1 text-xs font-medium text-muted-foreground';
-
-/** Whether `route` is `room`'s page. */
-function inRoom(route: Route, room: Room): boolean {
-  if (room.kind === 'project') {
-    return route.name === 'project' && route.id === room.id;
-  }
-  if (room.kind === 'person') {
-    return route.name === 'person' && route.id === room.id;
-  }
-  return false;
-}
 
 /**
  * The desktop rail (≥ 820px, #329): the space switcher; Today, Unfiled
@@ -44,6 +36,7 @@ function inRoom(route: Route, room: Room): boolean {
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const place = placeOf(route);
+  const narrowedTo = useQuery().get(PERSON_PARAM);
 
   const rail = useMemo(() => {
     if (!state) return null;
@@ -64,13 +57,6 @@ export function Rail({ route }: { route: Route }) {
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
   };
-  const roomRoute = (room: Room): Route =>
-    room.kind === 'person'
-      ? { name: 'person', id: room.id }
-      : {
-          name: 'project',
-          id: room.kind === 'project' ? room.id : room.project,
-        };
   const roomCount = (room: Room): number =>
     room.kind === 'project' ? (rail?.open.get(room.id) ?? 0) : 0;
 
@@ -117,12 +103,13 @@ export function Rail({ route }: { route: Route }) {
             </h2>
             <ul className="flex flex-col" data-pinned={rail.rooms.pinned}>
               {rail.rooms.rooms.map((room) => {
-                const current = inRoom(route, room);
+                const current = isRoomPage(room, route, narrowedTo);
+                const link = roomLink(room);
                 const open = roomCount(room);
                 return (
                   <li key={`${room.kind}:${roomKey(room)}`}>
                     <a
-                      {...linkProps(roomRoute(room))}
+                      {...linkProps(link.route, link.query)}
                       aria-current={current ? 'page' : undefined}
                       className={cn(ROW, 'h-8', current && CURRENT)}
                     >

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import {
   landRoute,
+  projectRoomOf,
   type Route,
   routeHref,
   routePath,
@@ -58,6 +59,10 @@ export function hrefFor(route: Route, query = ''): string {
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
+  // A project room's tabs, its whiteboard among them, are one page.
+  const roomA = projectRoomOf(a);
+  const roomB = projectRoomOf(b);
+  if (roomA || roomB) return roomA?.id === roomB?.id;
   // All with another kind shows another page.
   if (a.name === 'all' || b.name === 'all') {
     return (

@@ -30,8 +30,12 @@ export type Route =
    * archived projects, with `kind: 'project'`.
    */
   | { name: 'all'; kind?: AllKind; archived?: true }
-  /** A project's room (#334). */
-  | { name: 'project'; id: string }
+  /**
+   * A project's room (#334): the Stream tab, or with `tab` the Plan tab
+   * (`/projects/:id/plan`). Its Whiteboard tab is the project's
+   * `whiteboard` route.
+   */
+  | { name: 'project'; id: string; tab?: 'plan' }
   /** A person's room (#335). */
   | { name: 'person'; id: string }
   /** One meeting (`/meetings/:id`); meeting mode (#336). */
@@ -42,8 +46,8 @@ export type Route =
    */
   | { name: 'task'; id: string }
   /**
-   * A whiteboard: a project's (`/projects/:id/whiteboard`) or, without
-   * `project`, the space's own (`/whiteboard`).
+   * A whiteboard: a project's (`/projects/:id/whiteboard`, its room's
+   * Whiteboard tab) or, without `project`, the space's own (`/whiteboard`).
    */
   | { name: 'whiteboard'; project?: string }
   /** Settings → People. */
@@ -246,6 +250,10 @@ export function landRoute(
   if (board?.[1]) {
     return [{ name: 'whiteboard', project: decoded(board[1]) }, search];
   }
+  const plan = /^\/projects\/([^/]+)\/plan$/.exec(clean);
+  if (plan?.[1]) {
+    return [{ name: 'project', id: decoded(plan[1]), tab: 'plan' }, search];
+  }
   const project = /^\/projects\/([^/]+)$/.exec(clean);
   if (project?.[1]) {
     return [{ name: 'project', id: decoded(project[1]) }, search];
@@ -293,7 +301,7 @@ export function routePath(route: Route): string | null {
         ? '/settings'
         : `/settings/${route.section}`;
     case 'project':
-      return `/projects/${encodeURIComponent(route.id)}`;
+      return `/projects/${encodeURIComponent(route.id)}${route.tab ? `/${route.tab}` : ''}`;
     case 'whiteboard':
       return route.project
         ? `/projects/${encodeURIComponent(route.project)}/whiteboard`
@@ -357,6 +365,35 @@ export function boardItemLink(
     route: boardRoute(boardId),
     query: new URLSearchParams({ [BOARD_ITEM_PARAM]: itemId }).toString(),
   };
+}
+
+/** A project room's tabs (#334), in order. */
+export const ROOM_TABS = ['stream', 'plan', 'whiteboard'] as const;
+export type RoomTab = (typeof ROOM_TABS)[number];
+
+/**
+ * The project room a route shows and its tab: a project's address is its
+ * Stream or Plan, a project's whiteboard its Whiteboard tab. Null for
+ * any other route (the space's own whiteboard among them).
+ */
+export function projectRoomOf(
+  route: Route,
+): { id: string; tab: RoomTab } | null {
+  if (route.name === 'project') {
+    return { id: route.id, tab: route.tab ?? 'stream' };
+  }
+  if (route.name === 'whiteboard' && route.project) {
+    return { id: route.project, tab: 'whiteboard' };
+  }
+  return null;
+}
+
+/** The address of one tab of a project's room. */
+export function roomTabRoute(id: string, tab: RoomTab): Route {
+  if (tab === 'whiteboard') return { name: 'whiteboard', project: id };
+  return tab === 'plan'
+    ? { name: 'project', id, tab }
+    : { name: 'project', id };
 }
 
 /** The rail's and tab bar's places. */

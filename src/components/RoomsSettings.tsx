@@ -1,12 +1,12 @@
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
-import { pinnedRooms, type Room, roomKey } from '#shared/rooms';
+import { pinnedRooms, type Room, roomKey, roomLink } from '#shared/rooms';
 import { settingsOf } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePins } from '@/hooks/usePins';
-import { linkProps, type Route } from '@/lib/router';
+import { linkProps } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 
 const ICON_BUTTON = 'press size-11 desk:size-8';
@@ -48,13 +48,6 @@ export function RoomsSettings() {
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
   };
-  const routeOf = (room: Room): Route =>
-    room.kind === 'person'
-      ? { name: 'person', id: room.id }
-      : {
-          name: 'project',
-          id: room.kind === 'project' ? room.id : room.project,
-        };
   const kindOf = (room: Room): string =>
     room.kind === 'project'
       ? 'Project'
@@ -94,7 +87,7 @@ export function RoomsSettings() {
               >
                 <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center desk:min-h-9">
                   <a
-                    {...linkProps(routeOf(room))}
+                    {...linkProps(roomLink(room).route, roomLink(room).query)}
                     className="truncate font-medium hover:underline"
                   >
                     {name}

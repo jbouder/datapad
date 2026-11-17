@@ -12,6 +12,7 @@
  */
 import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
+import { projectRoomOf, type Route } from './routes';
 import { meId } from './select';
 import type { Person, Project, Settings, Snapshot } from './types';
 
@@ -50,6 +51,43 @@ export function roomOf(
     Object.hasOwn(state.people, person)
     ? { kind: 'pair', project, person }
     : null;
+}
+
+/** The query key that narrows a project's room to one person (#334). */
+export const PERSON_PARAM = 'person';
+
+/**
+ * Where a room is: a project's room, a person's, or a pair as the
+ * project's room narrowed to the person (`?person=`).
+ */
+export function roomLink(room: Room): { route: Route; query: string } {
+  if (room.kind === 'person') {
+    return { route: { name: 'person', id: room.id }, query: '' };
+  }
+  if (room.kind === 'project') {
+    return { route: { name: 'project', id: room.id }, query: '' };
+  }
+  return {
+    route: { name: 'project', id: room.project },
+    query: new URLSearchParams({ [PERSON_PARAM]: room.person }).toString(),
+  };
+}
+
+/**
+ * Whether a page is `room`: a project's room (any tab) with no one, or
+ * with the pair's person, picked; a person's room.
+ */
+export function isRoomPage(
+  room: Room,
+  route: Route,
+  narrowedTo: string | null,
+): boolean {
+  if (room.kind === 'person') {
+    return route.name === 'person' && route.id === room.id;
+  }
+  const project = projectRoomOf(route)?.id;
+  if (room.kind === 'project') return project === room.id && !narrowedTo;
+  return project === room.project && narrowedTo === room.person;
 }
 
 /** The pinned entries as stored, each once. */
