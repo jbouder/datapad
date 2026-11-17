@@ -32,10 +32,11 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
   await expect(page.getByText(/^Imported 3 projects/)).toBeVisible();
   await expect(page.getByText('Main has 3 projects, 7 tasks')).toBeVisible();
   // Archived projects and their tasks stay out of Today.
+  // The rail's or the tab bar's Today: Settings has a Today too (#343).
   await page
+    .getByRole('navigation', { name: 'Sections' })
     .getByRole('link', { name: 'Today', exact: true })
     .filter({ visible: true })
-    .first()
     .click();
   await expect(page.getByRole('list', { name: 'Mine' })).toContainText(
     'Confirm shield generator delivery',
