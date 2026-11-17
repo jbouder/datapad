@@ -129,6 +129,10 @@ test('the room: header, state line, projects, lanes, Next meeting, stream', asyn
   await expect(
     topics.getByRole('link', { name: 'Motivator budget' }),
   ).toHaveAttribute('href', '/meetings/e-9');
+  if (isMobile(page)) {
+    const box = await topics.getByRole('link').first().boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
 
   // The stream: his tasks and the meetings he attends; nothing else.
   const all = await keys(page);

@@ -44,13 +44,13 @@ export const LoopRow = memo(function LoopRow({
       )}
     >
       <TaskCheck task={task} done={done} onToggle={onToggle} />
-      <div className="flex min-w-0 flex-1 flex-col py-1 desk:py-0.5">
+      <div className="flex min-w-0 flex-1 flex-col desk:py-0.5">
         <button
           type="button"
           data-task-title
           onClick={() => onOpen(task)}
           className={cn(
-            'flex min-h-9 items-center text-left outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7',
+            'flex min-h-11 items-center text-left outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7',
             done && 'line-through decoration-muted-foreground/60',
           )}
         >

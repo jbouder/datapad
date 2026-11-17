@@ -194,11 +194,11 @@ export function PersonRoom({ id }: { id: string }) {
             <li
               key={`${meeting.id}:${topic.id}`}
               data-topic={topic.id}
-              className="flex flex-col border-b py-1 text-sm desk:py-0.5"
+              className="flex flex-col border-b text-sm desk:py-0.5"
             >
               <a
                 {...linkProps({ name: 'meeting', id: meeting.id })}
-                className="flex min-h-9 items-center text-left outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7"
+                className="flex min-h-11 items-center text-left outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7"
               >
                 {topic.title}
               </a>
