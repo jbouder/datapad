@@ -37,8 +37,14 @@ import {
   viewQuery,
 } from '#shared/all';
 import { formatDay } from '#shared/dates';
+import { ALL_SORT_SETTING, allSortDefaults } from '#shared/pages';
 import type { Op } from '#shared/protocol';
-import { peopleByOwed, projectRoomsByOrg, savedViews } from '#shared/rooms';
+import {
+  peopleByOwed,
+  projectHome,
+  projectRoomsByOrg,
+  savedViews,
+} from '#shared/rooms';
 import { ALL_KINDS, type AllKind } from '#shared/routes';
 import { meId, taskNoteCounts } from '#shared/select';
 import {
@@ -92,7 +98,10 @@ import { linkProps, navigate, useQuery } from '@/lib/router';
 import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
-import { usePageSettingState } from '@/providers/PagePrefsProvider';
+import {
+  usePageSetting,
+  usePageSettingState,
+} from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
 const KIND_ICONS: Record<AllKind, Icon> = {
@@ -141,7 +150,7 @@ const tasksOf = (rows: readonly AllRow[]): Task[] =>
  * #338 adds layouts for one kind alone (tasks: list, table, board by
  * status or priority; meetings: list, calendar; projects: list, cards,
  * timeline), in the address as `?view=`, each kind's default saved with
- * the space (Settings → Pages); saved views as chips above the list
+ * the space (Settings → All); saved views as chips above the list
  * (`SavedViews`); and select boxes on tasks for the bulk bar, whose
  * actions are one `batch` each, with Undo.
  */
@@ -156,9 +165,20 @@ export function AllPage() {
   const today = useToday();
   const query = useQuery();
   const value = query.toString();
+  // The owner's default sorts (Settings → All), as the page opened.
+  const taskSort = usePageSetting('all', ALL_SORT_SETTING.task);
+  const projectSort = usePageSetting('all', ALL_SORT_SETTING.project);
+  const sorts = useMemo(
+    () =>
+      allSortDefaults({
+        [ALL_SORT_SETTING.task]: taskSort,
+        [ALL_SORT_SETTING.project]: projectSort,
+      }),
+    [taskSort, projectSort],
+  );
   const filters = useMemo(
-    () => parseAllQuery(new URLSearchParams(value)),
-    [value],
+    () => parseAllQuery(new URLSearchParams(value), sorts),
+    [value, sorts],
   );
   const target = query.get('note');
   const [limit, setLimit] = useState(PAGE);
@@ -190,7 +210,7 @@ export function AllPage() {
   const change = useCallback(
     (next: AllFilters, how: 'filter' | 'layout' | 'none' = 'filter') => {
       const params = new URLSearchParams();
-      for (const [key, v] of Object.entries(allQuery(next))) {
+      for (const [key, v] of Object.entries(allQuery(next, sorts))) {
         if (v) params.set(key, v);
       }
       const go = () =>
@@ -203,7 +223,7 @@ export function AllPage() {
       else go();
       setLimit(PAGE);
     },
-    [active],
+    [active, sorts],
   );
   const set = (patch: Partial<AllFilters>, transition = true) =>
     change({ ...filters, ...patch }, transition ? 'filter' : 'none');
@@ -343,7 +363,7 @@ export function AllPage() {
     change({
       ...filters,
       kinds,
-      sort: defaultSort(kinds),
+      sort: defaultSort(kinds, sorts),
       dir: 'asc',
       view: '',
       board: 'status',
@@ -697,6 +717,7 @@ const LINE =
 /** A project in the list: its name (to its room), org, status, health, target. */
 function ProjectLine({ project }: { project: Project }) {
   const today = useToday();
+  const { state } = useDatapad();
   return (
     <li data-flip-id={project.id} className={LINE}>
       <FoldersIcon
@@ -705,7 +726,7 @@ function ProjectLine({ project }: { project: Project }) {
       />
       <span className="flex min-w-0 flex-1 flex-col desk:flex-row desk:items-center desk:gap-3">
         <a
-          {...linkProps({ name: 'project', id: project.id })}
+          {...linkProps(projectHome(project.id, state ?? {}))}
           className="truncate font-medium hover:underline"
         >
           {project.name}
@@ -832,12 +853,13 @@ function RoomLine({
   room: { kind: 'project'; id: string } | { kind: 'person'; id: string };
   note?: string;
 }) {
+  const { state } = useDatapad();
   return (
     <li className={cn(LINE, 'gap-2')}>
       <a
         {...linkProps(
           room.kind === 'project'
-            ? { name: 'project', id: room.id }
+            ? projectHome(room.id, state ?? {})
             : { name: 'person', id: room.id },
         )}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-2 hover:underline desk:min-h-8"

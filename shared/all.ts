@@ -126,7 +126,7 @@ export const ALL_LAYOUTS: Record<LayoutKind, readonly LayoutOption[]> = {
   ],
 };
 
-/** Where each kind's default layout is saved (Settings → Pages, All). */
+/** Where each kind's default layout is saved (Settings → All). */
 export const LAYOUT_SETTING: Record<LayoutKind, string> = {
   task: 'taskView',
   meeting: 'meetingView',
@@ -249,16 +249,30 @@ export function sortsFor(kinds: readonly AllKind[]): SortOption[] {
  * updated), meetings soonest first, people by name, else recently
  * updated.
  */
-export function defaultSort(kinds: readonly AllKind[]): string {
+export function defaultSort(
+  kinds: readonly AllKind[],
+  sorts: AllSortDefaults = {},
+): string {
   const only = kinds.length === 1 ? kinds[0] : undefined;
+  const own = (only === 'task' || only === 'project') && sorts[only];
+  if (own && sortsFor(kinds).some((o) => o.value === own)) return own;
   if (only === 'task') return DEFAULT_TASK_FILTERS.sort;
   if (only === 'meeting') return 'date';
   if (only === 'person') return 'title';
   return 'updated';
 }
 
-/** The defaults, for `kinds`. */
-export function defaultAllFilters(kinds: readonly AllKind[] = []): AllFilters {
+/**
+ * The sorts a kind alone starts with when the owner set one (Settings →
+ * All, #343), by kind; a kind left out starts with `defaultSort`'s.
+ */
+export type AllSortDefaults = Partial<Record<'task' | 'project', string>>;
+
+/** The defaults, for `kinds`, with the owner's default sorts. */
+export function defaultAllFilters(
+  kinds: readonly AllKind[] = [],
+  sorts: AllSortDefaults = {},
+): AllFilters {
   return {
     kinds: [...kinds],
     q: '',
@@ -269,7 +283,7 @@ export function defaultAllFilters(kinds: readonly AllKind[] = []): AllFilters {
     tag: '',
     decide: false,
     waiting: false,
-    sort: defaultSort(kinds),
+    sort: defaultSort(kinds, sorts),
     dir: 'asc',
     view: '',
     board: 'status',
@@ -278,11 +292,15 @@ export function defaultAllFilters(kinds: readonly AllKind[] = []): AllFilters {
 
 /**
  * All's filters from its query. A value All does not have reads as the
- * default, as does a sort the kinds do not have.
+ * default, as does a sort the kinds do not have; no sort is the kind's
+ * default (`sorts`, the owner's, else `defaultSort`'s).
  */
-export function parseAllQuery(params: URLSearchParams): AllFilters {
+export function parseAllQuery(
+  params: URLSearchParams,
+  sorts: AllSortDefaults = {},
+): AllFilters {
   const kinds = kindsOf(params.get('kind'));
-  const d = defaultAllFilters(kinds);
+  const d = defaultAllFilters(kinds, sorts);
   const status = params.get('status');
   const due = params.get('due');
   const sort = params.get('sort') ?? '';
@@ -314,8 +332,11 @@ export function parseAllQuery(params: URLSearchParams): AllFilters {
  * replace the page's: defaults are left out, so a plain All is `/all`.
  * The kinds are the route's (`?kind=`), not here.
  */
-export function allQuery(filters: AllFilters): Record<string, string | null> {
-  const d = defaultAllFilters(filters.kinds);
+export function allQuery(
+  filters: AllFilters,
+  sorts: AllSortDefaults = {},
+): Record<string, string | null> {
+  const d = defaultAllFilters(filters.kinds, sorts);
   const value = (v: string, def: string) => (v && v !== def ? v : null);
   return {
     q: value(filters.q, ''),

@@ -16,6 +16,7 @@ import {
 } from '#shared/stream';
 import type { SummaryTarget } from '#shared/summaries';
 import { localTime, nextMeeting } from '#shared/today';
+import { type Snapshot, settingsOf } from '#shared/types';
 import { CaptureLine } from '@/components/capture/CaptureLine';
 import { DetailActions, type MenuAction } from '@/components/DetailActions';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
@@ -45,14 +46,18 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { useMotion } from '@/providers/MotionProvider';
 import { useToast } from '@/providers/ToastProvider';
 
-const LABELS: LaneLabels = {
-  mine: 'You owe',
-  waiting: 'They owe you',
-  decide: 'To discuss',
-  mineEmpty: 'You owe them nothing.',
-  waitingEmpty: 'They owe you nothing.',
-  decideEmpty: 'Nothing to discuss.',
-};
+/** The lanes' names: the owner's from Settings → Rooms (#343), or the room's own. */
+function laneLabels(state: Snapshot): LaneLabels {
+  const names = settingsOf(state).laneLabels;
+  return {
+    mine: names.youOwe,
+    waiting: names.theyOwe,
+    decide: names.discuss,
+    mineEmpty: 'You owe them nothing.',
+    waitingEmpty: 'They owe you nothing.',
+    decideEmpty: 'Nothing to discuss.',
+  };
+}
 
 /**
  * A person's room (#335), the person's page and the 1:1 prep. The header
@@ -305,7 +310,7 @@ export function PersonRoom({ id }: { id: string }) {
               today={today}
               projects={project ? {} : state.projects}
               people={state.people}
-              labels={LABELS}
+              labels={laneLabels(state)}
               discuss={discuss}
             />
           </div>

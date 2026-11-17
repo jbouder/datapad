@@ -7,16 +7,20 @@ import {
 import { useLayoutEffect, useRef } from 'react';
 import { formatTime } from '#shared/dates';
 import { countDocuments } from '#shared/protocol';
+import { DEVICE_DEFAULTS } from '#shared/settings';
 import { COMMIT, VERSION } from '#shared/version';
 import { Backups } from '@/components/Backups';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
 import { OrgsView } from '@/components/orgs/OrgsView';
-import { PagesSettings } from '@/components/PagesSettings';
 import { PeopleView } from '@/components/people/PeopleView';
 import { RoomsSettings } from '@/components/RoomsSettings';
 import { SpacesSettings } from '@/components/SpacesSettings';
+import { AllSettings } from '@/components/settings/AllSettings';
+import { CaptureSettings } from '@/components/settings/CaptureSettings';
+import { ResetButton } from '@/components/settings/parts';
+import { TodaySettings } from '@/components/settings/TodaySettings';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
 import { Button } from '@/components/ui/button';
@@ -36,11 +40,14 @@ import { cn } from '@/lib/utils';
 import { useEmail, useSpaces } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
-  pages: 'Pages',
+  today: 'Today',
   rooms: 'Rooms',
+  capture: 'Capture',
+  all: 'All',
   templates: 'Templates',
   summaries: 'Summaries',
   spaces: 'Spaces',
@@ -52,12 +59,15 @@ const LABELS: Record<SettingsSection, string> = {
 };
 
 /**
- * Everything that is not day-to-day work: how Datapad looks and moves,
- * what each page remembers, the pinned rooms' order, templates,
- * summaries, your spaces, the people and orgs the rest of the app refers
- * to, your data in and out, the MCP apps you let in, and who is signed
- * in. Each section has its own address (`/settings/data`,
- * `/settings/orgs/:id`); the account menu leads here.
+ * Everything that is not day-to-day work (#343): how Datapad looks and
+ * moves, how Today reads, the pinned rooms and the rooms' options, what
+ * the capture line saves, how All opens, templates, summaries, your
+ * spaces, the people and orgs the rest of the app refers to, your data in
+ * and out, the MCP apps you let in, and who is signed in. Each section
+ * has its own address (`/settings/today`, `/settings/orgs/:id`); the
+ * account menu leads here. Appearance, Today, Rooms, Capture and All each
+ * have Reset to defaults; the defaults are in `shared/` (`DEFAULT_SETTINGS`,
+ * `PAGES`, `DEVICE_DEFAULTS`).
  */
 export function SettingsPage({
   section,
@@ -142,8 +152,10 @@ export function SettingsPage({
             {LABELS[section]}
           </h2>
           {section === 'appearance' && <Appearance />}
-          {section === 'pages' && <PagesSettings />}
+          {section === 'today' && <TodaySettings />}
           {section === 'rooms' && <RoomsSettings />}
+          {section === 'capture' && <CaptureSettings />}
+          {section === 'all' && <AllSettings />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'spaces' && <SpacesSettings />}
@@ -162,8 +174,29 @@ function Appearance() {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const clock = useClock();
+  const { show } = useToast();
+  const d = DEVICE_DEFAULTS;
+  const isDefault =
+    theme === d.theme && motion.preference === d.motion && clock === d.clock;
+  const reset = () => {
+    const before = { theme, motion: motion.preference, clock };
+    setTheme(d.theme);
+    motion.setPreference(d.motion);
+    setClock(d.clock);
+    show('Appearance is back to its defaults', () => {
+      setTheme(before.theme);
+      motion.setPreference(before.motion);
+      setClock(before.clock);
+    });
+  };
   return (
     <>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          How Datapad looks and moves on this device.
+        </p>
+        <ResetButton disabled={isDefault} onClick={reset} />
+      </div>
       <div className="flex flex-col gap-2">
         <Segmented
           legend="Theme"

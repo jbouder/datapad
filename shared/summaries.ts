@@ -1,7 +1,7 @@
 import { itemsOf } from './board';
 import { addDays, formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
-import { lanesOf, NOBODY, waitingCount } from './loops';
+import { lanesOf, NOBODY, todayLanes, waitingCount } from './loops';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import { noteTitle } from './notes';
@@ -601,7 +601,7 @@ export function briefContext(
   const group = (project: { name: string } | null) =>
     clipName(project?.name ?? 'General');
   const title = (t: Task) => clip(tokensToNames(t.title, state.people));
-  const recap = buildRecap(state, today, assignee);
+  const recap = buildRecap(state, today, assignee, options.weekStart);
   const { from, to } = recap.window;
   const filter = filterLabel(state, assignee);
 
@@ -670,11 +670,8 @@ export function briefContext(
   );
   const due = [...buckets.overdue, ...buckets.today];
   // Today's lanes (#331, #332): Mine narrowed as Today narrows it.
-  const lanes = lanesOf(state, me);
-  const mine =
-    assignee.kind === 'mine' && me
-      ? lanes.mine.filter((t) => t.assignee === me)
-      : lanes.mine;
+  const lanes = todayLanes(state, me, assignee);
+  const { mine } = lanes;
   const projects = attention(
     state.projects,
     today,

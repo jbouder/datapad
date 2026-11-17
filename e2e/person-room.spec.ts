@@ -326,3 +326,28 @@ test('Edit, Schedule meeting, and Remove', async ({ page, request }) => {
   expect(data.people['u-han']).toBeUndefined();
   expect(data.tasks['t-5'].assignee).toBe('');
 });
+
+test('the lanes take their names and order from Settings → Rooms (#343)', async ({
+  page,
+}) => {
+  await openLive(page, '/settings/rooms');
+  const name = page.getByRole('textbox', { name: 'You owe' });
+  await name.fill('On me');
+  await name.press('Enter');
+  const editor = page.getByRole('list', { name: 'Person room lanes' });
+  // The editor names the lane as the room will.
+  await expect(
+    editor.getByRole('switch', { name: 'Show On me' }),
+  ).toBeVisible();
+  await editor.getByRole('switch', { name: 'Show To discuss' }).click();
+  await expectAccessible(page);
+  await expectSaved(page);
+
+  await openLive(page, '/people/u-han');
+  await expect(lanes(page).getByRole('list', { name: 'On me' })).toHaveText(
+    /Confirm shield generator delivery/,
+  );
+  await expect(
+    lanes(page).getByRole('button', { name: /^To discuss/ }),
+  ).toHaveCount(0);
+});

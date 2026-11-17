@@ -52,6 +52,8 @@ export const LIMITS = {
   activityTextMax: 300,
   /** Pinned rooms in one space (#329). */
   pinnedMax: 50,
+  /** A person room lane's own name (#343). */
+  laneLabelMax: 40,
   /** Pages with saved preferences in one space (#186). */
   pagesMax: 16,
   /** A saved filter's or section's name. */

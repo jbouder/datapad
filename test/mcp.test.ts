@@ -39,6 +39,30 @@ import { TOOLS } from '../worker/mcp/tools';
  * credential there.
  */
 
+/** The read tools, in `tools/list`'s order (#153, v2's #340). */
+const READ_TOOLS = [
+  'whoami',
+  'list_spaces',
+  'get_overview',
+  'get_today',
+  'get_focus',
+  'get_recap',
+  'get_loops',
+  'list_unfiled',
+  'get_room',
+  'list_projects',
+  'get_project',
+  'list_tasks',
+  'list_notes',
+  'list_meetings',
+  'list_people',
+  'list_orgs',
+  'get_digest',
+  'search',
+  'list_lists',
+  'get_list',
+];
+
 const ORIGIN = 'https://datapad.test';
 const MCP_URL = `${ORIGIN}/mcp`;
 const REDIRECT = 'http://127.0.0.1:43123/callback';
@@ -735,24 +759,7 @@ describe('the /mcp endpoint', () => {
       expect(instructions).toContain('YYYY-MM-DD');
 
       const { tools } = await client.listTools();
-      expect(tools.map((t) => t.name)).toEqual([
-        'whoami',
-        'list_spaces',
-        'get_overview',
-        'get_focus',
-        'get_recap',
-        'list_projects',
-        'get_project',
-        'list_tasks',
-        'list_notes',
-        'list_meetings',
-        'list_people',
-        'list_orgs',
-        'list_lists',
-        'get_list',
-        'get_digest',
-        'search',
-      ]);
+      expect(tools.map((t) => t.name)).toEqual(READ_TOOLS);
       for (const tool of tools) {
         expect(tool.inputSchema.type).toBe('object');
         expect(tool.annotations?.readOnlyHint).toBe(true);
@@ -795,28 +802,15 @@ describe('the /mcp endpoint', () => {
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name)).toEqual([
-        'whoami',
-        'list_spaces',
-        'get_overview',
-        'get_focus',
-        'get_recap',
-        'list_projects',
-        'get_project',
-        'list_tasks',
-        'list_notes',
-        'list_meetings',
-        'list_people',
-        'list_orgs',
-        'list_lists',
-        'get_list',
-        'get_digest',
-        'search',
+        ...READ_TOOLS,
         'add_task',
         'complete_task',
         'reopen_task',
         'edit_task',
         'set_blocked',
+        'set_decide',
         'add_note',
+        'file_note',
         'add_meeting',
         'add_topic',
         'cover_topic',

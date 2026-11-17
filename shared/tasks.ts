@@ -36,7 +36,7 @@ export function defaultAssignee(
  * adding a task reads it, as `defaultAssignee()`.
  */
 export function defaultPriority(state: Pick<Snapshot, 'settings'>): Priority {
-  return settingsOf(state).defaultPriority ?? 'med';
+  return settingsOf(state).defaultPriority;
 }
 
 /** The Tasks view's controls, as kept in the URL. */

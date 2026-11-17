@@ -10,8 +10,8 @@ async function openLive(page: Page, path = '/') {
 }
 
 /**
- * Go to Today (from the rail or the tab bar) or Tasks (All, then
- * its Tasks): no reload.
+ * Go to Today (from the rail or the tab bar) or Tasks (All, which opens
+ * on Tasks, #343): no reload.
  */
 async function goTo(page: Page, name: 'Today' | 'Tasks') {
   await page
@@ -19,12 +19,6 @@ async function goTo(page: Page, name: 'Today' | 'Tasks') {
     .filter({ visible: true })
     .first()
     .click();
-  if (name === 'Tasks') {
-    await page
-      .getByRole('main')
-      .getByRole('button', { name: 'Tasks', exact: true })
-      .click();
-  }
   await expect(
     name === 'Today'
       ? page.locator('[data-day-line]')

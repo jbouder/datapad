@@ -57,9 +57,12 @@ describe('the registry', () => {
   });
 
   it('has the detail pages, listed in Settings once they have something to set (#310)', () => {
-    for (const page of ['task', 'meeting', 'list'] as const) {
+    for (const page of ['task', 'list'] as const) {
       expect(PAGES[page].label).toMatch(/ page$/);
     }
+    // Meeting mode (#336) keeps the meeting page's settings (#343).
+    expect(PAGES.meeting.label).toBe('Meeting mode');
+    expect(PAGES.meeting.fixedOrder).toBe(true);
     for (const page of ['task', 'meeting', 'list'] as const) {
       expect(hasPageSettings(page)).toBe(true);
     }
@@ -165,6 +168,7 @@ describe('Focus’s settings (#311)', () => {
       quietDays: 14,
       yellow: true,
       followUpDays: 7,
+      weekStart: 'mon',
     });
   });
 
@@ -180,6 +184,7 @@ describe('Focus’s settings (#311)', () => {
           quiet: 'off',
           yellow: 'leave',
           followDays: '14',
+          weekStart: 'sun',
         },
         s.people,
       ),
@@ -191,6 +196,7 @@ describe('Focus’s settings (#311)', () => {
       quietDays: null,
       yellow: false,
       followUpDays: 14,
+      weekStart: 'sun',
     });
     expect(
       focusOptions(

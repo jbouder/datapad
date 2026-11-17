@@ -44,15 +44,35 @@ changes the format says so here under **Export format**.
   show as a list, a table or a board (by status or by priority), meetings
   as a list or a calendar, projects as a list, cards or a timeline. The
   layout is in the address, and each kind remembers the last one picked,
-  also set in Settings → Pages under All. Save view names the kinds,
+  also set in Settings → All. Save view names the kinds,
   filters, sort and layout shown as a chip above the list, synced with the
   space; each chip's menu renames it, pins it to the rail like a room, or
   deletes it with Undo. Every task row has a select box: the bar that
   appears completes or reopens, marks to decide, moves to a room, assigns,
   sets the due date or deletes, each as one change with Undo.
 
-- Settings → Pages has New task priority: what a new task starts with when
-  you do not pick one, from the New task panel, `/task`, Make task, action
+- **Settings for v2** (#343). The sections follow the app: Appearance,
+  Today, Rooms, Capture, All, then Templates, Summaries, Spaces, People,
+  Orgs, Data, Connected apps and Account, each at its own address.
+  Today sets who Mine means, how far Next up looks ahead, the day the
+  week starts on (the week zoom and the recap's weekend follow it),
+  Brief me on or off, the lanes shown and their order, and meeting
+  mode's sections. Rooms keeps the pinned rooms and adds whether the
+  people who owe you show in the rail, each room's lanes shown and
+  their order, the tab a project room opens on from the rail, All and
+  Search, and the person room's lane names, which the room shows.
+  Capture sets what a plain line becomes, whether `@Name` assigns
+  a task, the new task priority and where a note typed in a room goes.
+  All sets the kinds it opens on (Tasks to start with: the rail's All
+  now opens there), each kind's layout, the sort tasks and projects
+  start with, and renames, reorders and deletes saved views. Appearance,
+  Today, Rooms, Capture and All each have Reset to defaults, with Undo;
+  All's keeps the saved views. Every default is in one place in
+  `shared/`. What Focus saved is Today's, and the old Tasks, Meetings
+  and Projects pages' saved layouts and sorts become All's (the Durable
+  Object's schema goes to 5).
+- Settings → Capture has New task priority: what a new task starts with
+  when you do not pick one, from the New task panel, `/task`, Make task, action
   items and MCP's `add_task`.
 - A note being written under a task, a meeting or a meeting row asks
   "Save this note?" (Discard or Save note) when you click away, and holds
@@ -116,7 +136,7 @@ changes the format says so here under **Export format**.
   loops. **Mine** is yours or no one's, **Waiting on** is blocked on
   someone (or no one listed) or assigned to someone else, grouped by
   person, and **To decide** is every task marked to decide. A loop's
-  checkbox closes it at once, with Undo. Settings → Pages shows Today's
+  checkbox closes it at once, with Undo. Settings → Today shows Today's
   options: what Mine shows (with unassigned, or only what is assigned to
   you), how far Next up looks ahead, and which lanes show and in what
   order. What Focus saved carries over.
@@ -136,7 +156,7 @@ changes the format says so here under **Export format**.
   (`/projects/:id/whiteboard`) is the project's board in the room.
   Picking a person narrows the lanes and the stream to what touches them
   (`?person=`); capture then mentions them, or on a task assigns them,
-  and Pin pins the pair. Settings → Pages shows the room's lanes.
+  and Pin pins the pair. Settings → Rooms shows the room's lanes.
 - **The person room** (#335) replaces the person page at `/people/:id`,
   and is the 1:1 prep. The header has the orgs of their projects, the
   name and a state line (role, how many projects, how many loops are
@@ -152,8 +172,8 @@ changes the format says so here under **Export format**.
   Picking a project narrows the lanes and the stream to the same items
   as the project room narrowed to them (`?project=`); capture then files
   to the project too, and Pin pins the same pair the project room does.
-  Meeting mode's 1:1 column shows the same lanes. Settings → Pages has a
-  Person room card for the lanes. Settings → People still lists, adds
+  Meeting mode's 1:1 column shows the same lanes. Settings → Rooms has the
+  lanes, shown and ordered, and their names. Settings → People still lists, adds
   and removes people, and each row opens the room.
 - Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
   **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
@@ -165,8 +185,29 @@ changes the format says so here under **Export format**.
   the last working day shows the recap (Since yesterday) above its
   timeline, and today's line links to it. Brief me is back on today,
   and its brief now includes the three lanes.
+- **MCP tools for v2** (#340). `get_today` reads Today: the day's line,
+  its meetings, what is due, the next meeting, the three lanes and how
+  many notes are in Unfiled. `get_loops` reads the lanes, for a project
+  or a person too. `list_unfiled` lists Unfiled. `get_room` reads a
+  project's or a person's room: for a project, what `get_project` gives
+  plus its state line, lanes and stream. `set_decide` marks a task to
+  decide or decided, and `add_task` and `edit_task` take `decide`.
+  `file_note` files a note to a project. Tasks now carry `decide` and
+  notes `unfiled` in every tool's results.
 
 ### Changed
+
+- MCP's `get_focus` is now an alias of `get_today` and returns the same
+  thing: the old Focus shape (due buckets, follow-ups, attention,
+  agenda) is gone, and `assignee` is ignored. `add_note` with no
+  project, meeting, task or mention lands in Unfiled. `get_project` and
+  `get_overview` no longer show lists. The server's `initialize`
+  instructions describe loops, Unfiled and rooms.
+- MCP's list tools (`list_lists`, `get_list`, `add_list`,
+  `add_list_item`, `check_list_item`) are retired: each answers with an
+  error pointing to checklist notes and changes nothing. They go in the
+  next release. A connected app can no longer send the list ops; it can
+  now send `setDecide` and `moveNote`.
 
 - Every old address lands on its new home: `/focus` on Today, `/digest`
   on Today's week zoom, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
@@ -199,15 +240,26 @@ changes the format says so here under **Export format**.
 ### Removed
 
 - The project page and its sections, with Show done, Show past, the
-  tasks board and the Lists section; Settings → Pages no longer lists
+  tasks board and the Lists section; Settings no longer lists
   them. Their saved settings are kept and ignored. Dragging tasks into
   order went with it: the room's lanes sort by due date, as Today's do.
 - Settings → Navigation. Pinned rooms are the only navigation setting.
   Saved navigation preferences are kept and ignored, and an export that
   has them still imports.
+- Settings → Pages (#343). Its options moved to Today, Rooms, Capture and
+  All, and `/settings/pages` opens Settings → Today. The task page's
+  and Lists' settings are no longer shown; what they saved is
+  kept.
 
 ### Export format
 
+- `settings.user` may carry `captureAs`, `mentionAssigns`, `roomNotes`,
+  `railOwed`, `roomTab` and `laneLabels` (#343), each absent at its
+  default. `settings.user.pages.focus` may carry `weekStart` and `brief`,
+  and `settings.user.pages.all` `kinds`, `taskSort` and `projectSort`,
+  under `filters`. Additive: the format is still 3. An older file whose
+  space saved nothing for All has its old Tasks, Meetings and Projects
+  layouts and sorts carried into All on import; the old entries are kept.
 - `settings.user.pages` may carry the page key `all` (#338), with the
   settings `taskView`, `meetingView` and `projectView` under `filters`
   and `views`, a list of `{ id, name, query }` saved views. A pinned room

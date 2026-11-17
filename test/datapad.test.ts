@@ -406,6 +406,45 @@ describe('DatapadObject storage', () => {
     expect(imported.tasks).toEqual(migrated?.tasks);
   });
 
+  it('carries the old pages’ layouts and sorts into All at schema 5 (#343)', async () => {
+    const user = {
+      defaultOrg: '',
+      pages: {
+        focus: { filters: { days: '10' } },
+        tasks: { view: 'board', sort: 'priority' },
+        meetings: { view: 'calendar' },
+      },
+    };
+    const stub = bindings.DATAPAD.getByName('schema4@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM docs');
+      sql.exec('UPDATE spaces SET seq = 2');
+      sql.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'settings', 'user', ?, '2026-10-01')",
+        JSON.stringify(user),
+      );
+      for (let i = 0; i < 2; i += 1) {
+        const revived = new DatapadObject(state, bindings);
+        await state.blockConcurrencyWhile(async () => {});
+        const file = await revived.export(MAIN_SPACE);
+        expect(file.settings.user?.pages).toEqual({
+          ...user.pages,
+          all: {
+            filters: {
+              taskView: 'board',
+              meetingView: 'calendar',
+              taskSort: 'priority',
+            },
+          },
+        });
+        // Once, not once per wake.
+        expect(await revived.stats()).toMatchObject({ seq: 3 });
+      }
+    });
+  });
+
   it('stores meetings rows in a fresh object', async () => {
     const email = 'fresh-meetings@example.com';
     const stub = bindings.DATAPAD.getByName(email);

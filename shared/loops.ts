@@ -133,3 +133,19 @@ export function taskTouches(task: Task, personId: string): boolean {
     mentionedIds(task.desc).includes(personId)
   );
 }
+
+/**
+ * Today's lanes as its saved settings narrow them: with Tasks for set to
+ * Mine (`who.kind === 'mine'`) and someone marked as you, Mine keeps only
+ * what is assigned to you. Brief me and MCP's `get_today` read them so.
+ */
+export function todayLanes(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+  me: string | null,
+  who: { kind: string },
+): Lanes {
+  const all = lanesOf(state, me);
+  return who.kind === 'mine' && me
+    ? { ...all, mine: all.mine.filter((t) => t.assignee === me) }
+    : all;
+}

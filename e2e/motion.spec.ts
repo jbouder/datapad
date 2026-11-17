@@ -42,7 +42,11 @@ async function animationsDuring(
           else resolve([...seen]);
         };
         if (kind === 'route') {
-          (document.querySelector('a[href="/all"]') as HTMLElement).click();
+          (
+            document.querySelector(
+              'nav[aria-label="Sections"] a[href^="/all"]',
+            ) as HTMLElement
+          ).click();
         } else if (kind === 'openPanel') {
           (
             document.querySelector(
