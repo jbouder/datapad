@@ -9,7 +9,8 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * Make a task from a note: in the note's project, pointing back at it
  * (`sourceNoteId`), with a toast that opens the task. The note itself is
- * not changed. Returns whether the task was made. With `decide`, it is
+ * not changed. A meeting's note makes an action item of that meeting
+ * (#336). Returns whether the task was made. With `decide`, it is
  * something to decide (#328), as Unfiled's To decide makes (#333).
  */
 export function useMakeTask(): (
@@ -27,6 +28,8 @@ export function useMakeTask(): (
       const decide = options?.decide === true;
       const id = actions.addTask({
         projectId: note.projectId,
+        // From a meeting's note, an action item of that meeting (#336).
+        ...(note.meetingId ? { meetingId: note.meetingId } : {}),
         title: clean,
         sourceNoteId: note.id,
         assignee: state ? defaultAssignee(state) : '',

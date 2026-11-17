@@ -213,7 +213,8 @@ test('Make a task from a topic links it; deleting the meeting keeps it', async (
     'Its note and action item are kept.',
   );
   await page.getByRole('button', { name: 'Delete meeting' }).click();
-  await expect(page).toHaveURL(/\/all\?kind=meeting$/);
+  // Opened straight from its address: Leave goes to Today.
+  await expect(page).toHaveURL(/\/$/);
   await expectSaved(page);
   data = await stored(request);
   expect(data.meetings['e-1']).toBeUndefined();

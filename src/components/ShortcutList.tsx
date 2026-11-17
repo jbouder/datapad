@@ -7,6 +7,7 @@ const SCOPES: Shortcut['scope'][] = [
   'Task lists and tables',
   'Collection pages',
   'Lists',
+  'Meeting mode',
   'Panels',
   'Whiteboard',
 ];

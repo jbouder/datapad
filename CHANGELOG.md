@@ -74,6 +74,16 @@ changes the format says so here under **Export format**.
   A person has a room of their own at `/people/:id`. Until the pages
   that follow arrive, All shows Projects, Tasks, Notes and Meetings by
   kind.
+- **Meeting mode** (#336) replaces the meeting page. A meeting opens full
+  screen: the phase (Prep, Live or Debrief), the day, time, room and
+  attendees (each a link to their room), Join, Previous and Next in the
+  series, Edit and Leave. The agenda and topics are on the left, with
+  Carry forward from the last meeting of the series. The note composer
+  is always open in the middle, with the saved notes and the action
+  items under it. The open loops are on the right: the other person's
+  for a 1:1, otherwise the project's. Leave, or Esc, goes back to where
+  you came from, or to Today. `/task` in a meeting's note, and Make
+  task on one, make an action item of that meeting.
 - **Today** (#331), the home page at `/`: one day at a time. The header
   has the long day, a line that counts it ("2 meetings, 3 due, 4 waiting
   on others, 1 to decide") and Previous day, Today and Next day. Then the

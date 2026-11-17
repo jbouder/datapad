@@ -57,8 +57,8 @@ export const HelpPage = lazyPage(() =>
 export const ProjectLists = lazyPage(() =>
   import('@/components/lists/ProjectLists').then((m) => m.ProjectLists),
 );
-export const MeetingPage = lazyPage(() =>
-  import('@/pages/MeetingPage').then((m) => m.MeetingPage),
+export const MeetingMode = lazyPage(() =>
+  import('@/pages/MeetingMode').then((m) => m.MeetingMode),
 );
 export const SettingsPage = lazyPage(() =>
   import('@/pages/SettingsPage').then((m) => m.SettingsPage),
@@ -71,7 +71,7 @@ const LAZY: Partial<
   Record<Route['name'], { preload: () => Promise<unknown> }>
 > = {
   help: HelpPage,
-  meeting: MeetingPage,
+  meeting: MeetingMode,
   project: ProjectLists,
   settings: SettingsPage,
   people: SettingsPage,

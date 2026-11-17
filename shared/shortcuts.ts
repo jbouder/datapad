@@ -17,6 +17,7 @@ export interface Shortcut {
     | 'Task lists and tables'
     | 'Collection pages'
     | 'Lists'
+    | 'Meeting mode'
     | 'Panels'
     | 'Whiteboard';
   /** Not bound yet: arrives with a later feature. */
@@ -137,6 +138,17 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['Esc'],
     action: 'In Find: clear it, then leave it',
     scope: 'Lists',
+  },
+  {
+    keys: ['Esc'],
+    action:
+      'Leave, back to where you came from (in the note composer, first step out of it)',
+    scope: 'Meeting mode',
+  },
+  {
+    keys: ['⌘Enter', 'Ctrl+Enter'],
+    action: 'Save the note',
+    scope: 'Meeting mode',
   },
   { keys: ['⌘Enter', 'Ctrl+Enter'], action: 'Save', scope: 'Panels' },
   {

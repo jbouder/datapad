@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 import { AllPage } from '@/pages/AllPage';
 import {
   HelpPage,
-  MeetingPage,
+  MeetingMode,
   preloadPages,
   SettingsPage,
   WhiteboardPage,
@@ -91,7 +91,9 @@ export function AppShell() {
       ? route.id
       : route.name === 'whiteboard'
         ? (route.project ?? null)
-        : null;
+        : route.name === 'meeting'
+          ? (state?.meetings[route.id]?.projectId ?? null)
+          : null;
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
@@ -188,6 +190,37 @@ export function AppShell() {
   // A whiteboard takes the whole viewport below the top bar (and above
   // the tab bar): the page itself never scrolls.
   const fullBleed = route.name === 'whiteboard';
+  // Meeting mode (#336) is the whole screen: no rail, top bar or tab bar.
+  // Leave (or Esc) goes back; search and the shortcut sheet still open.
+  const fullScreen = route.name === 'meeting';
+
+  if (fullScreen) {
+    return (
+      <div className="flex min-h-dvh">
+        <main
+          id="main"
+          key={key}
+          tabIndex={-1}
+          className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none sm:px-6"
+        >
+          <ErrorBoundary
+            where="page"
+            fallback={(reset) => <PageError reset={reset} />}
+          >
+            <Suspense fallback={<PageLoading />}>
+              <Page route={route} />
+            </Suspense>
+          </ErrorBoundary>
+        </main>
+        <ShortcutSheet open={sheet} onOpenChange={setSheet} />
+        <Palette
+          open={palette}
+          onOpenChange={setPalette}
+          currentProject={currentProject}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -294,7 +327,7 @@ function Page({ route }: { route: Route }) {
     case 'task':
       return <TaskLanding id={route.id} />;
     case 'meeting':
-      return <MeetingPage id={route.id} />;
+      return <MeetingMode id={route.id} />;
     case 'whiteboard':
       return <WhiteboardPage project={route.project} />;
     case 'people':
