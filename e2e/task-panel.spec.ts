@@ -155,8 +155,12 @@ test('delete with undo restores the same task in the same place', async ({
   await expect(loops).toHaveText(before);
   await expectSaved(page);
 
+  // Restored through the checked op: the same task, stamped when it came back.
   const data = await exported(request);
-  expect(data.tasks['t-2']).toEqual(SEED.tasks['t-2']);
+  expect(data.tasks['t-2']).toEqual({
+    ...SEED.tasks['t-2'],
+    updatedAt: expect.any(String),
+  });
 });
 
 test('the panel keeps your typing when the task changes elsewhere', async ({
