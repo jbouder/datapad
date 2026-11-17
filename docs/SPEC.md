@@ -63,6 +63,9 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 | sourceNoteId                      | string, optional                   | set when created from a note                  |
 | meetingId                         | string or null, optional           | an action item of that meeting; absent = null |
 | createdAt, updatedAt, completedAt | timestamp                          | completedAt null while open                   |
+| decide                            | boolean, optional                  | something to decide (#328); absent = false    |
+
+**To decide** (#328, export format 3). `addTask` and `editTask` take `decide`. `setDecide { id, decide }` marks a task to decide or decided; it states the result, so repeating it changes nothing, and it logs `Marked "<title>" to decide` or `Decided "<title>"`. Read it with `decideOf()`. Before format 3 the prototype used a `decide` tag; the migration marks every open task with that tag, and keeps the tag.
 
 ### Note
 
@@ -75,9 +78,13 @@ Six collections, each a flat map of id → document. Ids are client-generated ra
 | meetingId | string or null           | links the note to a meeting                                                                                                      |
 | phase     | `pre` \| `post` \| null  | legacy (#163): kept and round-tripped, never set or shown since #167; new notes have null                                        |
 | taskId    | string or null, optional | a running note on that task (never with `meetingId`); `projectId` is the task's. Absent on older notes and exports, read as null |
-| scratch   | boolean, optional        | the space's Notepad (#218): its one running General note. Absent on every other note, read as false |
+| scratch   | boolean, optional        | the space's Notepad (#218): its one running General note. Absent on every other note, read as false. Retired in format 3 (#328): the migration clears it; only an old client's `writeNotepad` still sets it |
 | createdAt | timestamp                |                                                                                                                                  |
 | editedAt  | timestamp, optional      |                                                                                                                                  |
+
+**Filing a note** (#328). `moveNote { id, projectId }` moves a General or project note to another project, or to General (`projectId: null`). It keeps the note's id and `createdAt`, bumps both projects' `updatedAt` and logs `Filed a note to "<project>"` in the destination's log. It refuses a meeting's note, a task's note and the Notepad; moving a note to where it is changes nothing.
+
+**Unfiled** (#328). A note is Unfiled when it is General, on no meeting or task, and mentions nobody: `isUnfiled()` in `shared/notes.ts`. It is a selector, not a field, so filing is `moveNote` or adding a mention.
 
 ### Meeting
 
@@ -114,7 +121,9 @@ Deleting a meeting takes its topics with it; they live on the document.
 
 ### List
 
-A titled checklist of one-line items, each done or not, in an order you choose (#298). Between a note and a set of tasks: items have no due date, assignee or priority, and they are structured, checkable and reorderable. The data only so far; the page, quick add, search and the project page follow (#299 to #301).
+A titled checklist of one-line items, each done or not, in an order you choose (#298). Between a note and a set of tasks: items have no due date, assignee or priority, and they are structured, checkable and reorderable.
+
+**Retired in format 3** (#328), as decisions were (#183). The schema 4 migration and the import of a format 1 or 2 file turn each list into a note on the same project (or General), under the list's id: `## <title>`, then one `- [ ]` or `- [x]` line per item, in order, with the list's `createdAt` and its `updatedAt` as the note's `editedAt` (see [data.md](data.md#the-format)). The `lists` collection is kept and still exports, and list ops from old clients still apply, so a stale tab does not fail. The classic Lists pages stay until v2 replaces them (#341).
 
 | Field     | Type           | Notes                                                       |
 | --------- | -------------- | ----------------------------------------------------------- |

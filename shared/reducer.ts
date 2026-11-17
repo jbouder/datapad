@@ -13,6 +13,7 @@ import {
   type Collection,
   type Collections,
   DEFAULT_SETTINGS,
+  decideOf,
   GENERAL,
   GENERAL_BOARD,
   healthOf,
@@ -476,6 +477,19 @@ function apply(d: Draft, op: Op, now: string) {
       touch(d, t.projectId, now);
       return;
     }
+    case 'setDecide': {
+      const t = task(d, op.id);
+      if (decideOf(t) === op.decide) return;
+      d.set('tasks', t.id, { ...t, decide: op.decide, updatedAt: now });
+      log(
+        d,
+        t.projectId,
+        op.decide ? `Marked "${t.title}" to decide` : `Decided "${t.title}"`,
+        now,
+      );
+      touch(d, t.projectId, now);
+      return;
+    }
     case 'deleteTask': {
       // Keeps its notes: they stay plain notes, their task link gone.
       const t = task(d, op.id);
@@ -688,6 +702,25 @@ function apply(d: Draft, op: Op, now: string) {
       if (n.pinned === op.pinned) return;
       d.set('notes', n.id, { ...n, pinned: op.pinned });
       touch(d, n.projectId, now);
+      return;
+    }
+    case 'moveNote': {
+      const n = d.get('notes', op.id) ?? fail('That note no longer exists');
+      if (n.meetingId !== null) fail('That note belongs to a meeting');
+      if ((n.taskId ?? null) !== null) fail('That note belongs to a task');
+      if (n.scratch) fail('The Notepad cannot be filed');
+      if (n.projectId === op.projectId) return;
+      checkProject(d, op.projectId);
+      // Same id and createdAt: filing is a move, not a copy.
+      d.set('notes', n.id, { ...n, projectId: op.projectId });
+      log(
+        d,
+        op.projectId,
+        `Filed a note to "${projectName(d, op.projectId)}"`,
+        now,
+      );
+      touch(d, n.projectId, now);
+      touch(d, op.projectId, now);
       return;
     }
     case 'deleteNote': {
@@ -1353,6 +1386,8 @@ function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    // Last, as in `TaskSchema`, so an export round-trips byte for byte.
+    ...(op.decide ? { decide: true } : {}),
   });
   log(
     d,

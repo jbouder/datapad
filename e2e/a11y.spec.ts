@@ -49,9 +49,7 @@ const ROUTES = [
 
 /** Every page and layout with data in it (`e2e/seed.ts`). */
 const WITH_DATA = [
-  ...['cards', 'table', 'timeline'].map(
-    (v) => `/all?kind=project&view=${v}`,
-  ),
+  ...['cards', 'table', 'timeline'].map((v) => `/all?kind=project&view=${v}`),
   '/all?kind=project&archived=1',
   ...['list', 'table', 'board', 'timeline'].map(
     (v) => `/all?kind=task&view=${v}`,

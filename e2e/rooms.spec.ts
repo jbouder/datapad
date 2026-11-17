@@ -107,14 +107,12 @@ test('an export with navigation preferences from before v2 still imports', async
   page,
   request,
 }) => {
-  const settings = (SEED.settings ?? {}) as Record<string, object>;
   const res = await request.post('/api/import', {
     data: {
       ...SEED,
       settings: {
-        ...settings,
         user: {
-          ...(settings.user ?? { defaultOrg: '' }),
+          defaultOrg: '',
           nav: { order: ['tasks', 'focus'], hidden: ['lists'] },
         },
       },

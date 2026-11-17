@@ -26,9 +26,11 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
   const places = rail.getByRole('navigation', { name: 'Sections' });
 
   // The seed's Ideas note is General and mentions nobody: one unfiled.
-  await expect(places.getByRole('list').first().getByRole('link')).toHaveText(
-    [/^Today$/, /^Unfiled\s*1 unfiled$/, /^All$/],
-  );
+  await expect(places.getByRole('list').first().getByRole('link')).toHaveText([
+    /^Today$/,
+    /^Unfiled\s*1 unfiled$/,
+    /^All$/,
+  ]);
   await expect(rail.getByRole('link', { name: 'Today' })).toHaveAttribute(
     'aria-current',
     'page',

@@ -144,6 +144,11 @@ export interface Task {
   updatedAt: Timestamp;
   /** null while open. */
   completedAt: Timestamp | null;
+  /**
+   * Something to decide (#328), not just to do. Absent on documents
+   * written before it existed: read it with `decideOf()`.
+   */
+  decide?: boolean;
 }
 
 export interface Note {
@@ -166,6 +171,9 @@ export interface Note {
    * The space's Notepad (#218): its one running note, written in place on
    * Notes and saved as you type (`writeNotepad`). General, never on a
    * meeting or task. Absent on every other note: read it as false.
+   * Retired in format 3 (#328): the migration clears it, so the Notepad
+   * is an ordinary General note; only an old client's `writeNotepad`
+   * still sets it.
    */
   scratch?: boolean;
   createdAt: Timestamp;
@@ -279,6 +287,9 @@ export interface BoardItem {
 /**
  * A titled checklist of one-line items, each done or not, in an order you
  * choose (#298). Items are embedded, as milestones are on a project.
+ * Retired in format 3 (#328): each list became a checklist note
+ * (`shared/migrate.ts`). The collection is kept and still exports, and
+ * old clients' list ops still reduce, but nothing new reads it.
  */
 export interface List {
   id: string;
@@ -385,6 +396,11 @@ export function topicsOf(meeting: Pick<Meeting, 'topics'>): Topic[] {
 /** A task's blocked flag, null when it is not blocked. */
 export function blockedOf(task: Pick<Task, 'blocked'>): Blocked | null {
   return task.blocked ?? null;
+}
+
+/** Whether a task is something to decide; false when never set. */
+export function decideOf(task: Pick<Task, 'decide'>): boolean {
+  return task.decide ?? false;
 }
 
 /** The key of General's activity log. */
@@ -609,8 +625,13 @@ export function emptySnapshot(): Snapshot {
  *
  * 2 adds `lists` (#298): a format 1 Datapad would drop them without a
  * word, so it refuses the file instead. Every format 1 file reads as is.
+ *
+ * 3 adds `tasks[].decide` and retires lists and the Notepad (#328). A
+ * format 1 or 2 file (or one without `format`) is brought up to it on
+ * import by `migrateFormat3()`: decide-tagged open tasks to decide, each
+ * list a checklist note, the Notepad an ordinary note.
  */
-export const EXPORT_FORMAT = 2;
+export const EXPORT_FORMAT = 3;
 
 /** The JSON file Export writes and Import reads (the artifact's format). */
 export type ExportFile = {

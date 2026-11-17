@@ -90,9 +90,7 @@ test('New list is gone from + and ⌘K, and Shift+L does nothing', async ({
     .getByRole('banner')
     .getByRole('button', { name: 'Add', exact: true })
     .click();
-  await expect(page.getByRole('menuitem', { name: 'New list' })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole('menuitem', { name: 'New list' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Search' }).click();
   const palette = page.getByRole('dialog', { name: 'Search' });

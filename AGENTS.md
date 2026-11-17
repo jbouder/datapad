@@ -28,7 +28,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   stroke simplification, bounds, hit-testing, z order, a board's items,
   arrows' attachment and re-aiming), `migrate.ts` (the typed
   collection from before meetings → meetings and milestones; every import
-  and the DO's schema 3 run it),
+  and the DO's schema 3 run it; and `migrateFormat3()`, #328: decide-tagged
+  tasks to `decide`, lists to checklist notes, the Notepad to an ordinary
+  note; format 1 and 2 imports and the DO's schema 4 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends, and Focus's Brief me context and prompt), `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`

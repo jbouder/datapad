@@ -5,6 +5,7 @@ import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import { undoTaskOps } from '#shared/tasks';
 import {
   type BoardItem,
+  EXPORT_FORMAT,
   emptySnapshot,
   GENERAL,
   type Project,
@@ -2568,6 +2569,174 @@ describe('undo of a bulk change (#235)', () => {
   });
 });
 
+describe('to decide (#328)', () => {
+  it('addTask takes decide, and leaves it out when false', () => {
+    const { state } = at(base(), {
+      type: 'addTask',
+      id: 't3',
+      projectId: 'p1',
+      title: 'Pick a hangar',
+      decide: true,
+    });
+    expect(state.tasks.t3?.decide).toBe(true);
+    const plain = at(base(), {
+      type: 'addTask',
+      id: 't3',
+      projectId: 'p1',
+      title: 'Sweep',
+      decide: false,
+    }).state;
+    expect(plain.tasks.t3).not.toHaveProperty('decide');
+  });
+
+  it('editTask takes decide in its patch', () => {
+    const { state } = at(base(), {
+      type: 'editTask',
+      id: 't1',
+      patch: { decide: true },
+    });
+    expect(state.tasks.t1).toMatchObject({ decide: true, updatedAt: T1 });
+    expect(lastLog(state, 'p1')).toBe('Edited task "Heaters"');
+  });
+
+  it('setDecide marks a task to decide and decided, logs and bumps', () => {
+    const { state, changed } = at(base(), {
+      type: 'setDecide',
+      id: 't1',
+      decide: true,
+    });
+    expect(state.tasks.t1).toMatchObject({ decide: true, updatedAt: T1 });
+    expect(lastLog(state, 'p1')).toBe('Marked "Heaters" to decide');
+    expect(state.projects.p1?.updatedAt).toBe(T1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'tasks', id: 't1' },
+    ]);
+    const decided = at(state, { type: 'setDecide', id: 't1', decide: false });
+    expect(decided.state.tasks.t1?.decide).toBe(false);
+    expect(lastLog(decided.state, 'p1')).toBe('Decided "Heaters"');
+  });
+
+  it('setDecide is idempotent, absent reading as false', () => {
+    const state = base();
+    expect(state.tasks.t1).not.toHaveProperty('decide');
+    const same = at(state, { type: 'setDecide', id: 't1', decide: false });
+    expect(same.state).toBe(state);
+    expect(same.changed).toEqual([]);
+    const marked = run(state, { type: 'setDecide', id: 't1', decide: true });
+    const again = at(marked, { type: 'setDecide', id: 't1', decide: true });
+    expect(again.changed).toEqual([]);
+  });
+
+  it('setDecide refuses a task that is gone', () => {
+    expect(() =>
+      at(base(), { type: 'setDecide', id: 'nope', decide: true }),
+    ).toThrow('That task no longer exists');
+  });
+});
+
+describe('filing a note (#328)', () => {
+  const T2 = '2026-10-23T12:00:00.000Z';
+  const withNotes = (): Snapshot =>
+    run(
+      base(),
+      { type: 'createProject', id: 'p2', name: 'Hoth Ops' },
+      { type: 'addNote', id: 'n1', projectId: null, body: 'Loose thought' },
+      { type: 'addNote', id: 'n2', projectId: 'p1', body: 'On Echo' },
+    );
+
+  it('moveNote files a General note to a project, keeping id and createdAt', () => {
+    const state = withNotes();
+    const before = state.notes.n1;
+    const { state: next, changed } = at(
+      state,
+      { type: 'moveNote', id: 'n1', projectId: 'p2' },
+      T2,
+    );
+    expect(next.notes.n1).toEqual({ ...before, projectId: 'p2' });
+    expect(Object.keys(next.notes).sort()).toEqual(['n1', 'n2']);
+    expect(lastLog(next, 'p2')).toBe('Filed a note to "Hoth Ops"');
+    expect(next.projects.p2?.updatedAt).toBe(T2);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p2' },
+      { col: 'notes', id: 'n1' },
+      { col: 'projects', id: 'p2' },
+    ]);
+  });
+
+  it('moveNote moves a project note to another project or to General, bumping both', () => {
+    const state = withNotes();
+    const across = at(
+      state,
+      { type: 'moveNote', id: 'n2', projectId: 'p2' },
+      T2,
+    );
+    expect(across.state.notes.n2?.projectId).toBe('p2');
+    expect(across.state.projects.p1?.updatedAt).toBe(T2);
+    expect(across.state.projects.p2?.updatedAt).toBe(T2);
+    const home = at(state, { type: 'moveNote', id: 'n2', projectId: null }, T2);
+    expect(home.state.notes.n2?.projectId).toBeNull();
+    expect(lastLog(home.state, GENERAL)).toBe('Filed a note to "General"');
+    expect(home.state.projects.p1?.updatedAt).toBe(T2);
+  });
+
+  it('moveNote to where it already is changes nothing', () => {
+    const state = withNotes();
+    const result = at(state, { type: 'moveNote', id: 'n2', projectId: 'p1' });
+    expect(result.state).toBe(state);
+    expect(result.changed).toEqual([]);
+  });
+
+  it('moveNote refuses a meeting note, a task note, the Notepad and a missing project', () => {
+    const state = run(
+      withNotes(),
+      {
+        type: 'addMeeting',
+        id: 'm1',
+        projectId: 'p1',
+        title: 'Standup',
+        date: '2026-10-27',
+      },
+      {
+        type: 'addNote',
+        id: 'n3',
+        projectId: 'p1',
+        body: 'Prep',
+        meetingId: 'm1',
+      },
+      { type: 'addNote', id: 'n4', projectId: 'p1', body: 'Log', taskId: 't1' },
+      { type: 'writeNotepad', id: 'pad', body: 'Scratch' },
+    );
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n3', projectId: 'p2' }),
+    ).toThrow(new OpError('That note belongs to a meeting'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n4', projectId: 'p2' }),
+    ).toThrow(new OpError('That note belongs to a task'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'pad', projectId: 'p2' }),
+    ).toThrow(new OpError('The Notepad cannot be filed'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n1', projectId: 'p9' }),
+    ).toThrow(new OpError('That project no longer exists'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'nope', projectId: 'p2' }),
+    ).toThrow(new OpError('That note no longer exists'));
+  });
+
+  it('old clients’ list and Notepad ops still reduce', () => {
+    const state = run(
+      base(),
+      { type: 'addList', id: 'l1', title: 'Offsite', projectId: 'p1' },
+      { type: 'addListItem', listId: 'l1', id: 'i1', text: 'Venue' },
+      { type: 'writeNotepad', id: 'pad', body: 'Scratch' },
+    );
+    expect(state.lists.l1?.items).toHaveLength(1);
+    expect(state.notes.pad?.body).toBe('Scratch');
+  });
+});
+
 describe('the reducer is exhaustive', () => {
   it('refuses an op type it has no case for', () => {
     expect(() => at(base(), { type: 'nope' } as unknown as Op)).toThrow(
@@ -2976,16 +3145,22 @@ describe('merge (import)', () => {
     expect(merged?.meetingId ?? null).toBeNull();
   });
 
-  it('round-trips the Notepad, and keeps one when an import brings another', () => {
+  it('round-trips the Notepad in format 3, and keeps one when an import brings another', () => {
     const state = run(base(), {
       type: 'writeNotepad',
       id: 'pad1',
       body: 'Mine',
     });
-    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const file = JSON.parse(
+      JSON.stringify({ format: EXPORT_FORMAT, exportedAt: T1, ...state }),
+    );
     const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
     expect(next.notes.pad1).toEqual(state.notes.pad1);
     expect(next.notes.pad1?.scratch).toBe(true);
+
+    // A format 2 file's Notepad is an ordinary note (#328).
+    const old = ExportSchema.parse({ ...file, format: 2 });
+    expect(old.notes.pad1).not.toHaveProperty('scratch');
 
     // A later Notepad from another file becomes an ordinary note.
     const theirs = {
@@ -2995,6 +3170,7 @@ describe('merge (import)', () => {
       createdAt: '2026-10-24T09:00:00.000Z',
     };
     const incoming = ExportSchema.parse({
+      format: EXPORT_FORMAT,
       exportedAt: T1,
       notes: { pad9: theirs },
     });

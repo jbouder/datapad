@@ -176,6 +176,14 @@ by one so every open or cached client takes a fresh snapshot rather than
 replaying ops across the change. A space that never changed keeps `seq`
 0.
 
+Schema version 4 (#328) brings each space to export format 3 the same
+way: its tasks, notes and lists go through `migrateFormat3()` in
+`shared/migrate.ts` (the function a format 1 or 2 import runs). Open
+tasks tagged `decide` get `decide: true`, each list becomes a checklist
+note under its id (the `lists` rows stay), and the Notepad loses
+`scratch`. An upgrade that crosses several schemas runs each step in the
+same transaction and bumps each space's `seq` once.
+
 ## Client
 
 React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending

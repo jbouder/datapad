@@ -74,9 +74,7 @@ test('a word from a note body lands on the note', async ({ page }) => {
   await expect(page.locator('[data-highlighted]')).toContainText(word);
 });
 
-test('archived items are marked; people open their room', async ({
-  page,
-}) => {
+test('archived items are marked; people open their room', async ({ page }) => {
   await openLive(page);
   await openPalette(page);
   await input(page).fill('yavin');

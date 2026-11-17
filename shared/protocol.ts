@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
-import { migrate } from './migrate';
+import { migrate, migrateFormat3 } from './migrate';
 import {
   type Activity,
   BOARD_COLORS,
@@ -199,6 +199,12 @@ export const TaskSchema = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
   completedAt: timestamp.nullable().default(null),
+  /**
+   * Format 3 (#328). Absent in older exports; `decideOf()` reads false.
+   * Last, where setting it on a task puts it, so an export round-trips
+   * byte for byte.
+   */
+  decide: z.boolean().optional(),
 }) satisfies z.ZodType<Task, unknown>;
 
 export const NoteSchema = z.object({
@@ -614,16 +620,18 @@ export function newerFormatMessage(format: number): string {
 
 /**
  * Its `format` (#240): none is legacy, which is migrated by shape; one
- * this version knows is read as it is; a newer one is refused whole, with
- * a message that says so, before any of it is read.
+ * this version knows is read as it is, after format 1 and 2 are brought
+ * up to 3 (`migrateFormat3()`); a newer one is refused whole, with a
+ * message that says so, before any of it is read.
  */
 function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
   const format =
     typeof input === 'object' && input !== null && !Array.isArray(input)
       ? (input as { format?: unknown }).format
       : undefined;
-  if (format === undefined) return migrate(input);
+  if (format === undefined) return migrateFormat3(migrate(input));
   if (typeof format === 'number' && Number.isInteger(format)) {
+    if (format < 3) return migrateFormat3(input);
     if (format > EXPORT_FORMAT) {
       ctx.addIssue({
         code: 'custom',
@@ -663,7 +671,10 @@ export const ExportSchema = z.preprocess(
       templates: collectionOf(TemplateSchema),
       /** Datapad only (M12); older files have no whiteboards. */
       boardItems: collectionOf(BoardItemSchema),
-      /** Datapad only (#298, format 2); older files have no lists. */
+      /**
+       * Datapad only (#298, format 2); older files have no lists. Retired
+       * in format 3 (#328): kept, and a format 2 file's become notes.
+       */
       lists: collectionOf(ListSchema),
       activity: keyedCollection(ActivitySchema),
       settings: keyedCollection(SettingsSchema),
@@ -853,6 +864,8 @@ const taskFields = {
   tags,
   assignee: z.union([z.literal(''), id]),
   links,
+  /** Something to decide (#328). */
+  decide: z.boolean(),
 };
 
 const projectFields = {
@@ -1022,6 +1035,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     tags: taskFields.tags.optional(),
     assignee: taskFields.assignee.optional(),
     links: taskFields.links.optional(),
+    decide: taskFields.decide.optional(),
     sourceNoteId: id.optional(),
     /**
      * An action item of this meeting: its project is the meeting's
@@ -1055,6 +1069,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     id,
     blocked: blocked.nullable(),
   }),
+  /**
+   * Mark a task to decide (`decide: true`) or decided (#328). Says the
+   * outcome, so it is idempotent. Logs `Marked "<title>" to decide` or
+   * `Decided "<title>"`.
+   */
+  z.object({ type: z.literal('setDecide'), id, decide: z.boolean() }),
 
   /* projects */
   z.object({
@@ -1115,6 +1135,13 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('editNote'), id, body: required(LIMITS.bodyMax) }),
   z.object({ type: z.literal('pinNote'), id, pinned: z.boolean() }),
+  /**
+   * File a General or project note to another project, or to General
+   * (`projectId: null`), keeping its id and `createdAt` (#328). Refused
+   * for a meeting's note, a task's note or the Notepad. Bumps both
+   * projects; logs `Filed a note to "<project>"`.
+   */
+  z.object({ type: z.literal('moveNote'), id, projectId: nullableId }),
   z.object({ type: z.literal('deleteNote'), id }),
   /**
    * The Notepad's text as typed (#218): edits the space's Notepad, or

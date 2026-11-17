@@ -170,9 +170,7 @@ async function expectNoPageScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test('opens from the project page, All, and ⌘K', async ({
-  page,
-}) => {
+test('opens from the project page, All, and ⌘K', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
   const section = page.getByRole('heading', { name: /^Whiteboard/ });
   await expect(section).toBeVisible();
