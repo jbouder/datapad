@@ -190,9 +190,92 @@ describe('the deploy (#232)', () => {
     ]);
   });
 
+  it('checks every environment, staging included (#327)', () => {
+    const vars = {
+      ACCESS_TEAM_DOMAIN: 'rebels.cloudflareaccess.com',
+      ACCESS_AUD: 'aud',
+    };
+    const config = (staging: Record<string, string>) =>
+      JSON.stringify({ vars, env: { staging: { vars: staging } } });
+    expect(deployProblems(config(vars))).toEqual([]);
+    expect(deployProblems(config({ ...vars, ACCESS_AUD: '' }))).toEqual([
+      expect.stringContaining('env.staging.vars.ACCESS_AUD is empty'),
+    ]);
+    expect(
+      deployProblems(config({ ...vars, DEV_ACCESS_EMAIL: 'dev@example.com' })),
+    ).toEqual([
+      expect.stringContaining('env.staging.vars.DEV_ACCESS_EMAIL is set'),
+    ]);
+  });
+
   it('strips JSONC without touching strings', () => {
     expect(
       JSON.parse(stripJsonc('{"a": "x//y", /* c */ "b": [1, 2,], // d\n}')),
     ).toEqual({ a: 'x//y', b: [1, 2] });
+  });
+});
+
+interface Env {
+  name?: string;
+  durable_objects?: { bindings: { name: string; class_name: string }[] };
+  r2_buckets?: { binding: string; bucket_name: string }[];
+  kv_namespaces?: { binding: string; id?: string }[];
+  ratelimits?: { name: string; namespace_id: string }[];
+  vars?: Record<string, string>;
+}
+
+describe('staging (#327)', () => {
+  const config = JSON.parse(stripJsonc(wrangler)) as Env & {
+    env?: Record<string, Env>;
+  };
+  const staging = config.env?.staging ?? {};
+  const deploy = WORKFLOWS['../.github/workflows/deploy.yml'] ?? '';
+
+  it('is its own Worker, so its own Durable Object namespace', () => {
+    expect(staging.name).toBe('datapad-v2');
+    expect(staging.name).not.toBe(config.name);
+    expect(staging.durable_objects).toEqual(config.durable_objects);
+  });
+
+  it('shares no bucket, KV namespace, rate limiter or Access app', () => {
+    const bucket = (e: Env) =>
+      e.r2_buckets?.find((b) => b.binding === 'BACKUPS')?.bucket_name;
+    expect(bucket(staging)).toBe('datapad-v2-backups');
+    expect(bucket(staging)).not.toBe(bucket(config));
+
+    const kv = (e: Env) =>
+      e.kv_namespaces?.find((k) => k.binding === 'OAUTH_KV');
+    expect(kv(staging)).toBeDefined();
+    // No id lets the first deploy create the Worker's own namespace; an id
+    // must not be production's.
+    const id = kv(staging)?.id;
+    if (id) expect(id).not.toBe(kv(config)?.id);
+
+    const limit = (e: Env) =>
+      e.ratelimits?.find((r) => r.name === 'REGISTER_LIMIT')?.namespace_id;
+    expect(limit(staging)).toBeDefined();
+    expect(limit(staging)).not.toBe(limit(config));
+
+    expect(staging.vars?.ACCESS_AUD).toBeTruthy();
+    expect(staging.vars?.ACCESS_AUD).not.toBe(config.vars?.ACCESS_AUD);
+    expect(Object.keys(staging.vars ?? {}).sort()).toEqual(
+      Object.keys(config.vars ?? {}).sort(),
+    );
+  });
+
+  it('deploys from v2, and main still to production', () => {
+    expect(deploy).toMatch(/branches: \[main, v2\]/);
+    expect(deploy).toMatch(/main\)\s+echo "environment=production"/);
+    expect(deploy).toMatch(
+      /v2\)\s+echo "environment=staging"[^;]*cloudflare_env=staging/,
+    );
+    expect(deploy).toContain(
+      'CLOUDFLARE_ENV: ${{ needs.gate.outputs.cloudflare_env }}',
+    );
+    for (const file of ['ci.yml', 'codeql.yml']) {
+      expect(WORKFLOWS[`../.github/workflows/${file}`]).toMatch(
+        /push:\s+branches: \[main, v2\]/,
+      );
+    }
   });
 });

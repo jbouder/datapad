@@ -11,7 +11,6 @@ import { Field } from '@/components/Field';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { LinksEditor } from '@/components/inputs/LinksEditor';
 import { PriorityPicker } from '@/components/inputs/PriorityPicker';
-import { QuickAdd } from '@/components/inputs/QuickAdd';
 import { TagInput } from '@/components/inputs/TagInput';
 import { LayoutsDemo } from '@/components/layouts/LayoutsDemo';
 import { Markdown } from '@/components/Markdown';
@@ -48,7 +47,7 @@ const SAMPLE = [
   '```',
 ].join('\n');
 
-/** Sections for Settings → Pages' editor (#310), shown here on their own. */
+/** Sections for Settings' section editor (#310), shown here on their own. */
 const DEMO_SECTIONS: readonly PageSection[] = [
   { key: 'alpha', label: 'Alpha' },
   { key: 'beta', label: 'Beta' },
@@ -81,15 +80,6 @@ export default function DevComponentsPage() {
       <h1 id="components-title" className="text-page-title">
         Components
       </h1>
-
-      <QuickAdd
-        projectId={projectId}
-        onProjectChange={setProjectId}
-        onAdd={(title) => {
-          show(`Would add “${title}”`);
-          return true;
-        }}
-      />
 
       <Field label="Project">
         <ProjectPicker value={projectId} onChange={setProjectId} />
@@ -157,7 +147,7 @@ export default function DevComponentsPage() {
           Page sections
         </h2>
         <SectionsEditor
-          label="Demo"
+          label="Demo sections"
           sections={DEMO_SECTIONS}
           prefs={sectionPrefs}
           onChange={(patch) =>

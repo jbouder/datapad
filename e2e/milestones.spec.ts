@@ -48,11 +48,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seeded() });
 });
 
-test('add, edit and delete milestones on the project page, with Undo', async ({
+test('add, edit and delete milestones on the project’s Plan, with Undo', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   // By date; the past one is muted.
   await expect(list(page).getByRole('listitem')).toHaveCount(3);
   await expect(list(page).getByRole('listitem').first()).toContainText(
@@ -141,13 +141,13 @@ test('add, edit and delete milestones on the project page, with Undo', async ({
 });
 
 test('a project without milestones says how to add one', async ({ page }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, '/projects/p-falcon/plan');
   await expect(page.getByText('No milestones. Add one above.')).toBeVisible();
 });
 
 test('touch targets are 44px on a phone', async ({ page }) => {
   test.skip(!isMobile(page), 'The phone sizes.');
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   for (const name of [
     'Edit “Hangar doors hung”',
     'Delete “Hangar doors hung”',
@@ -156,78 +156,4 @@ test('touch targets are 44px on a phone', async ({ page }) => {
     expect(box?.height).toBeGreaterThanOrEqual(44);
     expect(box?.width).toBeGreaterThanOrEqual(44);
   }
-});
-
-test('the card shows the next milestone', async ({ page }) => {
-  await openLive(page, '/projects?status=all');
-  const cards = page.getByRole('list', { name: 'Projects' });
-  await expect(
-    cards.getByRole('link', { name: /Echo Base relocation/ }),
-  ).toContainText(
-    `Hangar doors hung · ${formatDay(addDays(today(), 2), today())}`,
-  );
-  // None ahead: nothing shown.
-  await expect(
-    cards
-      .getByRole('link', { name: /Falcon hyperdrive refit/ })
-      .locator('[data-next-milestone]'),
-  ).toHaveCount(0);
-});
-
-test('the table sorts by the next milestone', async ({ page }) => {
-  test.skip(isMobile(page), 'The table is the desktop layout.');
-  await openLive(page, '/projects?status=all&view=table');
-  const table = page.getByRole('table', { name: 'Projects' });
-  const next = table.getByRole('columnheader', { name: /Next milestone/ });
-  await next.getByRole('button').click();
-  await expect(page).toHaveURL(/sort=milestone/);
-  await expect(next).toHaveAttribute('aria-sort', 'ascending');
-  await expect(table.locator('tbody tr td:nth-child(1)')).toHaveText([
-    'Echo Base relocation',
-    'Falcon hyperdrive refit',
-  ]);
-});
-
-test('the Timeline labels a milestone and opens the project at it', async ({
-  page,
-}) => {
-  await openLive(page, '/projects?view=timeline');
-  const point = page.locator('button[data-label="Hangar doors hung"]');
-  const label = point.locator('+ .timeline-point-label');
-  await expect(label).toHaveText(
-    `Hangar doors hung · ${formatDay(addDays(today(), 2), today())}`,
-  );
-  if (!isMobile(page)) {
-    await expect(label).toHaveCSS('opacity', '0');
-    await point.hover();
-    await expect(label).toHaveCSS('opacity', '1');
-    // Keyboard: its entry in the list shows the same label.
-    await page.mouse.move(0, 0);
-    const entry = page
-      .getByRole('list', { name: 'Projects, as a list' })
-      .getByRole('button', { name: 'Hangar doors hung' });
-    await entry.focus();
-    await expect(label).toHaveAttribute('data-shown');
-    await entry.blur();
-    await expect(label).not.toHaveAttribute('data-shown');
-  }
-  await point.click();
-  await expect(page).toHaveURL(/\/projects\/p-echo\?milestone=m-soon$/);
-  await expect(row(page, 'm-soon')).toHaveAttribute('data-highlighted');
-  await expect(row(page, 'm-soon')).toBeInViewport();
-});
-
-test('Focus lists a milestone in the next seven days', async ({ page }) => {
-  await openLive(page, '/?view=week');
-  const agenda = page.getByRole('region', { name: 'Next 7 days' });
-  const card = agenda.locator('[data-kind="milestone"]');
-  await expect(card).toHaveCount(1);
-  await expect(card).toContainText('Hangar doors hung');
-  await expect(card).toContainText('Echo Base relocation');
-  await expectNoSidewaysScroll(page);
-  await card
-    .getByRole('link', { name: 'Milestone: Hangar doors hung' })
-    .click();
-  await expect(page).toHaveURL(/\/projects\/p-echo\?milestone=m-soon$/);
-  await expect(row(page, 'm-soon')).toHaveAttribute('data-highlighted');
 });

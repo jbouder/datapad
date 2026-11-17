@@ -36,30 +36,6 @@ test.describe('every layout', () => {
   }
 });
 
-test('the choice survives reload and navigation; the URL wins', async ({
-  page,
-}) => {
-  // A page's layout is saved with its preferences (#186); the components
-  // page has none, so this is Projects.
-  await openLive(page, '/projects');
-  await pick(page, 'Table');
-  await expect(page).toHaveURL(/view=table/);
-  await page.reload();
-  await expect(
-    layout(page).getByRole('radio', { name: 'Table' }),
-  ).toBeChecked();
-  // Without ?view=, the saved layout.
-  await page.goto('/projects');
-  await expect(
-    layout(page).getByRole('radio', { name: 'Table' }),
-  ).toBeChecked();
-  // With it, the URL wins.
-  await page.goto('/projects?view=cards');
-  await expect(
-    layout(page).getByRole('radio', { name: 'Cards' }),
-  ).toBeChecked();
-});
-
 test('v cycles layouts, but not while typing', async ({ page }) => {
   await openLive(page, '/dev/components?view=table');
   // The switcher (and its `v` listener) is on screen before the key goes.
@@ -70,7 +46,8 @@ test('v cycles layouts, but not while typing', async ({ page }) => {
   await expect(
     layout(page).getByRole('radio', { name: 'Cards' }),
   ).toBeChecked();
-  await page.getByRole('textbox', { name: 'Add a task' }).fill('v');
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await name.first().press('v');
   await expect(
     layout(page).getByRole('radio', { name: 'Cards' }),
   ).toBeChecked();

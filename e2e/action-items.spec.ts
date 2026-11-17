@@ -127,22 +127,24 @@ test('action items on a meeting’s page: add, close, reopen and open', async ({
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Ordinary tasks: on Focus (a follow-up of today's meeting), Tasks and
-  // the project too.
+  // Ordinary tasks: on Today (due today, no one's: Mine), Tasks and the
+  // project too.
   await expectSaved(page);
   await openLive(page, '/');
   await expect(
-    page.getByRole('list', { name: 'Action items from Shield review' }),
+    page.getByRole('list', { name: 'Due', exact: true }),
   ).toContainText(ITEM);
-  await openLive(page, '/tasks');
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(ITEM);
+  await openLive(page, '/all?kind=task');
   await expect(page.getByRole('main')).toContainText(ITEM);
   await openLive(page, '/projects/p-echo');
   await expect(page.getByRole('main')).toContainText(ITEM);
 
-  // Its page says where it came from, and links back.
+  // Its panel (its old page's address opens it, #329) says where it came
+  // from, and links back.
   await openLive(page, `/tasks/${item?.id}`);
   await page
-    .getByRole('main')
+    .getByRole('dialog', { name: 'Task' })
     .getByRole('link', { name: 'Shield review' })
     .click();
   await expect(page).toHaveURL(new RegExp(`${SHIELD}$`));
@@ -211,7 +213,8 @@ test('Make a task from a topic links it; deleting the meeting keeps it', async (
     'Its note and action item are kept.',
   );
   await page.getByRole('button', { name: 'Delete meeting' }).click();
-  await expect(page).toHaveURL(/\/meetings$/);
+  // Opened straight from its address: Leave goes to Today.
+  await expect(page).toHaveURL(/\/$/);
   await expectSaved(page);
   data = await stored(request);
   expect(data.meetings['e-1']).toBeUndefined();

@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
-import { migrate } from './migrate';
-import { NAV_SECTION_NAMES, NAV_TOOLS, QUICK_ADD_ACTIONS } from './nav';
+import { migrate, migrateFormat3, migrateSettings } from './migrate';
 import {
   type Activity,
   BOARD_COLORS,
   BOARD_KINDS,
   type BoardItem,
+  CAPTURE_AS,
   type COLLECTIONS,
   DECISION_STATUSES,
   DEFAULT_SETTINGS,
@@ -14,6 +14,7 @@ import {
   DOC_COLLECTIONS,
   EXPORT_FORMAT,
   type ExportFile,
+  type LaneLabels,
   type Link,
   type List,
   type ListItem,
@@ -31,6 +32,8 @@ import {
   PROJECT_HEALTHS,
   PROJECT_STATUSES,
   type Project,
+  ROOM_NOTES,
+  ROOM_TABS,
   type Settings,
   type Snapshot,
   type SpaceInfo,
@@ -200,6 +203,12 @@ export const TaskSchema = z.object({
   createdAt: timestamp,
   updatedAt: timestamp,
   completedAt: timestamp.nullable().default(null),
+  /**
+   * Format 3 (#328). Absent in older exports; `decideOf()` reads false.
+   * Last, where setting it on a task puts it, so an export round-trips
+   * byte for byte.
+   */
+  decide: z.boolean().optional(),
 }) satisfies z.ZodType<Task, unknown>;
 
 export const NoteSchema = z.object({
@@ -354,9 +363,33 @@ export const ActivitySchema = z.object({
 }) satisfies z.ZodType<Activity, unknown>;
 
 /**
- * A `setNav` op's names: the sections, and the Whiteboard, a section until
- * #261, so an older client's change still applies (the readers ignore it).
+ * Navigation preferences from before v2 (#187), retired in #329: an older
+ * client's `setNav` still reduces, and an older export still imports, but
+ * nothing reads them. These are the names those clients could send: the
+ * sections (the Whiteboard was one until #261), the tools (#261) and the
+ * + menu's actions (#201).
  */
+const NAV_SECTION_NAMES = [
+  'focus',
+  'projects',
+  'tasks',
+  'meetings',
+  'notes',
+  'lists',
+  'people',
+  'orgs',
+  'whiteboard',
+] as const;
+const NAV_TOOLS = ['notepad', 'whiteboard', 'digest'] as const;
+const QUICK_ADD_ACTIONS = [
+  'task',
+  'note',
+  'list',
+  'meeting',
+  'project',
+] as const;
+
+/** A `setNav` op's names. */
 const sectionNames = z
   .array(z.enum(NAV_SECTION_NAMES))
   .max(NAV_SECTION_NAMES.length);
@@ -389,6 +422,21 @@ const NavPrefsSchema = z.object({
   quickAdd: QuickAddPrefsSchema.optional(),
 });
 
+/**
+ * The pinned rooms (#329): each a project id, a person id, or the two
+ * joined by `+` (`shared/rooms.ts`), each once. One that names nothing
+ * (a deleted project) is skipped when read, not refused.
+ */
+const pinnedRooms = z
+  .array(
+    z
+      .string()
+      .min(1)
+      .max(LIMITS.idMax * 2 + 1),
+  )
+  .max(LIMITS.pinnedMax)
+  .refine((keys) => new Set(keys).size === keys.length, 'Each room once');
+
 /* ---------- page preferences (#186) ---------- */
 
 /** A saved filter's or section's name (`status`, `day:later`). */
@@ -420,6 +468,24 @@ const sectionList = z
   .max(LIMITS.prefSectionsMax)
   .refine((keys) => new Set(keys).size === keys.length, 'Each section once');
 
+/**
+ * Saved views (#338): each once by id, `LIMITS.viewsMax` at most. The
+ * query is only size-checked: All reads what it knows of it.
+ */
+const savedViews = z
+  .array(
+    z.object({
+      id,
+      name: z.string().trim().min(1).max(LIMITS.nameMax),
+      query: z.string().max(LIMITS.viewQueryMax),
+    }),
+  )
+  .max(LIMITS.viewsMax)
+  .refine(
+    (views) => new Set(views.map((v) => v.id)).size === views.length,
+    'Each view once',
+  );
+
 export const PagePrefsSchema = z.object({
   view: prefValue.optional(),
   sort: prefValue.optional(),
@@ -435,6 +501,7 @@ export const PagePrefsSchema = z.object({
     .optional(),
   hidden: sectionList.optional(),
   order: sectionList.optional(),
+  views: savedViews.optional(),
 }) satisfies z.ZodType<PagePrefs, unknown>;
 
 /** Every page's preferences; a page this version does not know is dropped. */
@@ -469,18 +536,32 @@ export const PagePrefsPatchSchema = z
       .refine(...atMost(LIMITS.prefSectionsMax, 'sections')),
     hidden: sectionList.nullable(),
     order: sectionList.nullable(),
+    views: savedViews.nullable(),
   })
   .partial()
   .refine((p) => Object.keys(p).length > 0, 'Nothing to change');
 
 export type PagePrefsPatch = z.infer<typeof PagePrefsPatchSchema>;
 
+/** A person room lane's own name (#343), within a name's length. */
+const laneLabel = z.string().trim().min(1).max(LIMITS.laneLabelMax);
+const laneLabels = z
+  .object({ youOwe: laneLabel, theyOwe: laneLabel, discuss: laneLabel })
+  .partial() satisfies z.ZodType<LaneLabels, unknown>;
+
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
   assignToMe: z.boolean().optional(),
   defaultPriority: priority.optional(),
   nav: NavPrefsSchema.optional(),
+  pinned: pinnedRooms.optional(),
   pages: PagesSchema.optional(),
+  captureAs: z.enum(CAPTURE_AS).optional(),
+  mentionAssigns: z.boolean().optional(),
+  roomNotes: z.enum(ROOM_NOTES).optional(),
+  railOwed: z.boolean().optional(),
+  roomTab: z.enum(ROOM_TABS).optional(),
+  laneLabels: laneLabels.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
 
 /** One schema per collection, for imports and `put`. */
@@ -575,16 +656,19 @@ export function newerFormatMessage(format: number): string {
 
 /**
  * Its `format` (#240): none is legacy, which is migrated by shape; one
- * this version knows is read as it is; a newer one is refused whole, with
- * a message that says so, before any of it is read.
+ * this version knows is read as it is, after format 1 and 2 are brought
+ * up to 3 (`migrateFormat3()`, then `migrateSettings()`); a newer one is
+ * refused whole, with a
+ * message that says so, before any of it is read.
  */
 function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
   const format =
     typeof input === 'object' && input !== null && !Array.isArray(input)
       ? (input as { format?: unknown }).format
       : undefined;
-  if (format === undefined) return migrate(input);
+  if (format === undefined) return migrateFormat3(migrate(input));
   if (typeof format === 'number' && Number.isInteger(format)) {
+    if (format < 3) return migrateFormat3(input);
     if (format > EXPORT_FORMAT) {
       ctx.addIssue({
         code: 'custom',
@@ -595,7 +679,8 @@ function checkFormat(input: unknown, ctx: z.RefinementCtx): unknown {
       return z.NEVER;
     }
   }
-  return input;
+  // A format 3 file from before Settings for v2 (#343) carries over too.
+  return migrateSettings(input);
 }
 
 /**
@@ -624,7 +709,10 @@ export const ExportSchema = z.preprocess(
       templates: collectionOf(TemplateSchema),
       /** Datapad only (M12); older files have no whiteboards. */
       boardItems: collectionOf(BoardItemSchema),
-      /** Datapad only (#298, format 2); older files have no lists. */
+      /**
+       * Datapad only (#298, format 2); older files have no lists. Retired
+       * in format 3 (#328): kept, and a format 2 file's become notes.
+       */
       lists: collectionOf(ListSchema),
       activity: keyedCollection(ActivitySchema),
       settings: keyedCollection(SettingsSchema),
@@ -814,6 +902,8 @@ const taskFields = {
   tags,
   assignee: z.union([z.literal(''), id]),
   links,
+  /** Something to decide (#328). */
+  decide: z.boolean(),
 };
 
 const projectFields = {
@@ -983,6 +1073,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     tags: taskFields.tags.optional(),
     assignee: taskFields.assignee.optional(),
     links: taskFields.links.optional(),
+    decide: taskFields.decide.optional(),
     sourceNoteId: id.optional(),
     /**
      * An action item of this meeting: its project is the meeting's
@@ -1016,6 +1107,12 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     id,
     blocked: blocked.nullable(),
   }),
+  /**
+   * Mark a task to decide (`decide: true`) or decided (#328). Says the
+   * outcome, so it is idempotent. Logs `Marked "<title>" to decide` or
+   * `Decided "<title>"`.
+   */
+  z.object({ type: z.literal('setDecide'), id, decide: z.boolean() }),
 
   /* projects */
   z.object({
@@ -1076,6 +1173,13 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('editNote'), id, body: required(LIMITS.bodyMax) }),
   z.object({ type: z.literal('pinNote'), id, pinned: z.boolean() }),
+  /**
+   * File a General or project note to another project, or to General
+   * (`projectId: null`), keeping its id and `createdAt` (#328). Refused
+   * for a meeting's note, a task's note or the Notepad. Bumps both
+   * projects; logs `Filed a note to "<project>"`.
+   */
+  z.object({ type: z.literal('moveNote'), id, projectId: nullableId }),
   z.object({ type: z.literal('deleteNote'), id }),
   /**
    * The Notepad's text as typed (#218): edits the space's Notepad, or
@@ -1343,10 +1447,20 @@ const BaseOpSchema = z.discriminatedUnion('type', [
   /* settings */
   z.object({
     type: z.literal('setSettings'),
+    /** `null` clears an option back to its default (#343). */
     patch: patch({
       defaultOrg: z.string().trim().max(LIMITS.nameMax),
-      assignToMe: z.boolean(),
-      defaultPriority: priority,
+      assignToMe: z.boolean().nullable(),
+      defaultPriority: priority.nullable(),
+      /** The pinned rooms, whole, in order (#329). */
+      pinned: pinnedRooms.nullable(),
+      captureAs: z.enum(CAPTURE_AS).nullable(),
+      mentionAssigns: z.boolean().nullable(),
+      roomNotes: z.enum(ROOM_NOTES).nullable(),
+      railOwed: z.boolean().nullable(),
+      roomTab: z.enum(ROOM_TABS).nullable(),
+      /** The three names, whole: a lane left out keeps its default. */
+      laneLabels: laneLabels.nullable(),
     }),
   }),
   /** Navigation preferences; `null` clears a key (all six: the default). */
@@ -1415,8 +1529,8 @@ export type OpOf<T extends OpType> = Extract<Op, { type: T }>;
 /**
  * The op types an MCP client may send (#229), the only ones the Durable
  * Object's `apply()` lets through, alone or inside a `batch`. Exactly what
- * the write tools (`worker/mcp/tools/write*.ts`) build: add and edit,
- * never delete, archive, `put`, `remove`, or touch settings, navigation or
+ * the write tools (`worker/mcp/tools/write*.ts`) build: add, edit, mark
+ * to decide and file a note within its space (#340), never delete, archive, `put`, `remove`, or touch settings, navigation or
  * page preferences. This list, not the tool list, is where MCP's no-delete
  * rule lives; a tool that needs another op adds it here, deliberately.
  */
@@ -1427,7 +1541,9 @@ export const MCP_OP_TYPES: ReadonlySet<BaseOp['type']> = new Set<
   'toggleTask',
   'editTask',
   'setBlocked',
+  'setDecide',
   'addNote',
+  'moveNote',
   'addMeeting',
   'addTopic',
   'editTopic',
@@ -1436,9 +1552,6 @@ export const MCP_OP_TYPES: ReadonlySet<BaseOp['type']> = new Set<
   'setStatus',
   'setHealth',
   'addMilestone',
-  'addList',
-  'addListItem',
-  'setListItemDone',
 ]);
 
 /* ---------- socket messages ---------- */

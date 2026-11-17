@@ -1,4 +1,4 @@
-import { expect, expectNoSidewaysScroll, test } from './fixtures';
+import { expect, expectNoSidewaysScroll, SEED, test } from './fixtures';
 
 /**
  * WCAG 1.4.10 Reflow and the phone layout. 320px is a 1280px window at
@@ -6,13 +6,15 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
  */
 const ROUTES = [
   '/',
-  '/projects',
-  '/tasks',
-  '/notes',
-  '/notepad',
-  '/meetings',
-  '/digest',
+  '/scratch',
+  '/rooms',
+  '/all',
+  '/all?kind=project',
+  '/all?kind=task',
+  '/all?kind=note',
+  '/all?kind=meeting',
   '/settings/people',
+  '/settings/rooms',
   '/settings/data',
   '/help',
 ];
@@ -33,7 +35,7 @@ for (const width of [320, 1280]) {
         const rail = page.getByRole('complementary', { name: 'Datapad' });
         const tabs = page
           .getByRole('navigation', { name: 'Sections' })
-          .filter({ has: page.getByRole('link', { name: 'Meetings' }) })
+          .filter({ has: page.getByRole('link', { name: 'Scratch' }) })
           .last();
         if (width >= 820) {
           await expect(rail).toBeVisible();
@@ -59,8 +61,8 @@ test.describe('on a phone', () => {
     const banner = page.getByRole('banner');
     const controls = [
       banner.getByRole('button', { name: 'Account and settings' }),
-      banner.getByRole('button', { name: 'Add', exact: true }),
-      ...['Focus', 'Projects', 'Tasks', 'Meetings', 'Notes'].map((name) =>
+      banner.getByRole('button', { name: 'Search', exact: true }),
+      ...['Today', 'Scratch', 'All'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })
           .last()
@@ -73,6 +75,14 @@ test.describe('on a phone', () => {
       expect(box?.height ?? 0, String(control)).toBeGreaterThanOrEqual(44);
       expect(box?.width ?? 0, String(control)).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  test('open loops are 44px tall', async ({ page, request }) => {
+    await request.post('/api/import', { data: SEED });
+    await page.goto('/');
+    const loop = page.locator('[data-loop] [data-task-title]').first();
+    await expect(loop).toBeVisible();
+    expect((await loop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   });
 
   test('the preferences menu fits on screen', async ({ page }) => {

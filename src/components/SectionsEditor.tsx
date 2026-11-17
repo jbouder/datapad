@@ -19,27 +19,32 @@ const ICON_BUTTON = 'press size-11 desk:size-8';
 const CELL = 'flex size-11 shrink-0 items-center justify-center desk:size-9';
 
 /**
- * A page's sections in Settings → Pages (#310), as Settings → Navigation
- * lists the rail's: each with a Show switch and Move up / Move down, 44px
- * on touch, in the order the page shows them. At least one stays shown.
- * Each change is a `setPagePrefs` patch (`toggleSection`, `moveSection`);
- * `label` names the page in the list's accessible name.
+ * A page's sections in Settings (#310, #343): each with a Show switch
+ * and Move up / Move down, 44px on touch, in the order the page shows
+ * them; with `fixedOrder`, in the page's own order and without the moves.
+ * At least one stays shown. Each change is a `setPagePrefs` patch
+ * (`toggleSection`, `moveSection`). `label` is the list's accessible
+ * name; `noun` what the hint calls one ("lane").
  */
 export function SectionsEditor({
   label,
+  noun = 'section',
   sections,
   prefs,
+  fixedOrder = false,
   onChange,
 }: {
   label: string;
+  noun?: string;
   sections: readonly PageSection[];
   prefs: Pick<PagePrefs, 'hidden' | 'order'>;
+  fixedOrder?: boolean;
   onChange: (patch: PagePrefsPatch) => void;
 }) {
   const id = useId();
   const { active } = useMotion();
   const keys = sections.map((s) => s.key);
-  const order = sectionOrder(keys, prefs);
+  const order = fixedOrder ? keys : sectionOrder(keys, prefs);
   const hidden = hiddenSections(keys, prefs);
   const shownCount = order.length - hidden.size;
   const labelOf = (key: string) =>
@@ -77,11 +82,7 @@ export function SectionsEditor({
   const hint = `${id}-last`;
   return (
     <div className="flex flex-col gap-2">
-      <ul
-        ref={list}
-        aria-label={`${label} sections`}
-        className="flex flex-col border-t"
-      >
+      <ul ref={list} aria-label={label} className="flex flex-col border-t">
         {order.map((key, i) => {
           const name = labelOf(key);
           const shown = !hidden.has(key);
@@ -119,36 +120,40 @@ export function SectionsEditor({
                   onCheckedChange={(on) => show(key, on)}
                 />
               </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={ICON_BUTTON}
-                title="Move up"
-                data-move={`${key}:-1`}
-                disabled={i === 0}
-                onClick={() => move(key, -1)}
-              >
-                <ArrowUpIcon />
-                <span className="sr-only">Move {name} up</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={ICON_BUTTON}
-                title="Move down"
-                data-move={`${key}:1`}
-                disabled={i === order.length - 1}
-                onClick={() => move(key, 1)}
-              >
-                <ArrowDownIcon />
-                <span className="sr-only">Move {name} down</span>
-              </Button>
+              {!fixedOrder && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={ICON_BUTTON}
+                    title="Move up"
+                    data-move={`${key}:-1`}
+                    disabled={i === 0}
+                    onClick={() => move(key, -1)}
+                  >
+                    <ArrowUpIcon />
+                    <span className="sr-only">Move {name} up</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={ICON_BUTTON}
+                    title="Move down"
+                    data-move={`${key}:1`}
+                    disabled={i === order.length - 1}
+                    onClick={() => move(key, 1)}
+                  >
+                    <ArrowDownIcon />
+                    <span className="sr-only">Move {name} down</span>
+                  </Button>
+                </>
+              )}
             </li>
           );
         })}
       </ul>
       <p id={hint} className="text-xs text-muted-foreground">
-        At least one section stays shown.
+        At least one {noun} stays shown.
       </p>
     </div>
   );

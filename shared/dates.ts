@@ -45,6 +45,23 @@ export function weekday(day: DateString): number {
   return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
 }
 
+/**
+ * The day a week starts on (#343): Monday, or Sunday. Today's week zoom
+ * and the recap's weekend both follow it.
+ */
+export const WEEK_STARTS = ['mon', 'sun'] as const;
+export type WeekStart = (typeof WEEK_STARTS)[number];
+
+/** `day`'s place in a week that starts on `start`: 0 is its first day. */
+export function dayOfWeek(day: DateString, start: WeekStart = 'mon'): number {
+  return (weekday(day) + (start === 'sun' ? 1 : 0)) % 7;
+}
+
+/** The weekday's full name ("Friday"). */
+export function longWeekday(day: DateString): string {
+  return LONG_DAYS[weekday(day)] ?? '';
+}
+
 /** The Sunday that ends `day`'s week (`day` itself on a Sunday). */
 export function endOfWeek(day: DateString): DateString {
   return addDays(day, 6 - weekday(day));

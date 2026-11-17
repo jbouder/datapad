@@ -144,6 +144,11 @@ export interface Task {
   updatedAt: Timestamp;
   /** null while open. */
   completedAt: Timestamp | null;
+  /**
+   * Something to decide (#328), not just to do. Absent on documents
+   * written before it existed: read it with `decideOf()`.
+   */
+  decide?: boolean;
 }
 
 export interface Note {
@@ -166,6 +171,9 @@ export interface Note {
    * The space's Notepad (#218): its one running note, written in place on
    * Notes and saved as you type (`writeNotepad`). General, never on a
    * meeting or task. Absent on every other note: read it as false.
+   * Retired in format 3 (#328): the migration clears it, so the Notepad
+   * is an ordinary General note; only an old client's `writeNotepad`
+   * still sets it.
    */
   scratch?: boolean;
   createdAt: Timestamp;
@@ -279,6 +287,9 @@ export interface BoardItem {
 /**
  * A titled checklist of one-line items, each done or not, in an order you
  * choose (#298). Items are embedded, as milestones are on a project.
+ * Retired in format 3 (#328): each list became a checklist note
+ * (`shared/migrate.ts`). The collection is kept and still exports, and
+ * old clients' list ops still reduce, but nothing new reads it.
  */
 export interface List {
   id: string;
@@ -387,6 +398,11 @@ export function blockedOf(task: Pick<Task, 'blocked'>): Blocked | null {
   return task.blocked ?? null;
 }
 
+/** Whether a task is something to decide; false when never set. */
+export function decideOf(task: Pick<Task, 'decide'>): boolean {
+  return task.decide ?? false;
+}
+
 /** The key of General's activity log. */
 export const GENERAL = 'general';
 
@@ -430,20 +446,75 @@ export interface Settings {
    * Medium. `defaultPriority()` in `shared/tasks.ts` reads it.
    */
   defaultPriority?: Priority;
-  /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
+  /**
+   * Navigation preferences from before v2 (#187). Retired in #329: kept
+   * as stored, so an old export round-trips, and read by nothing.
+   */
   nav?: NavPrefs;
+  /**
+   * The pinned rooms, in the rail's order (#329): each a project id, a
+   * person id, or a project and a person (`shared/rooms.ts`). Absent
+   * until something is pinned.
+   */
+  pinned?: string[];
   /**
    * Each page's remembered layout, sort, grouping, filters and sections
    * (#186). Absent until something is saved, so older exports round-trip
-   * unchanged; `shared/pages.ts` reads it.
+   * unchanged; `shared/pages.ts` reads it. Today's options live under
+   * `focus` and All's under `all` (#343); pages retired in v2 stay as
+   * stored and are read by nothing.
    */
   pages?: Partial<Record<PageKey, PagePrefs>>;
+  /**
+   * What a plain line on the capture line becomes (#343). Absent: a note.
+   */
+  captureAs?: CaptureAs;
+  /**
+   * Whether `@Name` on a captured task (or decision) assigns it to that
+   * person (#343). Absent: it does. Off, the person is only mentioned.
+   */
+  mentionAssigns?: boolean;
+  /**
+   * Where a note captured in a room goes when it names no project
+   * (#343): the room, or Scratch (stored as `unfiled`, its old name).
+   * Absent: the room.
+   */
+  roomNotes?: RoomNotes;
+  /** Whether the rail lists the people who owe you (#343). Absent: it does. */
+  railOwed?: boolean;
+  /** The tab a project room opens on (#343). Absent: Stream. */
+  roomTab?: RoomTab;
+  /**
+   * The person room's lane names, where the owner wants other words
+   * (#343). A lane left out keeps its default name.
+   */
+  laneLabels?: LaneLabels;
 }
 
+/** What a plain captured line becomes. */
+export const CAPTURE_AS = ['note', 'task'] as const;
+export type CaptureAs = (typeof CAPTURE_AS)[number];
+
 /**
- * Which sections the rail and tab bar show, and in what order, which of
- * the rail's extras, and what the top bar's + offers. Names are kept as stored and checked when read, so
- * a name from another release is ignored rather than refused.
+ * Where a note captured in a room goes when it names no project.
+ * `unfiled` is Scratch: the stored value keeps its old name.
+ */
+export const ROOM_NOTES = ['room', 'unfiled'] as const;
+export type RoomNotes = (typeof ROOM_NOTES)[number];
+
+/** A project room's tabs (#334), Stream first. */
+export const ROOM_TABS = ['stream', 'plan', 'whiteboard'] as const;
+export type RoomTab = (typeof ROOM_TABS)[number];
+
+/** The person room's three lanes (#335), by key. */
+export const LANE_KEYS = ['youOwe', 'theyOwe', 'discuss'] as const;
+export type LaneKey = (typeof LANE_KEYS)[number];
+export type LaneLabels = Partial<Record<LaneKey, string>>;
+
+/**
+ * Which sections the rail and tab bar showed before v2, in what order,
+ * which of the rail's extras, and what the top bar's + offered. Retired
+ * in #329: kept as stored and read by nothing.
  */
 export interface NavPrefs {
   order?: string[];
@@ -468,6 +539,7 @@ export interface NavPrefs {
  */
 export const PAGE_KEYS = [
   'focus',
+  'all',
   'projects',
   'archive',
   'tasks',
@@ -476,6 +548,7 @@ export const PAGE_KEYS = [
   'lists',
   'people',
   'project',
+  'person',
   'task',
   'meeting',
   'list',
@@ -507,18 +580,76 @@ export interface PagePrefs {
    * list does not name keeps its default place.
    */
   order?: string[];
+  /**
+   * Saved views (All, #338): a name over an address (`query`, All's
+   * query string without the `?`, its kinds included), in the order the
+   * chips show them.
+   */
+  views?: SavedView[];
+}
+
+/** A saved view on All (#338): its address, named. */
+export interface SavedView {
+  id: string;
+  name: string;
+  /** All's query string, without the `?` (`kind=task&view=board`). */
+  query: string;
 }
 
 export const SETTINGS_ID = 'user';
 
-/** A fresh space has no default org: you pick one in Orgs. */
-export const DEFAULT_SETTINGS: Settings = {
+/**
+ * The settings in effect: every option has a value, the stored one or its
+ * default. `nav` and `pages` stay as stored (a page's defaults are in
+ * `PAGES`, `shared/pages.ts`).
+ */
+export type EffectiveSettings = Required<Omit<Settings, 'nav' | 'pages'>> &
+  Pick<Settings, 'nav' | 'pages'> & { laneLabels: Required<LaneLabels> };
+
+/**
+ * Every space-wide option's default, in one place (#343): a fresh space
+ * works with no setup. No default org, new tasks unassigned at Medium, a
+ * plain captured line a note, `@Name` assigning a task, room notes in the
+ * room, nothing pinned (the rail lists the active projects) with the
+ * people who owe you under it, rooms opening on Stream, the person room's
+ * lanes by their own names. Stored settings hold only what was changed,
+ * so older exports round-trip unchanged.
+ */
+export const DEFAULT_SETTINGS: EffectiveSettings = {
   defaultOrg: '',
+  assignToMe: false,
+  defaultPriority: 'med',
+  pinned: [],
+  captureAs: 'note',
+  mentionAssigns: true,
+  roomNotes: 'room',
+  railOwed: true,
+  roomTab: 'stream',
+  laneLabels: {
+    youOwe: 'You owe',
+    theyOwe: 'They owe you',
+    discuss: 'To discuss',
+  },
+};
+
+/**
+ * The settings document a space starts storing from: only what is
+ * required. Changes are written over it, never the defaults.
+ */
+export const STORED_SETTINGS: Settings = {
+  defaultOrg: DEFAULT_SETTINGS.defaultOrg,
 };
 
 /** The settings in effect: what is stored over the defaults. */
-export function settingsOf(snapshot: Pick<Snapshot, 'settings'>): Settings {
-  return { ...DEFAULT_SETTINGS, ...snapshot.settings[SETTINGS_ID] };
+export function settingsOf(
+  snapshot: Pick<Snapshot, 'settings'>,
+): EffectiveSettings {
+  const stored = snapshot.settings[SETTINGS_ID];
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    laneLabels: { ...DEFAULT_SETTINGS.laneLabels, ...stored?.laneLabels },
+  };
 }
 
 export interface Collections {
@@ -600,8 +731,13 @@ export function emptySnapshot(): Snapshot {
  *
  * 2 adds `lists` (#298): a format 1 Datapad would drop them without a
  * word, so it refuses the file instead. Every format 1 file reads as is.
+ *
+ * 3 adds `tasks[].decide` and retires lists and the Notepad (#328). A
+ * format 1 or 2 file (or one without `format`) is brought up to it on
+ * import by `migrateFormat3()`: decide-tagged open tasks to decide, each
+ * list a checklist note, the Notepad an ordinary note.
  */
-export const EXPORT_FORMAT = 2;
+export const EXPORT_FORMAT = 3;
 
 /** The JSON file Export writes and Import reads (the artifact's format). */
 export type ExportFile = {

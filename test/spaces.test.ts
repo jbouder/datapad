@@ -143,34 +143,35 @@ describe('keyFor', () => {
 });
 
 describe('routeAfterSwitch', () => {
-  it('leaves a project, person or org for Focus', () => {
-    const focus = { name: 'focus' };
+  it('leaves a project’s or person’s room, or an org, for Today', () => {
+    const focus = { name: 'today' };
     expect(routeAfterSwitch({ name: 'project', id: 'p-echo' })).toEqual(focus);
-    expect(routeAfterSwitch({ name: 'people', person: 'pe-leia' })).toEqual(
-      focus,
-    );
+    expect(routeAfterSwitch({ name: 'person', id: 'pe-leia' })).toEqual(focus);
     expect(routeAfterSwitch({ name: 'orgs', org: 'o-rebels' })).toEqual(focus);
     expect(routeAfterSwitch({ name: 'whiteboard', project: 'p-echo' })).toEqual(
       focus,
     );
   });
 
-  it('leaves a task or meeting for its list', () => {
+  it('leaves a task or meeting for All, with its kind', () => {
     expect(routeAfterSwitch({ name: 'task', id: 't-1' })).toEqual({
-      name: 'tasks',
+      name: 'all',
+      kinds: ['task'],
     });
     expect(routeAfterSwitch({ name: 'meeting', id: 'e-1' })).toEqual({
-      name: 'meetings',
+      name: 'all',
+      kinds: ['meeting'],
     });
   });
 
-  it('keeps section pages', () => {
-    expect(routeAfterSwitch({ name: 'tasks' })).toBeNull();
+  it('keeps the places', () => {
+    expect(routeAfterSwitch({ name: 'all', kinds: ['task'] })).toBeNull();
+    expect(routeAfterSwitch({ name: 'scratch' })).toBeNull();
     expect(routeAfterSwitch({ name: 'whiteboard' })).toBeNull();
     expect(routeAfterSwitch({ name: 'people' })).toBeNull();
     expect(routeAfterSwitch({ name: 'orgs' })).toBeNull();
     expect(routeAfterSwitch({ name: 'settings', section: 'data' })).toBeNull();
-    expect(routeAfterSwitch({ name: 'focus' })).toBeNull();
+    expect(routeAfterSwitch({ name: 'today' })).toBeNull();
   });
 });
 

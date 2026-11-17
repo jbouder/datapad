@@ -33,21 +33,6 @@ export interface ProjectFilters {
   q?: string;
 }
 
-export const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
-  status: 'active',
-  health: '',
-  org: '',
-  sort: 'updated',
-};
-
-/** The sort a page's query names (`?sort=`), else the default. */
-export function projectSortOf(query: URLSearchParams): ProjectSort {
-  const sort = query.get('sort') ?? '';
-  return (PROJECT_SORTS as readonly string[]).includes(sort)
-    ? (sort as ProjectSort)
-    : DEFAULT_PROJECT_FILTERS.sort;
-}
-
 const byName = (a: Project, b: Project) => a.name.localeCompare(b.name);
 
 /**

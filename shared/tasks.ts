@@ -9,6 +9,7 @@ import {
 import {
   blockedOf,
   type DateString,
+  decideOf,
   type Priority,
   type Snapshot,
   settingsOf,
@@ -35,7 +36,7 @@ export function defaultAssignee(
  * adding a task reads it, as `defaultAssignee()`.
  */
 export function defaultPriority(state: Pick<Snapshot, 'settings'>): Priority {
-  return settingsOf(state).defaultPriority ?? 'med';
+  return settingsOf(state).defaultPriority;
 }
 
 /** The Tasks view's controls, as kept in the URL. */
@@ -254,6 +255,8 @@ export function undoTaskOps(before: Task[], ops: Op[]): TaskOp[] {
         Object.keys(op.patch).map((k) => [k, t[k as keyof typeof op.patch]]),
       ) as typeof op.patch;
       undo.push({ type: 'editTask', id: t.id, patch });
+    } else if (op.type === 'setDecide') {
+      undo.push({ type: 'setDecide', id: t.id, decide: decideOf(t) });
     } else if (op.type === 'deleteTask') {
       undo.push({ type: 'restoreTask', task: t });
     }

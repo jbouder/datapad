@@ -6,19 +6,15 @@ import {
   attention,
   attentionLine,
   daysSince,
-  followUps,
   movementLine,
   prepLine,
   prepOf,
-  waitingFor,
-  waitingOn,
   weekMovement,
 } from '#shared/select';
 import {
   emptySnapshot,
   type Meeting,
   type Note,
-  type Person,
   type Project,
   type Snapshot,
   type Task,
@@ -34,8 +30,6 @@ import {
 // Tuesday 27 October 2026.
 const TODAY = '2026-10-27';
 const at = (day: string, time = '12:00') => `${day}T${time}:00.000Z`;
-const anyone = { kind: 'anyone' } as const;
-const ids = (list: { id: string }[]) => list.map((x) => x.id);
 
 function task(id: string, patch: Partial<Task> = {}): Task {
   return {
@@ -94,10 +88,6 @@ function meeting(id: string, patch: Partial<Meeting> = {}): Meeting {
   };
 }
 
-function person(id: string, name: string): Person {
-  return { id, name, role: '', me: false };
-}
-
 const byId = <T extends { id: string }>(...docs: T[]) =>
   Object.fromEntries(docs.map((d) => [d.id, d]));
 
@@ -151,51 +141,6 @@ describe('weekMovement', () => {
     expect(movementLine(weekMovement(s.tasks, s.projects, TODAY))).toBe(
       '0 closed this week · 0 added · 0 overdue',
     );
-  });
-});
-
-describe('waitingOn', () => {
-  const people = byId(person('u-b', 'Bo'), person('u-a', 'Ana'));
-  const projects = byId(project('p'), project('gone', { archived: true }));
-  const blocked = (on: string | null, updated: string, patch = {}) => ({
-    blocked: { on, note: '' },
-    updatedAt: at(updated),
-    ...patch,
-  });
-  const tasks = byId(
-    task('b1', blocked('u-b', '2026-10-20')),
-    task('a-new', blocked('u-a', '2026-10-25', { assignee: 'u-me' })),
-    task('a-old', blocked('u-a', '2026-10-18')),
-    task('none', blocked(null, TODAY)),
-    task('left', blocked('u-gone', '2026-10-26')),
-    task('done', blocked('u-a', '2026-10-01', { status: 'done' })),
-    task('archived', blocked('u-a', '2026-10-01', { projectId: 'gone' })),
-    task('free'),
-  );
-
-  it('groups by person by name, Not on anyone last, oldest first', () => {
-    const groups = waitingOn(tasks, projects, people, null, anyone);
-    expect(groups.map((g) => g.person?.name ?? null)).toEqual([
-      'Ana',
-      'Bo',
-      null,
-    ]);
-    expect(ids(groups[0]?.tasks ?? [])).toEqual(['a-old', 'a-new']);
-    // Someone no longer listed reads as no one.
-    expect(ids(groups[2]?.tasks ?? [])).toEqual(['left', 'none']);
-    expect(daysSince(groups[0]?.since ?? '', TODAY)).toBe(9);
-    expect(daysSince(groups[2]?.since ?? '', TODAY)).toBe(1);
-  });
-
-  it('follows the assignee filter', () => {
-    const mine = waitingOn(tasks, projects, people, 'u-me', { kind: 'mine' });
-    expect(mine.map((g) => ids(g.tasks))).toEqual([['a-new']]);
-  });
-
-  it('says how long', () => {
-    expect(waitingFor(0)).toBe('waiting since today');
-    expect(waitingFor(1)).toBe('waiting 1 day');
-    expect(waitingFor(9)).toBe('waiting 9 days');
   });
 });
 
@@ -271,69 +216,6 @@ describe('attention', () => {
       'yellow · target in 6 days · quiet 16 days',
       'target passed 1 day ago',
       'target tomorrow',
-    ]);
-  });
-});
-
-describe('followUps', () => {
-  const projects = byId(project('p'), project('gone', { archived: true }));
-  const meetings = byId(
-    meeting('today', { title: 'Today', time: '09:00' }),
-    meeting('today-late', { title: 'Later today', time: '16:00' }),
-    meeting('week-ago', { title: 'Week ago', date: '2026-10-20' }),
-    meeting('too-old', { title: 'Too old', date: '2026-10-19' }),
-    meeting('future', { title: 'Future', date: '2026-10-28' }),
-    meeting('archived', { projectId: 'gone', date: TODAY }),
-  );
-  const item = (id: string, meetingId: string, patch: Partial<Task> = {}) =>
-    task(id, { meetingId, ...patch });
-  const tasks = byId(
-    item('t2', 'today', { createdAt: at(TODAY, '10:00') }),
-    item('t1', 'today', { createdAt: at(TODAY, '09:30'), assignee: 'u-me' }),
-    item('late', 'today-late'),
-    item('w', 'week-ago'),
-    item('old', 'too-old'),
-    item('soon', 'future'),
-    item('arch', 'archived'),
-    item('done', 'today', { status: 'done', completedAt: at(TODAY) }),
-    item('blocked', 'today', { blocked: { on: null, note: '' } }),
-    task('plain'),
-  );
-
-  it('groups the last week’s open action items, newest meeting first', () => {
-    const groups = followUps(meetings, tasks, projects, TODAY, null, anyone);
-    expect(groups.map((g) => g.meeting.id)).toEqual([
-      'today-late',
-      'today',
-      'week-ago',
-    ]);
-    expect(ids(groups[1]?.tasks ?? [])).toEqual(['t1', 't2']);
-  });
-
-  it('looks back as far as Focus says (#311)', () => {
-    const fortnight = followUps(
-      meetings,
-      tasks,
-      projects,
-      TODAY,
-      null,
-      anyone,
-      14,
-    );
-    expect(fortnight.map((g) => g.meeting.id)).toEqual([
-      'today-late',
-      'today',
-      'week-ago',
-      'too-old',
-    ]);
-  });
-
-  it('follows the assignee filter', () => {
-    const mine = followUps(meetings, tasks, projects, TODAY, 'u-me', {
-      kind: 'mine',
-    });
-    expect(mine.map((g) => [g.meeting.id, ids(g.tasks)])).toEqual([
-      ['today', ['t1']],
     ]);
   });
 });

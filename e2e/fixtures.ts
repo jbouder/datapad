@@ -174,29 +174,30 @@ export async function chooseFilter(page: Page, label: string, option: string) {
   await closeFilters(page);
 }
 
-/** The top bar's + menu: Add task or Write a note by default. */
-export async function addFromTopBar(
+/**
+ * ⌘K's New task, New note, New meeting or New project, from the top
+ * bar's Search (the top bar's + went with #341).
+ */
+export async function addFromSearch(
   page: Page,
-  item:
-    | 'Add task'
-    | 'Write a note'
-    | 'New list'
-    | 'Add meeting'
-    | 'Add project',
+  item: 'New task' | 'New note' | 'New meeting' | 'New project',
 ) {
   await page
     .getByRole('banner')
-    .getByRole('button', { name: 'Add', exact: true })
+    .getByRole('button', { name: 'Search', exact: true })
     .click();
-  await page.getByRole('menuitem', { name: item }).click();
+  const palette = page.getByRole('dialog', { name: 'Search' });
+  await palette.getByRole('combobox').fill(item);
+  await palette.getByRole('option', { name: item, exact: true }).click();
+  await expect(palette).toBeHidden();
 }
 
 /**
- * Add a task with `n` and the new-task panel (no page has a quick-add
- * since #218): the title, Enter, and the panel closes.
+ * Add a task with ⌘K's New task and the new-task panel: the title,
+ * Enter, and the panel closes.
  */
 export async function addTask(page: Page, title: string) {
-  await page.locator('body').press('n');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   const input = panel.getByRole('textbox', { name: 'Title' });
   await expect(input).toBeFocused();

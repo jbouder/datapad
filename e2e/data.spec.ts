@@ -31,16 +31,19 @@ test('import the seed, confirm, and see it everywhere', async ({ page }) => {
   await expect(dialog).toBeHidden();
   await expect(page.getByText(/^Imported 3 projects/)).toBeVisible();
   await expect(page.getByText('Main has 3 projects, 7 tasks')).toBeVisible();
-  // Archived projects and their tasks stay out of Focus.
+  // Archived projects and their tasks stay out of Today.
+  // The rail's or the tab bar's Today: Settings has a Today too (#343).
   await page
-    .getByRole('link', { name: /^Focus/ })
+    .getByRole('navigation', { name: 'Sections' })
+    .getByRole('link', { name: 'Today', exact: true })
     .filter({ visible: true })
-    .first()
     .click();
-  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(
     'Confirm shield generator delivery',
   );
-  await expect(page.locator('[data-attention="p-echo"]')).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText(
+    'Write the Yavin report',
+  );
 });
 
 test('a malformed file is refused with its first problem, and nothing is written', async ({
@@ -68,7 +71,7 @@ test('a malformed file is refused with its first problem, and nothing is written
   await importFile(page, 'future.json', { ...SEED, format: 99 });
   await expect(
     page.getByText(
-      'Not imported. This file is from a newer version of Datapad (export format 99; this one reads up to 2). Update Datapad, then try again.',
+      'Not imported. This file is from a newer version of Datapad (export format 99; this one reads up to 3). Update Datapad, then try again.',
     ),
   ).toBeVisible();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -86,7 +89,7 @@ test('export downloads every document as datapad-<date>.json', async ({
 }) => {
   await request.post('/api/import', { data: SEED });
   await page.goto('/');
-  await expect(page.getByRole('list', { name: 'High priority' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(
     'Confirm shield generator delivery',
   );
   await page.goto('/settings/data');
@@ -96,10 +99,10 @@ test('export downloads every document as datapad-<date>.json', async ({
   expect(file.suggestedFilename()).toMatch(/^datapad-\d{4}-\d{2}-\d{2}\.json$/);
   const saved = JSON.parse(await readFile(await file.path(), 'utf8'));
   const { format, exportedAt, ...documents } = saved;
-  const { exportedAt: _, ...seed } = SEED;
+  const { exportedAt: _, format: _f, ...seed } = SEED;
   // The file says its format (#240): the first key, a whole number.
   expect(Object.keys(saved)[0]).toBe('format');
-  expect(format).toBe(2);
+  expect(format).toBe(3);
   expect(Date.parse(exportedAt)).not.toBeNaN();
   expect(documents).toEqual({
     ...seed,

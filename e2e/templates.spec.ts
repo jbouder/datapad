@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import {
+  addFromSearch,
   expect,
   expectAccessible,
   expectSaved,
@@ -72,8 +73,8 @@ test('save a project’s tasks as a template, then start a project from it', asy
   ).toContainText('4 tasks');
 
   // A new project from it.
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromSearch(page, 'New project');
   const form = page.getByRole('dialog');
   await form.getByRole('textbox', { name: 'Name' }).fill('Hoth outpost');
   await form.getByRole('combobox', { name: 'Start from template' }).click();
@@ -82,11 +83,15 @@ test('save a project’s tasks as a template, then start a project from it', asy
   await expect(
     page.getByRole('heading', { name: 'Hoth outpost', level: 1 }),
   ).toBeVisible();
+  // Its room's open loops have the template's tasks (the order is
+  // checked in the data below).
   await expect(
     page
-      .getByRole('list', { name: 'Open tasks' })
-      .getByRole('listitem')
-      .first(),
+      .getByRole('complementary', { name: 'Open loops' })
+      .locator('[data-loop]'),
+  ).toHaveCount(4);
+  await expect(
+    page.getByRole('complementary', { name: 'Open loops' }),
   ).toContainText('Kickoff call');
   await expectSaved(page);
 

@@ -1,5 +1,5 @@
 import { COMMANDS, FORMAT_SHORTCUTS } from '../shared/composer';
-import { PAGES } from '../shared/pages';
+import { layoutTable } from '../shared/pages';
 import { SHORTCUTS } from '../shared/shortcuts';
 import { expect, openHelp, openLive, test } from './fixtures';
 
@@ -29,15 +29,14 @@ test('says which build is running (#237)', async ({ page, request }) => {
 test('lists every page’s layouts', async ({ page }) => {
   await openLive(page, '/help');
   const layouts = page.getByRole('table', { name: 'Layouts' });
-  const pages = Object.values(PAGES).filter((p) =>
-    p.fields.some((f) => f.key === 'view' && f.options),
-  );
-  await expect(layouts.getByRole('row')).toHaveCount(pages.length + 1);
-  for (const p of pages) {
-    const field = p.fields.find((f) => f.key === 'view');
-    const row = layouts.getByRole('row', { name: new RegExp(`^${p.label} `) });
-    await expect(row).toContainText(p.label);
-    for (const o of field?.options ?? []) {
+  const rows = layoutTable();
+  await expect(layouts.getByRole('row')).toHaveCount(rows.length + 1);
+  // All's per kind (#338) among them.
+  expect(rows.map((r) => r.page)).toContain('All, tasks');
+  for (const r of rows) {
+    const row = layouts.getByRole('row', { name: new RegExp(`^${r.page} `) });
+    await expect(row).toContainText(r.page);
+    for (const o of r.options) {
       await expect(row).toContainText(o.label);
     }
   }

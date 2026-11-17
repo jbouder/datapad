@@ -146,16 +146,6 @@ test('notes on a meeting row on Meetings, written in place', async ({
   await expectStoredTwo(request);
 });
 
-test('notes on a meeting row on a project page, in place', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/projects/p-echo');
-  await writeTwo(page);
-  await expectSaved(page);
-  await expectStoredTwo(request);
-});
-
 test('the row’s composer: one per meeting, Esc and Cancel', async ({
   page,
 }) => {
@@ -177,7 +167,7 @@ test('the row’s composer: one per meeting, Esc and Cancel', async ({
 
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
-  await expect(page).toHaveURL(/\/meetings/);
+  await expect(page).toHaveURL(/kind=meeting/);
 
   // Esc dropped the draft.
   await action(page, 'Shield review', 'Add note');
@@ -198,23 +188,29 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   await expect(items).toHaveCount(1);
   await expect(items.nth(0)).toContainText('Bring the power budget');
 
-  // Esc closes the composer.
-  await notes.getByRole('button', { name: 'Add note' }).click();
+  // Meeting mode keeps the composer open (#336); it does not take focus.
   const box = main.getByRole('combobox', {
     name: 'New note for “Shield review”',
   });
-  await expect(box).toBeFocused();
-  await expect(box).toHaveValue('');
-  await page.keyboard.press('Escape');
-  await expect(box).toBeHidden();
+  await expect(box).toBeVisible();
+  await expect(box).not.toBeFocused();
+  await expect(notes.getByRole('button', { name: 'Cancel' })).toHaveCount(0);
 
-  // ⌘Enter saves the note.
-  await notes.getByRole('button', { name: 'Add note' }).click();
-  await expect(box).toBeFocused();
+  // ⌘Enter saves the note, and the composer is ready for the next.
+  await box.click();
   await page.keyboard.type('Shields hold at **ninety**');
   await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(box).toBeHidden();
+  await expect(box).toHaveValue('');
+  await expect(box).toBeFocused();
   await expect(items).toHaveCount(2);
+
+  // Esc steps out of it, keeping the text; a second Esc leaves.
+  await page.keyboard.type('Half a thought');
+  await page.keyboard.press('Escape');
+  await expect(box).not.toBeFocused();
+  await expect(box).toHaveValue('Half a thought');
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await box.fill('');
   await expect(items.nth(0)).toContainText('Shields hold at ninety');
   // A compact row (#273): opened, the note is rendered.
   await openNoteRow(items.nth(0));
@@ -228,7 +224,7 @@ test('notes on the meeting’s page: add, edit and delete', async ({
   const edit = main.getByRole('combobox', { name: 'Edit note' });
   await expect(edit).toBeFocused();
   await edit.fill('Shields hold at ninety-five');
-  await main.getByRole('button', { name: 'Save note' }).click();
+  await items.nth(0).getByRole('button', { name: 'Save note' }).click();
   await expect(items.nth(0)).toContainText('Shields hold at ninety-five');
   await expect(items.nth(0)).toContainText('edited');
 

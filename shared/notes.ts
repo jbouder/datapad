@@ -1,7 +1,6 @@
-import { localDate } from './dates';
 import { type Inline, parseMarkdown } from './markdown';
-import { tokensToNames } from './mentions';
-import type { DateString, Note, Snapshot } from './types';
+import { mentionedIds, tokensToNames } from './mentions';
+import type { Note, Snapshot } from './types';
 
 /**
  * The Notes view's selection: which notes, in what order, under which day.
@@ -14,13 +13,9 @@ export interface NoteFilters {
   pinned: boolean;
   /** Matches the body with mentions read as names; every word must. */
   q: string;
+  /** Keep archived projects' notes with no project filter (All, #337). */
+  archived?: boolean;
 }
-
-export const DEFAULT_NOTE_FILTERS: NoteFilters = {
-  project: '',
-  pinned: false,
-  q: '',
-};
 
 /** The words of a filter, lower-cased, for matching and highlighting. */
 export function queryWords(q: string): string[] {
@@ -29,7 +24,8 @@ export function queryWords(q: string): string[] {
 
 /**
  * Notes for the Notes view, newest first. Notes of archived projects are
- * left out unless that project is the filter; `hidden` are notes on
+ * left out unless that project is the filter or `archived` keeps them;
+ * `hidden` are notes on
  * their way out (a delete waiting on Undo).
  */
 export function selectNotes(
@@ -45,7 +41,11 @@ export function selectNotes(
         if (n.projectId !== null) return false;
       } else if (filters.project) {
         if (n.projectId !== filters.project) return false;
-      } else if (n.projectId && state.projects[n.projectId]?.archived) {
+      } else if (
+        !filters.archived &&
+        n.projectId &&
+        state.projects[n.projectId]?.archived
+      ) {
         return false;
       }
       if (filters.pinned && !n.pinned) return false;
@@ -81,23 +81,6 @@ export function notepadOf(notes: Snapshot['notes']): Note | undefined {
 /** A note's title for a row: its first line, plain, mentions as names. */
 export function noteTitle(note: Note, people: Snapshot['people']): string {
   return taskTitleFrom(note.body, people);
-}
-
-export interface NoteDay {
-  day: DateString;
-  notes: Note[];
-}
-
-/** Notes (already newest first) under their local day. */
-export function groupByDay(notes: Note[]): NoteDay[] {
-  const days: NoteDay[] = [];
-  for (const note of notes) {
-    const day = localDate(new Date(note.createdAt));
-    const last = days[days.length - 1];
-    if (last?.day === day) last.notes.push(note);
-    else days.push({ day, notes: [note] });
-  }
-  return days;
 }
 
 /** One project's notes (null = General): pinned first, then newest. */
@@ -205,31 +188,34 @@ export function notePreview(body: string, people: Snapshot['people']): string {
 }
 
 /**
- * About how many characters one line of a closed row holds on a phone,
- * the narrowest it gets; erring short opens a row whose match might just
- * have shown.
+ * Whether a note has no home yet (#328): General, on no meeting or task,
+ * and mentioning nobody. A selector, not a field: filing a note is moving
+ * it to a project (`moveNote`) or mentioning someone in it.
  */
-const ROW_LINE_CHARS = 40;
+export function inScratch(
+  note: Pick<Note, 'projectId' | 'meetingId' | 'taskId' | 'body'>,
+): boolean {
+  return (
+    note.projectId === null &&
+    note.meetingId === null &&
+    (note.taskId ?? null) === null &&
+    mentionedIds(note.body).length === 0
+  );
+}
 
 /**
- * Whether Find's words (lower-case, as `queryWords` gives them) reach
- * past what a closed row shows of the note: its preview's first two
- * lines, wrapped at `ROW_LINE_CHARS`. Notes opens those rows, so every
- * match is in sight (#274).
+ * Scratch's blocks (#333): the notes with no home (`inScratch`), newest
+ * first, ties by id so the order is stable. `hidden` are notes on their
+ * way out (a delete waiting on Undo).
  */
-export function matchBeyondPreview(
-  body: string,
-  people: Snapshot['people'],
-  words: string[],
-): boolean {
-  if (words.length === 0) return false;
-  let room = 2;
-  const shown: string[] = [];
-  for (const line of notePreview(body, people).toLowerCase().split('\n')) {
-    if (room <= 0) break;
-    shown.push(line.slice(0, room * ROW_LINE_CHARS));
-    room -= Math.max(1, Math.ceil(line.length / ROW_LINE_CHARS));
-  }
-  const text = shown.join('\n');
-  return words.some((w) => !text.includes(w));
+export function scratchNotes(
+  notes: Snapshot['notes'],
+  hidden: ReadonlySet<string> = new Set(),
+): Note[] {
+  return Object.values(notes)
+    .filter((n) => inScratch(n) && !hidden.has(n.id))
+    .sort(
+      (a, b) =>
+        b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
+    );
 }

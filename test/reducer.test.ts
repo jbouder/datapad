@@ -5,9 +5,11 @@ import { type Changed, merge, OpError, reduce } from '#shared/reducer';
 import { undoTaskOps } from '#shared/tasks';
 import {
   type BoardItem,
+  EXPORT_FORMAT,
   emptySnapshot,
   GENERAL,
   type Project,
+  SETTINGS_ID,
   type Snapshot,
   settingsOf,
   type Task,
@@ -37,6 +39,11 @@ function run(state: Snapshot, ...ops: Op[]): Snapshot {
 
 function at(state: Snapshot, op: Op, now = T1) {
   return reduce(freeze(state), op, now);
+}
+
+/** The settings document as stored: only what was changed. */
+function stored(state: Snapshot) {
+  return state.settings[SETTINGS_ID];
 }
 
 function lastLog(state: Snapshot, scope: string): string | undefined {
@@ -2510,6 +2517,10 @@ describe('undo of a bulk change (#235)', () => {
       ],
       [{ type: 'moveTask', id: 't1', projectId: 'p2' }],
       [{ type: 'editTask', id: 't1', patch: { due: '2026-11-01' } }],
+      [
+        { type: 'setDecide', id: 't1', decide: true },
+        { type: 'setDecide', id: 't2', decide: true },
+      ],
       [{ type: 'deleteTask', id: 't1' }],
     ] as Op[][]) {
       const { after, undo } = change(state, ops);
@@ -2520,7 +2531,11 @@ describe('undo of a bulk change (#235)', () => {
       for (const id of ['t1', 't2']) {
         const { updatedAt: _a, order: _o, ...was } = taskOf(state, id);
         const { updatedAt: _b, order: _p, ...now } = taskOf(back, id);
-        expect(now).toEqual(was);
+        // Never set and set to false read the same (`decideOf`).
+        expect({ ...now, decide: now.decide ?? false }).toEqual({
+          ...was,
+          decide: was.decide ?? false,
+        });
       }
     }
   });
@@ -2568,6 +2583,174 @@ describe('undo of a bulk change (#235)', () => {
   });
 });
 
+describe('to decide (#328)', () => {
+  it('addTask takes decide, and leaves it out when false', () => {
+    const { state } = at(base(), {
+      type: 'addTask',
+      id: 't3',
+      projectId: 'p1',
+      title: 'Pick a hangar',
+      decide: true,
+    });
+    expect(state.tasks.t3?.decide).toBe(true);
+    const plain = at(base(), {
+      type: 'addTask',
+      id: 't3',
+      projectId: 'p1',
+      title: 'Sweep',
+      decide: false,
+    }).state;
+    expect(plain.tasks.t3).not.toHaveProperty('decide');
+  });
+
+  it('editTask takes decide in its patch', () => {
+    const { state } = at(base(), {
+      type: 'editTask',
+      id: 't1',
+      patch: { decide: true },
+    });
+    expect(state.tasks.t1).toMatchObject({ decide: true, updatedAt: T1 });
+    expect(lastLog(state, 'p1')).toBe('Edited task "Heaters"');
+  });
+
+  it('setDecide marks a task to decide and decided, logs and bumps', () => {
+    const { state, changed } = at(base(), {
+      type: 'setDecide',
+      id: 't1',
+      decide: true,
+    });
+    expect(state.tasks.t1).toMatchObject({ decide: true, updatedAt: T1 });
+    expect(lastLog(state, 'p1')).toBe('Marked "Heaters" to decide');
+    expect(state.projects.p1?.updatedAt).toBe(T1);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p1' },
+      { col: 'projects', id: 'p1' },
+      { col: 'tasks', id: 't1' },
+    ]);
+    const decided = at(state, { type: 'setDecide', id: 't1', decide: false });
+    expect(decided.state.tasks.t1?.decide).toBe(false);
+    expect(lastLog(decided.state, 'p1')).toBe('Decided "Heaters"');
+  });
+
+  it('setDecide is idempotent, absent reading as false', () => {
+    const state = base();
+    expect(state.tasks.t1).not.toHaveProperty('decide');
+    const same = at(state, { type: 'setDecide', id: 't1', decide: false });
+    expect(same.state).toBe(state);
+    expect(same.changed).toEqual([]);
+    const marked = run(state, { type: 'setDecide', id: 't1', decide: true });
+    const again = at(marked, { type: 'setDecide', id: 't1', decide: true });
+    expect(again.changed).toEqual([]);
+  });
+
+  it('setDecide refuses a task that is gone', () => {
+    expect(() =>
+      at(base(), { type: 'setDecide', id: 'nope', decide: true }),
+    ).toThrow('That task no longer exists');
+  });
+});
+
+describe('filing a note (#328)', () => {
+  const T2 = '2026-10-23T12:00:00.000Z';
+  const withNotes = (): Snapshot =>
+    run(
+      base(),
+      { type: 'createProject', id: 'p2', name: 'Hoth Ops' },
+      { type: 'addNote', id: 'n1', projectId: null, body: 'Loose thought' },
+      { type: 'addNote', id: 'n2', projectId: 'p1', body: 'On Echo' },
+    );
+
+  it('moveNote files a General note to a project, keeping id and createdAt', () => {
+    const state = withNotes();
+    const before = state.notes.n1;
+    const { state: next, changed } = at(
+      state,
+      { type: 'moveNote', id: 'n1', projectId: 'p2' },
+      T2,
+    );
+    expect(next.notes.n1).toEqual({ ...before, projectId: 'p2' });
+    expect(Object.keys(next.notes).sort()).toEqual(['n1', 'n2']);
+    expect(lastLog(next, 'p2')).toBe('Filed a note to "Hoth Ops"');
+    expect(next.projects.p2?.updatedAt).toBe(T2);
+    expect(sorted(changed)).toEqual([
+      { col: 'activity', id: 'p2' },
+      { col: 'notes', id: 'n1' },
+      { col: 'projects', id: 'p2' },
+    ]);
+  });
+
+  it('moveNote moves a project note to another project or to General, bumping both', () => {
+    const state = withNotes();
+    const across = at(
+      state,
+      { type: 'moveNote', id: 'n2', projectId: 'p2' },
+      T2,
+    );
+    expect(across.state.notes.n2?.projectId).toBe('p2');
+    expect(across.state.projects.p1?.updatedAt).toBe(T2);
+    expect(across.state.projects.p2?.updatedAt).toBe(T2);
+    const home = at(state, { type: 'moveNote', id: 'n2', projectId: null }, T2);
+    expect(home.state.notes.n2?.projectId).toBeNull();
+    expect(lastLog(home.state, GENERAL)).toBe('Filed a note to "General"');
+    expect(home.state.projects.p1?.updatedAt).toBe(T2);
+  });
+
+  it('moveNote to where it already is changes nothing', () => {
+    const state = withNotes();
+    const result = at(state, { type: 'moveNote', id: 'n2', projectId: 'p1' });
+    expect(result.state).toBe(state);
+    expect(result.changed).toEqual([]);
+  });
+
+  it('moveNote refuses a meeting note, a task note, the Notepad and a missing project', () => {
+    const state = run(
+      withNotes(),
+      {
+        type: 'addMeeting',
+        id: 'm1',
+        projectId: 'p1',
+        title: 'Standup',
+        date: '2026-10-27',
+      },
+      {
+        type: 'addNote',
+        id: 'n3',
+        projectId: 'p1',
+        body: 'Prep',
+        meetingId: 'm1',
+      },
+      { type: 'addNote', id: 'n4', projectId: 'p1', body: 'Log', taskId: 't1' },
+      { type: 'writeNotepad', id: 'pad', body: 'Scratch' },
+    );
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n3', projectId: 'p2' }),
+    ).toThrow(new OpError('That note belongs to a meeting'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n4', projectId: 'p2' }),
+    ).toThrow(new OpError('That note belongs to a task'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'pad', projectId: 'p2' }),
+    ).toThrow(new OpError('The Notepad cannot be filed'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'n1', projectId: 'p9' }),
+    ).toThrow(new OpError('That project no longer exists'));
+    expect(() =>
+      at(state, { type: 'moveNote', id: 'nope', projectId: 'p2' }),
+    ).toThrow(new OpError('That note no longer exists'));
+  });
+
+  it('old clients’ list and Notepad ops still reduce', () => {
+    const state = run(
+      base(),
+      { type: 'addList', id: 'l1', title: 'Offsite', projectId: 'p1' },
+      { type: 'addListItem', listId: 'l1', id: 'i1', text: 'Venue' },
+      { type: 'writeNotepad', id: 'pad', body: 'Scratch' },
+    );
+    expect(state.lists.l1?.items).toHaveLength(1);
+    expect(state.notes.pad?.body).toBe('Scratch');
+  });
+});
+
 describe('the reducer is exhaustive', () => {
   it('refuses an op type it has no case for', () => {
     expect(() => at(base(), { type: 'nope' } as unknown as Op)).toThrow(
@@ -2579,8 +2762,9 @@ describe('the reducer is exhaustive', () => {
 describe('settings', () => {
   it('starts from the defaults and stores a patch, unlogged', () => {
     const state = base();
-    // No default org until you pick one.
-    expect(settingsOf(state)).toEqual({ defaultOrg: '' });
+    // No default org until you pick one; nothing stored yet.
+    expect(settingsOf(state).defaultOrg).toBe('');
+    expect(stored(state)).toBeUndefined();
     const { state: next, changed } = at(state, {
       type: 'setSettings',
       patch: { defaultOrg: 'Rebel Alliance' },
@@ -2605,7 +2789,7 @@ describe('settings', () => {
       type: 'setSettings',
       patch: { assignToMe: true },
     });
-    expect(settingsOf(on)).toEqual({
+    expect(stored(on)).toEqual({
       defaultOrg: 'Rebel Alliance',
       assignToMe: true,
     });
@@ -2624,12 +2808,106 @@ describe('settings', () => {
       type: 'setSettings',
       patch: { defaultPriority: 'low' },
     });
-    expect(settingsOf(low)).toEqual({
+    expect(stored(low)).toEqual({
       defaultOrg: 'Rebel Alliance',
       defaultPriority: 'low',
     });
     expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
     expect(low.activity).toBe(state.activity);
+  });
+
+  it('stores the pinned rooms whole, in order, unlogged (#329)', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const { state: pinned, changed } = at(state, {
+      type: 'setSettings',
+      patch: { pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'] },
+    });
+    expect(stored(pinned)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'],
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(pinned.activity).toBe(state.activity);
+    const reordered = run(pinned, {
+      type: 'setSettings',
+      patch: { pinned: ['pe-leia', 'p-echo'] },
+    });
+    expect(settingsOf(reordered).pinned).toEqual(['pe-leia', 'p-echo']);
+  });
+
+  it('stores the v2 options and clears one back to its default with null (#343)', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: {
+        captureAs: 'task',
+        mentionAssigns: false,
+        roomNotes: 'unfiled',
+        railOwed: false,
+        roomTab: 'plan',
+        laneLabels: { youOwe: 'On me' },
+      },
+    });
+    expect(stored(state)).toEqual({
+      defaultOrg: '',
+      captureAs: 'task',
+      mentionAssigns: false,
+      roomNotes: 'unfiled',
+      railOwed: false,
+      roomTab: 'plan',
+      laneLabels: { youOwe: 'On me' },
+    });
+    expect(settingsOf(state).laneLabels).toEqual({
+      youOwe: 'On me',
+      theyOwe: 'They owe you',
+      discuss: 'To discuss',
+    });
+    const { state: cleared, changed } = at(state, {
+      type: 'setSettings',
+      patch: { captureAs: null, laneLabels: null, railOwed: null },
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(cleared.activity).toBe(state.activity);
+    expect(stored(cleared)).toEqual({
+      defaultOrg: '',
+      mentionAssigns: false,
+      roomNotes: 'unfiled',
+      roomTab: 'plan',
+    });
+    expect(settingsOf(cleared).captureAs).toBe('note');
+    expect(settingsOf(cleared).railOwed).toBe(true);
+  });
+
+  it('refuses a lane name that is empty or too long, and an unknown tab', () => {
+    for (const patch of [
+      { laneLabels: { youOwe: ' ' } },
+      { laneLabels: { youOwe: 'x'.repeat(41) } },
+      { roomTab: 'board' },
+      { captureAs: 'decide' },
+    ]) {
+      expect(OpSchema.safeParse({ type: 'setSettings', patch }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it('refuses pinned rooms named twice, or too many', () => {
+    const twice = { type: 'setSettings', patch: { pinned: ['p-1', 'p-1'] } };
+    expect(OpSchema.safeParse(twice).success).toBe(false);
+    const many = Array.from(
+      { length: LIMITS.pinnedMax + 1 },
+      (_, i) => `p-${i}`,
+    );
+    expect(
+      OpSchema.safeParse({ type: 'setSettings', patch: { pinned: many } })
+        .success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({ type: 'setSettings', patch: { pinned: [] } })
+        .success,
+    ).toBe(true);
   });
 });
 
@@ -2655,6 +2933,61 @@ describe('page preferences (#186)', () => {
     expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
     // Not logged: no activity text anywhere.
     expect(next.activity).toBe(state.activity);
+  });
+
+  it("saves All's views whole; null or an empty list clears (#338)", () => {
+    const views = [
+      { id: 'v1', name: 'Board', query: 'kind=task&view=board' },
+      { id: 'v2', name: 'Echo', query: 'room=p1' },
+    ];
+    const state = run(base(), {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: { views, filters: { taskView: 'table' } },
+    });
+    expect(pages(state)?.all).toEqual({
+      views,
+      filters: { taskView: 'table' },
+    });
+    const renamed = run(state, {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: {
+        views: [
+          { id: 'v1', name: 'Tasks board', query: 'kind=task&view=board' },
+        ],
+      },
+    });
+    expect(pages(renamed)?.all?.views).toEqual([
+      { id: 'v1', name: 'Tasks board', query: 'kind=task&view=board' },
+    ]);
+    const cleared = run(renamed, {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: { views: null },
+    });
+    expect(pages(cleared)?.all).toEqual({ filters: { taskView: 'table' } });
+    // Each view once, within the limit.
+    expect(
+      OpSchema.safeParse({
+        type: 'setPagePrefs',
+        page: 'all',
+        patch: { views: [views[0], views[0]] },
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'setPagePrefs',
+        page: 'all',
+        patch: {
+          views: Array.from({ length: LIMITS.viewsMax + 1 }, (_, i) => ({
+            id: `v${i}`,
+            name: `View ${i}`,
+            query: '',
+          })),
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('merges key by key; null clears, and an emptied page goes', () => {
@@ -2937,16 +3270,22 @@ describe('merge (import)', () => {
     expect(merged?.meetingId ?? null).toBeNull();
   });
 
-  it('round-trips the Notepad, and keeps one when an import brings another', () => {
+  it('round-trips the Notepad in format 3, and keeps one when an import brings another', () => {
     const state = run(base(), {
       type: 'writeNotepad',
       id: 'pad1',
       body: 'Mine',
     });
-    const file = JSON.parse(JSON.stringify({ exportedAt: T1, ...state }));
+    const file = JSON.parse(
+      JSON.stringify({ format: EXPORT_FORMAT, exportedAt: T1, ...state }),
+    );
     const { state: next } = merge(emptySnapshot(), ExportSchema.parse(file));
     expect(next.notes.pad1).toEqual(state.notes.pad1);
     expect(next.notes.pad1?.scratch).toBe(true);
+
+    // A format 2 file's Notepad is an ordinary note (#328).
+    const old = ExportSchema.parse({ ...file, format: 2 });
+    expect(old.notes.pad1).not.toHaveProperty('scratch');
 
     // A later Notepad from another file becomes an ordinary note.
     const theirs = {
@@ -2956,6 +3295,7 @@ describe('merge (import)', () => {
       createdAt: '2026-10-24T09:00:00.000Z',
     };
     const incoming = ExportSchema.parse({
+      format: EXPORT_FORMAT,
       exportedAt: T1,
       notes: { pad9: theirs },
     });
@@ -3030,7 +3370,7 @@ describe('setNav', () => {
       { type: 'setNav', patch: { hidden: ['notes', 'notes'] } },
       { type: 'setNav', patch: { phoneHidden: ['whiteboard', 'whiteboard'] } },
     );
-    expect(settingsOf(state)).toEqual({
+    expect(stored(state)).toEqual({
       defaultOrg: 'Rebel Alliance',
       nav: {
         extras: { digest: false, archived: false },

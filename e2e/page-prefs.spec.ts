@@ -1,6 +1,5 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import {
-  chooseFilter,
   closeFilters,
   expect,
   expectAccessible,
@@ -13,8 +12,8 @@ import {
 
 /**
  * Saved page preferences (#186): a page's layout, sort, grouping, filters
- * and sections save themselves, follow the space to every device, and are
- * edited and reset in Settings → Pages. The address still wins.
+ * and sections save themselves and follow the space to every device; All's
+ * are set and reset in Settings → All (#343). The address still wins.
  */
 
 interface Stored {
@@ -39,26 +38,6 @@ async function expectStored(
     .toEqual(expected);
 }
 
-/** Tasks' Group by shows `text` (in the Filters sheet on phones). */
-async function expectGroupBy(page: Page, text: string) {
-  const filters = await openFilters(page);
-  await expect(
-    filters.getByRole('combobox', { name: 'Group by' }),
-  ).toContainText(text);
-  await closeFilters(page);
-}
-
-function layout(page: Page) {
-  return page.getByRole('group', { name: 'Layout (press v to cycle)' });
-}
-
-async function pickLayout(page: Page, name: string) {
-  await layout(page)
-    .locator('label')
-    .filter({ has: page.getByRole('radio', { name }) })
-    .click();
-}
-
 /** Another device: a new browser context, signed in as the same address. */
 async function otherDevice(browser: Browser, page: Page, email: string) {
   const context = await browser.newContext({
@@ -73,116 +52,10 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('a change saves itself and comes back on reload and another device', async ({
-  page,
-  request,
-  browser,
-  email,
-}) => {
-  await openLive(page, '/tasks');
-  await chooseFilter(page, 'Group by', 'Due date');
-  const filters = await openFilters(page);
-  await filters
-    .getByRole('group', { name: 'Status' })
-    .locator('label', { hasText: 'All' })
-    .click();
-  await closeFilters(page);
-  await pickLayout(page, 'Board');
-  await expect(page).toHaveURL(/group=due/);
-  // The changes go out together, a moment after the last one.
-  await expectStored(request, 'tasks', {
-    view: 'board',
-    group: 'due',
-    filters: { status: 'all' },
-  });
-
-  // A bare address shows them, without rewriting it.
-  await page.goto('/tasks');
-  await expectGroupBy(page, 'Due date');
-  await expect(
-    layout(page).getByRole('radio', { name: 'Board' }),
-  ).toBeChecked();
-  await expect(page).toHaveURL(/\/tasks$/);
-  await page.reload();
-  await expectGroupBy(page, 'Due date');
-
-  // Another device (a fresh browser) opens the page the same way.
-  const other = await otherDevice(browser, page, email);
-  await other.goto('/tasks');
-  await expect(
-    layout(other).getByRole('radio', { name: 'Board' }),
-  ).toBeChecked();
-  const otherFilters = await openFilters(other);
-  await expect(
-    otherFilters.getByRole('combobox', { name: 'Group by' }),
-  ).toContainText('Due date');
-  await expect(
-    otherFilters.getByRole('group', { name: 'Status' }).getByRole('radio', {
-      name: 'All',
-    }),
-  ).toBeChecked();
-  await other.context().close();
-});
-
-test('the address wins; the search text is never saved', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/tasks');
-  await chooseFilter(page, 'Group by', 'Due date');
-  await expectStored(request, 'tasks', { group: 'due' });
-
-  // A link that names its own grouping shows it, and saves nothing.
-  await page.goto('/tasks?group=priority');
-  await expectGroupBy(page, 'Priority');
-  await page.getByRole('searchbox', { name: 'Find' }).fill('tauntaun');
-  await expect(page).toHaveURL(/q=tauntaun/);
-  await page.waitForTimeout(800);
-  expect((await pages(request))?.tasks).toEqual({ group: 'due' });
-
-  // Back to the default from a page that opened on a saved grouping.
-  await page.goto('/tasks');
-  await expectGroupBy(page, 'Due date');
-  await chooseFilter(page, 'Group by', 'Project');
-  await expectGroupBy(page, 'Project');
-  await expect(page).toHaveURL(/\/tasks$/);
-  // Back: the grouping the page opened with.
-  await page.goBack();
-  await expectGroupBy(page, 'Due date');
-  await expect
-    .poll(async () => (await pages(request))?.tasks ?? null)
-    .toBe(null);
-  await page.goto('/tasks');
-  await expectGroupBy(page, 'Project');
-});
-
-test('Back returns to what the page showed before a change', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/notes');
-  await layout(page).locator('label', { hasText: 'Grid' }).click();
-  await (await openFilters(page))
-    .getByRole('group', { name: 'Show' })
-    .locator('label', { hasText: 'Pinned' })
-    .click();
-  await closeFilters(page);
-  await expectStored(request, 'notes', {
-    view: 'grid',
-    filters: { pinned: '1' },
-  });
-  // Opened with Pinned saved; All is chosen, then Back.
-  await page.goto('/notes');
-  let show = (await openFilters(page)).getByRole('group', { name: 'Show' });
-  await expect(show.getByRole('radio', { name: 'Pinned' })).toBeChecked();
-  await show.locator('label', { hasText: 'All' }).click();
-  await expect(show.getByRole('radio', { name: 'All' })).toBeChecked();
-  await expect(page).toHaveURL(/\/notes$/);
-  await closeFilters(page);
-  await page.goBack();
-  show = (await openFilters(page)).getByRole('group', { name: 'Show' });
-  await expect(show.getByRole('radio', { name: 'Pinned' })).toBeChecked();
-});
+/** A project room's lanes. */
+function lanes(page: Page) {
+  return page.getByRole('complementary', { name: 'Open loops' });
+}
 
 test('sections remember open or closed, one set for every project', async ({
   page,
@@ -190,184 +63,141 @@ test('sections remember open or closed, one set for every project', async ({
   browser,
   email,
 }) => {
+  // A room's lanes, and its Plan's Activity.
   await openLive(page, '/projects/p-echo');
+  await lanes(page).getByRole('button', { name: /^Mine/ }).click();
+  await page.goto('/projects/p-echo/plan');
   const activity = page.getByRole('button', { name: /^Activity/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
   await activity.click();
-  await page.getByRole('button', { name: /^Meetings/ }).click();
   await expectStored(request, 'project', {
-    sections: { activity: true, meetings: false },
+    sections: { activity: true, mine: false },
   });
 
   const other = await otherDevice(browser, page, email);
-  await other.goto('/projects/p-falcon');
+  await other.goto('/projects/p-falcon/plan');
   await expect(
     other.getByRole('button', { name: /^Activity/ }),
   ).toHaveAttribute('aria-expanded', 'true');
+  await other.goto('/projects/p-falcon');
   await expect(
-    other.getByRole('button', { name: /^Meetings/ }),
+    lanes(other).getByRole('button', { name: /^Mine/ }),
   ).toHaveAttribute('aria-expanded', 'false');
   await other.context().close();
 });
 
-test('Settings → Pages edits and resets, with Undo', async ({
+test('Settings → All sets how All opens, and resets with Undo (#343)', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/tasks');
-  await chooseFilter(page, 'Group by', 'Assignee');
-  await expectStored(request, 'tasks', { group: 'assignee' });
-  await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: /^Notes/ }).click();
-  await expectStored(request, 'project', { sections: { notes: false } });
-
-  await openLive(page, '/settings/pages');
-  await expect(page).toHaveTitle('Pages · Settings · Datapad');
-  const tasks = page.getByRole('region', { name: 'Tasks', exact: true });
-  await expect(tasks.getByText('Saved', { exact: true })).toBeVisible();
-  await expect(tasks.getByRole('combobox', { name: 'Group by' })).toContainText(
-    'Assignee',
+  await openLive(page, '/settings/all');
+  await expect(page).toHaveTitle('All · Settings · Datapad');
+  const opens = page.getByRole('group', { name: 'Opens on' });
+  await expect(opens.getByRole('button', { name: 'Tasks' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
   );
-  const project = page.getByRole('region', { name: 'Project page' });
-  await expect(project).toContainText('1 section closed as you left it.');
+  await opens.getByRole('button', { name: 'Notes' }).click();
+  await page.getByRole('combobox', { name: 'Tasks sort by' }).click();
+  await page.getByRole('option', { name: 'Priority', exact: true }).click();
+  await expectStored(request, 'all', {
+    filters: { kinds: 'task,note', taskSort: 'priority' },
+  });
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 
-  // Edited here, saved at once, and the page opens that way.
-  await tasks.getByRole('combobox', { name: 'Sort by' }).click();
-  await page.getByRole('option', { name: 'Title', exact: true }).click();
-  await expectStored(request, 'tasks', { group: 'assignee', sort: 'title' });
+  // The rail's (or the tab bar's) All opens on them.
+  await page
+    .getByRole('navigation', { name: 'Sections' })
+    .getByRole('link', { name: 'All', exact: true })
+    .filter({ visible: true })
+    .click();
+  await expect(page).toHaveURL(/\/all\?kind=task,note$/);
+  await openLive(page, '/all?kind=task');
+  const controls = await openFilters(page);
+  await expect(
+    controls.getByRole('combobox', { name: 'Sort', exact: true }),
+  ).toContainText('Priority');
+  await closeFilters(page);
 
-  // Reset one page, then Undo.
-  await page.getByRole('button', { name: 'Reset Tasks' }).click();
-  await expect(tasks.getByText('Defaults', { exact: true })).toBeVisible();
-  await expectStored(request, 'tasks', null);
+  // Reset to defaults, then Undo.
+  await openLive(page, '/settings/all');
+  const reset = page.getByRole('button', { name: 'Reset to defaults' });
+  await reset.click();
+  await expectStored(request, 'all', null);
+  await expect(reset).toBeDisabled();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expectStored(request, 'tasks', { group: 'assignee', sort: 'title' });
-
-  // Reset all, then Undo.
-  await page.getByRole('button', { name: 'Reset all' }).click();
-  await expect.poll(() => pages(request)).toEqual({});
-  await expect(page.getByRole('button', { name: 'Reset all' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect
-    .poll(() => pages(request))
-    .toEqual({
-      tasks: { group: 'assignee', sort: 'title' },
-      project: { sections: { notes: false } },
-    });
-
-  await page.goto('/tasks');
-  await expectGroupBy(page, 'Assignee');
-});
-
-test('this browser’s earlier choices carry over once', async ({
-  page,
-  request,
-}) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('datapad:view:notes', 'grid');
-    localStorage.setItem('datapad:section:p-echo:activity', 'open');
+  await expectStored(request, 'all', {
+    filters: { kinds: 'task,note', taskSort: 'priority' },
   });
-  await openLive(page, '/notes');
-  await expect(layout(page).getByRole('radio', { name: 'Grid' })).toBeChecked();
-  await expectStored(request, 'notes', { view: 'grid' });
-  await expectStored(request, 'project', { sections: { activity: true } });
 });
 
-test('hidden and ordered sections reset and come back with Undo (#310)', async ({
+test('Settings → All renames, moves and deletes saved views (#343)', async ({
   page,
   request,
 }) => {
-  const saved = {
-    sections: { notes: false },
-    hidden: ['activity'],
-    order: ['tasks', 'milestones'],
-  };
+  const views = [
+    { id: 'v-1', name: 'Mine', query: 'kind=task&person=me' },
+    { id: 'v-2', name: 'Calendar', query: 'kind=meeting&view=calendar' },
+  ];
   await request.post('/api/import', {
     data: {
-      settings: { user: { defaultOrg: '', pages: { project: saved } } },
+      settings: { user: { defaultOrg: '', pages: { all: { views } } } },
     },
   });
-  await expectStored(request, 'project', saved);
-  await openLive(page, '/settings/pages');
-  // The detail pages each have something to set, so all are listed.
-  for (const name of ['Task page', 'Meeting page', 'List page']) {
-    await expect(page.getByRole('region', { name })).toHaveCount(1);
-  }
-  const project = page.getByRole('region', { name: 'Project page' });
-  await expect(project.getByText('Saved', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Reset Project page' }).click();
+  await openLive(page, '/settings/all');
+  const list = page.getByRole('list', { name: 'Saved views' });
+  const name = list.getByRole('textbox', { name: 'Name of Mine' });
+  await name.fill('My tasks');
+  await name.press('Enter');
+  await list.getByRole('button', { name: 'Move Calendar up' }).click();
+  await expectStored(request, 'all', {
+    views: [views[1], { ...views[0], name: 'My tasks' }],
+  });
+  await list.getByRole('button', { name: 'Delete Calendar' }).click();
+  await expectStored(request, 'all', {
+    views: [{ ...views[0], name: 'My tasks' }],
+  });
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expectStored(request, 'all', {
+    views: [views[1], { ...views[0], name: 'My tasks' }],
+  });
+  // Reset keeps them: they are yours, not settings.
+  await expect(
+    page.getByRole('button', { name: 'Reset to defaults' }),
+  ).toBeDisabled();
+  await expectAccessible(page);
+});
+
+test('a project room’s lanes hide and move from Settings → Rooms, and reset with Undo', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/settings/rooms');
+  const editor = page.getByRole('list', { name: 'Project room lanes' });
+  await editor.getByRole('switch', { name: 'Show To decide' }).click();
+  await editor.getByRole('button', { name: 'Move Waiting on up' }).click();
+  await expectStored(request, 'project', {
+    hidden: ['decide'],
+    order: ['waiting', 'mine', 'decide'],
+  });
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // A room's lanes follow: To decide hidden, Waiting on first.
+  await openLive(page, '/projects/p-echo');
+  const sections = lanes(page).getByRole('button', {
+    name: /^(Mine|Waiting on|To decide)/,
+  });
+  await expect(sections).toHaveCount(2);
+  await expect(sections.first()).toHaveText(/^Waiting on/);
+
+  await openLive(page, '/settings/rooms');
+  await page.getByRole('button', { name: 'Reset to defaults' }).click();
   await expectStored(request, 'project', null);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expectStored(request, 'project', saved);
-});
-
-test('a saved Feed on Notes reads as List (#218)', async ({
-  page,
-  request,
-}) => {
-  await request.post('/api/import', {
-    data: {
-      settings: {
-        user: { defaultOrg: '', pages: { notes: { view: 'feed' } } },
-      },
-    },
+  await expectStored(request, 'project', {
+    hidden: ['decide'],
+    order: ['waiting', 'mine', 'decide'],
   });
-  await openLive(page, '/notes');
-  await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(
-    page.getByRole('main').locator('li[data-note-id]').first(),
-  ).toBeVisible();
-});
-
-test('a saved Notepad layout on Notes reads as List (#261)', async ({
-  page,
-  request,
-}) => {
-  await request.post('/api/import', {
-    data: {
-      settings: {
-        user: { defaultOrg: '', pages: { notes: { view: 'notepad' } } },
-      },
-    },
-  });
-  await openLive(page, '/notes');
-  await expect(layout(page).getByRole('radio')).toHaveCount(2);
-  await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
-  await expect(
-    page.getByRole('main').locator('li[data-note-id]').first(),
-  ).toBeVisible();
-});
-
-test('a saved value the page no longer has falls back to the default', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/meetings');
-  await chooseFilter(page, 'Project', 'Falcon hyperdrive refit');
-  await expectStored(request, 'meetings', {
-    filters: { project: 'p-falcon' },
-  });
-  // Saved values the page no longer has (a project that is gone, a
-  // layout it never had): Meetings opens on its defaults.
-  await request.post('/api/import', {
-    data: {
-      settings: {
-        user: {
-          defaultOrg: '',
-          pages: {
-            meetings: { view: 'gallery', filters: { project: 'p-ghost' } },
-          },
-        },
-      },
-    },
-  });
-  await openLive(page, '/meetings');
-  const filters = await openFilters(page);
-  await expect(
-    filters.getByRole('combobox', { name: 'Project' }),
-  ).toContainText('All projects');
-  await closeFilters(page);
-  await expect(layout(page).getByRole('radio', { name: 'List' })).toBeChecked();
 });

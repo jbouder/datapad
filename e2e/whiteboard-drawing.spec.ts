@@ -417,9 +417,13 @@ test('bring to front and send to back, undone and redone', async ({
     y: moved?.y,
   });
 
-  // Leaving the board forgets its steps.
-  await page.goto('/projects/p-echo');
-  await page.getByRole('link', { name: 'Open whiteboard' }).click();
+  // Leaving the board forgets its steps: to the room's Stream and back.
+  const tabs = page.getByRole('navigation', {
+    name: 'Echo Base relocation room',
+  });
+  await tabs.getByRole('link', { name: 'Stream' }).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  await tabs.getByRole('link', { name: 'Whiteboard' }).click();
   await expect(
     editBar(page).getByRole('button', { name: 'Undo' }),
   ).toBeDisabled();

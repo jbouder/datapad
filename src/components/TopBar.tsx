@@ -1,49 +1,29 @@
-import { MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
+import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { useRef } from 'react';
-import type { QuickAddAction } from '#shared/nav';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
-import type { QuickAddItem } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 
 /**
  * The current title on the left once the page's own h1 has scrolled away
  * (with the brand on phones, where there is no rail), then the sync status
- * (a colored dot, with its word on desktop), Search (with
- * its shortcut on desktop), **+** (a menu of the space's quick-add actions,
- * Add task and Write a note by default; with one, + does it directly) and
- * the account menu (Help is there).
+ * (a colored dot, with its word on desktop), Search (with its shortcut on
+ * desktop; ⌘K also adds a task, note, meeting or project) and the account
+ * menu (Help is there). New things come from the capture line.
  */
 export function TopBar({
   title,
   pageKey,
   email,
-  quickAdd,
-  onQuickAdd,
   onSearch,
 }: {
   title: string;
   /** Changes when the page does, so the h1 is found again. */
   pageKey: string;
   email: string | null;
-  /** What + offers, in order; never empty. */
-  quickAdd: QuickAddItem[];
-  onQuickAdd: (name: QuickAddAction) => void;
   onSearch: () => void;
 }) {
   const hint = paletteHint();
@@ -56,11 +36,11 @@ export function TopBar({
     >
       <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
         <a
-          {...linkProps({ name: 'focus' })}
+          {...linkProps({ name: 'today' })}
           className="press -ml-1.5 flex size-11 shrink-0 items-center justify-center outline-ring/50 focus-visible:outline-2 desk:hidden"
         >
           <DatapadMark className="size-6" />
-          <span className="sr-only">Datapad, Focus</span>
+          <span className="sr-only">Datapad, Today</span>
         </a>
         {/* The page's h1 names it for assistive tech; this is the visual echo,
             shown only once that h1 has scrolled under the bar. */}
@@ -93,77 +73,10 @@ export function TopBar({
               {hint}
             </kbd>
           </Button>
-          <QuickAdd items={quickAdd} onChoose={onQuickAdd} />
           <PreferencesMenu email={email} />
         </div>
       </div>
     </header>
-  );
-}
-
-/** + itself: a menu, or with one action shown, that action. */
-function QuickAdd({
-  items,
-  onChoose,
-}: {
-  items: QuickAddItem[];
-  onChoose: (name: QuickAddAction) => void;
-}) {
-  const button = 'press size-11 sm:size-9';
-  if (items.length === 1) {
-    const [only] = items;
-    return (
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon"
-              className={button}
-              aria-keyshortcuts={only.shortcut?.keys}
-              onClick={() => onChoose(only.name)}
-            />
-          }
-        >
-          <PlusIcon weight="bold" />
-          <span className="sr-only">{only.label}</span>
-        </TooltipTrigger>
-        <TooltipContent>{only.label}</TooltipContent>
-      </Tooltip>
-    );
-  }
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className={button}
-            aria-label="Add"
-          />
-        }
-      >
-        <PlusIcon weight="bold" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        {items.map(({ name, label, icon: ItemIcon, shortcut }) => (
-          <DropdownMenuItem
-            key={name}
-            aria-keyshortcuts={shortcut?.keys}
-            onClick={() => onChoose(name)}
-          >
-            <ItemIcon />
-            {label}
-            {shortcut && (
-              <DropdownMenuShortcut className="hidden desk:inline">
-                {shortcut.label}
-              </DropdownMenuShortcut>
-            )}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

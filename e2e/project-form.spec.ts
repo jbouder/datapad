@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  addFromSearch,
   expect,
   expectSaved,
   moreAction,
@@ -20,8 +21,8 @@ test('name and Enter creates a project and goes to it', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromSearch(page, 'New project');
   const name = panel(page).getByRole('textbox', { name: 'Name' });
   await expect(name).toBeFocused();
   await name.fill('Death Star plans');
@@ -36,8 +37,8 @@ test('name and Enter creates a project and goes to it', async ({
 });
 
 test('Save never disables: it focuses the first problem', async ({ page }) => {
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromSearch(page, 'New project');
   const create = panel(page).getByRole('button', { name: 'Create project' });
   await expect(create).toBeEnabled();
   await create.click();
@@ -61,12 +62,12 @@ test('Save never disables: it focuses the first problem', async ({ page }) => {
   await expect(panel(page)).toBeHidden();
 });
 
-test('a start date shows on the page and cannot come after the target', async ({
+test('a start date shows on the Plan and cannot come after the target', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromSearch(page, 'New project');
   await panel(page).getByRole('textbox', { name: 'Name' }).fill('Hoth');
   const start = panel(page).getByRole('textbox', { name: 'Start date' });
   const target = panel(page).getByRole('textbox', { name: 'Target date' });
@@ -85,7 +86,11 @@ test('a start date shows on the page and cannot come after the target', async ({
   await target.press('Tab');
   await create.click();
   await expect(panel(page)).toBeHidden();
-  await expect(page.getByText(/^Starts .*2030/)).toBeVisible();
+  // The room's Plan lists it under Details.
+  await page.getByRole('link', { name: 'Plan', exact: true }).click();
+  await expect(
+    page.getByRole('main').getByRole('list', { name: 'Details' }),
+  ).toContainText(/Starts.*2030/);
   await expectSaved(page);
   const data = await (await request.get('/api/export.json')).json();
   const hoth = Object.values(data.projects).find(
@@ -171,6 +176,8 @@ test('archive with undo, then delete with the counts', async ({
 
   await moreAction(page, 'Archive');
   await expect(page.getByText('Archived Echo Base relocation')).toBeVisible();
+  // The menu has finished closing before it opens again.
+  await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await moreActions(page)).toContain('Unarchive');
   await page.getByRole('button', { name: 'Undo' }).click();
   expect(await moreActions(page)).toContain('Archive');
@@ -186,7 +193,7 @@ test('archive with undo, then delete with the counts', async ({
     'Delete Echo Base relocation and its 4 tasks, 2 notes, 1 milestone and activity?',
   );
   await ask.getByRole('button', { name: 'Delete project' }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/all\?kind=project$/);
   await expect(page.getByText('Deleted Echo Base relocation')).toBeVisible();
 
   await expectSaved(page);

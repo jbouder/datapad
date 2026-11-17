@@ -286,7 +286,14 @@ export function NoteComposer({
     apply(result);
   };
 
+  /**
+   * A blur closes the menu a moment later (so a click on an option still
+   * lands). Back in the field before then, the close is dropped: typing
+   * right after Save note, which blurs the field, must not lose the menu.
+   */
+  const blurTimer = useRef<number | undefined>(undefined);
   const track = (el: HTMLTextAreaElement) => {
+    window.clearTimeout(blurTimer.current);
     setCaret(el.selectionStart === el.selectionEnd ? el.selectionStart : null);
   };
 
@@ -457,7 +464,13 @@ export function NoteComposer({
           setDismissed(null);
         }}
         onSelect={(e) => track(e.currentTarget)}
-        onBlur={() => window.setTimeout(() => setCaret(null), 120)}
+        onFocus={() => window.clearTimeout(blurTimer.current)}
+        onBlur={() => {
+          window.clearTimeout(blurTimer.current);
+          blurTimer.current = window.setTimeout(() => {
+            if (document.activeElement !== area.current) setCaret(null);
+          }, 120);
+        }}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
       />

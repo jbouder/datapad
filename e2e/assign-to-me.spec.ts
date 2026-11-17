@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -32,7 +32,7 @@ async function addPerson(page: Page, name: string, me = false) {
 }
 
 async function newTask(page: Page, title: string) {
-  await addFromTopBar(page, 'Add task');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await panel.getByRole('textbox', { name: 'Title' }).fill(title);
   return panel;

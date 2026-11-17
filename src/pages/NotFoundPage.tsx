@@ -4,8 +4,8 @@ import { linkProps, type Route } from '@/lib/router';
 /** An address that names nothing, or a project that is gone. */
 export function NotFoundPage({
   what = 'page',
-  back = { name: 'focus' },
-  backLabel = 'Go to Focus',
+  back = { name: 'today' },
+  backLabel = 'Go to Today',
 }: {
   what?: string;
   back?: Route;

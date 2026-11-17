@@ -301,6 +301,192 @@ describe('DatapadObject storage', () => {
     });
   });
 
+  it('brings each space to format 3 at schema 4, as Import does a format 2 file (#328)', async () => {
+    const at = '2026-10-01T09:00:00.000Z';
+    const docs = {
+      projects: { 'p-echo': fixture.projects['p-echo'] },
+      tasks: {
+        't-1': { ...fixture.tasks['t-1'], tags: ['decide'] },
+        't-2': {
+          ...fixture.tasks['t-2'],
+          tags: ['decide'],
+          status: 'done',
+          completedAt: at,
+        },
+      },
+      notes: {
+        'n-pad': {
+          id: 'n-pad',
+          projectId: null,
+          body: 'Scratch',
+          pinned: false,
+          meetingId: null,
+          phase: null,
+          scratch: true,
+          createdAt: at,
+        },
+      },
+      lists: {
+        'l-1': {
+          id: 'l-1',
+          projectId: 'p-echo',
+          title: 'Evacuation',
+          items: [
+            {
+              id: 'i-1',
+              text: 'Transports',
+              done: true,
+              createdAt: at,
+              doneAt: at,
+            },
+            {
+              id: 'i-2',
+              text: 'Ion cannon',
+              done: false,
+              createdAt: at,
+              doneAt: null,
+            },
+          ],
+          createdAt: at,
+          updatedAt: '2026-10-02T09:00:00.000Z',
+        },
+      },
+    };
+    const stub = bindings.DATAPAD.getByName('schema3@example.com');
+    let migrated: Snapshot | undefined;
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM docs');
+      sql.exec('UPDATE spaces SET seq = 4');
+      sql.exec("UPDATE meta SET value = '3' WHERE key = 'schema_version'");
+      for (const [col, byId] of Object.entries(docs)) {
+        for (const doc of Object.values(byId)) {
+          sql.exec(
+            "INSERT INTO docs VALUES ('main', ?, ?, ?, '2026-10-01')",
+            col,
+            doc.id,
+            JSON.stringify(doc),
+          );
+        }
+      }
+      for (let i = 0; i < 2; i += 1) {
+        const revived = new DatapadObject(state, bindings);
+        await state.blockConcurrencyWhile(async () => {});
+        const file = await revived.export(MAIN_SPACE);
+        expect(file.tasks['t-1']).toMatchObject({
+          decide: true,
+          tags: ['decide'],
+        });
+        expect(file.tasks['t-2']).not.toHaveProperty('decide');
+        expect(file.notes['n-pad']).not.toHaveProperty('scratch');
+        expect(file.notes['l-1']).toEqual({
+          id: 'l-1',
+          projectId: 'p-echo',
+          body: '## Evacuation\n- [x] Transports\n- [ ] Ion cannon',
+          pinned: false,
+          meetingId: null,
+          phase: null,
+          createdAt: at,
+          editedAt: '2026-10-02T09:00:00.000Z',
+        });
+        expect(file.lists).toEqual(docs.lists);
+        // Once, not once per wake.
+        expect(await revived.stats()).toMatchObject({ seq: 5 });
+        migrated = file;
+      }
+    });
+    const email = 'format2-import@example.com';
+    expect(
+      (await post(email, '/api/import', { format: 2, ...docs })).status,
+    ).toBe(200);
+    const imported = (await (
+      await get(email, '/api/export.json')
+    ).json()) as Snapshot;
+    expect(imported.notes).toEqual(migrated?.notes);
+    expect(imported.tasks).toEqual(migrated?.tasks);
+  });
+
+  it('carries the old pages’ layouts and sorts into All at schema 5 (#343)', async () => {
+    const user = {
+      defaultOrg: '',
+      pages: {
+        focus: { filters: { days: '10' } },
+        tasks: { view: 'board', sort: 'priority' },
+        meetings: { view: 'calendar' },
+      },
+    };
+    const stub = bindings.DATAPAD.getByName('schema4@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM docs');
+      sql.exec('UPDATE spaces SET seq = 2');
+      sql.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'settings', 'user', ?, '2026-10-01')",
+        JSON.stringify(user),
+      );
+      for (let i = 0; i < 2; i += 1) {
+        const revived = new DatapadObject(state, bindings);
+        await state.blockConcurrencyWhile(async () => {});
+        const file = await revived.export(MAIN_SPACE);
+        expect(file.settings.user?.pages).toEqual({
+          ...user.pages,
+          all: {
+            filters: {
+              taskView: 'board',
+              meetingView: 'calendar',
+              taskSort: 'priority',
+            },
+          },
+        });
+        // Once, not once per wake.
+        expect(await revived.stats()).toMatchObject({ seq: 3 });
+      }
+    });
+  });
+
+  it('does not run format 3 again past schema 4: deleted list notes stay gone, decided tasks stay decided', async () => {
+    const at = '2026-10-01T09:00:00.000Z';
+    const task = {
+      ...fixture.tasks['t-1'],
+      tags: ['decide'],
+      decide: false,
+    };
+    const list = {
+      id: 'l-gone',
+      projectId: 'p-echo',
+      title: 'Evacuation',
+      items: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const stub = bindings.DATAPAD.getByName('schema4-again@example.com');
+    await runInDurableObject(stub, async (_i: DatapadObject, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM docs');
+      sql.exec("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'projects', 'p-echo', ?, '2026-10-01')",
+        JSON.stringify(fixture.projects['p-echo']),
+      );
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'tasks', ?, ?, '2026-10-01')",
+        task.id,
+        JSON.stringify(task),
+      );
+      // The list's note was made at schema 4, then deleted by its owner.
+      sql.exec(
+        "INSERT INTO docs VALUES ('main', 'lists', 'l-gone', ?, '2026-10-01')",
+        JSON.stringify(list),
+      );
+      const revived = new DatapadObject(state, bindings);
+      await state.blockConcurrencyWhile(async () => {});
+      const file = await revived.export(MAIN_SPACE);
+      expect(file.notes['l-gone']).toBeUndefined();
+      expect(file.tasks[task.id]).toMatchObject({ decide: false });
+    });
+  });
+
   it('stores meetings rows in a fresh object', async () => {
     const email = 'fresh-meetings@example.com';
     const stub = bindings.DATAPAD.getByName(email);
@@ -943,12 +1129,44 @@ describe('export and import', () => {
     ).json()) as Snapshot & { format: number };
     expect(file.format).toBe(EXPORT_FORMAT);
     expect(file.lists).toEqual(lists);
+    // An older file's list became a checklist note too (#328).
+    expect(file.notes['l-1']?.body).toBe(
+      '## Evacuation checklist\n- [x] Load the transports\n- [ ] Arm the ion cannon',
+    );
     const again = 'lists-kept-again@example.com';
     expect((await post(again, '/api/import', file)).status).toBe(200);
     const back = (await (
       await get(again, '/api/export.json')
     ).json()) as Snapshot;
     expect(back.lists).toEqual(lists);
+    // A format 3 file's lists are not migrated again.
+    expect(back.notes).toEqual(file.notes);
+  });
+
+  it('round-trips export format 3 byte for byte (#328)', async () => {
+    const email = 'format3@example.com';
+    expect((await post(email, '/api/import', fixture)).status).toBe(200);
+    const inbox = await openSocket(as(email));
+    await inbox.snapshot();
+    inbox.send({ type: 'setDecide', id: 't-1', decide: true });
+    expect(await inbox.next()).toMatchObject({ type: 'op' });
+    inbox.send({ type: 'moveNote', id: 'n-1', projectId: 'p-falcon' });
+    expect(await inbox.next()).toMatchObject({ type: 'op' });
+    inbox.ws.close();
+    const first = await (await get(email, '/api/export.json')).text();
+    const parsed = JSON.parse(first) as Snapshot & {
+      format: number;
+      exportedAt: string;
+    };
+    expect(parsed.format).toBe(3);
+    expect(parsed.tasks['t-1']?.decide).toBe(true);
+    const again = 'format3-again@example.com';
+    expect((await post(again, '/api/import', parsed)).status).toBe(200);
+    const second = await (await get(again, '/api/export.json')).text();
+    const { exportedAt: _a, ...one } = parsed;
+    const { exportedAt: _b, ...two } = JSON.parse(second) as typeof parsed;
+    expect(two).toEqual(one);
+    expect(JSON.stringify(two)).toBe(JSON.stringify(one));
   });
 
   it('keeps decisions through import and export, though they are retired', async () => {

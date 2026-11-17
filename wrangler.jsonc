@@ -60,5 +60,41 @@
     "BEFORE_COPIES_MAX_DAYS": ""
   },
 
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+
+  // Staging (#327): the v2 trunk, deployed by .github/workflows/deploy.yml
+  // after CI passes on a push to `v2`. Built with `CLOUDFLARE_ENV=staging`,
+  // so the Vite plugin writes this environment's config for `wrangler
+  // deploy`. Nothing is shared with production: its own Worker (and so its
+  // own DATAPAD namespace), backups bucket, OAUTH_KV, rate limiter and
+  // Access application. Bindings and vars are not inherited, so each one is
+  // restated here. See docs/self-hosting.md § Staging.
+  "env": {
+    "staging": {
+      "name": "datapad-v2",
+      "durable_objects": {
+        "bindings": [{ "name": "DATAPAD", "class_name": "DatapadObject" }]
+      },
+      "r2_buckets": [
+        { "binding": "BACKUPS", "bucket_name": "datapad-v2-backups" }
+      ],
+      // No id: the first deploy creates this Worker's own namespace.
+      "kv_namespaces": [{ "binding": "OAUTH_KV" }],
+      "ratelimits": [
+        {
+          "name": "REGISTER_LIMIT",
+          "namespace_id": "327",
+          "simple": { "limit": 5, "period": 60 }
+        }
+      ],
+      "vars": {
+        "ACCESS_TEAM_DOMAIN": "broad-term-b836.cloudflareaccess.com",
+        "ACCESS_AUD": "2c401460ff80c4fc90db77c3fd0aad67a3952e534f2832d72cdc867142e075ae",
+        "BACKUP_HOUR": "3",
+        "BACKUP_TIME_ZONE": "America/New_York",
+        "BEFORE_COPIES_MAX_DAYS": ""
+      },
+      "observability": { "enabled": true }
+    }
+  }
 }

@@ -21,49 +21,45 @@ const focusedTitle = (page: import('@playwright/test').Page) =>
         ?.querySelector('[data-task-title]')?.textContent ?? null,
   );
 
-test('add, move, complete, edit and reorder without the mouse', async ({
+test('capture in the room, then move, edit, complete and date without the mouse', async ({
   page,
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  // `n` opens the new-task panel, preset to the project; Enter adds.
-  const adding = page.getByRole('dialog', { name: 'New task' });
+  // `n` goes to the capture line, preset to the project; Enter adds and
+  // keeps focus there.
+  const capture = page.getByRole('combobox', { name: 'Capture' });
+  await page.locator('body').press('n');
   for (const title of ['Patch the hull', 'Tune the deflector']) {
-    await page.locator('body').press('n');
-    await expect(adding.getByRole('textbox', { name: 'Title' })).toBeFocused();
-    await page.keyboard.type(title);
+    await expect(capture).toBeFocused();
+    await page.keyboard.type(`[ ] ${title}`);
     await page.keyboard.press('Enter');
-    await expect(adding).toBeHidden();
+    await expect(capture).toHaveValue('');
     await expect(
-      page.locator('[data-task-id]').filter({ hasText: title }),
+      page
+        .getByRole('complementary', { name: 'Open loops' })
+        .locator('[data-loop]')
+        .filter({ hasText: title }),
     ).toBeVisible();
   }
+
+  // The rows' keys live on Tasks' List (the room's lanes have none, and
+  // no page reorders tasks since the room, #334).
+  await openLive(page, '/all?kind=task&view=list&group=none&sort=title');
+  const titles = (
+    await page.locator('[data-task-id] [data-task-title]').allTextContents()
+  ).map((t) => t.trim());
+  expect(titles).toContain('Patch the hull');
   await page.locator('body').click({ position: { x: 5, y: 300 } });
 
   // j moves into the list from wherever focus is, then down; k back up.
   await page.keyboard.press('j');
-  expect(await focusedTitle(page)).toBe('Find a replacement motivator');
+  expect(await focusedTitle(page)).toBe(titles[0]);
   await page.keyboard.press('j');
-  expect(await focusedTitle(page)).toBe('Patch the hull');
+  expect(await focusedTitle(page)).toBe(titles[1]);
   await page.keyboard.press('j');
   await page.keyboard.press('k');
-  expect(await focusedTitle(page)).toBe('Patch the hull');
-
-  // Alt+↓ reorders the focused task.
-  await page.keyboard.press('Alt+ArrowDown');
-  await expect(
-    page.getByRole('status').filter({ hasText: 'Moved' }),
-  ).toHaveText('Moved “Patch the hull” to position 3 of 3');
-
-  // d opens its due popover; type a date.
-  await page.keyboard.press('d');
-  const due = page.getByRole('textbox', { name: 'Due' });
-  await expect(due).toBeFocused();
-  await due.fill('tomorrow');
-  await due.press('Enter');
-  await expect(
-    page.locator('[data-task-id]').filter({ hasText: 'Patch the hull' }),
-  ).toContainText('Tomorrow');
+  expect(await focusedTitle(page)).toBe(titles[1]);
 
   // e opens it; edit and save with ⌘/Ctrl+Enter; Esc would cancel.
   await page
@@ -87,29 +83,56 @@ test('add, move, complete, edit and reorder without the mouse', async ({
   const data = await (await request.get('/api/export.json')).json();
   const task = Object.values(data.tasks).find(
     (t) => (t as { title: string }).title === 'Patch the hull plating',
-  ) as { status: string; due: string };
+  ) as { status: string; projectId: string };
   expect(task.status).toBe('done');
-  expect(task.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(task.projectId).toBe('p-falcon');
+
+  // d opens the focused task's due popover where rows edit in place:
+  // Today's Due. Move the late shield generator to tomorrow.
+  await openLive(page, '/');
+  const dueList = page.getByRole('list', { name: 'Due' });
+  await dueList
+    .getByRole('button', {
+      name: 'Confirm shield generator delivery',
+      exact: true,
+    })
+    .focus();
+  await page.keyboard.press('d');
+  const due = page.getByRole('textbox', { name: 'Due' });
+  await expect(due).toBeFocused();
+  await due.fill('tomorrow');
+  await due.press('Enter');
+  await expect(
+    dueList.getByText('Confirm shield generator delivery'),
+  ).toHaveCount(0);
+  await expectSaved(page);
+  const after = await (await request.get('/api/export.json')).json();
+  expect(after.tasks['t-1'].due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('the Tasks table: j focuses a row, x completes, e opens its page', async ({
+test('All’s tasks: j focuses a row, x completes, e opens its panel', async ({
   page,
 }) => {
-  await openLive(page, '/tasks?view=table&group=none&sort=title');
+  await openLive(page, '/all?kind=task&sort=title');
+  const rows = page.getByRole('main').locator('[data-task-id]');
   await page.keyboard.press('j');
-  const first = page.locator('tr[data-row-id]').first();
-  await expect(first).toBeFocused();
+  await expect(rows.first().locator('[data-row-focus]')).toBeFocused();
   await page.keyboard.press('j');
-  await expect(page.locator('tr[data-row-id]').nth(1)).toBeFocused();
+  await expect(rows.nth(1).locator('[data-row-focus]')).toBeFocused();
   await page.keyboard.press('x');
   await expect(page.getByText(/^Closed “/)).toBeVisible();
-  const opened = page.locator('tr[data-row-id]').first();
-  const id = await opened.getAttribute('data-row-id');
-  await opened.focus();
+  const first = rows.first().locator('[data-row-focus]');
+  const title = (await first.textContent()) ?? '';
+  await first.focus();
   await page.keyboard.press('e');
-  await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
-  await page.goBack();
-  await expect(page.locator('tr[data-row-id]').first()).toBeVisible();
+  // A task opens in its panel everywhere (#329).
+  const panel = page.getByRole('dialog', { name: 'Task' });
+  await expect(panel.getByRole('textbox', { name: 'Title' })).toHaveValue(
+    title.trim(),
+  );
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(page).toHaveURL(/\/all\?kind=task&/);
 });
 
 test.describe('the shortcut sheet', () => {
@@ -135,12 +158,11 @@ test.describe('the shortcut sheet', () => {
 test('letters type, not trigger, while you are in a field', async ({
   page,
 }) => {
-  // Notes' Find (no page has a quick-add since #218).
-  await openLive(page, '/notes?view=list');
+  // All's Find.
+  await openLive(page, '/all?kind=note');
   const input = page.getByRole('searchbox', { name: 'Find' });
   await input.click();
   await page.keyboard.type('jxenv?');
   await expect(input).toHaveValue('jxenv?');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
 });

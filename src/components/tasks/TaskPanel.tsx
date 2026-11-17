@@ -133,7 +133,11 @@ export function TaskPanel({
     };
   };
 
+  // Only a save can move the task to another lane; a link out of the
+  // panel (Show the note) leaves focus to the page it opens.
+  const saved = useRef(false);
   const save = () => {
+    saved.current = true;
     const title = values.title.trim();
     if (!title) {
       setTitleError('Give the task a title');
@@ -182,9 +186,9 @@ export function TaskPanel({
     const deleted = task;
     if (!actions.deleteTask({ id: task.id })) return;
     onClose();
-    // Undo puts the very same document back: same id, same order.
+    // Undo puts it back, checked: same id, same order, nothing dangling.
     show(`Deleted “${deleted.title}”`, () => {
-      actions.put({ col: 'tasks', doc: deleted });
+      actions.restoreTask({ task: deleted });
     });
   };
 
@@ -197,6 +201,9 @@ export function TaskPanel({
       description={task.title}
       dirty={dirty}
       onSubmit={save}
+      returnFocus={(opener) =>
+        saved.current && !opener?.isConnected ? movedTitle(task.id) : null
+      }
       footer={
         <>
           {summariesOn && (
@@ -442,7 +449,7 @@ export function NewTaskPanel({
   const [initial] = useState(() => ({
     title,
     projectId,
-    // Medium, or what Settings → Pages says.
+    // Medium, or what Settings → Capture says.
     priority: (state ? defaultPriority(state) : 'med') as Priority,
     due: '',
     // Every new task starts with the default assignee: you, when
@@ -648,4 +655,20 @@ function AssigneeField({
       )}
     </div>
   );
+}
+
+/**
+ * The task's title in the row it moved to: a save that sends it to
+ * another lane (Today's, a room's) or group remounts its row, so the one
+ * that opened the panel is gone. Null when it is not shown any more.
+ */
+function movedTitle(id: string): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>(
+    `#main [data-loop="${CSS.escape(id)}"], #main [data-task-id="${CSS.escape(id)}"]`,
+  );
+  for (const row of rows) {
+    const title = row.querySelector<HTMLElement>('[data-task-title]');
+    if (title && title.getClientRects().length > 0) return title;
+  }
+  return null;
 }

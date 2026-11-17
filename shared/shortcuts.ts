@@ -12,10 +12,11 @@ export interface Shortcut {
   /** Where it works. */
   scope:
     | 'Anywhere'
-    | 'Focus'
+    | 'Capture line'
     | 'Task lists and tables'
-    | 'Collection pages'
-    | 'Lists'
+    | 'Today and All'
+    | 'Pages with Find'
+    | 'Meeting mode'
     | 'Panels'
     | 'Whiteboard';
   /** Not bound yet: arrives with a later feature. */
@@ -32,13 +33,8 @@ export const BOARD_BIG_STEP = 10;
 export const SHORTCUTS: Shortcut[] = [
   {
     keys: ['n'],
-    action: 'Add a task (the new-task panel)',
-    scope: 'Anywhere',
-  },
-  { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },
-  {
-    keys: ['Shift+L'],
-    action: 'New list (on a list’s page: add an item to it)',
+    action:
+      'Capture: go to the capture line (where there is none, the new-task panel)',
     scope: 'Anywhere',
   },
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
@@ -51,6 +47,31 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['Esc'],
     action: 'Close the panel or menu; clear a selection',
     scope: 'Anywhere',
+  },
+  {
+    keys: ['Enter'],
+    action: 'Save it; in the @ or # menu, pick the highlighted one',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Shift+Enter'],
+    action: 'Write it as a longer note, in the full composer',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Tab'],
+    action: 'Change what it becomes: note, task, to decide, waiting on',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['↑', '↓'],
+    action: 'Move through the @ or # menu',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Esc'],
+    action: 'Close the menu, then clear the line',
+    scope: 'Capture line',
   },
   {
     keys: ['j', 'k'],
@@ -88,34 +109,40 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Task lists and tables',
   },
   {
-    keys: ['Alt+↑', 'Alt+↓'],
-    action: 'Move the task up or down (project page)',
-    scope: 'Task lists and tables',
-  },
-  {
     keys: ['Space'],
-    action: 'Select the focused row (Tasks table)',
+    action: 'Select the focused row (All’s task table)',
     scope: 'Task lists and tables',
   },
   {
     keys: ['⌘A', 'Ctrl+A'],
-    action: 'Select every row in the group (Tasks table)',
+    action: 'Select every row in the group (All’s task table)',
     scope: 'Task lists and tables',
   },
   {
     keys: ['v'],
-    action: 'Next layout (Table, Board, Timeline …)',
-    scope: 'Collection pages',
+    action: 'Next layout (List, Table, Board …), or Day and Week on Today',
+    scope: 'Today and All',
   },
   {
     keys: ['f'],
     action: 'Go to Find',
-    scope: 'Lists',
+    scope: 'Pages with Find',
   },
   {
     keys: ['Esc'],
     action: 'In Find: clear it, then leave it',
-    scope: 'Lists',
+    scope: 'Pages with Find',
+  },
+  {
+    keys: ['Esc'],
+    action:
+      'Leave, back to where you came from (in the note composer, first step out of it)',
+    scope: 'Meeting mode',
+  },
+  {
+    keys: ['⌘Enter', 'Ctrl+Enter'],
+    action: 'Save the note',
+    scope: 'Meeting mode',
   },
   { keys: ['⌘Enter', 'Ctrl+Enter'], action: 'Save', scope: 'Panels' },
   {

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { MCP_OP_TYPES, type ServerMessage } from '#shared/protocol';
-import { MAIN_SPACE } from '#shared/types';
+import { EXPORT_FORMAT, MAIN_SPACE } from '#shared/types';
 import { SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { handleMcpPost } from '../worker/mcp/protocol';
@@ -15,6 +15,7 @@ import {
 } from '../worker/mcp/tool';
 import { TOOLS } from '../worker/mcp/tools';
 import { zonedWeekEnding } from '../worker/mcp/tools/digest';
+import { RETIRED } from '../worker/mcp/tools/retired';
 import fixture from './fixtures/export.json';
 
 /**
@@ -258,111 +259,278 @@ describe('the read tools', () => {
     );
   });
 
-  it('get_focus: the due buckets, waiting on, attention and the seven-day agenda', async () => {
-    const ctx = await seeded();
-    const out = await call(ctx, 'get_focus', { today: TODAY });
-    expect(ids(out.due.overdue.items)).toEqual(['t-1']);
-    expect(ids(out.due.upcoming.items)).toEqual(['t-5', 't-4']);
-    expect(out.due.noDate).toBe(1);
-    expect(out.waitingOn).toHaveLength(1);
-    expect(out.waitingOn[0].person).toEqual({ id: 'u-han', name: 'Han Solo' });
-    expect(out.me).toEqual({ id: 'u-leia', name: 'Leia Organa' });
-    // Shield review today; Quarterly planning (1 Dec) is past the week.
-    expect(
-      out.agenda.items.map((i: { kind: string; id: string }) => [i.kind, i.id]),
-    ).toEqual([['meeting', 'e-1']]);
-    expect(out.agenda.items[0].prep).toMatch(/1 of 2 topics left/);
-    // Only the assignee's work with a filter.
-    const han = await call(ctx, 'get_focus', {
-      today: TODAY,
-      assignee: 'Han Solo',
+  describe('v2: Today, loops, Scratch and rooms (#340)', () => {
+    const lane = (out: Json) => ({
+      mine: ids(out.mine.items),
+      waiting: out.waiting.map((g: Json) => [
+        g.person?.id ?? null,
+        ids(g.tasks.items),
+      ]),
+      decide: ids(out.decide.items),
     });
-    expect(ids(han.due.overdue.items)).toEqual([]);
-    expect(ids(han.due.upcoming.items)).toEqual(['t-5']);
-    expect(out.days).toBe(7);
-  });
-
-  it('get_focus looks as far ahead as Settings → Pages says', async () => {
-    const ctx = await seeded();
-    const set = (days: string) =>
+    const setFocus = (ctx: McpToolContext, filters: Record<string, string>) =>
       ctx.datapad.import(MAIN_SPACE, {
-        settings: {
-          user: { defaultOrg: '', pages: { focus: { filters: { days } } } },
-        },
+        settings: { user: { defaultOrg: '', pages: { focus: { filters } } } },
       });
-    expect((await set('3')).ok).toBe(true);
-    const short = await call(ctx, 'get_focus', { today: TODAY });
-    expect(short.days).toBe(3);
-    expect(ids(short.due.upcoming.items)).toEqual(['t-5']);
-    expect(short.due.later).toBe(1);
-    expect((await set('14')).ok).toBe(true);
-    const long = await call(ctx, 'get_focus', { today: TODAY });
-    expect(long.days).toBe(14);
-    expect(ids(long.due.upcoming.items)).toEqual(['t-5', 't-4']);
-  });
 
-  it('get_focus and get_recap follow Focus’s other settings (#311)', async () => {
-    const ctx = await seeded();
-    const before = await call(ctx, 'get_focus', { today: TODAY });
-    const attending = (out: Json) =>
-      out.attention.map((a: Json) => [a.project.id, a.reasons]);
-    expect(attending(before)).not.toContainEqual([
-      'p-echo',
-      'target in 18 days',
-    ]);
-    const saved = await ctx.datapad.import(MAIN_SPACE, {
-      settings: {
-        user: {
-          defaultOrg: '',
-          pages: {
-            focus: { filters: { who: 'mine', target: '30', quiet: 'off' } },
-          },
+    it('get_today: the line, the day’s meetings, due, the next meeting and the lanes', async () => {
+      const ctx = await seeded();
+      const out = await call(ctx, 'get_today', { today: TODAY });
+      expect(out.today).toBe(TODAY);
+      expect(out.line).toBe(
+        '1 meeting, 1 due, 2 waiting on others, 0 to decide',
+      );
+      expect(ids(out.meetings.items)).toEqual(['e-1']);
+      expect(ids(out.due.items)).toEqual(['t-1']);
+      // A day other than the owner's today counts from its start.
+      expect(out.nextMeeting.id).toBe('e-1');
+      expect(lane(out.lanes)).toEqual({
+        mine: ['t-1', 't-4', 't-6'],
+        waiting: [['u-han', ['t-5', 't-2']]],
+        decide: [],
+      });
+      expect(out.lanes.counts).toEqual({ mine: 3, waiting: 2, decide: 0 });
+      expect(out.scratch).toBe(1);
+      expect(out.unfiled).toBe(1);
+      expect(out.me).toEqual({ id: 'u-leia', name: 'Leia Organa' });
+      // The next day: Shield review is behind it, Quarterly planning is
+      // past the seven days.
+      const next = await call(ctx, 'get_today', { today: '2026-10-28' });
+      expect(next.nextMeeting).toBeNull();
+      expect(ids(next.due.items)).toEqual(['t-1', 't-5']);
+    });
+
+    it('get_focus is get_today under its old name', async () => {
+      const ctx = await seeded();
+      const today = await call(ctx, 'get_today', { today: TODAY });
+      const focus = await call(ctx, 'get_focus', { today: TODAY });
+      expect(focus).toEqual(today);
+      expect(INSTRUCTIONS).toContain('get_today for the day');
+      expect(INSTRUCTIONS).toContain('get_focus is the same');
+      expect(tool('get_focus').input.shape).toEqual(
+        tool('get_today').input.shape,
+      );
+    });
+
+    it('list_unfiled is list_scratch under its old name', async () => {
+      const ctx = await seeded();
+      const scratch = await call(ctx, 'list_scratch', {});
+      expect(await call(ctx, 'list_unfiled', {})).toEqual(scratch);
+      expect(INSTRUCTIONS).toContain('list_scratch for notes');
+      expect(INSTRUCTIONS).toContain('list_unfiled is the same');
+      expect(tool('list_unfiled').input.shape).toEqual(
+        tool('list_scratch').input.shape,
+      );
+    });
+
+    it('get_today follows Tasks for and the days Settings → Pages sets', async () => {
+      const ctx = await seeded();
+      const day = '2026-11-20';
+      const before = await call(ctx, 'get_today', { today: day });
+      expect(before.nextMeeting).toBeNull();
+      expect((await setFocus(ctx, { who: 'mine', days: '14' })).ok).toBe(true);
+      const out = await call(ctx, 'get_today', { today: day });
+      // Mine: only Leia's (marked as me).
+      expect(ids(out.lanes.mine.items)).toEqual(['t-1']);
+      // Quarterly planning on 1 Dec is within 14 days, not within 7.
+      expect(out.nextMeeting.id).toBe('e-4');
+    });
+
+    it('get_loops: the lanes, for a project, a person, both, or General', async () => {
+      const ctx = await seeded();
+      const all = await call(ctx, 'get_loops', {});
+      expect(lane(all)).toEqual({
+        mine: ['t-1', 't-4', 't-6'],
+        waiting: [['u-han', ['t-5', 't-2']]],
+        decide: [],
+      });
+      expect(all).not.toHaveProperty('project');
+      const echo = await call(ctx, 'get_loops', { project: 'echo base' });
+      expect(echo.project).toEqual({
+        id: 'p-echo',
+        name: 'Echo Base relocation',
+      });
+      expect(lane(echo)).toEqual({
+        mine: ['t-1', 't-4'],
+        waiting: [['u-han', ['t-2']]],
+        decide: [],
+      });
+      // Han: assigned (t-5), blocked on (t-2), mentioned (t-1).
+      const han = await call(ctx, 'get_loops', { person: 'han' });
+      expect(han.person).toEqual({ id: 'u-han', name: 'Han Solo' });
+      expect(lane(han)).toEqual({
+        mine: ['t-1'],
+        waiting: [['u-han', ['t-5', 't-2']]],
+        decide: [],
+      });
+      const both = await call(ctx, 'get_loops', {
+        project: 'p-falcon',
+        person: 'u-han',
+      });
+      expect(lane(both)).toEqual({
+        mine: [],
+        waiting: [['u-han', ['t-5']]],
+        decide: [],
+      });
+      const general = await call(ctx, 'get_loops', { project: 'general' });
+      expect(general.project).toEqual({ id: 'general', name: 'General' });
+      expect(lane(general).mine).toEqual(['t-6']);
+      // A task to decide leaves Mine for To decide.
+      expect(
+        (
+          await ctx.datapad.import(MAIN_SPACE, {
+            tasks: { 't-4': { ...fixture.tasks['t-4'], decide: true } },
+          })
+        ).ok,
+      ).toBe(true);
+      const after = await call(ctx, 'get_loops', { project: 'p-echo' });
+      expect(lane(after)).toMatchObject({ mine: ['t-1'], decide: ['t-4'] });
+      expect(after.decide.items[0].decide).toBe(true);
+    });
+
+    it('list_scratch: notes with no home, newest first', async () => {
+      const ctx = await seeded();
+      const out = await call(ctx, 'list_scratch', {});
+      expect(ids(out.notes.items)).toEqual(['n-3']);
+      expect(out.notes.items[0]).toMatchObject({
+        project: null,
+        scratch: true,
+        unfiled: true,
+      });
+      // A note that mentions someone has a home.
+      const notes = await call(ctx, 'list_notes', { project: 'general' });
+      for (const n of notes.notes.items) {
+        expect(n.scratch, n.id).toBe(n.id === 'n-3');
+      }
+    });
+
+    it('get_room: a project’s room is get_project plus state line, people, lanes and stream', async () => {
+      const ctx = await seeded();
+      const project = await call(ctx, 'get_project', {
+        project: 'p-echo',
+        today: TODAY,
+      });
+      const room = await call(ctx, 'get_room', {
+        room: 'echo base',
+        today: TODAY,
+      });
+      expect(room.kind).toBe('project');
+      for (const key of Object.keys(project)) {
+        expect(room[key], key).toEqual(project[key]);
+      }
+      expect(room.stateLine).toMatch(/Next: Base operational, 2026-11-14/);
+      expect(room.stateLine).toMatch(/3 open$/);
+      expect(ids(room.people)).toEqual(['u-leia', 'u-han', 'u-chewie']);
+      expect(lane(room.lanes)).toEqual({
+        mine: ['t-1', 't-4'],
+        waiting: [['u-han', ['t-2']]],
+        decide: [],
+      });
+      expect(room.narrowedTo).toBeNull();
+      // Coming up, soonest first: the meeting today, then the milestone.
+      expect(
+        room.upcoming.items.map((i: Json) => [
+          i.kind,
+          (i.meeting ?? i.milestone).id,
+        ]),
+      ).toEqual([
+        ['meeting', 'e-1'],
+        ['milestone', 'e-2'],
+      ]);
+      const ats = room.stream.items.map((i: Json) => i.at);
+      expect(ats).toEqual([...ats].sort().reverse());
+      expect(room.stream.items.some((i: Json) => i.kind === 'note')).toBe(true);
+      const done = room.stream.items.find(
+        (i: Json) => i.kind === 'task' && i.event === 'done',
+      );
+      expect(done.task.id).toBe('t-3');
+
+      // Narrowed to Han: only what touches him, and no milestones.
+      const han = await call(ctx, 'get_room', {
+        room: 'p-echo',
+        person: 'han',
+        today: TODAY,
+        limit: 1,
+      });
+      expect(han.narrowedTo).toEqual({ id: 'u-han', name: 'Han Solo' });
+      expect(lane(han.lanes)).toEqual({
+        mine: ['t-1'],
+        waiting: [['u-han', ['t-2']]],
+        decide: [],
+      });
+      expect(ids(han.upcoming.items.map((i: Json) => i.meeting))).toEqual([
+        'e-1',
+      ]);
+      expect(han.stream.items).toHaveLength(1);
+      expect(han.stream.truncated).toBe(true);
+    });
+
+    it('get_room: a person’s room, and the name rule across projects and people', async () => {
+      const ctx = await seeded();
+      const han = await call(ctx, 'get_room', { room: 'han', today: TODAY });
+      expect(han.kind).toBe('person');
+      expect(han.person).toEqual({
+        id: 'u-han',
+        name: 'Han Solo',
+        role: expect.any(String),
+        me: false,
+      });
+      expect(lane(han.lanes)).toEqual({
+        mine: ['t-1'],
+        waiting: [['u-han', ['t-5', 't-2']]],
+        decide: [],
+      });
+      const kinds = new Set(
+        [...han.upcoming.items, ...han.stream.items].map((i: Json) => i.kind),
+      );
+      expect(kinds).toEqual(new Set(['task', 'meeting']));
+      // Meetings he attends, past and coming.
+      expect(ids(han.upcoming.items.map((i: Json) => i.meeting))).toEqual([
+        'e-1',
+      ]);
+      expect(
+        han.stream.items
+          .filter((i: Json) => i.kind === 'meeting')
+          .map((i: Json) => i.meeting.id),
+      ).toEqual(['e-3']);
+      // From shared/stream.ts's person selectors (#335).
+      expect(ids(han.projects)).toEqual(['p-echo', 'p-falcon']);
+      expect(han.stateLine).toMatch(/2 projects · 3 open$/);
+      expect(han.narrowedTo).toBeNull();
+      expect(han.toDiscuss.items).toEqual([
+        {
+          meeting: { id: 'e-1', title: 'Shield review', date: TODAY },
+          topic: { id: 'tp-2', title: 'North ridge' },
         },
-      },
+      ]);
+      const falcon = await call(ctx, 'get_room', {
+        room: 'han',
+        project: 'falcon',
+        today: TODAY,
+      });
+      expect(falcon.narrowedTo).toEqual({
+        id: 'p-falcon',
+        name: 'Falcon hyperdrive refit',
+      });
+      expect(lane(falcon.lanes)).toEqual({
+        mine: [],
+        waiting: [['u-han', ['t-5']]],
+        decide: [],
+      });
+      expect(falcon.toDiscuss.items).toEqual([]);
+      expect(
+        await fails(ctx, 'get_room', { room: 'han', person: 'leia' }),
+      ).toMatch(/narrows a project’s room/);
+      expect(
+        await fails(ctx, 'get_room', { room: 'p-echo', project: 'falcon' }),
+      ).toMatch(/narrows a person’s room/);
+      expect(await fails(ctx, 'get_room', { room: 'echo' })).toBe(
+        '"echo" matches 2 rooms; pass one of these ids: p-echo (Echo Base relocation, a project); p-station (Echo Station upkeep, a project).',
+      );
+      expect(await fails(ctx, 'get_room', { room: 'Vader' })).toBe(
+        'No room matches "Vader".',
+      );
     });
-    expect(saved.ok).toBe(true);
-    const out = await call(ctx, 'get_focus', { today: TODAY });
-    // Tasks for: Mine (Leia Organa is marked as me).
-    expect(ids(out.due.overdue.items)).toEqual(['t-1']);
-    expect(ids(out.due.upcoming.items)).toEqual([]);
-    expect(out.waitingOn).toEqual([]);
-    // A target within 30 days, and nothing quiet.
-    expect(attending(out)).toContainEqual(['p-echo', 'target in 18 days']);
-    for (const a of out.attention) expect(a.reasons).not.toMatch(/quiet/);
-    // An assignee given here wins.
-    const han = await call(ctx, 'get_focus', {
-      today: TODAY,
-      assignee: 'Han Solo',
-    });
-    expect(ids(han.due.upcoming.items)).toEqual(['t-5']);
-  });
-
-  it('get_focus lists High priority past the window, whatever its date', async () => {
-    const ctx = await seeded();
-    const { sourceNoteId: _, ...plain } = fixture.tasks['t-4'];
-    const task = (id: string, fields: Record<string, unknown>) => ({
-      ...plain,
-      id,
-      title: `Important ${id}`,
-      ...fields,
-    });
-    const added = await ctx.datapad.import(MAIN_SPACE, {
-      tasks: {
-        'h-1': task('h-1', { priority: 'high', due: '2026-12-01' }),
-        'h-2': task('h-2', { priority: 'high', due: '' }),
-        'h-3': task('h-3', { priority: 'med', due: '' }),
-        'h-4': task('h-4', {
-          priority: 'high',
-          due: '',
-          blocked: { on: null, note: '' },
-        }),
-      },
-    });
-    expect(added.ok).toBe(true);
-    const out = await call(ctx, 'get_focus', { today: TODAY });
-    expect(ids(out.due.high.items)).toEqual(['h-1', 'h-2']);
-    expect(out.due.later).toBe(1);
-    expect(out.due.noDate).toBe(3);
   });
 
   describe('get_recap (#260)', () => {
@@ -637,8 +805,10 @@ describe('the read tools', () => {
   it('list_notes: the Notepad is a General note, marked as the Notepad', async () => {
     const ctx = await seeded();
     expect(
+      // A format 3 Notepad: only an old client's writeNotepad makes one.
       (
         await ctx.datapad.import(MAIN_SPACE, {
+          format: EXPORT_FORMAT,
           exportedAt: '2026-10-27T10:00:00.000Z',
           notes: {
             'n-pad': {
@@ -658,8 +828,10 @@ describe('the read tools', () => {
     ).toBe(true);
     const general = await call(ctx, 'list_notes', { project: 'general' });
     expect(ids(general.notes.items)).toEqual(['n-pad', 'n-3']);
+    // `notepad` is the old Notepad flag (`Note.scratch`); `scratch` is Scratch.
     expect(general.notes.items[0]).toMatchObject({
       notepad: true,
+      scratch: false,
       project: null,
       body: 'Ask @Han Solo about the heaters',
     });
@@ -838,11 +1010,13 @@ describe('the conventions', () => {
     for (const name of TOOLS.filter((t) => t.scope === 'read').map(
       (t) => t.name,
     )) {
-      if (name === 'whoami' || name === 'list_spaces') continue;
+      if (name === 'whoami' || name === 'list_spaces' || RETIRED.has(name)) {
+        continue;
+      }
       const args: Record<string, unknown> = { space: 'dagobah' };
       if (name === 'get_project') args.project = 'p-echo';
       if (name === 'search') args.query = 'x';
-      if (name === 'get_list') args.list = 'x';
+      if (name === 'get_room') args.room = 'p-echo';
       expect(await fails(ctx, name, args), name).toBe(
         'There is no space "dagobah". Call list_spaces for the ids.',
       );
@@ -851,7 +1025,7 @@ describe('the conventions', () => {
 
   it('every read tool is read-only and needs only the read scope', () => {
     const reads = TOOLS.filter((t) => t.scope === 'read');
-    expect(reads).toHaveLength(16);
+    expect(reads).toHaveLength(21);
     for (const t of reads) {
       expect(t.scope, t.name).toBe('read');
       expect(t.annotations.readOnlyHint, t.name).toBe(true);
@@ -1106,6 +1280,90 @@ describe('the write tools', () => {
     expect(lines(off)).toEqual([
       'Unblocked "Confirm shield generator delivery"',
     ]);
+  });
+
+  it('to decide: add_task and edit_task take decide; set_decide marks and clears it', async () => {
+    const ctx = await writer();
+    const added = await call(ctx, 'add_task', {
+      title: 'Pick the new base',
+      project: 'echo base',
+      decide: true,
+    });
+    expect(added.task.decide).toBe(true);
+    expect(lines(added)).toEqual(['Added task "Pick the new base"']);
+    const plain = await call(ctx, 'add_task', { title: 'Sweep the hangar' });
+    expect(plain.task.decide).toBe(false);
+
+    const edited = await call(ctx, 'edit_task', {
+      task: added.task.id,
+      decide: false,
+    });
+    expect(edited.task.decide).toBe(false);
+    expect(lines(edited)).toEqual(['Edited task "Pick the new base"']);
+
+    const marked = await call(ctx, 'set_decide', { task: 'book the tauntaun' });
+    expect(marked.task).toMatchObject({ id: 't-4', decide: true });
+    expect(lines(marked)).toEqual(['Marked "Book the tauntaun vet" to decide']);
+    const loops = await call(ctx, 'get_loops', { project: 'p-echo' });
+    expect(ids(loops.decide.items)).toEqual(['t-4']);
+    // Saying the outcome twice is once.
+    const again = await call(ctx, 'set_decide', { task: 't-4' });
+    expect(again.activity).toEqual([]);
+    const decided = await call(ctx, 'set_decide', {
+      task: 't-4',
+      decide: false,
+    });
+    expect(decided.task).toMatchObject({ decide: false, status: 'open' });
+    expect(lines(decided)).toEqual(['Decided "Book the tauntaun vet"']);
+  });
+
+  it('add_note with no home lands in Scratch; file_note files it', async () => {
+    const ctx = await writer();
+    const loose = await call(ctx, 'add_note', { body: 'Spare parts idea.' });
+    expect(loose.note).toMatchObject({ project: null, scratch: true });
+    const mention = await call(ctx, 'add_note', { body: 'Ask @Han Solo.' });
+    expect(mention.note.scratch).toBe(false);
+    const scratch = await call(ctx, 'list_scratch', {});
+    expect(ids(scratch.notes.items)).toEqual([loose.note.id, 'n-3']);
+
+    const filed = await call(ctx, 'file_note', {
+      note: loose.note.id,
+      project: 'falcon',
+    });
+    expect(filed.note).toMatchObject({
+      id: loose.note.id,
+      project: { id: 'p-falcon', name: 'Falcon hyperdrive refit' },
+      body: 'Spare parts idea.',
+      scratch: false,
+      createdAt: loose.note.createdAt,
+    });
+    expect(filed.activity).toEqual([
+      {
+        project: { id: 'p-falcon', name: 'Falcon hyperdrive refit' },
+        text: 'Filed a note to "Falcon hyperdrive refit"',
+      },
+    ]);
+    const after = await call(ctx, 'list_scratch', {});
+    expect(ids(after.notes.items)).toEqual(['n-3']);
+    // Where it already is: nothing changes.
+    const same = await call(ctx, 'file_note', {
+      note: loose.note.id,
+      project: 'p-falcon',
+    });
+    expect(same.activity).toEqual([]);
+    // Back to no project.
+    const back = await call(ctx, 'file_note', {
+      note: loose.note.id,
+      project: 'general',
+    });
+    expect(back.note.project).toBeNull();
+
+    expect(
+      await fails(ctx, 'file_note', { note: 'n-2', project: 'p-falcon' }),
+    ).toMatch(/belongs to a meeting/);
+    expect(
+      await fails(ctx, 'file_note', { note: 'n-nope', project: 'p-falcon' }),
+    ).toMatch(/^No note has the id "n-nope"/);
   });
 
   it('add_note: in a project, on a meeting, on a task; not both', async () => {
@@ -1463,14 +1721,19 @@ describe('the write tools', () => {
       date: '+1w',
       today: TODAY,
     });
-    const list = await run('add_list', { title: 'Hangar kit' });
-    await run('add_list_item', { list: list.list.id, text: 'Hydrospanners' });
-    await run('check_list_item', {
-      list: list.list.id,
-      item: 'hydrospanners',
-    });
+    await run('set_decide', { task: 't-4' });
+    await run('file_note', { note: 'n-3', project: 'p-falcon' });
+    // The retired list tools send nothing.
+    for (const name of RETIRED) {
+      used.add(name);
+      if (tool(name).scope === 'write') {
+        expect(await fails(rec, name, { title: 'Hangar kit' })).toMatch(
+          /is retired/,
+        );
+      }
+    }
     // Every write tool ran, and each op it sent is on the list.
-    expect([...used].sort()).toEqual(
+    expect([...used].filter((n) => tool(n).scope === 'write').sort()).toEqual(
       TOOLS.filter((t) => t.scope === 'write')
         .map((t) => t.name)
         .sort(),
@@ -1498,7 +1761,7 @@ describe('the write tools', () => {
       ).json()) as Json;
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
     const names = list.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toHaveLength(16);
+    expect(names).toHaveLength(21);
     expect(names).not.toContain('add_task');
     const refused = await post({
       jsonrpc: '2.0',
@@ -1521,7 +1784,9 @@ describe('the write tools', () => {
       'reopen_task',
       'edit_task',
       'set_blocked',
+      'set_decide',
       'add_note',
+      'file_note',
       'add_meeting',
       'add_topic',
       'cover_topic',
@@ -1544,7 +1809,7 @@ describe('the write tools', () => {
   });
 });
 
-/* ---- Lists (#302) --------------------------------------------------------- */
+/* ---- Lists (#302), retired (#340) ---------------------------------------- */
 
 const LT = '2026-10-21T09:00:00.000Z';
 const item = (id: string, text: string, done = false) => ({
@@ -1592,76 +1857,50 @@ async function withLists(write = false): Promise<McpToolContext> {
   return ctx;
 }
 
-describe('the list tools', () => {
-  it('list_lists: newest first, with progress, filtered by project, state and text', async () => {
-    const ctx = await withLists();
-    const all = await call(ctx, 'list_lists', {});
-    expect(ids(all.lists.items)).toEqual(['l-books', 'l-evac', 'l-done']);
-    expect(all.lists).toMatchObject({ count: 3, truncated: false });
-    expect(all.lists.items[1]).toEqual({
-      id: 'l-evac',
-      title: 'Evacuation checklist',
-      project: { id: 'p-echo', name: 'Echo Base relocation' },
-      done: 1,
-      total: 3,
-      progress: '1 of 3',
-      createdAt: LT,
-      updatedAt: '2026-10-22T09:00:00.000Z',
-    });
-    expect(all.lists.items[1]).not.toHaveProperty('items');
-
-    const echo = await call(ctx, 'list_lists', { project: 'echo base' });
-    expect(ids(echo.lists.items)).toEqual(['l-evac', 'l-done']);
-    const general = await call(ctx, 'list_lists', { project: 'general' });
-    expect(ids(general.lists.items)).toEqual(['l-books']);
-    const open = await call(ctx, 'list_lists', { state: 'in-progress' });
-    expect(ids(open.lists.items)).toEqual(['l-books', 'l-evac']);
-    const done = await call(ctx, 'list_lists', { state: 'done' });
-    expect(ids(done.lists.items)).toEqual(['l-done']);
-    const text = await call(ctx, 'list_lists', { query: 'ION cannon' });
-    expect(ids(text.lists.items)).toEqual(['l-evac']);
-    const capped = await call(ctx, 'list_lists', { limit: 1 });
-    expect(capped.lists).toMatchObject({ count: 3, truncated: true });
-    expect(capped.lists.items).toHaveLength(1);
+describe('the retired list tools (#340)', () => {
+  it('each answers with an error pointing to notes and changes nothing', async () => {
+    const ctx = await withLists(true);
+    const before = await ctx.datapad.snapshot(MAIN_SPACE);
+    const args: Record<string, Record<string, unknown>> = {
+      list_lists: { project: 'echo base' },
+      get_list: { list: 'l-evac' },
+      add_list: { title: 'Offsite', requestId: 'retired-add-list' },
+      add_list_item: { list: 'l-evac', text: 'Book the venue' },
+      check_list_item: { list: 'l-evac', item: 'li-2' },
+    };
+    expect([...RETIRED].sort()).toEqual(Object.keys(args).sort());
+    for (const [name, given] of Object.entries(args)) {
+      const error = await fails(ctx, name, given);
+      expect(error, name).toMatch(
+        new RegExp(
+          `^${name} is retired\\. Lists are retired: every list is now a checklist note`,
+        ),
+      );
+      expect(tool(name).description, name).toMatch(/^Retired:/);
+      expect(tool(name).annotations.destructiveHint, name).toBe(false);
+    }
+    const after = await ctx.datapad.snapshot(MAIN_SPACE);
+    expect(after.seq).toBe(before.seq);
+    expect(after.state).toEqual(before.state);
   });
 
-  it('get_list: by id or title, items in order; a shared name lists the candidates', async () => {
-    const ctx = await withLists();
-    const out = await call(ctx, 'get_list', { list: 'books to read' });
-    expect(out.list).toMatchObject({ id: 'l-books', items: [] });
-    const evac = await call(ctx, 'get_list', { list: 'l-evac' });
-    expect(evac.list.progress).toBe('1 of 3');
-    expect(evac.list.items).toEqual([
-      item('li-1', 'Load the transports', true),
-      item('li-2', 'Arm the ion cannon'),
-      item('li-3', 'Brief the pilots'),
-    ]);
-    expect(await fails(ctx, 'get_list', { list: 'evacuation' })).toBe(
-      '"evacuation" matches 2 lists; pass one of these ids: l-evac (Evacuation checklist, Echo Base relocation); l-done (Evacuation drills, Echo Base relocation).',
-    );
-    expect(await fails(ctx, 'get_list', { list: 'Groceries' })).toBe(
-      'No list matches "Groceries".',
-    );
-  });
-
-  it('get_project lists the project’s lists; get_overview counts those in progress', async () => {
+  it('get_project and get_overview no longer show lists', async () => {
     const ctx = await withLists();
     const project = await call(ctx, 'get_project', {
       project: 'p-echo',
       today: TODAY,
     });
-    expect(ids(project.lists.items)).toEqual(['l-evac', 'l-done']);
-    expect(project.lists.items[0].progress).toBe('1 of 3');
+    expect(project).not.toHaveProperty('lists');
     const general = await call(ctx, 'get_project', {
       project: 'general',
       today: TODAY,
     });
-    expect(ids(general.lists.items)).toEqual(['l-books']);
+    expect(general).not.toHaveProperty('lists');
     const overview = await call(ctx, 'get_overview', { today: TODAY });
-    expect(overview.counts.listsInProgress).toBe(2);
+    expect(overview.counts).not.toHaveProperty('listsInProgress');
   });
 
-  it('search finds a list by its title and by an item, the item as the snippet', async () => {
+  it('search still finds a list by its title and by an item, as ⌘K does', async () => {
     const ctx = await withLists();
     const byItem = await call(ctx, 'search', {
       query: 'ion cannon',
@@ -1677,83 +1916,6 @@ describe('the list tools', () => {
         archived: false,
       },
     ]);
-    const byTitle = await call(ctx, 'search', { query: 'books' });
-    expect(byTitle.counts.list).toBe(1);
-    expect(
-      byTitle.hits.find((h: { kind: string }) => h.kind === 'list'),
-    ).toMatchObject({ id: 'l-books', snippet: '' });
-  });
-
-  it('add_list, add_list_item and check_list_item write through apply()', async () => {
-    const ctx = await withLists(true);
-    const added = await call(ctx, 'add_list', {
-      title: 'Offsite',
-      project: 'Echo Base',
-    });
-    expect(added.list).toMatchObject({
-      title: 'Offsite',
-      project: { id: 'p-echo' },
-      items: [],
-      progress: '0 of 0',
-    });
-    expect(lines(added)).toEqual(['Added the list "Offsite"']);
-    const general = await call(ctx, 'add_list', { title: 'Errands' });
-    expect(general.list.project).toBeNull();
-    expect(general.activity[0].project).toBeNull();
-
-    const one = await call(ctx, 'add_list_item', {
-      list: 'offsite',
-      text: 'Book the venue',
-    });
-    expect(one.item).toMatchObject({ text: 'Book the venue', done: false });
-    expect(one.activity).toEqual([]);
-    await call(ctx, 'add_list_item', { list: 'offsite', text: 'Book travel' });
-
-    const checked = await call(ctx, 'check_list_item', {
-      list: 'offsite',
-      item: 'venue',
-    });
-    expect(checked.item).toMatchObject({ text: 'Book the venue', done: true });
-    expect(checked.item.doneAt).toEqual(expect.any(String));
-    expect(checked.list.progress).toBe('1 of 2');
-    expect(checked.activity).toEqual([]);
-    const unchecked = await call(ctx, 'check_list_item', {
-      list: added.list.id,
-      item: one.item.id,
-      done: false,
-    });
-    expect(unchecked.item).toMatchObject({ done: false, doneAt: null });
-
-    expect(
-      await fails(ctx, 'check_list_item', { list: 'offsite', item: 'book' }),
-    ).toMatch(/^"book" matches 2 items; pass one of these ids: /);
-    expect(
-      await fails(ctx, 'add_list_item', { list: 'evacuation', text: 'X' }),
-    ).toMatch(/^"evacuation" matches 2 lists/);
-    expect(await fails(ctx, 'add_list', { title: '  ' })).toMatch(
-      /^Invalid arguments: title/,
-    );
-  });
-
-  it('add_list and add_list_item with a requestId do not repeat on a retry', async () => {
-    const ctx = await withLists(true);
-    const requestId = crypto.randomUUID();
-    const first = await call(ctx, 'add_list', { title: 'Retry', requestId });
-    const again = await call(ctx, 'add_list', { title: 'Retry', requestId });
-    expect(again.list.id).toBe(first.list.id);
-    const itemId = crypto.randomUUID();
-    const a = await call(ctx, 'add_list_item', {
-      list: first.list.id,
-      text: 'Once',
-      requestId: itemId,
-    });
-    const b = await call(ctx, 'add_list_item', {
-      list: first.list.id,
-      text: 'Once',
-      requestId: itemId,
-    });
-    expect(b.item.id).toBe(a.item.id);
-    expect(b.list.total).toBe(1);
   });
 });
 
@@ -1845,7 +2007,9 @@ describe('retries and the owner’s text (#244)', () => {
   });
 
   it('every write tool takes a requestId; edit_task alone is marked destructive', () => {
-    for (const t of TOOLS.filter((x) => x.scope === 'write')) {
+    for (const t of TOOLS.filter(
+      (x) => x.scope === 'write' && !RETIRED.has(x.name),
+    )) {
       expect(Object.keys(t.input.shape), t.name).toContain('requestId');
     }
     const edit = tool('edit_task');

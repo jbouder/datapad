@@ -1,37 +1,68 @@
-import { GENERAL_BOARD } from './types';
+import { GENERAL_BOARD, type RoomTab } from './types';
 
 /**
- * The app's addresses, as pure functions: what a path means, the path for
- * a route, the old addresses that settle on new ones, the nav section and
- * the title. `src/lib/router.ts` holds the history and React halves.
+ * The app's addresses, as pure functions: what an address means, the
+ * address for a route, the old addresses that settle on new ones, the
+ * rail's place and the title. `src/lib/router.ts` holds the history and
+ * React halves.
+ *
+ * v2 (#329) has three places and the rooms: Today (`/`), Scratch
+ * (`/scratch`), All (`/all`, `?kind=` picks kinds), the rooms list for
+ * the phone (`/rooms`), a project's room
+ * (`/projects/:id`), a person's room (`/people/:id`) and a meeting
+ * (`/meetings/:id`). Every address from before lands on its new home
+ * (`landRoute`).
  */
 
+/**
+ * The kinds All lists (`/all?kind=`, #337), in their order: one or
+ * several, comma separated; none is every kind.
+ */
+export const ALL_KINDS = [
+  'task',
+  'note',
+  'meeting',
+  'project',
+  'person',
+] as const;
+export type AllKind = (typeof ALL_KINDS)[number];
+
 export type Route =
-  | { name: 'focus' }
-  | { name: 'projects' }
-  | { name: 'archive' }
-  | { name: 'project'; id: string }
-  | { name: 'tasks' }
-  /** One task's page (`/tasks/:id`), opened from Tasks. */
-  | { name: 'task'; id: string }
-  | { name: 'notes' }
-  /** The space's Notepad (#261), a tool: its one running note. */
-  | { name: 'notepad' }
-  | { name: 'meetings' }
-  /** Every list (#299). */
-  | { name: 'lists' }
-  /** One list's page (`/lists/:id`), where its items are ticked. */
-  | { name: 'list'; id: string }
-  /** One meeting's page (`/meetings/:id`). */
-  | { name: 'meeting'; id: string }
-  | { name: 'digest' }
+  | { name: 'today' }
+  /** Lines with no home yet (#333); replaces the Notepad. */
+  | { name: 'scratch' }
   /**
-   * A whiteboard: a project's (`/projects/:id/whiteboard`) or, without
-   * `project`, the space's own (`/whiteboard`).
+   * Every item of every kind (#337), or of the `kinds` given. Its filters
+   * and sort are the rest of the query (`shared/all.ts`).
+   */
+  | { name: 'all'; kinds?: readonly AllKind[] }
+  /**
+   * The rail's rooms as a page (`/rooms`): the phone's Rooms tab, since
+   * the rail is desktop only. Harmless on desktop.
+   */
+  | { name: 'rooms' }
+  /**
+   * A project's room (#334): the Stream tab, or with `tab` the Plan tab
+   * (`/projects/:id/plan`). Its Whiteboard tab is the project's
+   * `whiteboard` route.
+   */
+  | { name: 'project'; id: string; tab?: 'plan' }
+  /** A person's room (#335). */
+  | { name: 'person'; id: string }
+  /** One meeting (`/meetings/:id`); meeting mode (#336). */
+  | { name: 'meeting'; id: string }
+  /**
+   * `/tasks/:id`, from before v2: on its way to the task's room with its
+   * panel open. Needs the data to know the room, so the shell settles it.
+   */
+  | { name: 'task'; id: string }
+  /**
+   * A whiteboard: a project's (`/projects/:id/whiteboard`, its room's
+   * Whiteboard tab) or, without `project`, the space's own (`/whiteboard`).
    */
   | { name: 'whiteboard'; project?: string }
-  /** Settings → People; `person` is the one selected (`/settings/people/:id`). */
-  | { name: 'people'; person?: string }
+  /** Settings → People. */
+  | { name: 'people' }
   /** Settings → Orgs; `org` is the one open (`/settings/orgs/:id`). */
   | { name: 'orgs'; org?: string }
   | { name: 'settings'; section: SettingsSection }
@@ -48,9 +79,14 @@ export type RouteName = Route['name'];
  */
 export const SETTINGS_SECTIONS = [
   'appearance',
-  /** Each page's saved layout, sorts, filters and sections (#186). */
-  'pages',
-  'navigation',
+  /** Today's options and meeting mode's (#343): Focus's page settings. */
+  'today',
+  /** The pinned rooms (#329) and the rooms' options (#343). */
+  'rooms',
+  /** What the capture line saves (#343). */
+  'capture',
+  /** All's opening kinds, layouts, sorts and saved views (#343). */
+  'all',
   'templates',
   'summaries',
   'spaces',
@@ -63,35 +99,138 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
-/** `/decisions` and anything under it: retired (#183), now Focus. */
+/** `/decisions` and anything under it: retired (#183), now Today. */
 const DECISIONS = /^\/decisions(?:\/.*)?$/;
 
-const SIMPLE = new Set<RouteName>([
-  'projects',
-  'archive',
-  'tasks',
-  'notes',
-  'notepad',
-  'meetings',
-  'lists',
-  'digest',
-  'whiteboard',
-]);
+/** The kind each old list page shows in All. */
+const OLD_LISTS: Record<string, AllKind> = {
+  '/projects': 'project',
+  '/archive': 'project',
+  '/tasks': 'task',
+  '/notes': 'note',
+  '/meetings': 'meeting',
+  '/events': 'meeting',
+};
 
-/**
- * `/notes?view=notepad`: Notes' Notepad layout until it became a page of
- * its own (#261), `/notepad`.
- */
-function oldNotepad(clean: string, search: string): boolean {
-  return (
-    clean === '/notes' && new URLSearchParams(search).get('view') === 'notepad'
-  );
+function trim(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+}
+
+function decoded(value: string): string {
+  return decodeURIComponent(value);
 }
 
 /**
- * Where an address lands, query and all: an old one settles on its new
- * address (the Notepad layout on `/notepad`, with no query); anything
- * else is `parseRoute` with `canonicalQuery`.
+ * `?a=b`, or empty for no parameters. Commas stay commas, so All's kinds
+ * read `kind=task,note`.
+ */
+function asSearch(params: URLSearchParams): string {
+  const text = params.toString().replaceAll('%2C', ',');
+  return text ? `?${text}` : '';
+}
+
+/**
+ * The kinds a `kind` parameter names, each once, in `ALL_KINDS` order;
+ * empty (every kind) when it names none.
+ */
+export function kindsOf(value: string | null): AllKind[] {
+  const named = new Set((value ?? '').split(','));
+  return ALL_KINDS.filter((kind) => named.has(kind));
+}
+
+/**
+ * The query a route carries itself: All's `kind`. Every other route has
+ * none.
+ */
+export function routeQuery(route: Route): URLSearchParams {
+  const params = new URLSearchParams();
+  if (route.name === 'all') {
+    const kinds = kindsOf((route.kinds ?? []).join(','));
+    if (kinds.length > 0) params.set('kind', kinds.join(','));
+  }
+  return params;
+}
+
+/**
+ * A route's query with `extra` after it: the route's own keys first, and
+ * they win over the same keys in `extra`.
+ */
+export function routeSearch(route: Route, extra = ''): string {
+  const params = routeQuery(route);
+  const own = new Set(params.keys());
+  for (const [key, value] of new URLSearchParams(extra)) {
+    if (!own.has(key)) params.append(key, value);
+  }
+  return asSearch(params);
+}
+
+/** All, as the query names it: its kinds. */
+function allFrom(params: URLSearchParams): Route {
+  const kinds = kindsOf(params.get('kind'));
+  return kinds.length > 0 ? { name: 'all', kinds } : { name: 'all' };
+}
+
+/** All with `kind` and `params`: its address, its own query first. */
+function landAll(kind: AllKind, params: URLSearchParams): [Route, string] {
+  const route: Route = { name: 'all', kinds: [kind] };
+  return [route, routeSearch(route, params.toString())];
+}
+
+/**
+ * An old list page's query as All reads it (#337): Tasks' Blocked is
+ * Waiting on, its assignee is Person (Mine is `me`, Unassigned goes),
+ * Notes' and Meetings' project is Room, Projects' Active and Paused are
+ * Open; Find, Status (Done, All), Sort and Direction carry over, and the
+ * rest (layouts, grouping, Health, Org, Pinned) goes.
+ */
+function oldListQuery(
+  kind: AllKind,
+  params: URLSearchParams,
+  archived: boolean,
+): URLSearchParams {
+  const out = new URLSearchParams();
+  const q = params.get('q');
+  if (q) out.set('q', q);
+  const status = params.get('status');
+  if (archived) out.set('status', 'archived');
+  else if (status === 'done' || status === 'all') out.set('status', status);
+  else if (status === 'blocked' && kind === 'task') out.set('waiting', '1');
+  const who = params.get('who');
+  if (who === 'mine') out.set('person', 'me');
+  else if (who?.startsWith('p:') && who.length > 2) {
+    out.set('person', who.slice(2));
+  }
+  const project = params.get('project');
+  if (project && project !== 'all') out.set('room', project);
+  // `note` opens one note (`?note=<id>`).
+  for (const key of ['sort', 'dir', 'note']) {
+    const value = params.get(key);
+    if (value) out.set(key, value);
+  }
+  return out;
+}
+
+/**
+ * Where an address lands, query and all. An old address settles on its
+ * new home:
+ *
+ * - `/focus` and `/decisions…` are Today (`/`); `/digest` is its week
+ *   zoom (`/?view=week`)
+ * - `/notepad` (and Notes' old Notepad layout) is `/scratch`, as is
+ *   `/unfiled` (Scratch's old name)
+ * - `/projects`, `/tasks`, `/notes`, `/meetings` (and `/events`) are All
+ *   with that kind, their filters as All reads them (`oldListQuery`);
+ *   `/archive` is All's projects with `status=archived`, as is
+ *   `/all?archived=1` (#329's address for it)
+ * - `/lists` and `/lists/:id` are All's notes (#328 made lists notes)
+ * - `/meetings?meeting=<id>` and `/events?event=<id>` are that meeting
+ * - `/settings/people/:id` is the person's room (`/people/:id`)
+ * - `/settings/navigation` is Settings → Rooms, `/settings/pages`
+ *   Settings → Today
+ *
+ * `/tasks/:id` is the `task` route: the shell sends it to the task's room
+ * once it has the data. `devRoutes` admits `/dev/components` (dev and e2e
+ * builds only).
  */
 export function landRoute(
   pathname: string,
@@ -99,100 +238,133 @@ export function landRoute(
   hash = '',
   devRoutes = false,
 ): [Route, string] {
-  const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-  if (oldNotepad(clean, search)) return [{ name: 'notepad' }, ''];
-  return [
-    parseRoute(pathname, hash, devRoutes),
-    canonicalQuery(pathname, search),
-  ];
+  const clean = trim(pathname);
+  const params = new URLSearchParams(search);
+
+  if (clean === '/' || clean === '/focus') return [{ name: 'today' }, search];
+  // The Weekly digest is Today's week zoom (#332).
+  if (clean === '/digest') return [{ name: 'today' }, '?view=week'];
+  if (DECISIONS.test(clean)) return [{ name: 'today' }, ''];
+  if (clean === '/notepad') return [{ name: 'scratch' }, ''];
+  if (clean === '/scratch') return [{ name: 'scratch' }, search];
+  // Scratch was named Unfiled; its old address still lands there.
+  if (clean === '/unfiled') return [{ name: 'scratch' }, search];
+  if (clean === '/rooms') return [{ name: 'rooms' }, search];
+  if (clean === '/all') {
+    const route = allFrom(params);
+    if (params.get('archived') === '1') {
+      params.delete('archived');
+      params.set('status', 'archived');
+    }
+    return [route, routeSearch(route, params.toString())];
+  }
+
+  // The old list pages: All, narrowed to their kind.
+  const kind = OLD_LISTS[clean];
+  if (kind) {
+    if (clean === '/notes' && params.get('view') === 'notepad') {
+      return [{ name: 'scratch' }, ''];
+    }
+    // An old link to one meeting opens it.
+    const meeting =
+      clean === '/events'
+        ? (params.get('event') ?? params.get('meeting'))
+        : clean === '/meetings'
+          ? params.get('meeting')
+          : null;
+    if (meeting) return [{ name: 'meeting', id: meeting }, ''];
+    return landAll(kind, oldListQuery(kind, params, clean === '/archive'));
+  }
+  if (/^\/lists(?:\/[^/]+)?$/.test(clean)) {
+    return landAll('note', new URLSearchParams());
+  }
+
+  // A person's room; their old address under Settings gets there too.
+  const person = /^(?:\/settings)?\/people\/([^/]+)$/.exec(clean);
+  if (person?.[1]) return [{ name: 'person', id: decoded(person[1]) }, search];
+  // People and orgs are under Settings (#159); /people and /orgs, their
+  // addresses from #93 until then, still get there.
+  if (clean === '/people' || clean === '/settings/people') {
+    return [{ name: 'people' }, search];
+  }
+  const orgs = /^(?:\/settings)?\/orgs(?:\/([^/]+))?$/.exec(clean);
+  if (orgs) {
+    return [
+      orgs[1] ? { name: 'orgs', org: decoded(orgs[1]) } : { name: 'orgs' },
+      search,
+    ];
+  }
+  if (clean === '/settings/navigation') {
+    return [{ name: 'settings', section: 'rooms' }, ''];
+  }
+  // Settings → Pages went with v2 (#343): Today's options lead.
+  if (clean === '/settings/pages') {
+    return [{ name: 'settings', section: 'today' }, ''];
+  }
+  const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
+  if (settings) {
+    const section = (settings[1] ?? 'appearance') as SettingsSection;
+    return [
+      SETTINGS_SECTIONS.includes(section)
+        ? { name: 'settings', section }
+        : { name: 'notFound' },
+      search,
+    ];
+  }
+  if (clean === '/help') {
+    const section = decoded(hash.replace(/^#/, ''));
+    return [section ? { name: 'help', section } : { name: 'help' }, search];
+  }
+  if (devRoutes && clean === '/dev/components') {
+    return [{ name: 'devComponents' }, search];
+  }
+  if (clean === '/whiteboard') return [{ name: 'whiteboard' }, search];
+  const board = /^\/projects\/([^/]+)\/whiteboard$/.exec(clean);
+  if (board?.[1]) {
+    return [{ name: 'whiteboard', project: decoded(board[1]) }, search];
+  }
+  const plan = /^\/projects\/([^/]+)\/plan$/.exec(clean);
+  if (plan?.[1]) {
+    return [{ name: 'project', id: decoded(plan[1]), tab: 'plan' }, search];
+  }
+  const project = /^\/projects\/([^/]+)$/.exec(clean);
+  if (project?.[1]) {
+    return [{ name: 'project', id: decoded(project[1]) }, search];
+  }
+  const task = /^\/tasks\/([^/]+)$/.exec(clean);
+  if (task?.[1]) return [{ name: 'task', id: decoded(task[1]) }, ''];
+  const meeting = /^\/meetings\/([^/]+)$/.exec(clean);
+  if (meeting?.[1]) {
+    return [{ name: 'meeting', id: decoded(meeting[1]) }, search];
+  }
+  return [{ name: 'notFound' }, search];
 }
 
 /**
- * What `pathname` (and, for Help, `hash`) means. `devRoutes` admits
- * `/dev/components` (dev and e2e builds only).
+ * What `pathname` (and, for Help, `hash`) means, without a query: where
+ * `landRoute` puts it.
  */
 export function parseRoute(
   pathname: string,
   hash = '',
   devRoutes = false,
+  search = '',
 ): Route {
-  const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-  if (clean === '/' || clean === '/focus') {
-    return { name: 'focus' };
-  }
-  // Decisions were retired in #183 (their data is kept); their addresses
-  // land on Focus.
-  if (DECISIONS.test(clean)) {
-    return { name: 'focus' };
-  }
-  // Events became meetings in #131; the old address still gets there.
-  if (clean === '/events') {
-    return { name: 'meetings' };
-  }
-  // People and orgs are under Settings (#159); /people and /orgs, their
-  // addresses from #93 until then, still get there.
-  const people = /^(?:\/settings)?\/people(?:\/([^/]+))?$/.exec(clean);
-  if (people) {
-    return people[1]
-      ? { name: 'people', person: decodeURIComponent(people[1]) }
-      : { name: 'people' };
-  }
-  const orgs = /^(?:\/settings)?\/orgs(?:\/([^/]+))?$/.exec(clean);
-  if (orgs) {
-    return orgs[1]
-      ? { name: 'orgs', org: decodeURIComponent(orgs[1]) }
-      : { name: 'orgs' };
-  }
-  const settings = /^\/settings(?:\/([a-z]+))?$/.exec(clean);
-  if (settings) {
-    const section = (settings[1] ?? 'appearance') as SettingsSection;
-    return SETTINGS_SECTIONS.includes(section)
-      ? { name: 'settings', section }
-      : { name: 'notFound' };
-  }
-  if (clean === '/help') {
-    const section = decodeURIComponent(hash.replace(/^#/, ''));
-    return section ? { name: 'help', section } : { name: 'help' };
-  }
-  if (devRoutes && clean === '/dev/components') {
-    return { name: 'devComponents' };
-  }
-  const board = /^\/projects\/([^/]+)\/whiteboard$/.exec(clean);
-  if (board?.[1]) {
-    return { name: 'whiteboard', project: decodeURIComponent(board[1]) };
-  }
-  const project = /^\/projects\/([^/]+)$/.exec(clean);
-  if (project?.[1]) {
-    return { name: 'project', id: decodeURIComponent(project[1]) };
-  }
-  const task = /^\/tasks\/([^/]+)$/.exec(clean);
-  if (task?.[1]) {
-    return { name: 'task', id: decodeURIComponent(task[1]) };
-  }
-  const meeting = /^\/meetings\/([^/]+)$/.exec(clean);
-  if (meeting?.[1]) {
-    return { name: 'meeting', id: decodeURIComponent(meeting[1]) };
-  }
-  const list = /^\/lists\/([^/]+)$/.exec(clean);
-  if (list?.[1]) {
-    return { name: 'list', id: decodeURIComponent(list[1]) };
-  }
-  const name = clean.slice(1) as RouteName;
-  if (SIMPLE.has(name)) {
-    return { name } as Route;
-  }
-  return { name: 'notFound' };
+  return landRoute(pathname, search, hash, devRoutes)[0];
 }
 
-/** The path for `route`; `null` for Not found, which keeps its own. */
+/**
+ * The path for `route`, without its query (`routeSearch` has that);
+ * `null` for Not found, which keeps its own.
+ */
 export function routePath(route: Route): string | null {
   switch (route.name) {
-    case 'focus':
+    case 'today':
       return '/';
+    case 'person':
+      return `/people/${encodeURIComponent(route.id)}`;
     case 'people':
-      return route.person
-        ? `/settings/people/${encodeURIComponent(route.person)}`
-        : '/settings/people';
+      return '/settings/people';
     case 'orgs':
       return route.org
         ? `/settings/orgs/${encodeURIComponent(route.org)}`
@@ -202,7 +374,7 @@ export function routePath(route: Route): string | null {
         ? '/settings'
         : `/settings/${route.section}`;
     case 'project':
-      return `/projects/${encodeURIComponent(route.id)}`;
+      return `/projects/${encodeURIComponent(route.id)}${route.tab ? `/${route.tab}` : ''}`;
     case 'whiteboard':
       return route.project
         ? `/projects/${encodeURIComponent(route.project)}/whiteboard`
@@ -211,8 +383,6 @@ export function routePath(route: Route): string | null {
       return `/tasks/${encodeURIComponent(route.id)}`;
     case 'meeting':
       return `/meetings/${encodeURIComponent(route.id)}`;
-    case 'list':
-      return `/lists/${encodeURIComponent(route.id)}`;
     case 'help':
       return route.section
         ? `/help#${encodeURIComponent(route.section)}`
@@ -226,38 +396,29 @@ export function routePath(route: Route): string | null {
   }
 }
 
-/**
- * The query an old address carries over to its new one: `/events?event=<id>`
- * opened that event, and `/meetings?meeting=<id>` opens the meeting. A
- * retired `/decisions` address keeps none of its query on Focus.
- * Everything else in the query is kept as it was.
- */
-export function canonicalQuery(pathname: string, search: string): string {
-  const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-  if (DECISIONS.test(clean)) return '';
-  if (clean !== '/events') return search;
-  const params = new URLSearchParams(search);
-  const id = params.get('event');
-  if (id === null) return search;
-  params.delete('event');
-  if (!params.has('meeting')) params.set('meeting', id);
-  return `?${params.toString()}`;
+/** The address of `route`, its own query first, then `extra`. */
+export function routeHref(route: Route, extra = ''): string | null {
+  const path = routePath(route);
+  if (path === null) return null;
+  const hash = path.indexOf('#');
+  const bare = hash === -1 ? path : path.slice(0, hash);
+  const tail = hash === -1 ? '' : path.slice(hash);
+  return bare + routeSearch(route, extra) + tail;
 }
 
 /**
- * The meeting an old link opens: `/meetings?meeting=<id>` (and so
- * `/events?event=<id>`) went to its row until meetings had a page of their
- * own; now it is that page. `null` for any other address.
+ * The room a task opens in (`/tasks/:id` from before v2): its project's,
+ * or Today for a General task. Its panel opens over it.
  */
-export function linkedMeeting(pathname: string, search: string): string | null {
-  const route = parseRoute(pathname);
-  if (route.name !== 'meetings') return null;
-  return new URLSearchParams(canonicalQuery(pathname, search)).get('meeting');
+export function taskRoom(task: { projectId: string | null }): Route {
+  return task.projectId
+    ? { name: 'project', id: task.projectId }
+    : { name: 'today' };
 }
 
 /**
  * The query key that opens a whiteboard on one item (`?item=<id>`): the
- * board selects it and centres the view on it, then drops the key.
+ * board selects it and centers the view on it, then drops the key.
  */
 export const BOARD_ITEM_PARAM = 'item';
 
@@ -279,15 +440,53 @@ export function boardItemLink(
   };
 }
 
-/** The top-level section a route belongs to, for `aria-current` in the nav. */
-export function sectionOf(route: Route): RouteName {
-  if (route.name === 'project' || route.name === 'archive') return 'projects';
-  // A project's board is part of the project; the space's has the rail.
-  if (route.name === 'whiteboard' && route.project) return 'projects';
-  if (route.name === 'task') return 'tasks';
-  if (route.name === 'meeting') return 'meetings';
-  if (route.name === 'list') return 'lists';
-  return route.name;
+/** A project room's tabs (#334), in order (`ROOM_TABS` in `shared/types.ts`). */
+export type { RoomTab };
+
+/**
+ * The project room a route shows and its tab: a project's address is its
+ * Stream or Plan, a project's whiteboard its Whiteboard tab. Null for
+ * any other route (the space's own whiteboard among them).
+ */
+export function projectRoomOf(
+  route: Route,
+): { id: string; tab: RoomTab } | null {
+  if (route.name === 'project') {
+    return { id: route.id, tab: route.tab ?? 'stream' };
+  }
+  if (route.name === 'whiteboard' && route.project) {
+    return { id: route.project, tab: 'whiteboard' };
+  }
+  return null;
+}
+
+/** The address of one tab of a project's room. */
+export function roomTabRoute(id: string, tab: RoomTab): Route {
+  if (tab === 'whiteboard') return { name: 'whiteboard', project: id };
+  return tab === 'plan'
+    ? { name: 'project', id, tab }
+    : { name: 'project', id };
+}
+
+/**
+ * The rail's and tab bar's places. Rooms is the phone's fourth tab; the
+ * rail lists the rooms themselves instead.
+ */
+export type Place = 'today' | 'scratch' | 'rooms' | 'all';
+
+/**
+ * Which place a route is in, for `aria-current`: the space's whiteboard
+ * is reached from All; the Rooms page and every project or person room
+ * (a pair is a project room) are in Rooms. A meeting, Settings and Help
+ * are in none.
+ */
+export function placeOf(route: Route): Place | null {
+  if (route.name === 'today' || route.name === 'scratch') return route.name;
+  if (route.name === 'all') return 'all';
+  if (route.name === 'whiteboard' && !route.project) return 'all';
+  if (route.name === 'rooms' || route.name === 'person') return 'rooms';
+  if (projectRoomOf(route)) return 'rooms';
+  return null;
 }
 
 /** The Settings section a route shows; `null` off the Settings page. */
@@ -305,15 +504,10 @@ export function settingsRoute(section: SettingsSection): Route {
 }
 
 const TITLES: Partial<Record<RouteName, string>> = {
-  focus: 'Focus',
-  projects: 'Projects',
-  archive: 'Archived',
-  tasks: 'Tasks',
-  notes: 'Notes',
-  notepad: 'Notepad',
-  meetings: 'Meetings',
-  lists: 'Lists',
-  digest: 'Weekly digest',
+  today: 'Today',
+  scratch: 'Scratch',
+  rooms: 'Rooms',
+  all: 'All',
   whiteboard: 'Whiteboard',
   people: 'People',
   orgs: 'Orgs',
@@ -324,13 +518,12 @@ const TITLES: Partial<Record<RouteName, string>> = {
 };
 
 /**
- * The top bar's title; a project, task, meeting or list page passes its
- * name.
+ * The top bar's title; a room, a meeting or a task passes its name.
  */
 export function titleOf(route: Route, name?: string): string {
   if (route.name === 'project') return name ?? 'Project';
+  if (route.name === 'person') return name ?? 'Person';
   if (route.name === 'task') return name ?? 'Task';
   if (route.name === 'meeting') return name ?? 'Meeting';
-  if (route.name === 'list') return name ?? 'List';
   return TITLES[route.name] ?? 'Datapad';
 }

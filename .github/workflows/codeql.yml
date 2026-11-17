@@ -3,7 +3,7 @@ name: CodeQL
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, v2]
   # Weekly, so a new query catches code that has not changed.
   schedule:
     - cron: "27 5 * * 1"

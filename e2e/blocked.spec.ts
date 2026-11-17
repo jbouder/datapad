@@ -23,6 +23,9 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 
 const TITLE = 'Find a replacement motivator';
 
+/** Tasks in its List, where each row has its ⋯ menu and blocked chip. */
+const TASKS = '/all?kind=task&view=list';
+
 function row(page: Page, title = TITLE) {
   return page.locator('[data-task-id]').filter({ hasText: title }).first();
 }
@@ -31,11 +34,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
+test('mark a task blocked on someone; Today, People and Tasks show it', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await row(page)
     .getByRole('button', { name: `More for “${TITLE}”` })
     .click();
@@ -66,14 +69,11 @@ test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
     `Blocked "${TITLE}" on Leia Organa`,
   );
 
-  // Focus: Waiting on, under Leia, waiting since today.
+  // Today: Leia is marked as me, so a task blocked on her is hers to
+  // unblock: in Mine, not Waiting on.
   await openLive(page, '/');
-  await expect(page.locator('[data-waiting="u-leia"]')).toContainText(
-    'waiting since today',
-  );
-  await expect(
-    page.getByRole('list', { name: 'Waiting on Leia Organa' }),
-  ).toContainText(TITLE);
+  await expect(page.getByRole('list', { name: 'Mine' })).toContainText(TITLE);
+  await expect(page.locator('[data-waiting="u-leia"]')).toHaveCount(0);
 
   // Tasks: Show Blocked lists only it.
   await openLive(page, '/tasks?status=blocked');
@@ -81,11 +81,11 @@ test('mark a task blocked on someone; Focus, People and Tasks show it', async ({
   await expect(main.getByText(TITLE).first()).toBeVisible();
   await expect(main.getByText('Insulate the hangar doors')).toHaveCount(0);
 
-  // People: waiting on Leia.
+  // Leia's room: she is you, so it is yours to unblock.
   await openLive(page, '/settings/people/u-leia');
-  await expect(
-    page.getByRole('list', { name: 'Tasks waiting on Leia Organa' }),
-  ).toContainText(TITLE);
+  await expect(page.getByRole('list', { name: 'You owe' })).toContainText(
+    TITLE,
+  );
 });
 
 test('b unblocks the focused task, with Undo', async ({ page, request }) => {
@@ -93,7 +93,7 @@ test('b unblocks the focused task, with Undo', async ({ page, request }) => {
   const seed = structuredClone(SEED);
   Object.assign(seed.tasks['t-5'], { blocked: { on: null, note: 'Parts' } });
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await page.getByRole('button', { name: TITLE, exact: true }).focus();
   await page.keyboard.press('b');
   await expect(page.getByText(`Unblocked “${TITLE}”`)).toBeVisible();
@@ -114,7 +114,7 @@ test('b unblocks the focused task, with Undo', async ({ page, request }) => {
 });
 
 test('the task panel sets and clears it', async ({ page, request }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await page.getByRole('button', { name: TITLE, exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   await panel.getByRole('switch', { name: /^Blocked/ }).click();

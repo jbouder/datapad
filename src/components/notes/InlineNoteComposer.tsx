@@ -46,6 +46,11 @@ export interface InlineNoteComposerHandle {
  * (Discard or Save note) in place of its buttons, and so does leaving: a
  * link, Back, or closing the panel it sits in waits for the answer, then
  * goes on (`src/lib/leave.ts`).
+ *
+ * `persistent` is meeting mode's (#336): always there, so it does not
+ * take focus when it mounts, has no Cancel, keeps its text on a click
+ * away, and Esc steps out of it (a second Esc leaves the meeting). After
+ * Save note it is ready for the next one. Leaving still asks.
  */
 export function InlineNoteComposer({
   fields,
@@ -55,6 +60,7 @@ export function InlineNoteComposer({
   onDone,
   ref,
   className,
+  persistent = false,
 }: {
   fields: InlineNoteFields;
   people: Record<string, Person>;
@@ -64,13 +70,15 @@ export function InlineNoteComposer({
   onDone: (noteId: string | null) => void;
   ref?: Ref<InlineNoteComposerHandle>;
   className?: string;
+  /** Always open, as in meeting mode (above). */
+  persistent?: boolean;
 }) {
   const { actions } = useDatapad();
   const id = useId();
   const [text, setText] = useState('');
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());
-  const commands = useNoteCommands(fields.projectId);
+  const commands = useNoteCommands(fields.projectId, fields.meetingId);
   const box = useRef<HTMLFieldSetElement>(null);
   const keep = useRef<HTMLButtonElement>(null);
   /** Asking whether to save, after a click away or a leave it held. */
@@ -91,7 +99,9 @@ export function InlineNoteComposer({
   useImperativeHandle(ref, () => ({ focus }));
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: on open only
-  useEffect(focus, []);
+  useEffect(() => {
+    if (!persistent) focus();
+  }, []);
 
   // Left without Save or Cancel (another page, a reload): keep what was
   // written, but not an empty draft.
@@ -123,6 +133,7 @@ export function InlineNoteComposer({
   // A click anywhere else with something written asks too. Capture, so it
   // runs before the click's own handler (a link then holds the leave).
   useEffect(() => {
+    if (persistent) return;
     const away = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Node) || box.current?.contains(target)) return;
@@ -132,7 +143,7 @@ export function InlineNoteComposer({
     };
     document.addEventListener('click', away, true);
     return () => document.removeEventListener('click', away, true);
-  }, []);
+  }, [persistent]);
 
   /** Back to writing: the question goes, and any leave it held with it. */
   const keepEditing = () => {
@@ -160,6 +171,8 @@ export function InlineNoteComposer({
     setText('');
     dropDraft(draftKey);
     onDone(added);
+    // Ready for the next note, unless a leave was waiting on this one.
+    if (persistent && !pending.current) focus();
     settle();
   };
 
@@ -187,6 +200,11 @@ export function InlineNoteComposer({
         if (asking) {
           keepEditing();
           focus();
+        } else if (persistent) {
+          // Out of the text, which keeps what was written.
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
         } else {
           cancel();
         }
@@ -234,14 +252,16 @@ export function InlineNoteComposer({
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="press h-11 desk:h-8"
-            onClick={cancel}
-          >
-            Cancel
-          </Button>
+          {!persistent && (
+            <Button
+              type="button"
+              variant="outline"
+              className="press h-11 desk:h-8"
+              onClick={cancel}
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             type="button"
             className="press h-11 desk:h-8"

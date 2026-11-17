@@ -40,14 +40,14 @@ errors with the path only, never document content.
 Nothing about your projects, tasks, notes, meetings or people.
 
 **Summaries run on your device.** Summarize builds a plain-text context of
-the one item (`shared/summaries.ts`) and hands it to a small language model
+the one item, room or meeting (`shared/summaries.ts`) and hands it to a small language model
 running in a Web Worker in your browser (WebLLM, on WebGPU). The context
 and the summary never leave the tab; a summary is stored only if you press
 Save as note, and then like any other note.
 
 The only thing downloaded is the model itself: its weights from Hugging
 Face (about 1 GB for the default Qwen3 1.7B) and its WebGPU library from
-`raw.githubusercontent.com`, once, after you agree in the summary panel.
+`raw.githubusercontent.com`, once, after you agree in the summary panel or card.
 Both come from fixed commits, and the library, config and tokenizer are
 checked against hashes before they are used.
 Those requests carry no referrer and nothing of yours. Settings →
@@ -80,7 +80,7 @@ as it is (migrated on the way in, below):
 
 ```json
 {
-  "format": 2,
+  "format": 3,
   "exportedAt": "2026-10-23T12:00:00.000Z",
   "projects": { "<id>": { "id": "<id>", "name": "…", … } },
   "tasks": { … },
@@ -97,32 +97,56 @@ as it is (migrated on the way in, below):
 }
 ```
 
-- `format` (#240) is the file's format version, `2` today
+- `format` (#240) is the file's format version, `3` today
   (`EXPORT_FORMAT` in [`shared/types.ts`](../shared/types.ts)); every
   export and nightly backup writes it. A file without it (the
   artifact's, or Datapad's from before #240) is legacy, read as before
   and migrated by its shape (below). A file with a higher `format` than this Datapad knows is
   from a newer version: Import and restoring a backup refuse it whole,
   before reading anything else, with "This file is from a newer version
-  of Datapad (export format 3; this one reads up to 2). Update Datapad,
+  of Datapad (export format 4; this one reads up to 3). Update Datapad,
   then try again." A `format` that is not a whole number from 1 is
   refused as invalid. The number goes up only when a change would be
   misread by an older Datapad, and CHANGELOG.md says so under **Export
   format**. Format 2 (#298) adds `lists`: a format 1 Datapad drops
   unknown keys, so it would import such a file and lose its lists
   without a word. With `2` it refuses the file instead, and says to
-  update. Every format 1 file reads as it is, with no lists.
+  update. Every format 1 file reads as it is, with no lists. Format 3
+  (#328) adds `tasks[].decide` and retires lists and the Notepad; a
+  format 1 or 2 file (or one without `format`) is brought up to it on
+  the way in (below).
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
   space starts with no orgs), optionally `assignToMe` (`true` when new
   tasks go to the person marked as you, from Settings → People; absent
   is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
-  what a new task starts with, from Settings → Pages; absent is `med`)
-  and, optionally, `nav`, the navigation
-  preferences from Settings → Navigation (#187):
+  what a new task starts with, from Settings → Capture; absent is `med`),
+  optionally `pinned` (#329), the rooms pinned to the rail, in order:
+  `["p-echo", "pe-leia", "p-echo+pe-leia", "view:v-1"]`, each a project
+  id, a person id, a project and a person joined by `+`, or `view:` and
+  the id of a view saved on All (#338), each once, 50 at most,
+  absent until something is pinned; an entry that names nothing in the
+  space is kept and skipped when read. Settings for v2 (#343) add, each
+  optional and absent at its default: `captureAs` (`note` or `task`: what
+  a plain line on the capture line becomes; absent is `note`),
+  `mentionAssigns` (`false` when `@Name` on a captured task only mentions
+  the person; absent assigns), `roomNotes` (`room` or `unfiled`: where a
+  note captured in a room goes when it names no project, `unfiled`
+  being Scratch under its old name; absent is `room`), `railOwed`
+  (`false` hides the people who owe you from the rail; absent shows
+  them), `roomTab` (`stream`, `plan` or `whiteboard`:
+  the tab a project room opens on; absent is `stream`) and `laneLabels`
+  (the person room's lane names, `{ "youOwe": "On me" }`, keys `youOwe`,
+  `theyOwe` and `discuss`, each 1 to 40 characters; a lane left out keeps
+  its own name). Every default is in `DEFAULT_SETTINGS`
+  (`shared/types.ts`) and the stored document holds only what was
+  changed. And, optionally, `nav`, the
+  navigation preferences from Settings → Navigation (#187), which v2
+  (#329) retired: kept as written, so an older file round-trips, and no
+  longer read. Its shape:
   `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "archived": true }, "tools": { "order": ["digest", "notepad", "whiteboard"], "hidden": ["notepad"], "phoneHidden": ["digest", "whiteboard"] }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
-  (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,
+  (`quickAdd`, #201, was the top bar's + menu, removed in v2: `task`, `note`, `meeting`,
   `project`; an action it never names keeps its default. `tools`, #261,
   is the rail's Tools: `notepad`, `whiteboard`, `digest`, written whole;
   a tool it never names keeps its default place, shown and off the
@@ -138,7 +162,7 @@ as it is (migrated on the way in, below):
   until something is saved, holds each page's layout, sort, grouping,
   filters and sections as you left them (never the search text); a file
   without it imports unchanged, and a value a page no longer has is
-  ignored. Its keys are `focus`, `projects`, `archive`, `tasks`,
+  ignored. Its keys are `focus`, `all` (#338), `projects`, `archive`, `tasks`,
   `meetings`, `notes`, `lists`, `people` and the detail pages `project`,
   `task`, `meeting` and `list` (#310), one set each for every item of
   that kind. A page may also carry `hidden` (section keys it leaves out)
@@ -149,8 +173,27 @@ as it is (migrated on the way in, below):
   the address (a threshold, say) are saved under `filters` like the rest.
   The meeting page's sections are `topics`, `actions`, `notes` and
   `series`, and its settings `covered` and `doneActions` (`show` or
-  `hide`); the list page's setting is `done` (`collapsed`, `expanded` or
-  `hidden`) (#313).
+  `hide`); meeting mode reads them and ignores `order` (#336). The list
+  page's setting is `done` (`collapsed`, `expanded` or `hidden`) (#313).
+  Today's settings (#331, #343) live under `focus`, so what Focus saved
+  carries over: `who` (`anyone` or `mine`), `days`, `weekStart` (`mon` or
+  `sun`) and `brief` (`on` or `off`), with the lanes `mine`, `waiting` and
+  `decide` as its sections. All's settings are `kinds` (the kinds All
+  opens on, comma-joined in All's order, or `all` for every kind; absent
+  is `task`), `taskView` (`list`, `table` or `board`), `meetingView`
+  (`list` or `calendar`) and `projectView` (`list`, `cards` or
+  `timeline`), each kind's layout, and `taskSort` and `projectSort`, the
+  sort tasks or projects alone start with. On the way in, and once in
+  each space when the Durable Object's schema goes to 5, a space that has
+  saved nothing for All takes the old Tasks, Meetings and Projects pages'
+  layouts and sorts that All has (`migrateSettings()`); those pages'
+  entries, like `lists`, `list` and `archive`, stay as stored and are
+  read by nothing. All may also carry
+  `views` (#338), its saved views in chip order:
+  `[{ "id": "v-1", "name": "Echo tasks", "query": "kind=task&room=p-echo&view=table" }]`,
+  each id once, 30 at most, a name of 1 to 120 characters and `query` All's
+  address without the `?` (1,000 characters at most), read as All reads
+  its address, so a value it no longer has is ignored.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and templates. A template with `body`
   (Markdown, mentions as `@{personId}`) is a note template, with empty
@@ -184,8 +227,11 @@ as it is (migrated on the way in, below):
   list's `updatedAt` and its project's. Deleting a project deletes its
   lists; moving one takes them along. A file without them imports with
   none. They are stored like every other document, one row each in the
-  object's `docs` table keyed `(space, col, id)`, so they needed no
-  schema change: the object's schema is still version 3.
+  object's `docs` table keyed `(space, col, id)`. Lists are retired in
+  format 3 (#328), as decisions were: each became a checklist note
+  (below). The collection is still imported, exported, kept and moved
+  with its project, and an old client's list ops still apply, but
+  nothing new reads it.
 - A whiteboard's own **Download as PNG / SVG** (its ⋯ menu) is a picture,
   not data: it is made in the browser from the items with the theme's
   colors resolved, and never sent anywhere. The JSON export above is the
@@ -206,10 +252,20 @@ as it is (migrated on the way in, below):
   unchanged, its notes without one (read as null), and an export writes
   it only on notes that have it.
 - A note may carry `scratch: true` (#218): the space's Notepad, its one
-  running General note. Optional: a file from before it imports
-  unchanged, and an export writes it only on that note. An import that
-  brings a second one keeps the older as the Notepad; the other loses the
-  mark and stays an ordinary note.
+  running General note. Retired in format 3 (#328): the migration
+  clears it, so the Notepad is an ordinary General note. Only an old
+  client's Notepad still writes one. An export writes it only on that
+  note. An import that brings a second one keeps the older as the
+  Notepad; the other loses the mark and stays an ordinary note.
+- A task may carry `decide: true` (#328, format 3): something to
+  decide, not just to do. Optional: absent reads as false, and an
+  export writes it only on tasks that have it (last among their
+  fields).
+- A note is in **Scratch** (#328) when it is General, on no meeting or
+  task, and mentions nobody (`inScratch()` in
+  [`shared/notes.ts`](../shared/notes.ts)). That is worked out, never
+  stored: filing a note is moving it to a project or mentioning
+  someone in it.
 - A task may carry `meetingId` (#185): an action item of that meeting,
   in the meeting's project. It is optional too: a file from before it
   imports unchanged (read as null), and an export writes it only on
@@ -222,6 +278,22 @@ as it is (migrated on the way in, below):
   forward from an earlier meeting also has `carriedFrom`, the day
   (`YYYY-MM-DD`) it was first raised; `done` and `outcome` may be left
   out and read as `false` and `''`.
+- A format 1 or 2 file, or one without `format`, is brought up to
+  format 3 on the way in (`migrateFormat3()` in
+  [`shared/migrate.ts`](../shared/migrate.ts)); the Durable Object ran
+  the same rules over each space at schema 4:
+  - An open task tagged `decide` gets `decide: true`. The tag is kept.
+  - Each list becomes a note on the same project (or General), under
+    the list's id: `## <title>`, then one `- [ ] <text>` or
+    `- [x] <text>` line per item, in order. The note keeps the list's
+    `createdAt` and takes its `updatedAt` as `editedAt`. A list too long
+    for one note (20 000 characters) goes on in more, `<id>-2`, `<id>-3`
+    and so on, under the same heading. The list itself is kept.
+  - The Notepad's `scratch` is cleared.
+
+  A note already under a list's id is left alone, so running it twice
+  changes nothing. A format 3 file is read as it is: its lists are not
+  turned into notes again.
 - A file from before meetings (the artifact's, or an older Datapad
   export or backup) has `events` instead of `meetings`, and notes with
   `eventId`. It imports as it is, migrated on the way in
@@ -313,7 +385,7 @@ the `/api/spaces` list.
 
 ## Moving a project to another space
 
-With more than one space, a project page's menu has **Move to…**. The
+With more than one space, a project room's More menu has **Move to…**. The
 project goes with its tasks (action items keep `meetingId` when their meeting goes too), notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, lists (and their items), decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it

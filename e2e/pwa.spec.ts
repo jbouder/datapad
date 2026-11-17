@@ -8,7 +8,7 @@ import { expect, openLive, test } from './fixtures';
  * decision (docs/design.md § PWA).
  */
 
-test('links a manifest that opens Focus standalone, with working icons', async ({
+test('links a manifest that opens Today standalone, with working icons', async ({
   page,
   request,
 }) => {
@@ -23,7 +23,7 @@ test('links a manifest that opens Focus standalone, with working icons', async (
   const manifest = await response.json();
   expect(manifest).toMatchObject({
     name: 'Datapad',
-    start_url: '/focus',
+    start_url: '/',
     scope: '/',
     display: 'standalone',
   });
@@ -61,11 +61,10 @@ test('links a manifest that opens Focus standalone, with working icons', async (
     expect((await request.get(href)).ok(), href).toBe(true);
   }
 
-  // The installed app's start URL is Focus.
+  // An app installed before v2 starts at /focus, which lands on Today.
   await openLive(page, '/focus');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Focus' }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveTitle('Today · Datapad');
 });
 
 test('the browser chrome follows the picked theme', async ({ page }) => {

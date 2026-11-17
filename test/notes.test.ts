@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_NOTE_FILTERS,
-  groupByDay,
-  matchBeyondPreview,
+  inScratch,
+  type NoteFilters,
   notePreview,
   projectNotes,
   queryWords,
+  scratchNotes,
   selectNotes,
   taskTitleFrom,
 } from '#shared/notes';
-import { emptySnapshot, type Note, type Project } from '#shared/types';
+import {
+  decideOf,
+  emptySnapshot,
+  type Note,
+  type Project,
+} from '#shared/types';
+
+/** Every note, as All shows them with no filter. */
+const DEFAULT_NOTE_FILTERS: NoteFilters = { project: '', pinned: false, q: '' };
 
 function note(id: string, patch: Partial<Note>): Note {
   return {
@@ -93,12 +101,7 @@ describe('selectNotes', () => {
   });
 });
 
-describe('groupByDay and projectNotes', () => {
-  it('groups by local day, keeping order', () => {
-    const days = groupByDay(selectNotes(state, DEFAULT_NOTE_FILTERS));
-    expect(days.map((d) => ids(d.notes))).toEqual([['c', 'a'], ['b']]);
-  });
-
+describe('projectNotes', () => {
   it('puts a project’s pinned notes first', () => {
     expect(ids(projectNotes(state.notes, 'live'))).toEqual(['b', 'a']);
     expect(ids(projectNotes(state.notes, null))).toEqual(['c']);
@@ -155,40 +158,53 @@ describe('notePreview', () => {
   });
 });
 
-describe('matchBeyondPreview', () => {
-  const people = state.people;
-  it('is false with no words, or when every word is in the first two lines', () => {
-    expect(matchBeyondPreview('anything', people, [])).toBe(false);
-    expect(
-      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
-        'standup',
-        'shields',
-      ]),
-    ).toBe(false);
+describe('inScratch (#328)', () => {
+  const loose = {
+    projectId: null,
+    meetingId: null,
+    body: 'A thought with no home',
+  };
+
+  it('is a General note on no meeting or task that mentions nobody', () => {
+    expect(inScratch(loose)).toBe(true);
+    expect(inScratch({ ...loose, taskId: null })).toBe(true);
   });
 
-  it('is true when a word is only past the second line', () => {
-    expect(
-      matchBeyondPreview('## Standup\nShields up\nLater: heaters', people, [
-        'standup',
-        'heaters',
-      ]),
-    ).toBe(true);
-    // Past the six lines a preview keeps, too.
-    const long = Array.from({ length: 9 }, (_, i) => `- idea ${i + 1}`);
-    expect(matchBeyondPreview(long.join('\n'), people, ['idea 9'])).toBe(true);
+  it('is filed once it has a project, a meeting, a task or a mention', () => {
+    expect(inScratch({ ...loose, projectId: 'p1' })).toBe(false);
+    expect(inScratch({ ...loose, meetingId: 'm1' })).toBe(false);
+    expect(inScratch({ ...loose, taskId: 't1' })).toBe(false);
+    expect(inScratch({ ...loose, body: 'Ask @{u-leia}' })).toBe(false);
+  });
+});
+
+describe('scratchNotes (#333)', () => {
+  const notes = {
+    a: note('a', { createdAt: '2026-10-20T09:00:00.000Z' }),
+    b: note('b', { createdAt: '2026-10-21T09:00:00.000Z' }),
+    c: note('c', { createdAt: '2026-10-21T09:00:00.000Z' }),
+    filed: note('filed', { projectId: 'live' }),
+    met: note('met', { meetingId: 'm1' }),
+    onTask: note('onTask', { taskId: 't1' }),
+    named: note('named', { body: 'Ask @{u-leia}' }),
+  };
+
+  it('keeps the notes with no home, newest first, ties by id', () => {
+    expect(scratchNotes(notes).map((n) => n.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('counts a long line as the lines it wraps to', () => {
-    const line = `${'word '.repeat(20)}needle`;
-    expect(matchBeyondPreview(line, people, ['needle'])).toBe(true);
-    expect(matchBeyondPreview(`${line}\nsecond`, people, ['second'])).toBe(
-      true,
-    );
-    expect(matchBeyondPreview('short\nsecond', people, ['second'])).toBe(false);
+  it('leaves out notes waiting on Undo', () => {
+    expect(scratchNotes(notes, new Set(['b'])).map((n) => n.id)).toEqual([
+      'c',
+      'a',
+    ]);
   });
+});
 
-  it('finds a mention by the name it shows', () => {
-    expect(matchBeyondPreview('Ask @{leia}', people, ['leia'])).toBe(false);
+describe('decideOf (#328)', () => {
+  it('reads an absent flag as false', () => {
+    expect(decideOf({})).toBe(false);
+    expect(decideOf({ decide: false })).toBe(false);
+    expect(decideOf({ decide: true })).toBe(true);
   });
 });

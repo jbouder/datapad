@@ -30,14 +30,15 @@ test.beforeEach(async ({ request }) => {
 });
 
 test('a project shows a javascript: link as text', async ({ page }) => {
-  await openLive(page, '/projects/p-echo');
-  const header = page.locator('#main header').first();
-  await expect(header.getByRole('link', { name: /^Plan/ })).toHaveAttribute(
+  // The room's Plan tab lists the links.
+  await openLive(page, '/projects/p-echo/plan');
+  const links = page.getByRole('main').getByRole('list', { name: 'Links' });
+  await expect(links.getByRole('link', { name: /^Plan/ })).toHaveAttribute(
     'href',
     'https://example.com/plan',
   );
-  await expect(header.getByRole('link', { name: /Trap/ })).toHaveCount(0);
-  await expect(header.getByText(BAD)).toBeVisible();
+  await expect(links.getByRole('link', { name: /Trap/ })).toHaveCount(0);
+  await expect(links.getByText(BAD)).toBeVisible();
   expect(await page.locator('a[href^="javascript:" i]').count()).toBe(0);
   await expectAccessible(page);
 });

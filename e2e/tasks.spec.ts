@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { addDays } from '../shared/dates';
 import {
+  addFromSearch,
   expect,
   expectSaved,
   isMobile,
@@ -10,10 +11,10 @@ import {
   today,
 } from './fixtures';
 
-const openList = (page: Page) => page.getByRole('list', { name: 'Open tasks' });
-/** The open and done tasks in one list, with Show done on (#318). */
-const allList = (page: Page) =>
-  page.getByRole('list', { name: 'Tasks', exact: true });
+const lanes = (page: Page) =>
+  page.getByRole('complementary', { name: 'Open loops' });
+const mine = (page: Page) => lanes(page).getByRole('list', { name: 'Mine' });
+const stream = (page: Page) => page.getByRole('list', { name: 'Stream' });
 /** Click a row's checkbox the way a person does: on its 44px label. */
 async function toggle(page: Page, name: string) {
   await page
@@ -21,34 +22,32 @@ async function toggle(page: Page, name: string) {
     .click();
 }
 
+/** A task's row in All's List (full rows). */
 const row = (page: Page, title: string) =>
   page.locator('[data-task-id]').filter({ hasText: title });
+/** A task's row in a room's Open loops lanes. */
+const loop = (page: Page, title: string) =>
+  lanes(page).locator('[data-loop]').filter({ hasText: title });
 
-test('add three tasks from the project page, close one, undo', async ({
+test('add three tasks in a project room, close one, undo', async ({
   page,
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/projects/p-falcon');
-  await expect(openList(page).getByRole('listitem')).toHaveCount(1);
+  // The motivator waits on Han; nothing open is mine yet.
+  await expect(loop(page, 'Find a replacement motivator')).toBeVisible();
+  await expect(mine(page)).toHaveCount(0);
 
-  // No quick-add on a project page: `n` (or Add task) opens the panel,
-  // preset to the project; Enter in the title adds.
-  await expect(page.getByRole('textbox', { name: 'Add a task' })).toHaveCount(
-    0,
-  );
+  // ⌘K's New task opens the new-task panel, preset to the room's
+  // project; Enter in the title adds.
   const panel = page.getByRole('dialog', { name: 'New task' });
-  for (const [i, title] of [
+  for (const title of [
     'Patch the hull',
     'Clean the dejarik board',
     'Tune the deflector',
-  ].entries()) {
-    if (i === 0) await page.locator('body').press('n');
-    else
-      await page
-        .getByRole('main')
-        .getByRole('button', { name: 'Add task', exact: true })
-        .click();
+  ]) {
+    await addFromSearch(page, 'New task');
     const name = panel.getByRole('textbox', { name: 'Title' });
     await expect(name).toBeFocused();
     await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(
@@ -57,36 +56,32 @@ test('add three tasks from the project page, close one, undo', async ({
     await page.keyboard.type(title);
     await name.press('Enter');
     await expect(panel).toBeHidden();
-    await expect(row(page, title)).toBeVisible();
+    await expect(loop(page, title)).toBeVisible();
   }
-  // New tasks go after the rest (order = max + 1).
-  await expect(openList(page).getByRole('listitem')).toHaveText([
-    /Find a replacement motivator/,
+  // Undated, so in the order they were added (order = max + 1).
+  await expect(mine(page).getByRole('listitem')).toHaveText([
     /Patch the hull/,
     /Clean the dejarik board/,
     /Tune the deflector/,
   ]);
 
-  // Close one: it leaves the list (done tasks show with Show done, #318).
+  // Close one: it leaves the lanes, and the stream records it done.
   await toggle(page, 'Close “Patch the hull”');
   await expect(page.getByText('Closed “Patch the hull”')).toBeVisible();
-  await expect(openList(page)).not.toContainText('Patch the hull');
-  await page.getByRole('button', { name: 'Show done' }).click();
-  await expect(allList(page).getByRole('listitem').last()).toContainText(
+  await expect(mine(page)).not.toContainText('Patch the hull');
+  await expect(stream(page).locator('[data-stream^="done:"]')).toContainText([
     'Patch the hull',
-  );
-  await expect(
-    page.getByRole('checkbox', { name: 'Reopen “Patch the hull”' }),
-  ).toBeChecked();
+  ]);
 
-  // Undo puts it back with the open tasks.
+  // Undo puts it back with the open tasks, where it was.
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(
     page.getByRole('checkbox', { name: 'Close “Patch the hull”' }),
   ).not.toBeChecked();
-  await expect(allList(page).getByRole('listitem').nth(1)).toContainText(
+  await expect(mine(page).getByRole('listitem').first()).toContainText(
     'Patch the hull',
   );
+  await expect(stream(page).locator('[data-stream^="done:"]')).toHaveCount(0);
 
   // The log has the pair: closed, then reopened.
   await expectSaved(page);
@@ -110,7 +105,8 @@ test('inline popovers change priority, due and assignee from the row', async ({
 }) => {
   test.skip(isMobile(page), 'Inline popovers are a desktop affordance.');
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/projects/p-falcon');
+  // All's List keeps the full rows (a room's loops do not).
+  await openLive(page, '/all?kind=task&view=list&person=u-han');
   const task = row(page, 'Find a replacement motivator');
 
   const priority = task.getByRole('button', { name: /^Priority: Medium/ });
@@ -139,9 +135,8 @@ test('inline popovers change priority, due and assignee from the row', async ({
     'data-highlighted',
   );
   await who.press('Enter');
-  await expect(
-    task.getByRole('button', { name: /^Assignee: Chewbacca/ }),
-  ).toBeVisible();
+  // No longer Han's, so it leaves the list narrowed to him.
+  await expect(task).toHaveCount(0);
 
   await expectSaved(page);
 
@@ -160,7 +155,7 @@ test('rows are 36px on desktop and 44px on phones, with 44px checkboxes on touch
   request,
 }) => {
   await request.post('/api/import', { data: SEED });
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/all?kind=task&view=list');
   const first = page.locator('[data-task-id]').first();
   const box = await first.boundingBox();
   const check = await first.locator('label').first().boundingBox();
@@ -189,8 +184,8 @@ test('due dates say overdue and today in words, not only color', async ({
     },
   });
   await openLive(page, '/projects/p-echo');
-  await expect(row(page, 'Confirm shield generator delivery')).toContainText(
+  await expect(loop(page, 'Confirm shield generator delivery')).toContainText(
     /Overdue ·/,
   );
-  await expect(row(page, 'Insulate the hangar doors')).toContainText('Today');
+  await expect(loop(page, 'Insulate the hangar doors')).toContainText('Today');
 });

@@ -13,7 +13,7 @@ import {
 } from './fixtures';
 
 /**
- * Focus's Brief me (#259) over `recapSeed()`, with the e2e build's
+ * Brief me on Today (#259, #332) over `recapSeed()`, with the e2e build's
  * scripted model in place of WebLLM, as `summaries.spec.ts` does
  * (`summary-runtime.ts`): nothing is downloaded.
  */
@@ -45,6 +45,12 @@ function lastRequest(page: Page) {
   );
 }
 
+/** Day and Week are radios behind their labels. */
+const week = (page: Page) =>
+  page
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'Week' }) })
+    .click();
 const button = (page: Page) =>
   page.getByRole('button', { name: 'Brief me', exact: true });
 const card = (page: Page) =>
@@ -69,7 +75,7 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: recapSeed() });
 });
 
-test('hidden when summaries are off on this device; Focus is unchanged', async ({
+test('hidden when summaries are off on this device; Today is unchanged', async ({
   page,
 }) => {
   await fakeModel(page, ['Unused.']);
@@ -77,7 +83,7 @@ test('hidden when summaries are off on this device; Focus is unchanged', async (
     localStorage.setItem('datapad:summaries', 'off');
   });
   await openLive(page);
-  await expect(page.locator('[data-recap]')).toBeVisible();
+  await expect(page.locator('[data-recap-link]')).toBeVisible();
   await expect(button(page)).toHaveCount(0);
   await expect(page.locator('[data-brief]')).toHaveCount(0);
 });
@@ -87,11 +93,11 @@ test('hidden where the browser cannot run the model', async ({ page }) => {
     delete (Navigator.prototype as { gpu?: unknown }).gpu;
   });
   await openLive(page);
-  await expect(page.locator('[data-recap]')).toBeVisible();
+  await expect(page.locator('[data-recap-link]')).toBeVisible();
   await expect(button(page)).toHaveCount(0);
 });
 
-test('streams a brief of yesterday and today from Focus’s facts', async ({
+test('streams a brief of yesterday, today and the lanes from Today’s facts', async ({
   page,
 }) => {
   await fakeModel(page, [
@@ -121,9 +127,18 @@ test('streams a brief of yesterday and today from Focus’s facts', async ({
   expect(context).toContain('Ridge patrol debrief');
   expect(context).toContain('Shield review');
   expect(context).not.toContain('Write the Yavin report');
+  // Today's lanes.
+  expect(context).toContain('My open tasks (');
+  expect(context).toContain('Waiting on others (');
+  expect(context).toContain('To decide (');
 
-  // It sits on top of the sections and replaces none of them.
-  await expect(page.locator('[data-recap]')).toBeVisible();
+  // It sits above the timeline and replaces nothing.
+  const cardBox = await region.boundingBox();
+  const timelineBox = await page
+    .getByRole('heading', { name: 'Timeline' })
+    .boundingBox();
+  expect(cardBox?.y ?? 0).toBeLessThan(timelineBox?.y ?? 0);
+  await expect(page.locator('[data-recap-link]')).toBeVisible();
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
 });
@@ -179,8 +194,8 @@ test('saves as a General note, is kept for the day, and dismisses', async ({
   // The name went back to a mention token.
   expect(note?.body).toMatch(/Ask @\{[^}]+\} first\./);
 
-  // Back on Focus the same day: still there, with nothing run again.
-  await openLive(page, '/tasks');
+  // Back on Today the same day: still there, with nothing run again.
+  await openLive(page, '/all');
   await openLive(page);
   await expect(card(page).getByText('A quiet day.')).toBeVisible();
   await expect(card(page).getByRole('status')).toHaveCount(0);
@@ -192,7 +207,7 @@ test('saves as a General note, is kept for the day, and dismisses', async ({
   await card(page).getByRole('button', { name: 'Dismiss the brief' }).click();
   await expect(page.locator('[data-brief]')).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('[data-recap]')).toBeVisible();
+  await expect(page.locator('[data-recap-link]')).toBeVisible();
   await expect(page.locator('[data-brief]')).toHaveCount(0);
   await expect(button(page)).toBeVisible();
 });
@@ -206,7 +221,7 @@ test('a brief kept from another day is not shown', async ({ page }) => {
     );
   });
   await openLive(page);
-  await expect(page.locator('[data-recap]')).toBeVisible();
+  await expect(page.locator('[data-recap-link]')).toBeVisible();
   await expect(page.locator('[data-brief]')).toHaveCount(0);
 });
 
@@ -229,7 +244,7 @@ test('works from the keyboard', async ({ page }) => {
   await expect(page.locator('[data-brief]')).toHaveCount(0);
 });
 
-test('Brief me is as tall as the layout switcher beside it', async ({
+test('Brief me is as tall as the Day and Week switcher beside it; only on today', async ({
   page,
 }) => {
   await fakeModel(page, ['Unused.']);
@@ -241,4 +256,37 @@ test('Brief me is as tall as the layout switcher beside it', async ({
   // 44px on touch, 32 on desktop: the switcher's frame no longer adds 2.
   await expect.poll(() => height(switcher)).toBe(isMobile(page) ? 44 : 32);
   expect(await height(button(page))).toBe(await height(switcher));
+  // Another day, or the week, has no Brief me.
+  await page.getByRole('button', { name: 'Next day' }).click();
+  await expect(button(page)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
+  await week(page);
+  await expect(button(page)).toHaveCount(0);
+});
+
+test('Settings → Today turns Brief me off, and Reset brings it back (#343)', async ({
+  page,
+}) => {
+  await fakeModel(page, ['Unused.']);
+  await openLive(page);
+  await expect(button(page)).toBeVisible();
+
+  await openLive(page, '/settings/today');
+  const brief = page.getByRole('group', { name: 'Brief me' });
+  await brief
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'Off' }) })
+    .click();
+  await expect(brief.getByRole('radio', { name: 'Off' })).toBeChecked();
+  await expectSaved(page);
+  await openLive(page);
+  await expect(page.locator('[data-day-line]')).toBeVisible();
+  await expect(button(page)).toHaveCount(0);
+
+  await openLive(page, '/settings/today');
+  await page.getByRole('button', { name: 'Reset to defaults' }).click();
+  await expect(brief.getByRole('radio', { name: 'On' })).toBeChecked();
+  await expectSaved(page);
+  await openLive(page);
+  await expect(button(page)).toBeVisible();
 });

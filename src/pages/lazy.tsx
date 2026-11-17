@@ -2,7 +2,7 @@ import { type ComponentType, use } from 'react';
 import type { Route } from '@/lib/router';
 
 /**
- * The pages most visits never open, each its own chunk, so the entry stays
+ * The pages a first visit to Today does not need, each its own chunk, so the entry stays
  * small. AppShell renders them inside the page's error boundary and a Suspense with a quiet
  * fallback: a chunk that fails to load shows "Reload this view" like any
  * page that throws.
@@ -47,68 +47,60 @@ function lazyPage<P extends object>(
   return Object.assign(Page, { preload });
 }
 
-export const DigestPage = lazyPage(() =>
-  import('@/pages/DigestPage').then((m) => m.DigestPage),
+export const AllPage = lazyPage(() =>
+  import('@/pages/AllPage').then((m) => m.AllPage),
 );
 export const HelpPage = lazyPage(() =>
   import('@/pages/HelpPage').then((m) => m.HelpPage),
 );
-export const ListPage = lazyPage(() =>
-  import('@/pages/ListPage').then((m) => m.ListPage),
-);
-export const ListsPage = lazyPage(() =>
-  import('@/pages/ListsPage').then((m) => m.ListsPage),
-);
-/**
- * Not a page: the project page's Lists section (#301), kept out of the
- * entry. Opening a project loads it with the page (`project` below).
- */
-export const ProjectLists = lazyPage(() =>
-  import('@/components/lists/ProjectLists').then((m) => m.ProjectLists),
-);
-export const MeetingPage = lazyPage(() =>
-  import('@/pages/MeetingPage').then((m) => m.MeetingPage),
+export const MeetingMode = lazyPage(() =>
+  import('@/pages/MeetingMode').then((m) => m.MeetingMode),
 );
 export const SettingsPage = lazyPage(() =>
   import('@/pages/SettingsPage').then((m) => m.SettingsPage),
 );
-export const TaskPage = lazyPage(() =>
-  import('@/pages/TaskPage').then((m) => m.TaskPage),
-);
 export const WhiteboardPage = lazyPage(() =>
   import('@/pages/WhiteboardPage').then((m) => m.WhiteboardPage),
 );
+/**
+ * Not pages: a project room's Whiteboard tab (#334) and its menu, in the
+ * whiteboard's chunk. Opening a project loads it (`project` below).
+ */
+export const ProjectBoard = lazyPage(() =>
+  import('@/pages/WhiteboardPage').then((m) => m.ProjectBoard),
+);
+export const ProjectBoardMenu = lazyPage(() =>
+  import('@/pages/WhiteboardPage').then((m) => m.ProjectBoardMenu),
+);
 
-const LAZY: Partial<
-  Record<Route['name'], { preload: () => Promise<unknown> }>
-> = {
-  digest: DigestPage,
-  help: HelpPage,
-  list: ListPage,
-  lists: ListsPage,
-  meeting: MeetingPage,
-  project: ProjectLists,
-  settings: SettingsPage,
-  people: SettingsPage,
-  orgs: SettingsPage,
-  task: TaskPage,
-  whiteboard: WhiteboardPage,
+type Preload = { preload: () => Promise<unknown> };
+
+/** A project room loads its board's parts; the whiteboard route too. */
+const ROOM_BOARD: Preload[] = [ProjectBoard, ProjectBoardMenu];
+
+const LAZY: Partial<Record<Route['name'], Preload[]>> = {
+  all: [AllPage],
+  help: [HelpPage],
+  meeting: [MeetingMode],
+  project: ROOM_BOARD,
+  settings: [SettingsPage],
+  people: [SettingsPage],
+  orgs: [SettingsPage],
+  whiteboard: [WhiteboardPage, ...ROOM_BOARD],
 };
 
 /** Load the chunk `route` renders, if it is a lazy page. Never rejects. */
 export function preloadRoute(route: Route): Promise<void> {
-  const page = LAZY[route.name];
-  return page
-    ? page.preload().then(
-        () => undefined,
-        () => undefined,
-      )
-    : Promise.resolve();
+  const pages = LAZY[route.name] ?? [];
+  return Promise.all(pages.map((page) => page.preload())).then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 /** Load every lazy page's chunk. Never rejects. */
 export function preloadPages(): void {
-  for (const page of new Set(Object.values(LAZY))) {
+  for (const page of new Set(Object.values(LAZY).flat())) {
     page?.preload().catch(() => undefined);
   }
 }

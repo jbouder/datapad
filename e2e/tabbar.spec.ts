@@ -78,26 +78,24 @@ test.beforeEach(async ({ page, request }) => {
 test.describe('with motion on', () => {
   test.use({ reducedMotion: 'no-preference' });
 
-  test('the tab bar stays opaque and still through page, layout and space transitions', async ({
+  test('the tab bar stays opaque and still through page, filter and space transitions', async ({
     page,
     request,
   }) => {
     await request.post('/api/spaces/create', { data: { name: 'Personal' } });
     await watchTransitions(page);
-    await openLive(page, '/');
+    await openLive(page, '/all');
 
-    // A page change.
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
+    // A filter change (Today has none): one of All's kinds.
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Tasks', exact: true })
+      .click();
     await expect.poll(async () => (await seen(page)).length).toBe(1);
 
-    // A layout change.
-    const group = page.getByRole('group', { name: /^Layout/ });
-    await group
-      .locator('label')
-      .filter({ has: page.getByRole('radio', { checked: false }) })
-      .first()
-      .click();
+    // A page change.
+    await tabs(page).getByRole('link', { name: 'Today' }).click();
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
     await expect.poll(async () => (await seen(page)).length).toBe(2);
 
     // A space change (the account menu on a phone).
@@ -107,16 +105,16 @@ test.describe('with motion on', () => {
     await expect.poll(async () => (await seen(page)).length).toBe(3);
 
     const all = await seen(page);
-    expect(all.map((s) => s.type)).toEqual(['page', 'layout', 'space']);
+    expect(all.map((s) => s.type)).toEqual(['filter', 'page', 'space']);
     for (const s of all) {
       expect(s.name, s.type).toBe('tabbar');
       expect(opaque(s.background), `${s.type}: ${s.background}`).toBe(true);
       expect(s.tabbar, s.type).toEqual([]);
     }
     // The page itself did move.
-    expect(all[0]?.others).toBeGreaterThan(0);
+    expect(all[1]?.others).toBeGreaterThan(0);
 
-    // Between transitions it is the usual translucent bar again.
+    // Between transitions it has no snapshot name of its own.
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });
 });
@@ -127,10 +125,10 @@ test.describe('with prefers-reduced-motion: reduce', () => {
   test('no transition runs, so the tab bar never changes', async ({ page }) => {
     await watchTransitions(page);
     await openLive(page, '/');
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
-    await tabs(page).getByRole('link', { name: 'Projects' }).click();
-    await expect(page).toHaveURL(/\/projects/);
+    await tabs(page).getByRole('link', { name: 'All' }).click();
+    await expect(page).toHaveURL(/\/all\?kind=task$/);
+    await tabs(page).getByRole('link', { name: 'Scratch' }).click();
+    await expect(page).toHaveURL(/\/scratch$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });
@@ -145,8 +143,8 @@ test.describe('with Motion off', () => {
     await openPreferences(page);
     await page.getByRole('menuitemcheckbox', { name: 'Motion' }).click();
     await page.keyboard.press('Escape');
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
+    await tabs(page).getByRole('link', { name: 'All' }).click();
+    await expect(page).toHaveURL(/\/all\?kind=task$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });

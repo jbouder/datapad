@@ -44,6 +44,8 @@ export interface MeetingPreset {
   /** A project page's Add meeting: the project is not asked for. */
   fixedProject?: boolean;
   date?: string;
+  /** A room narrowed to a person (#334) asks them along. */
+  attendees?: string[];
 }
 
 interface Values {
@@ -78,7 +80,7 @@ function valuesOf(
     date: meeting?.date ?? preset?.date ?? '',
     time: shown(meeting?.time ?? ''),
     end: shown(meeting?.end ?? ''),
-    attendees: meeting?.attendees ?? [],
+    attendees: meeting?.attendees ?? preset?.attendees ?? [],
     link: meeting?.link ?? '',
     note: meeting?.note ?? '',
     topics: [],

@@ -12,7 +12,7 @@ import {
   blockedOf,
   type Collection,
   type Collections,
-  DEFAULT_SETTINGS,
+  decideOf,
   GENERAL,
   GENERAL_BOARD,
   healthOf,
@@ -25,11 +25,26 @@ import {
   type Person,
   type Project,
   SETTINGS_ID,
+  type Settings,
   type Snapshot,
+  STORED_SETTINGS,
   type Task,
   type Topic,
   topicsOf,
 } from './types';
+
+/** The settings `setSettings` clears with `null` (#343). */
+const CLEARABLE = [
+  'assignToMe',
+  'defaultPriority',
+  'pinned',
+  'captureAs',
+  'mentionAssigns',
+  'roomNotes',
+  'railOwed',
+  'roomTab',
+  'laneLabels',
+] as const satisfies readonly (keyof Settings)[];
 
 /**
  * The one place state changes, on the client and in the Durable Object.
@@ -476,6 +491,19 @@ function apply(d: Draft, op: Op, now: string) {
       touch(d, t.projectId, now);
       return;
     }
+    case 'setDecide': {
+      const t = task(d, op.id);
+      if (decideOf(t) === op.decide) return;
+      d.set('tasks', t.id, { ...t, decide: op.decide, updatedAt: now });
+      log(
+        d,
+        t.projectId,
+        op.decide ? `Marked "${t.title}" to decide` : `Decided "${t.title}"`,
+        now,
+      );
+      touch(d, t.projectId, now);
+      return;
+    }
     case 'deleteTask': {
       // Keeps its notes: they stay plain notes, their task link gone.
       const t = task(d, op.id);
@@ -688,6 +716,25 @@ function apply(d: Draft, op: Op, now: string) {
       if (n.pinned === op.pinned) return;
       d.set('notes', n.id, { ...n, pinned: op.pinned });
       touch(d, n.projectId, now);
+      return;
+    }
+    case 'moveNote': {
+      const n = d.get('notes', op.id) ?? fail('That note no longer exists');
+      if (n.meetingId !== null) fail('That note belongs to a meeting');
+      if ((n.taskId ?? null) !== null) fail('That note belongs to a task');
+      if (n.scratch) fail('The Notepad cannot be filed');
+      if (n.projectId === op.projectId) return;
+      checkProject(d, op.projectId);
+      // Same id and createdAt: filing is a move, not a copy.
+      d.set('notes', n.id, { ...n, projectId: op.projectId });
+      log(
+        d,
+        op.projectId,
+        `Filed a note to "${projectName(d, op.projectId)}"`,
+        now,
+      );
+      touch(d, n.projectId, now);
+      touch(d, op.projectId, now);
       return;
     }
     case 'deleteNote': {
@@ -1238,8 +1285,17 @@ function apply(d: Draft, op: Op, now: string) {
 
     /* settings (not logged) */
     case 'setSettings': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
-      d.set('settings', SETTINGS_ID, { ...current, ...op.patch });
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
+      // A `null` clears the option back to its default (#343): the
+      // patch goes over what is stored, then each option it cleared goes.
+      const next = { ...current, ...op.patch } as Record<
+        keyof Settings,
+        unknown
+      >;
+      for (const key of CLEARABLE) {
+        if (next[key] === null) delete next[key];
+      }
+      d.set('settings', SETTINGS_ID, next as unknown as Settings);
       return;
     }
     case 'setNav': {
@@ -1249,7 +1305,7 @@ function apply(d: Draft, op: Op, now: string) {
 
     /* page preferences (#186), not logged either */
     case 'setPagePrefs': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
       const pages = { ...current.pages };
       const next = applyPagePatch(pages[op.page], op.patch);
       if (Object.keys(next?.filters ?? {}).length > LIMITS.prefFiltersMax) {
@@ -1272,7 +1328,7 @@ function apply(d: Draft, op: Op, now: string) {
       return;
     }
     case 'resetPagePrefs': {
-      const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+      const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
       // Kept, empty: a space that reset everything has still saved.
       const pages = { ...current.pages };
       if (op.page) delete pages[op.page];
@@ -1298,7 +1354,7 @@ function apply(d: Draft, op: Op, now: string) {
  * a nav with nothing left in it goes, so the default nav is no `nav`.
  */
 function setNav(d: Draft, op: OpOf<'setNav'>) {
-  const current = d.get('settings', SETTINGS_ID) ?? DEFAULT_SETTINGS;
+  const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
   const nav: NavPrefs = { ...current.nav };
   const { order, hidden, phoneHidden, extras, tools, quickAdd } = op.patch;
   if (order === null) delete nav.order;
@@ -1353,6 +1409,8 @@ function addTask(d: Draft, op: OpOf<'addTask'>, now: string) {
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    // Last, as in `TaskSchema`, so an export round-trips byte for byte.
+    ...(op.decide ? { decide: true } : {}),
   });
   log(
     d,

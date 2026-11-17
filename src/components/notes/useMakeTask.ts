@@ -9,28 +9,42 @@ import { useToast } from '@/providers/ToastProvider';
 /**
  * Make a task from a note: in the note's project, pointing back at it
  * (`sourceNoteId`), with a toast that opens the task. The note itself is
- * not changed. Returns whether the task was made.
+ * not changed. A meeting's note makes an action item of that meeting
+ * (#336). Returns whether the task was made. With `decide`, it is
+ * something to decide (#328), as Scratch's To decide makes (#333).
  */
-export function useMakeTask(): (note: Note, title: string) => boolean {
+export function useMakeTask(): (
+  note: Note,
+  title: string,
+  options?: { decide?: boolean },
+) => boolean {
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { show } = useToast();
   return useCallback(
-    (note, title) => {
+    (note, title, options) => {
       const clean = title.trim().slice(0, 200);
       if (!clean) return false;
+      const decide = options?.decide === true;
       const id = actions.addTask({
         projectId: note.projectId,
+        // From a meeting's note, an action item of that meeting (#336).
+        ...(note.meetingId ? { meetingId: note.meetingId } : {}),
         title: clean,
         sourceNoteId: note.id,
         assignee: state ? defaultAssignee(state) : '',
         priority: state ? defaultPriority(state) : 'med',
+        ...(decide ? { decide: true } : {}),
       });
       if (id === null) return false;
-      show(`Added “${clean}”`, undefined, {
-        label: 'Open',
-        run: () => openTask(id),
-      });
+      show(
+        decide ? `Added “${clean}” to decide` : `Added “${clean}”`,
+        undefined,
+        {
+          label: 'Open',
+          run: () => openTask(id),
+        },
+      );
       return true;
     },
     [state, actions, openTask, show],
@@ -48,5 +62,5 @@ export function noteLocation(
   const query = `note=${encodeURIComponent(note.id)}`;
   return note.projectId && state.projects[note.projectId]
     ? { route: { name: 'project', id: note.projectId }, query }
-    : { route: { name: 'notes' }, query };
+    : { route: { name: 'all', kinds: ['note'] }, query };
 }

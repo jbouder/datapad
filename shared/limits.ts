@@ -50,6 +50,10 @@ export const LIMITS = {
   /** Entries kept in one activity log (newest first). */
   activityMax: 150,
   activityTextMax: 300,
+  /** Pinned rooms in one space (#329). */
+  pinnedMax: 50,
+  /** A person room lane's own name (#343). */
+  laneLabelMax: 40,
   /** Pages with saved preferences in one space (#186). */
   pagesMax: 16,
   /** A saved filter's or section's name. */
@@ -63,6 +67,10 @@ export const LIMITS = {
    * page's `hidden` or `order` may name (#310).
    */
   prefSectionsMax: 24,
+  /** Saved views on All (#338). */
+  viewsMax: 30,
+  /** A saved view's address: All's query string. */
+  viewQueryMax: 1_000,
   /** Ops in one batch (bulk actions and their undo). */
   batchMax: 200,
   /** Tasks named in one reorder. */

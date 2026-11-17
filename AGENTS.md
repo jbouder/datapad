@@ -4,9 +4,12 @@ Guidance for AI agents working in this repository.
 
 ## What this is
 
-A private, single-user project tracker for an engineering leader: projects,
-tasks, notes, meetings and milestones, people, cross-project views, search and on-device
-summaries. Built the way [holocron](https://github.com/jbouder/holocron) is
+A private, single-user project tracker for an engineering leader, built
+around three places and one input: **Today** (the day as a timeline,
+the open loops beside it), the **rooms** (one per project and per
+person), **All** (every item of every kind in one list) and the
+**capture line**. Lines with no home go to **Scratch**; a meeting opens
+in full-screen **meeting mode**. Search and summaries run on the device. Built the way [holocron](https://github.com/jbouder/holocron) is
 built. Runs entirely on Cloudflare: Cloudflare Access sits in front of the
 hostname, a Worker verifies the Access JWT on every request and serves the
 SPA and API, and one SQLite-backed Durable Object per signed-in email holds
@@ -18,40 +21,50 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 ## Layout
 
 - `shared/` — the domain, used by both sides. `types.ts` (the twelve
-  collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic` in `Meeting`, `ListItem` in `List`), `protocol.ts` (zod schemas for documents, the export file,
-  ops and socket messages), `reducer.ts` (**the only place state
-  changes**; also `merge()` for imports), `limits.ts`, `select.ts`
-  (memoizable selectors), `dates.ts`, `markdown.ts`, `meetings.ts` (meeting filters and order; topics: the form's line-to-ops
-  mapping, counts; a meeting's series and carrying topics
-  forward),
-  `milestones.ts` (they live on the project), `board.ts` (whiteboards:
-  stroke simplification, bounds, hit-testing, z order, a board's items,
-  arrows' attachment and re-aiming), `migrate.ts` (the typed
-  collection from before meetings → meetings and milestones; every import
-  and the DO's schema 3 run it),
-  `summaries.ts` (the models, prompt and per-item context Summarize
-  sends, and Focus's Brief me context and prompt), `schedule.ts` (the
-  nightly backup's time, DST-safe), `search.ts`
-  (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
-  what each page remembers, the address over what is saved, what a change
-  saves; `PAGES` is also where Help's Layouts table comes from), `nav.ts`
-  (navigation preferences: the rail's and tab bar's sections and order,
-  what the phone's tab bar leaves out, the Tools (Notepad, Whiteboard,
-  Weekly digest) the same way and what carries over from before them,
-  the + menu), `routes.ts` (the app's
-  addresses, pure: parse, paths, redirects from old addresses, titles;
-  `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order,
-  and the pure halves of moving a project between spaces),
-  `shortcuts.ts` (every keyboard shortcut and the rule that keeps single
-  letters out of inputs and overlays; Help and the `?` sheet list it),
-  `composer.ts` (the note composer as pure functions: the `/` commands,
-  the formatting keys, list continuation; Help's tables come from it),
-  `mentions.ts` (`@{id}` tokens ↔ `@Name`), `notes.ts`, `tasks.ts`,
-  `projects.ts` (each view's filters, sorts and selection), `people.ts`
-  and `orgs.ts` (records by name, inline add), `lists.ts` (a list's
-  progress, its items' order, its project, which lists a filter keeps),
-  `templates.ts` (project
-  and note templates), `digest.ts` (the weekly digest and its Markdown).
+  collections, `COLLECTIONS`; `Milestone` embedded in `Project`, `Topic`
+  in `Meeting`, `ListItem` in `List`; `lists` and `decisions` are
+  retired but kept in the data), `protocol.ts` (zod schemas for
+  documents, the export file, ops and socket messages), `reducer.ts`
+  (**the only place state changes**; also `merge()` for imports; it
+  still handles retired ops such as `reorderTasks` and the list ops for
+  old clients), `limits.ts`, `select.ts` (memoizable selectors),
+  `dates.ts`, `markdown.ts`, `migrate.ts` (old shapes in: the typed
+  collection → meetings and milestones, format 3's to decide, lists as
+  checklist notes and no Notepad, and old page settings → All's; every
+  import and the DO's schema migrations run it),
+  `today.ts` (Today: a day's timeline, what is due, Next up, the day's
+  line, the week zoom's days), `loops.ts` (the open loops: Mine, Waiting
+  on, To decide; `lanesOf()`, `owedBy()`), `recap.ts` (Since yesterday,
+  `buildRecap()`), `digest.ts` (the week's digest and its Markdown, under
+  the week zoom and `get_digest`), `capture.ts` (the capture line, pure:
+  what a line means, its chips, the ops that save and undo it),
+  `rooms.ts` (rooms, pins and the rail), `stream.ts` (a room's stream and
+  its person or project filter), `all.ts` (All: kinds, filters, sorts,
+  layouts, saved views), `settings.ts` (Settings' sections, defaults and
+  Reset), `pages.ts` (saved page preferences, pure: what each page
+  remembers, the address over what is saved, what a change saves;
+  `PAGES` is also where Help's Layouts table comes from; it keeps the
+  retired pages' keys so their saved data still parses),
+  `meetings.ts` (meeting filters and order; topics: the form's
+  line-to-ops mapping, counts; a meeting's series and carrying topics
+  forward), `milestones.ts` (they live on the project), `board.ts`
+  (whiteboards: stroke simplification, bounds, hit-testing, z order, a
+  board's items, arrows' attachment and re-aiming), `summaries.ts` (the
+  models, prompts and contexts Summarize sends for a room, a meeting and
+  a task, and Today's Brief me), `schedule.ts` (the nightly backup's
+  time, DST-safe), `search.ts` (the ⌘K index and ranking), `routes.ts`
+  (the app's addresses, pure: parse, paths, every redirect from an old
+  address (`landRoute()`), titles; `src/lib/router.ts` re-exports it),
+  `spaces.ts` (space names and order, and the pure halves of moving a
+  project between spaces), `shortcuts.ts` (every keyboard shortcut and
+  the rule that keeps single letters out of inputs and overlays; Help
+  and the `?` sheet list it), `composer.ts` (the note composer as pure
+  functions: the `/` commands, the formatting keys, list continuation;
+  Help's tables come from it), `mentions.ts` (`@{id}` tokens ↔ `@Name`),
+  `notes.ts`, `tasks.ts`, `projects.ts` (filters, sorts and selection),
+  `people.ts` and `orgs.ts` (records by name, inline add), `lists.ts`
+  (what is left of lists: the helpers the migration and MCP's retired
+  list tools read), `templates.ts` (project and note templates).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
@@ -75,37 +88,54 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
-  `/settings/…`),
-  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers; `lib/motion-tokens.ts`
-  is the durations and easings script uses, equal to the CSS tokens), `hooks/useNow.ts` (a shared minute clock;
-  date-bucketed views read `useToday()` so they roll over at midnight), `lib/themes.ts` (System, Light, Dark: neutral, no tint),
+  `/settings/…`), `lib/nav.ts` (`PLACES`: Today, Scratch and All for the
+  rail, the tab bar and ⌘K; `ROOMS_TAB`, the phone's fourth tab),
+  `hooks/useRooms.ts` + `components/RoomLists.tsx` (the rail's rooms
+  and Waiting on, shared with the phone's Rooms page, `/rooms`), `lib/capture.ts` (focusing the capture
+  line), `lib/leave.ts` (holding a link, Back or a panel close while an
+  inline note asks "Save this note?"),
+  `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers;
+  `lib/motion-tokens.ts` is the durations and easings script uses, equal
+  to the CSS tokens), `hooks/useNow.ts` (a shared minute clock;
+  date-bucketed views read `useToday()` so they roll over at midnight),
+  `hooks/usePins.ts` (pinned rooms), `hooks/usePlaces.ts`,
+  `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),
-  `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`, PagePrefs),
-  `components/*` (shared layouts in `components/layouts/`: ViewSwitcher,
-  ListToolbar (with `inputs/FindField` and `inputs/SortField`; the list
-  pages' Find, filters, Sort and Clear filters), DataTable, CardGrid,
-  Board, Timeline, Calendar; `SpaceSwitcher`,
-  `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
-  `meetings/` holds the meeting form, row, list, layouts,
-  the topics (`MeetingTopics` on the meeting's page and in its panel,
-  `PendingTopics` for a new meeting's), the meeting note composer and
-  the Focus agenda strip;
-  `board/` is the whiteboard canvas (`Board`, composition and render;
-  `gesture.ts`, the pointer gestures as a pure state machine whose steps
-  return effects as data, driven by `useBoardGestures`; `useBoardKeys`,
-  the keyboard map and arrows drawn from the keys; `ops.ts`, the pure op
-  builders; `tools.ts`, the tools; its toolbar, Edit bar,
-  zoom, `useViewport`, `useHistory` for undo; `BoardMenu` with
-  `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
-  half: tokens resolved, the PNG on a canvas);
-  `notes/LinkedNoteList` is the Notes section a task's page and panel and
-  a meeting's page and panel share; `notes/NoteRow` is the compact note
-  row it and the project page use, `notes/NoteCard` the card Notes uses,
-  and `notes/noteParts` what both share: the actions, editing in place,
-  Make task, `?note=`), `pages/*` (`MeetingPage` is
-  `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
-  `/projects/:id`; a task opens its page only from Tasks, its panel
-  everywhere else).
+  `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`,
+  PagePrefs), `pages/*` (`TodayPage` is `/`, `ScratchPage` `/scratch`,
+  `AllPage` `/all`, `ProjectRoom` `/projects/:id` (Stream, `/plan` and
+  `/whiteboard` tabs), `PersonRoom` `/people/:id`, `MeetingMode`
+  `/meetings/:id` (full screen: no rail, top bar or tab bar),
+  `WhiteboardPage` `/whiteboard`, `SettingsPage`, `HelpPage`; a task opens
+  in its panel everywhere), `components/*`: `capture/CaptureLine` (the
+  capture line on Today and in each room), `today/` (the day timeline,
+  the loop lanes and rows, the recap, the week zoom, Brief me),
+  `rooms/` (`RoomFrame`, the frame both rooms share, and `RoomStream`),
+  `scratch/ScratchBlock` (one note on Scratch, with File to…, Make task
+  and To decide), `all/SavedViews` (All's saved view chips),
+  `settings/` (the v2 sections: Today, Rooms' options, Capture, All),
+  shared layouts in `components/layouts/` (ViewSwitcher, ListToolbar
+  (with `inputs/FindField` and `inputs/SortField`; Find, filters, Sort
+  and Clear filters), DataTable, CardGrid, Board, Timeline, Calendar),
+  `tasks/` (`TaskRow`, `TaskLayouts` for All's list, table and board,
+  `BulkBar`, the task panel), `SpaceSwitcher`, `SpacesSettings`,
+  `RoomsSettings`, `PinButton`, `projects/MoveProjectDialog`,
+  `projects/Milestones`, `projects/ProjectPlan` (the room's Plan tab);
+  `meetings/` holds the meeting form, row, list, layouts, the topics
+  (`MeetingTopics` in meeting mode and in the meeting's panel), the
+  action items, the open loops column (`MeetingLoops`) and the meeting
+  note composer; `board/` is the whiteboard canvas (`Board`, composition
+  and render; `gesture.ts`, the pointer gestures as a pure state machine
+  whose steps return effects as data, driven by `useBoardGestures`;
+  `useBoardKeys`, the keyboard map and arrows drawn from the keys;
+  `ops.ts`, the pure op builders; `tools.ts`, the tools; its toolbar,
+  Edit bar, zoom, `useViewport`, `useHistory` for undo; `BoardMenu` with
+  `export.ts`, the pure SVG serializer, and `download.ts`, its browser
+  half: tokens resolved, the PNG on a canvas); `notes/LinkedNoteList` is
+  the Notes section a task's panel and a meeting share; `notes/NoteRow`
+  is the compact note row the rooms, meeting mode and All use, and
+  `notes/noteParts` what they share: the actions, editing in place,
+  Make task, `?note=`.
 - `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth

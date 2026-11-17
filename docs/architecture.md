@@ -176,6 +176,14 @@ by one so every open or cached client takes a fresh snapshot rather than
 replaying ops across the change. A space that never changed keeps `seq`
 0.
 
+Schema version 4 (#328) brings each space to export format 3 the same
+way: its tasks, notes and lists go through `migrateFormat3()` in
+`shared/migrate.ts` (the function a format 1 or 2 import runs). Open
+tasks tagged `decide` get `decide: true`, each list becomes a checklist
+note under its id (the `lists` rows stay), and the Notepad loses
+`scratch`. An upgrade that crosses several schemas runs each step in the
+same transaction and bumps each space's `seq` once.
+
 ## Client
 
 React 19 SPA. `useDatapad()` keeps a confirmed snapshot plus pending
@@ -193,13 +201,14 @@ destructive; on phones the dot alone unless offline) says Saved, Saving… or "O
 waiting"; only connecting and offline are announced, and it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition. Its pure half (parsing, paths, page titles, and
-the redirects from old addresses, such as the meetings page's address
-from before meetings, which keeps its query and renames the id
-parameter to `meeting`) is `shared/routes.ts`, so Vitest tests it
-without a DOM; `src/lib/router.ts` re-exports it.
+the redirects from every address from before v2 (#329): `/tasks` is
+`/all?kind=task`, `/notepad` and `/unfiled` are `/scratch`, `/settings/people/:id` is
+`/people/:id`, …, all in `landRoute()`) is `shared/routes.ts`, so Vitest
+tests it without a DOM; `src/lib/router.ts` re-exports it. `/tasks/:id`
+needs the data to find the task's room, so the shell settles that one.
 
-The pages most visits never open (Whiteboard, Help, Digest, Settings and
-a meeting's and a task's page) are chunks of their own
+The pages a first visit to Today does not need (All, Whiteboard, Help,
+Settings and meeting mode) are chunks of their own
 (`src/pages/lazy.tsx`), rendered inside the page's error boundary with an
 empty, `aria-busy` Suspense fallback. They are fetched anyway once the
 browser is idle, and a first visit straight to one loads its chunk before
@@ -216,10 +225,11 @@ active. `DatapadProvider` opens one socket on it and shares `useSpaces()`
 (`datapad:snapshot`, `datapad:pending`, `datapad:pending-now`), so nothing
 cached or queued is lost, and any other space appends its id
 (`datapad:snapshot:<id>`). Switching runs inside a `space` view
-transition (the page and the rail crossfade); from a project, person or
-org page it goes to Focus, since that item belongs to the space being
-left. With more than one space, the tab title carries the space's name
-("Tasks · Personal · Datapad").
+transition (the page and the rail crossfade); from a room, a project's
+whiteboard or an org it goes to Today, and from meeting mode to All's
+meetings, since that item belongs to the space being left. With more
+than one space, the tab title carries the space's name ("All ·
+Personal · Datapad").
 
 Page preferences (#186) live in the space's `settings` document
 (`pages`), changed by `setPagePrefs` (merge; `null` clears) and
@@ -247,7 +257,12 @@ commit of `binary-mlc-llm-libs` and the weights from a Hugging Face
 revision, never a branch, with SRI hashes WebLLM checks for the library,
 the model's config and its tokenizer (it has no option for the weight
 shards; the pinned revision is what fixes those). `SummaryProvider` keeps the model loaded between summaries and
-owns the `Summary · <item>` panel. No Worker route and no API key are
+owns the `Summary · <item>` panel (a task, a meeting row on All, the week zoom's digest). Today's
+Brief me, a room's state (`roomContext()`: the state line, the lanes, what
+is coming up and the last 14 days of the stream) and meeting mode's recap
+(`meetingContext()`, capped) show in a card on their page instead
+(`SummaryCard`, keyed by `cardOf()`); each context stays within a character
+budget the tests fill past every cap. No Worker route and no API key are
 involved.
 
 ## Backups

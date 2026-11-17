@@ -19,26 +19,26 @@ export function keyFor(base: string, space: string): string {
 }
 
 /**
- * Where switching spaces leaves you: a project, person or org belongs to
- * the space you are leaving, so its page goes to Focus, and a task or
- * meeting goes to its list; a section page (Tasks, Settings, …) stays
- * where it is. Null means stay.
+ * Where switching spaces leaves you: a room (a project's or a person's)
+ * or an org belongs to the space you are leaving, so its page goes to
+ * Today, and a meeting or a task goes to All's meetings or tasks; a place
+ * (Today, Scratch, All, Settings, …) stays where it is. Null means stay.
  */
 export function routeAfterSwitch(route: {
   // Structural (a `Route` fits), so the unit tests need no router.
   name: string;
-  person?: string;
   org?: string;
   [key: string]: unknown;
-}): { name: 'focus' | 'tasks' | 'meetings' } | null {
-  if (route.name === 'project') return { name: 'focus' };
+}): { name: 'today' } | { name: 'all'; kinds: ['meeting' | 'task'] } | null {
+  if (route.name === 'project' || route.name === 'person') {
+    return { name: 'today' };
+  }
+  if (route.name === 'meeting') return { name: 'all', kinds: ['meeting'] };
+  if (route.name === 'task') return { name: 'all', kinds: ['task'] };
   // A project's whiteboard belongs to the space too; the space's own
   // board stays (the next space's board).
-  if (route.name === 'whiteboard' && route.project) return { name: 'focus' };
-  if (route.name === 'task') return { name: 'tasks' };
-  if (route.name === 'meeting') return { name: 'meetings' };
-  if (route.name === 'people' && route.person) return { name: 'focus' };
-  if (route.name === 'orgs' && route.org) return { name: 'focus' };
+  if (route.name === 'whiteboard' && route.project) return { name: 'today' };
+  if (route.name === 'orgs' && route.org) return { name: 'today' };
   return null;
 }
 

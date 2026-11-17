@@ -1,16 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { addDays } from '../shared/dates';
-import {
-  chooseFilter,
-  expect,
-  expectAccessible,
-  expectSaved,
-  isMobile,
-  openLive,
-  SEED,
-  test,
-  today,
-} from './fixtures';
+import { expect, expectSaved, openLive, SEED, test, today } from './fixtures';
 
 interface Stored {
   meetings: Record<string, { title: string; time: string; end: string }>;
@@ -33,12 +23,12 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-test('adds a meeting from a project, edits it, sees it on Meetings, deletes it', async ({
+test('schedules a meeting from a project room, edits it on Meetings, deletes one', async ({
   page,
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   // Bound to the project: no picker.
   await expect(form.getByRole('combobox', { name: 'Project' })).toHaveCount(0);
@@ -59,8 +49,20 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
+  // In the room's Coming up, a link to its page.
+  await expect(
+    page
+      .getByRole('list', { name: 'Coming up' })
+      .getByRole('link', { name: 'Hangar walkthrough' }),
+  ).toBeVisible();
+
+  // On Meetings, under its month, with its project.
+  await page.goto('/meetings');
   const added = row(page, 'Hangar walkthrough');
   await expect(added).toContainText('9:30–10:15 AM');
+  await expect(
+    added.getByRole('link', { name: 'Echo Base relocation' }),
+  ).toBeVisible();
 
   // Edit the time: `2pm` reads as 2:00 PM, and the end must come after.
   await added
@@ -85,14 +87,6 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
     'Added meeting "Hangar walkthrough"',
   ]);
 
-  // On Meetings, under its month, with its project.
-  await page.goto('/meetings');
-  const there = row(page, 'Hangar walkthrough');
-  await expect(there).toContainText('2:00–3:00 PM');
-  await expect(
-    there.getByRole('link', { name: 'Echo Base relocation' }),
-  ).toBeVisible();
-
   // Delete one with a note: it asks, and the note stays.
   const shield = row(page, 'Shield review');
   await shield
@@ -111,42 +105,6 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   expect(after.activity['p-echo']?.events[0]?.text).toBe(
     'Deleted meeting "Shield review"',
   );
-});
-
-test('filters by project and General, and keeps archived projects under Past', async ({
-  page,
-}) => {
-  await openLive(page, '/meetings');
-  await expect(row(page, 'Shield review')).toBeVisible();
-  await expect(row(page, 'Quarterly planning')).toBeVisible();
-
-  // An archived project's meeting is still here, under its project.
-  await page.getByRole('button', { name: /^Past/ }).click();
-  await expect(
-    row(page, 'Medal ceremony').getByRole('link', {
-      name: /Yavin IV retrospective/,
-    }),
-  ).toBeVisible();
-
-  // No type filter: a meeting is the only kind there is.
-  await expect(page.getByRole('radiogroup', { name: 'Type' })).toHaveCount(0);
-  await expect(page.getByRole('group', { name: 'Type' })).toHaveCount(0);
-
-  await chooseFilter(page, 'Project', 'General');
-  await expect(page).toHaveURL(/project=general/);
-  await expect(page.locator('[data-meeting-id]')).toHaveCount(1);
-  await expect(row(page, 'Quarterly planning')).toContainText('General');
-
-  await chooseFilter(page, 'Project', 'Echo Base relocation');
-  await expect(page).toHaveURL(/project=p-echo/);
-  await expect(row(page, 'Quarterly planning')).toHaveCount(0);
-  await expect(row(page, 'Shield review')).toBeVisible();
-
-  // Add meeting from a project filter starts in that project.
-  await page.getByRole('button', { name: 'Add meeting' }).click();
-  await expect(
-    page.getByRole('dialog').getByRole('combobox', { name: 'Project' }),
-  ).toHaveValue('Echo Base relocation');
 });
 
 test('old addresses land on Meetings, or on the meeting they opened', async ({
@@ -168,80 +126,8 @@ test('old addresses land on Meetings, or on the meeting they opened', async ({
 
   // Other parameters come along unchanged.
   await page.goto('/events?project=p-echo&view=calendar');
-  await expect(page).toHaveURL(/\/meetings\?project=p-echo&view=calendar$/);
+  await expect(page).toHaveURL(/\/all\?kind=meeting&room=p-echo$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Meetings' }),
+    page.getByRole('heading', { level: 1, name: 'All' }),
   ).toBeVisible();
-});
-
-test('Find matches the title, agenda, topics and attendees', async ({
-  page,
-  request,
-}) => {
-  const seed = structuredClone(SEED);
-  seed.meetings['e-1'].date = addDays(today(), 3);
-  Object.assign(seed.meetings['e-4'], {
-    topics: [
-      { id: 't-find', title: 'Hyperdrive parts', done: false, outcome: '' },
-    ],
-  });
-  await request.post('/api/import', { data: seed });
-  await openLive(page, '/meetings');
-  const find = page.getByRole('searchbox', { name: 'Find' });
-  const shown = async (q: string, titles: string[]) => {
-    await find.fill(q);
-    await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(q)}`));
-    for (const title of ['Shield review', 'Quarterly planning']) {
-      await expect(row(page, title)).toHaveCount(
-        titles.includes(title) ? 1 : 0,
-      );
-    }
-  };
-  await shown('shield', ['Shield review']);
-  await shown('ridge', ['Shield review']);
-  await shown('budget', ['Shield review', 'Quarterly planning']);
-  await shown('hyperdrive', ['Quarterly planning']);
-  await shown('leia', ['Shield review']);
-
-  // Nothing matches: every layout says so, with Clear filters.
-  await find.fill('zzzz');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
-  await expectAccessible(page);
-  await page.goto('/meetings?view=calendar&q=zzzz');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
-  await page.goto('/meetings?view=timeline&q=zzzz');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
-  await page
-    .getByRole('main')
-    .getByRole('button', { name: 'Clear filters' })
-    .last()
-    .click();
-  await expect(page).not.toHaveURL(/q=/);
-  await expect(page).toHaveURL(/view=timeline/);
-  await expect(find).toHaveValue('');
-  await expect(page.getByText('None match these filters.')).toBeHidden();
-});
-
-test('empty states tell none yet from none that match', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/meetings?project=p-falcon');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
-  if (isMobile(page)) {
-    await expect(
-      page.getByRole('button', { name: 'Filters (1)' }),
-    ).toBeVisible();
-  }
-  // Only past meetings: nothing coming up, and Past is still there.
-  await page.goto('/meetings?project=p-yavin');
-  await expect(page.getByText('Nothing coming up that matches.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Past/ })).toBeVisible();
-
-  const issued = await request.get('/api/erase-token');
-  const { token } = (await issued.json()) as { token: string };
-  const erased = await request.post('/api/erase', { data: { token } });
-  expect(erased.ok()).toBe(true);
-  await openLive(page, '/meetings');
-  await expect(page.getByText('No meetings yet. Add a meeting.')).toBeVisible();
 });

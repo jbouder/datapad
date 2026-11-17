@@ -1,6 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
 import {
-  chooseFilter,
   expect,
   expectAccessible,
   expectSaved,
@@ -22,11 +21,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('set health in the header; the card says it in words and color', async ({
+test('set health on the Plan; the card says it in words and color', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   const health = page.getByRole('group', { name: 'Health' });
   // Never set in the seed: it reads as None.
   await expect(health.getByRole('radio', { name: 'None' })).toBeChecked();
@@ -37,26 +36,19 @@ test('set health in the header; the card says it in words and color', async ({
   expect(data.projects['p-echo']?.health).toBe('red');
   expect(data.activity['p-echo']?.events[0]?.text).toBe('Health set to red');
 
-  await openLive(page, '/projects');
-  const card = page
-    .getByRole('main')
-    .getByRole('link', { name: /Echo Base relocation/ });
-  await expect(card).toContainText('Red health');
-  await expectAccessible(page);
-
-  // Filter: only Red.
-  await chooseFilter(page, 'Health', 'Red');
-  await expect(page).toHaveURL(/health=red/);
+  // All's project row says it in words.
+  await openLive(page, '/all?kind=project');
   await expect(
-    page.getByRole('main').getByRole('link', { name: /Echo Base relocation/ }),
-  ).toBeVisible();
-  await chooseFilter(page, 'Health', 'Green');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
+    page.getByRole('list', { name: 'Items' }).getByRole('listitem').filter({
+      hasText: 'Echo Base relocation',
+    }),
+  ).toContainText('Red health');
+  await expectAccessible(page);
 });
 
 test('the project form sets health too', async ({ page, request }) => {
-  await openLive(page, '/projects/p-falcon');
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await openLive(page, '/projects/p-falcon/plan');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const panel = page.getByRole('dialog');
   await panel
     .getByRole('group', { name: 'Health' })

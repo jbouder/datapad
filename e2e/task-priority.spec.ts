@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectAccessible,
   expectSaved,
@@ -21,17 +21,17 @@ const setting = (page: Page) =>
   page.getByRole('group', { name: 'New task priority' });
 
 async function newTask(page: Page, title: string) {
-  await addFromTopBar(page, 'Add task');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await panel.getByRole('textbox', { name: 'Title' }).fill(title);
   return panel;
 }
 
-test('new tasks start at Medium; Settings → Pages changes it', async ({
+test('new tasks start at Medium; Settings → Capture changes it', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
+  await openLive(page, '/settings/capture');
   await expect(
     setting(page).getByRole('radio', { name: 'Medium' }),
   ).toBeChecked();

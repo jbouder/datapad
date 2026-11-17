@@ -39,6 +39,13 @@ import {
   write,
 } from './write';
 
+/** To decide (#328): a task that is a choice to make, not work to do. */
+const DecideArg = z
+  .boolean()
+  .describe(
+    'true: something to decide rather than to do (Today’s To decide lane).',
+  );
+
 /** The task after a write, and what the write logged. */
 function taskResult(space: string, written: Written, id: string) {
   const task = written.state.tasks[id];
@@ -54,7 +61,7 @@ export const addTask = defineTool({
   name: 'add_task',
   title: 'Add a task',
   description:
-    'Add an open task to a project, or to General (no project). With `meeting` it is an action item of that meeting and goes in the meeting’s project. Logs "Added task …" (or "Added action item …") in the project’s activity.',
+    'Add an open task to a project, or to General (no project); with decide: true, something to decide rather than to do. With `meeting` it is an action item of that meeting and goes in the meeting’s project. Logs "Added task …" (or "Added action item …") in the project’s activity.',
   scope: 'write',
   input: z.object({
     space: SpaceArg,
@@ -78,6 +85,7 @@ export const addTask = defineTool({
       ),
     desc: MarkdownArg.optional(),
     tags: TagsArg.optional(),
+    decide: DecideArg.optional(),
     today: TodayArg,
   }),
   annotations: WRITE,
@@ -115,6 +123,7 @@ export const addTask = defineTool({
             ? { desc: tokens(state, args.desc) }
             : {}),
           ...(args.tags ? { tags: args.tags } : {}),
+          ...(args.decide ? { decide: true } : {}),
           ...(assignee ? { assignee } : {}),
           ...(meetingId ? { meetingId } : {}),
         },
@@ -160,7 +169,7 @@ export const editTask = defineTool({
   name: 'edit_task',
   title: 'Edit a task',
   description:
-    'Change a task’s title, due date, priority, assignee, details or tags; only the fields given change. Destructive: `desc` replaces the details and `tags` the list, and the old text is not kept, so read the task first and send the whole new text. Logs "Edited task …". To close or reopen it use complete_task or reopen_task; to mark it waiting use set_blocked.',
+    'Change a task’s title, due date, priority, assignee, details, tags or whether it is to decide; only the fields given change. Destructive: `desc` replaces the details and `tags` the list, and the old text is not kept, so read the task first and send the whole new text. Logs "Edited task …". To close or reopen it use complete_task or reopen_task; to mark it waiting use set_blocked.',
   scope: 'write',
   input: z.object({
     space: SpaceArg,
@@ -174,6 +183,9 @@ export const editTask = defineTool({
       'Replaces the details. Markdown; mentions as @Name.',
     ),
     tags: TagsArg.optional(),
+    decide: DecideArg.optional().describe(
+      'true: something to decide; false: decided, an ordinary task again.',
+    ),
     today: TodayArg,
   }),
   annotations: WRITE_REPLACES,
@@ -185,7 +197,10 @@ export const editTask = defineTool({
     );
     const task = resolveTask(state, args.task);
     const patch: Partial<
-      Pick<Task, 'title' | 'due' | 'priority' | 'assignee' | 'desc' | 'tags'>
+      Pick<
+        Task,
+        'title' | 'due' | 'priority' | 'assignee' | 'desc' | 'tags' | 'decide'
+      >
     > = {
       ...(args.title !== undefined ? { title: args.title } : {}),
       ...(args.due !== undefined
@@ -197,10 +212,11 @@ export const editTask = defineTool({
         : {}),
       ...(args.desc !== undefined ? { desc: tokens(state, args.desc) } : {}),
       ...(args.tags ? { tags: args.tags } : {}),
+      ...(args.decide !== undefined ? { decide: args.decide } : {}),
     };
     if (Object.keys(patch).length === 0) {
       throw new ToolError(
-        'Nothing to change: give a title, due, priority, assignee, desc or tags.',
+        'Nothing to change: give a title, due, priority, assignee, desc, tags or decide.',
       );
     }
     const op: BaseOp = { type: 'editTask', id: task.id, patch };
@@ -248,6 +264,32 @@ export const setBlocked = defineTool({
       ctx,
       space,
       [{ type: 'setBlocked', id: task.id, blocked }],
+      args.requestId,
+    );
+    return taskResult(space, written, task.id);
+  },
+});
+
+export const setDecide = defineTool({
+  name: 'set_decide',
+  title: 'Mark a task to decide, or decided',
+  description:
+    'Mark a task as something to decide (it moves to Today’s To decide lane) or, with decide: false, decided (an ordinary task again; it stays open: close it with complete_task). Logs "Marked … to decide" or "Decided …".',
+  scope: 'write',
+  input: z.object({
+    space: SpaceArg,
+    requestId: RequestIdArg,
+    task: TaskArg,
+    decide: z.boolean().optional().describe('Defaults to true.'),
+  }),
+  annotations: WRITE_IDEMPOTENT,
+  async run(args, ctx) {
+    const { space, state } = await readSpace(ctx, args.space);
+    const task = resolveTask(state, args.task);
+    const written = await write(
+      ctx,
+      space,
+      [{ type: 'setDecide', id: task.id, decide: args.decide ?? true }],
       args.requestId,
     );
     return taskResult(space, written, task.id);

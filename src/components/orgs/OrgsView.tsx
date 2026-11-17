@@ -347,7 +347,7 @@ function OrgDetail({ org, onEdit }: { org: Org; onEdit: () => void }) {
             {contacts.map((p) => (
               <li key={p.id}>
                 <a
-                  {...linkProps({ name: 'people', person: p.id })}
+                  {...linkProps({ name: 'person', id: p.id })}
                   className="press flex min-h-11 items-center gap-2 border px-2 text-sm hover:bg-accent desk:min-h-8"
                 >
                   <Initials person={p} />

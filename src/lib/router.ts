@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react';
 import {
   landRoute,
-  linkedMeeting,
-  parseRoute,
+  projectRoomOf,
   type Route,
+  routeHref,
   routePath,
+  routeSearch,
   settingsSectionOf,
 } from '#shared/routes';
 import { holdLeave } from '@/lib/leave';
@@ -33,8 +34,9 @@ export {
 /** `/dev/components` exists in `vite dev` and in the e2e build only. */
 export const DEV_ROUTES: boolean = __DEV_ROUTES__;
 
-export function parse(pathname: string, hash = ''): Route {
-  return parseRoute(pathname, hash, DEV_ROUTES);
+/** Where an address lands (see `landRoute`). */
+export function parse(pathname: string, search = '', hash = ''): Route {
+  return landRoute(pathname, search, hash, DEV_ROUTES)[0];
 }
 
 export function pathFor(route: Route): string {
@@ -42,13 +44,25 @@ export function pathFor(route: Route): string {
 }
 
 /**
+ * The address for `route` with `query` after its own (All's `kind`):
+ * what links and `navigate` go to.
+ */
+export function hrefFor(route: Route, query = ''): string {
+  return routeHref(route, query) ?? window.location.pathname;
+}
+
+/**
  * Two routes are the same page (same name, same project, task, meeting or
  * list). Settings sections, People and Orgs among them, are one page, so
  * moving between them is no page transition; so is picking another person
- * or org.
+ * or org, and All is one page whatever its kinds.
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
+  // A project room's tabs, its whiteboard among them, are one page.
+  const roomA = projectRoomOf(a);
+  const roomB = projectRoomOf(b);
+  if (roomA || roomB) return roomA?.id === roomB?.id;
   if (a.name === 'whiteboard' || b.name === 'whiteboard') {
     return (
       a.name === 'whiteboard' &&
@@ -59,9 +73,9 @@ export function samePage(a: Route, b: Route): boolean {
   return (
     a.name === b.name &&
     ((a.name !== 'project' &&
+      a.name !== 'person' &&
       a.name !== 'task' &&
-      a.name !== 'meeting' &&
-      a.name !== 'list') ||
+      a.name !== 'meeting') ||
       a.id === (b as { id: string }).id)
   );
 }
@@ -74,14 +88,21 @@ function here(): string {
 
 /**
  * Where an address lands: the route and its query. Old addresses settle on
- * their canonical one: /focus is /, /people is /settings/people,
- * /events?event=<id> and /meetings?meeting=<id> are /meetings/<id>,
- * /notes?view=notepad is /notepad.
+ * their new homes (`landRoute`): /focus is /, /tasks is /all?kind=task,
+ * /notepad and /unfiled are /scratch, /settings/people/<id> is
+ * /people/<id>, …
  */
 function land(pathname: string, query: string, hash: string): [Route, string] {
-  const meeting = linkedMeeting(pathname, query);
-  if (meeting) return [{ name: 'meeting', id: meeting }, ''];
   return landRoute(pathname, query, hash, DEV_ROUTES);
+}
+
+/** Put the address an old one settled on in the bar, in place. */
+function settle(route: Route, query: string) {
+  if (route.name === 'notFound' || route.name === 'help') return;
+  const { pathname, search: was, hash } = window.location;
+  if (pathFor(route) !== pathname || query !== was) {
+    window.history.replaceState(null, '', pathFor(route) + query + hash);
+  }
 }
 
 let [current, search] = land(
@@ -89,18 +110,7 @@ let [current, search] = land(
   window.location.search,
   window.location.hash,
 );
-if (
-  current.name !== 'notFound' &&
-  (pathFor(current) !== window.location.pathname ||
-    search !== window.location.search) &&
-  current.name !== 'help'
-) {
-  window.history.replaceState(
-    null,
-    '',
-    pathFor(current) + search + window.location.hash,
-  );
-}
+settle(current, search);
 const listeners = new Set<() => void>();
 
 type Transition = (update: () => void) => void;
@@ -117,6 +127,22 @@ function notify() {
   }
 }
 
+/**
+ * The last page left that was not a meeting, with its query: where
+ * meeting mode's Leave goes back to (#336). Moving through a series
+ * keeps it.
+ */
+let outside: { route: Route; search: string } | null = null;
+
+/**
+ * Leave meeting mode: to the page it was entered from, or to Today.
+ * `replace` drops the meeting from the history (it was deleted).
+ */
+export function leaveMeeting(options: { replace?: boolean } = {}) {
+  const to = outside ?? { route: { name: 'today' } as Route, search: '' };
+  navigate(to.route, { query: to.search, replace: options.replace });
+}
+
 /** The latest commit's number: an older one that lands late is dropped. */
 let latest = 0;
 
@@ -126,6 +152,9 @@ function commit(next: Route, nextSearch: string, instant = false) {
     // Back pressed mid-transition: the view transition API can run the
     // earlier update after this one, which would leave the old page up.
     if (id !== latest) return;
+    if (current.name !== 'meeting' && !samePage(next, current)) {
+      outside = { route: current, search };
+    }
     current = next;
     search = nextSearch;
     notify();
@@ -151,8 +180,8 @@ export function navigate(
   route: Route,
   options: { replace?: boolean; query?: string; instant?: boolean } = {},
 ) {
-  const query = options.query ? `?${options.query.replace(/^\?/, '')}` : '';
-  const path = pathFor(route) + query;
+  const path = hrefFor(route, options.query);
+  const query = routeSearch(route, options.query);
   // Unsaved work on the page asks first, then finishes the trip.
   if (!samePage(route, current) && holdLeave(() => navigate(route, options)))
     return;
@@ -182,13 +211,8 @@ window.addEventListener('popstate', () => {
       return;
     }
   }
-  // An old meeting or Notepad link in the history: settle it as on load.
-  if (
-    (route.name === 'meeting' || route.name === 'notepad') &&
-    pathFor(route) !== pathname
-  ) {
-    window.history.replaceState(null, '', pathFor(route) + hash);
-  }
+  // An old address in the history: settle it as on load.
+  settle(route, nextSearch);
   commit(route, nextSearch);
 });
 
@@ -262,7 +286,7 @@ export function pinQuery(values: Record<string, string>) {
 
 /** For real anchors: middle-click and "open in new tab" keep working. */
 export function linkProps(route: Route, query?: string) {
-  const href = pathFor(route) + (query ? `?${query.replace(/^\?/, '')}` : '');
+  const href = hrefFor(route, query);
   return {
     href,
     onClick(event: React.MouseEvent<HTMLAnchorElement>) {

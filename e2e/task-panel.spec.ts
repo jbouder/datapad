@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectSaved,
   isMobile,
@@ -9,8 +9,14 @@ import {
   test,
 } from './fixtures';
 
+/** A task's row in the room's Open loops lanes. */
 const row = (page: Page, title: string) =>
+  page.locator('[data-loop]').filter({ hasText: title });
+/** A task's full row (All's List), which has the inline popovers. */
+const listRow = (page: Page, title: string) =>
   page.locator('[data-task-id]').filter({ hasText: title });
+const lanes = (page: Page) =>
+  page.getByRole('complementary', { name: 'Open loops' });
 
 async function exported(request: APIRequestContext) {
   return (await request.get('/api/export.json')).json();
@@ -71,17 +77,13 @@ test('edit every field from the panel; one save, one log line', async ({
 
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(panel).toBeHidden();
-  // Focus is back on the row that opened it.
-  await expect(
-    row(page, 'Insulate and seal the hangar doors').getByRole('button', {
-      name: 'Insulate and seal the hangar doors',
-      exact: true,
-    }),
-  ).toBeFocused();
 
-  const task = row(page, 'Insulate and seal the hangar doors');
+  // Now Leia's (you), so it moves from Waiting on to Mine.
+  const task = lanes(page)
+    .getByRole('list', { name: 'Mine' })
+    .locator('[data-loop]')
+    .filter({ hasText: 'Insulate and seal the hangar doors' });
   await expect(task).toContainText('Tomorrow');
-  await expect(task).toContainText('Leia Organa');
 
   await expectSaved(page);
 
@@ -135,10 +137,9 @@ test('delete with undo restores the same task in the same place', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  const before = await page
-    .getByRole('list', { name: 'Open tasks' })
-    .getByRole('listitem')
-    .allTextContents();
+  const loops = lanes(page).locator('[data-loop]');
+  await expect(row(page, 'Insulate the hangar doors')).toBeVisible();
+  const before = await loops.allTextContents();
   await row(page, 'Insulate the hangar doors')
     .getByRole('button', { name: 'Insulate the hangar doors', exact: true })
     .click();
@@ -151,13 +152,15 @@ test('delete with undo restores the same task in the same place', async ({
   ).toBeVisible();
   await expect(row(page, 'Insulate the hangar doors')).toHaveCount(0);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(
-    page.getByRole('list', { name: 'Open tasks' }).getByRole('listitem'),
-  ).toHaveText(before);
+  await expect(loops).toHaveText(before);
   await expectSaved(page);
 
+  // Restored through the checked op: the same task, stamped when it came back.
   const data = await exported(request);
-  expect(data.tasks['t-2']).toEqual(SEED.tasks['t-2']);
+  expect(data.tasks['t-2']).toEqual({
+    ...SEED.tasks['t-2'],
+    updatedAt: expect.any(String),
+  });
 });
 
 test('the panel keeps your typing when the task changes elsewhere', async ({
@@ -174,8 +177,8 @@ test('the panel keeps your typing when the task changes elsewhere', async ({
   await title.fill('Typed here');
 
   const other = await context.newPage();
-  await openLive(other, '/projects/p-echo');
-  await row(other, 'Insulate the hangar doors')
+  await openLive(other, '/all?kind=task&view=list&person=u-chewie');
+  await listRow(other, 'Insulate the hangar doors')
     .getByRole('button', { name: /^Priority/ })
     .click();
   await other.getByRole('menuitemradio', { name: 'High' }).click();
@@ -192,7 +195,7 @@ test('+ opens a new task preset to the project you are on', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  await addFromTopBar(page, 'Add task');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(
     'Falcon hyperdrive refit',
@@ -219,7 +222,7 @@ test('+ opens a new task preset to the project you are on', async ({
   expect(added.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
   // `n` on a page without a quick-add opens it too.
-  await page.goto('/settings');
+  await openLive(page, '/settings');
   await page.locator('body').press('n');
   await expect(page.getByRole('dialog', { name: 'New task' })).toBeVisible();
 });

@@ -30,9 +30,10 @@ async function expectKept(page: Page) {
   await expect.poll(() => focused(page)).not.toBe('lost');
 }
 
+/** A task's title in the project room's Open loops lanes. */
 function taskButton(page: Page, title: string) {
   return page
-    .locator('[data-task-id]')
+    .locator('[data-loop]')
     .filter({ hasText: title })
     .getByRole('button', { name: title, exact: true });
 }
@@ -103,15 +104,4 @@ test('following a link in the page moves focus to the new page', async ({
       document.getElementById('main')?.contains(document.activeElement),
     ),
   ).toBe(true);
-});
-
-test('switching layout keeps focus on the switcher', async ({ page }) => {
-  await openLive(page, '/tasks?view=list');
-  const layouts = page.getByRole('group', { name: /^Layout/ });
-  await layouts.getByRole('radio', { name: 'List' }).focus();
-  await page.keyboard.press('ArrowRight');
-  const next = layouts.getByRole('radio', { checked: true });
-  await expect(next).not.toHaveAccessibleName('List');
-  await expect(next).toBeFocused();
-  await expectKept(page);
 });

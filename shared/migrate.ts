@@ -3,6 +3,11 @@ import { byDate } from './milestones';
 import type { Milestone } from './types';
 
 /**
+ * Three migrations: `migrate()` (meetings, below), `migrateFormat3()`
+ * (to decide, lists and the Notepad) and `migrateSettings()` (the old
+ * list pages' saved layouts and sorts into All's, #343), at the end of
+ * this file.
+ *
  * Events became meetings, and milestones moved onto their project. This
  * brings a snapshot or an export file written before that (a collection
  * called `events`, notes with `eventId`) to the current shape, so that
@@ -163,4 +168,179 @@ export function migrate(input: unknown): unknown {
     });
   }
   return out;
+}
+
+/**
+ * Format 3 (#328): "to decide" is a field, lists are checklist notes and
+ * the Notepad is an ordinary note. This brings a snapshot or a format 1
+ * or 2 export file up to it; Import runs it on those files, and the
+ * Durable Object on each space at schema 4. Pure, and it never changes
+ * its input. The rules:
+ *
+ * - An open task tagged `decide` gets `decide: true`. The tag is kept.
+ * - Each list becomes a note on the same project (or General), under the
+ *   list's own id: `## <title>`, then one `- [ ]` or `- [x]` line per
+ *   item, in order. It keeps the list's `createdAt` and takes `editedAt`
+ *   from its `updatedAt`. A list too long for one note goes on in more,
+ *   `<id>-2`, `<id>-3` …, each under the same heading. The list itself is
+ *   kept, as decisions were (#183).
+ * - The Notepad (a note with `scratch`) loses the mark.
+ *
+ * A note already under a list's id is left as it is, so running it again
+ * changes nothing; a file already in this shape comes back as the same
+ * object.
+ */
+export function migrateFormat3(input: unknown): unknown {
+  if (!isDoc(input)) return input;
+  const out: Doc = { ...input };
+  let changed = false;
+
+  if (documents(input.tasks).some(([, t]) => toDecide(t))) {
+    out.tasks = mapDocuments(input.tasks, (t) =>
+      toDecide(t) ? { ...t, decide: true } : t,
+    );
+    changed = true;
+  }
+
+  const taken = new Set(documents(input.notes).map(([id]) => id));
+  const added: Doc[] = [];
+  for (const [id, list] of documents(input.lists)) {
+    for (const note of listNotes(id, list)) {
+      const noteId = note.id as string;
+      if (taken.has(noteId)) continue;
+      taken.add(noteId);
+      added.push(note);
+    }
+  }
+  const scratch = documents(input.notes).some(([, n]) => 'scratch' in n);
+  if (added.length > 0 || scratch) {
+    const cleared = scratch
+      ? mapDocuments(input.notes, (n) => {
+          if (!('scratch' in n)) return n;
+          const { scratch: _, ...note } = n;
+          return note;
+        })
+      : (input.notes ?? {});
+    out.notes = Array.isArray(cleared)
+      ? [...cleared, ...added]
+      : {
+          ...(isDoc(cleared) ? cleared : {}),
+          ...Object.fromEntries(added.map((n) => [n.id as string, n])),
+        };
+    changed = true;
+  }
+  return migrateSettings(changed ? out : input);
+}
+
+/** An open task tagged `decide` that is not yet marked to decide. */
+function toDecide(task: Doc): boolean {
+  return (
+    task.decide !== true &&
+    (task.status ?? 'open') === 'open' &&
+    Array.isArray(task.tags) &&
+    task.tags.some((t) => typeof t === 'string' && t.toLowerCase() === 'decide')
+  );
+}
+
+/** One line: newlines and runs of space folded to a single space. */
+function line(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** A list's checklist note (or notes, when it is too long for one). */
+function listNotes(id: string, list: Doc): Doc[] {
+  const heading = `## ${line(list.title)}`;
+  const items = Array.isArray(list.items) ? list.items.filter(isDoc) : [];
+  const bodies: string[] = [];
+  let body = heading;
+  for (const i of items) {
+    const next = `- [${i.done === true ? 'x' : ' '}] ${line(i.text)}`;
+    if (body !== heading && body.length + 1 + next.length > LIMITS.bodyMax) {
+      bodies.push(body);
+      body = heading;
+    }
+    body += `\n${next}`;
+  }
+  bodies.push(body);
+  const createdAt = String(list.createdAt ?? '');
+  const editedAt = String(list.updatedAt ?? createdAt);
+  return bodies.map((b, n) => ({
+    id: n === 0 ? id : partId(id, n + 1),
+    projectId: typeof list.projectId === 'string' ? list.projectId : null,
+    body: b,
+    pinned: false,
+    meetingId: null,
+    phase: null,
+    createdAt,
+    editedAt,
+  }));
+}
+
+/** The id of a long list's `n`th note: `<id>-<n>`, within `idMax`. */
+function partId(id: string, n: number): string {
+  const suffix = `-${n}`;
+  return `${id.slice(0, LIMITS.idMax - suffix.length)}${suffix}`;
+}
+
+/* ---------- settings (#343) ---------- */
+
+/** The old pages' layouts All has too, by kind: old value to All's. */
+const OLD_LAYOUTS: Record<string, { key: string; values: string[] }> = {
+  tasks: { key: 'taskView', values: ['table', 'board'] },
+  meetings: { key: 'meetingView', values: ['calendar'] },
+  projects: { key: 'projectView', values: ['cards', 'timeline'] },
+};
+
+/** The old pages' sorts All keeps as a default, other than the first. */
+const OLD_SORTS: Record<string, { key: string; values: string[] }> = {
+  tasks: {
+    key: 'taskSort',
+    values: ['title', 'project', 'priority', 'assignee', 'updated'],
+  },
+  projects: {
+    key: 'projectSort',
+    values: ['priority', 'name', 'start', 'target', 'milestone'],
+  },
+};
+
+/**
+ * The old Tasks, Meetings and Projects pages' saved layouts and sorts
+ * become All's per-kind defaults (#343): a layout All offers that kind
+ * (Tasks' table or board, Meetings' calendar, Projects' cards or
+ * timeline) and a sort other than the kind's first. What All has no place
+ * for (Tasks' timeline, Projects' table, filters, grouping, Notes'
+ * layout) is left behind. The old pages' preferences stay as stored, read
+ * by nothing; Focus's are Today's already, under the same key. Only a
+ * space that has saved nothing for All yet is carried over, so running it
+ * again changes nothing; a file with nothing to carry comes back as the
+ * same object.
+ */
+export function migrateSettings(input: unknown): unknown {
+  if (!isDoc(input)) return input;
+  let changed = false;
+  const settings = mapDocuments(input.settings, (doc) => {
+    const pages = doc.pages;
+    if (!isDoc(pages) || 'all' in pages) return doc;
+    const filters: Record<string, string> = {};
+    for (const [page, { key, values }] of Object.entries(OLD_LAYOUTS)) {
+      const prefs = pages[page];
+      const view = isDoc(prefs) ? prefs.view : undefined;
+      if (typeof view === 'string' && values.includes(view)) {
+        filters[key] = view;
+      }
+    }
+    for (const [page, { key, values }] of Object.entries(OLD_SORTS)) {
+      const prefs = pages[page];
+      const sort = isDoc(prefs) ? prefs.sort : undefined;
+      if (typeof sort === 'string' && values.includes(sort)) {
+        filters[key] = sort;
+      }
+    }
+    if (Object.keys(filters).length === 0) return doc;
+    changed = true;
+    return { ...doc, pages: { ...pages, all: { filters } } };
+  });
+  return changed ? { ...input, settings } : input;
 }

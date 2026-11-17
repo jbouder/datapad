@@ -9,11 +9,9 @@ import {
 } from './fixtures';
 
 /**
- * The meeting and list pages' settings (#313), set in Settings → Pages:
- * hide covered topics and done action items, hide and reorder the
- * meeting page's sections, and show a list's done items collapsed,
- * expanded or hidden. `recapSeed()`'s Ridge patrol debrief (`e-7`) has 2 of 3
- * topics covered; Evacuation checklist has one of four items done.
+ * Meeting mode's settings (#313), set in Settings → Today since #343:
+ * hide covered topics and done action items, and hide its sections.
+ * `recapSeed()`'s Ridge patrol debrief (`e-7`) has 2 of 3 topics covered.
  */
 
 interface Stored {
@@ -31,7 +29,7 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: recapSeed() });
 });
 
-/** Pick `option` of the segmented `legend` in a page's Settings card. */
+/** Pick `option` of the segmented `legend` in a group of Settings. */
 async function choose(
   page: Page,
   card: string,
@@ -54,10 +52,14 @@ test('the meeting page hides covered topics as Settings says', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/settings/pages');
-  const card = page.getByRole('region', { name: 'Meeting page' });
-  await expect(card.getByText('Defaults', { exact: true })).toBeVisible();
-  await choose(page, 'Meeting page', 'Covered topics', 'Hide');
+  await openLive(page, '/settings/today');
+  const group = page.getByRole('region', { name: 'Meeting mode' });
+  // Its sections keep meeting mode's own order: no moves.
+  await expect(
+    group.getByRole('list', { name: 'Meeting mode sections' }),
+  ).toBeVisible();
+  await expect(group.getByRole('button', { name: /^Move / })).toHaveCount(0);
+  await choose(page, 'Meeting mode', 'Covered topics', 'Hide');
   await expect
     .poll(() => stored(request, 'meeting'))
     .toEqual({ filters: { covered: 'hide' } });
@@ -93,7 +95,7 @@ test('the meeting page hides covered topics as Settings says', async ({
   );
 });
 
-test('the meeting page hides done action items and orders its sections', async ({
+test('meeting mode hides done action items and the series links', async ({
   page,
   request,
 }) => {
@@ -114,10 +116,13 @@ test('the meeting page hides done action items and orders its sections', async (
     },
   });
   await openLive(page, '/meetings/e-7');
-  // Notes first, then Topics and Action items; no series links.
-  await expect(
-    page.getByRole('main').getByRole('heading', { level: 2 }),
-  ).toHaveText([/^Notes/, /^Topics/, /^Action items/]);
+  // Meeting mode keeps its own layout (#336): the saved order no longer
+  // applies, but hiding does. No series links.
+  for (const name of [/^Topics/, /^Notes$/, /^Action items/]) {
+    await expect(
+      page.getByRole('main').getByRole('heading', { level: 2, name }),
+    ).toBeVisible();
+  }
   await expect(
     page.getByRole('navigation', { name: 'This series' }),
   ).toHaveCount(0);
@@ -133,28 +138,4 @@ test('the meeting page hides done action items and orders its sections', async (
   await expect(actions).not.toContainText('Map the ice caves');
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
-});
-
-test('the list page hides its done items, keeping the count', async ({
-  page,
-}) => {
-  await openLive(page, '/settings/pages');
-  await choose(page, 'List page', 'Done items', 'Hidden');
-
-  await page.goto('/lists/l-evac');
-  await expect(page.getByText('1 done', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Done \(/ })).toHaveCount(0);
-  await expect(page.getByText('Charge the ion cannon')).toHaveCount(0);
-  await expectAccessible(page);
-  await expectNoSidewaysScroll(page);
-
-  // Expanded: under Done (1), open.
-  await page.goto('/settings/pages');
-  await choose(page, 'List page', 'Done items', 'Expanded');
-  await page.goto('/lists/l-evac');
-  const done = page.getByRole('button', { name: /^Done \(1\)/ });
-  await expect(done).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByRole('checkbox', { name: 'Done: “Charge the ion cannon”' }),
-  ).toBeChecked();
 });

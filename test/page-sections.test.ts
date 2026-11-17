@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import {
   applyPagePatch,
-  clearFilters,
-  currentValues,
   effectiveQuery,
-  filterFields,
-  hasPageSettings,
   hiddenSections,
   mergePatches,
   moveSection,
@@ -19,7 +15,6 @@ import {
   visibleSections,
 } from '#shared/pages';
 import { PagePrefsPatchSchema } from '#shared/protocol';
-import { emptySnapshot } from '#shared/types';
 
 /** Page settings (#310): hidden and ordered sections, settings-only fields. */
 
@@ -197,15 +192,5 @@ describe('settings-only fields', () => {
     expect(planChange('task', { within: '14' }, saved).patch).toEqual({
       filters: { within: null },
     });
-  });
-
-  it('are read from what is saved, and are not filters', () => {
-    expect(
-      currentValues('task', { filters: { within: '7' } }, emptySnapshot()),
-    ).toEqual({ within: '7' });
-    expect(filterFields('task')).toEqual([]);
-    expect(clearFilters('task')).toEqual({ q: null });
-    // Something to set: Settings → Pages lists the page.
-    expect(hasPageSettings('task')).toBe(true);
   });
 });

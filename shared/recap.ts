@@ -1,4 +1,10 @@
-import { addDays, dayOf, weekday } from './dates';
+import {
+  addDays,
+  dayOf,
+  dayOfWeek,
+  longWeekday,
+  type WeekStart,
+} from './dates';
 import { byWhen } from './meetings';
 import {
   type AssigneeFilter,
@@ -31,22 +37,35 @@ import {
 export interface RecapWindow {
   from: DateString;
   to: DateString;
-  /** "Yesterday" for one day, "Since Friday" across a weekend. */
-  label: 'Yesterday' | 'Since Friday';
+  /**
+   * "Yesterday" for one day, "Since Friday" across a weekend (the
+   * weekday it starts on: "Since Thursday" when weeks start on Sunday).
+   */
+  label: string;
 }
 
 /**
- * The previous working day: yesterday on Tuesday to Friday (and on
- * Saturday, when yesterday was Friday); Friday through Sunday on Monday;
- * Friday through Saturday on Sunday.
+ * The previous working day, the weekend being the two days before the
+ * week starts (`start`, #343): with a Monday start, yesterday on Tuesday
+ * to Friday (and on Saturday, when yesterday was Friday); Friday through
+ * Sunday on Monday; Friday through Saturday on Sunday. A Sunday start
+ * moves it all a day earlier.
  */
-export function recapWindow(today: DateString): RecapWindow {
-  const day = weekday(today);
+export function recapWindow(
+  today: DateString,
+  start: WeekStart = 'mon',
+): RecapWindow {
+  const day = dayOfWeek(today, start);
   const to = addDays(today, -1);
-  // Monday goes back to Friday (3 days), Sunday to Friday (2).
+  // The week's first day goes back over the weekend (3 days), its last
+  // day back over its first weekend day (2).
   const back = day === 0 ? 3 : day === 6 ? 2 : 1;
   const from = addDays(today, -back);
-  return { from, to, label: from === to ? 'Yesterday' : 'Since Friday' };
+  return {
+    from,
+    to,
+    label: from === to ? 'Yesterday' : `Since ${longWeekday(from)}`,
+  };
 }
 
 /** The section's title: "Since yesterday", or "Since Friday". */
@@ -143,8 +162,9 @@ export function buildRecap(
   >,
   today: DateString,
   assignee: AssigneeFilter = { kind: 'anyone' },
+  start: WeekStart = 'mon',
 ): Recap {
-  const window = recapWindow(today);
+  const window = recapWindow(today, start);
   const { projects } = snapshot;
   const inWindow = (timestamp: Timestamp) => {
     const day = dayOf(timestamp);
@@ -249,12 +269,6 @@ export function recapCounts(recap: Recap): RecapCounts {
     notes: sum(recap.notes),
     activity: recap.activity.reduce((n, g) => n + g.items.length + g.more, 0),
   };
-}
-
-/** Nothing happened in the window (that the filter shows). */
-export function recapEmpty(recap: Recap): boolean {
-  const c = recapCounts(recap);
-  return c.closed + c.added + c.meetings + c.notes + c.activity === 0;
 }
 
 const plural = (n: number, one: string, many = `${one}s`) =>

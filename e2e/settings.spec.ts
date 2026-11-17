@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
 import {
+  addFromSearch,
   expect,
   expectSaved,
-  isMobile,
   openLive,
   openPreferences,
   SEED,
@@ -19,8 +19,8 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // The spaces (the phone's switcher), Motion and Theme, then (on a
-  // phone) the Pages, then Help, Settings and Sign out. No Refresh
+  // The spaces (the phone's switcher), Motion and Theme, then Help,
+  // Settings and Sign out. No Refresh
   // (Settings → Account has it), and no New space… or Manage spaces
   // (Settings → Spaces does that).
   await expect(
@@ -35,11 +35,6 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'System',
     'Light',
     'Dark',
-    // Lists (#299), off the tab bar, the tools (#261), People and Orgs:
-    // the rail has them on desktop.
-    ...(isMobile(page)
-      ? ['Lists', 'People', 'Orgs', 'Notepad', 'Whiteboard', 'Weekly digest']
-      : []),
     'Help',
     'Settings',
     'Sign out',
@@ -54,8 +49,10 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   // Its sections, People and Orgs among them.
   await expect(settingsNav(page).getByRole('link')).toHaveText([
     'Appearance',
-    'Pages',
-    'Navigation',
+    'Today',
+    'Rooms',
+    'Capture',
+    'All',
     'Templates',
     'Summaries',
     'Spaces',
@@ -92,12 +89,16 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     settingsNav(page).getByRole('link', { name: 'Account' }),
   ).toBeInViewport({ ratio: 1 });
 
-  // The addresses from #93 land on the Settings ones.
+  // The addresses from #93 land on the Settings ones; a person is their
+  // room (#329).
   for (const [from, to] of [
     ['/people', '/settings/people'],
-    ['/people/u-x', '/settings/people/u-x'],
+    ['/people/u-x', '/people/u-x'],
+    ['/settings/people/u-x', '/people/u-x'],
     ['/orgs', '/settings/orgs'],
     ['/orgs/o-x', '/settings/orgs/o-x'],
+    // Settings → Pages went with v2 (#343).
+    ['/settings/pages', '/settings/today'],
   ]) {
     await page.goto(from);
     await expect(page).toHaveURL(new RegExp(`${to}$`));
@@ -165,15 +166,17 @@ test('People: add, mark yourself, edit and remove', async ({
     /Leia Organa\s*General/,
   ]);
 
+  // Each opens their room, where Edit and Remove are.
   await list.getByRole('link', { name: /Leia Organa/ }).click();
-  await page.getByRole('button', { name: 'Edit Leia Organa' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel.getByRole('checkbox', { name: 'This is me' }).click();
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel).toBeHidden();
+  await page.goto('/settings/people');
   await expect(list.getByRole('listitem').last()).toContainText('you');
 
   await list.getByRole('link', { name: /Han Solo/ }).click();
-  await page.getByRole('button', { name: 'Edit Han Solo' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await panel.getByRole('button', { name: 'Remove' }).click();
   await expect(panel.getByRole('alertdialog')).toContainText(
     'Remove Han Solo? Mentions of them show as @unknown.',
@@ -182,6 +185,7 @@ test('People: add, mark yourself, edit and remove', async ({
     .getByRole('alertdialog')
     .getByRole('button', { name: 'Remove' })
     .click();
+  await expect(page).toHaveURL(/\/settings\/people$/);
   await expect(list.getByRole('listitem')).toHaveText([/Leia Organa/]);
 
   await expectSaved(page);
@@ -211,8 +215,8 @@ test('Orgs: a default org that new projects start in', async ({
   ).toContainText('2 projects');
 
   // New projects start in no org.
-  await page.goto('/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await page.goto('/all');
+  await addFromSearch(page, 'New project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('No org');
@@ -235,8 +239,8 @@ test('Orgs: a default org that new projects start in', async ({
   await expectSaved(page);
 
   // Now new projects start in it.
-  await page.goto('/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await page.goto('/all');
+  await addFromSearch(page, 'New project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('Rebel Alliance');

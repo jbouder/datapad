@@ -57,13 +57,13 @@ closed. Locally, `.dev.vars` sets `DEV_ACCESS_EMAIL`, honored only when no
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Claude summaries through the Anthropic API                                         | Local WebLLM summaries in the browser, holocron's model and settings                                                                                                                                                                                                                                                            | Owner's call (2026-10-23): keep every word on the device, no API key or per-request cost, and reuse what holocron already proved.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Instrument Sans / Instrument Serif, cool-neutral palette, 10px radii               | Holocron tokens: Oxanium, JetBrains Mono, Lyra square radii, holocron's light and dark tokens                                                                                                                                                                                                                                   | Same look and feel as holocron is a requirement. The spec's _structural_ rules (density, dots, pills, 44px mobile rows, visible focus) carry over; its colors and fonts do not.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Hash routing (`#focus`)                                                            | Path routing (`/` is Focus, `/projects/:id`) with holocron's pushState router                                                                                                                                                                                                                                                   | Deep links work with view transitions and Access redirects; hash routes get lost through the Access login round trip.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Hash routing (`#focus`)                                                            | Path routing (`/` is Today, `/projects/:id`) with holocron's pushState router                                                                                                                                                                                                                                                   | Deep links work with view transitions and Access redirects; hash routes get lost through the Access login round trip.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `localStorage` fallback + optional remote store                                    | Always remote (the DO), with IndexedDB as a cache and a persisted pending-op queue                                                                                                                                                                                                                                              | There is exactly one user and one backend; the local adapter is for speed and offline tolerance, not an alternative home for the data.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Whole-document `write`/`remove`                                                    | Typed ops through a reducer, including compound ops                                                                                                                                                                                                                                                                             | Two devices (phone and desktop) editing the same project must not overwrite each other's activity log or task order.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Serif italic "current state" line                                                  | Oxanium, medium weight, `muted-foreground` color, larger size                                                                                                                                                                                                                                                                   | Oxanium has no italic; the line still reads as the one expressive element on the card.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Priority dots / status pills in spec colors                                        | Mapped to semantic tokens: `destructive`, new `--warn`, new `--ok`, `muted-foreground`, `border`                                                                                                                                                                                                                                | Every theme must define every token; the themes test enforces it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Markdown subset: one heading style, no fenced code, no quotes                      | Three heading levels, fenced mono blocks, block quotes, dividers, strike, plus a `/` command menu and keyboard toggles in the composer                                                                                                                                                                                          | Notes are a primary job of the app; the storage stays plain Markdown so exports and imports are unchanged. Nested lists, tables and images remain out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| People view in the main nav (`#people`); Export / Import in the rail footer        | Settings page (`/settings/…`, from the account menu) with Appearance, Pages, Navigation, Templates, Summaries, Spaces, People, Orgs, Data and Account. The rail and the phone tab bar are Focus, Projects, Tasks, Meetings, Notes; the account menu has the spaces (the phone's switcher), Motion, Theme, Settings and Sign out | Owner's calls: data in/out is rare, so it sits in Settings (2026-10-24). People and Orgs started there as reference data (2026-10-24), moved to the rail (#93) once People became a 1:1-prep view and Orgs got pages, and went back under Settings on 2026-10-26 (#159): the forms add people and orgs inline (#160), so the pages are for tidying, not daily navigation. `/settings/people(/:id)` and `/settings/orgs(/:id)` are canonical; `/people(/:id)` and `/orgs(/:id)` redirect. The account menu lost New space… and Manage spaces the same day; Settings → Spaces makes and manages spaces. Removing a person also clears their assignments, project memberships and meeting attendance; mentions read `@unknown`. |
+| People view in the main nav (`#people`); Export / Import in the rail footer        | Settings page (`/settings/…`, from the account menu) with Appearance, Today, Rooms, Capture, All, Templates, Summaries, Spaces, People, Orgs, Data, Connected apps and Account (v2, #343). The rail is Today, Scratch, All and the rooms, the phone tab bar Today, Scratch, Rooms and All; the account menu has the spaces (the phone's switcher), Motion, Theme, Settings and Sign out | Owner's calls: data in/out is rare, so it sits in Settings (2026-10-24). People and Orgs started there as reference data (2026-10-24), moved to the rail (#93) once People became a 1:1-prep view and Orgs got pages, and went back under Settings on 2026-10-26 (#159): the forms add people and orgs inline (#160), so the pages are for tidying, not daily navigation. `/settings/people` and `/settings/orgs(/:id)` are canonical; since v2 a person opens in their room at `/people/:id`, and `/settings/people/:id` redirects there. The account menu lost New space… and Manage spaces the same day; Settings → Spaces makes and manages spaces. Removing a person also clears their assignments, project memberships and meeting attendance; mentions read `@unknown`. |
 | No per-user settings                                                               | A `settings` document (`defaultOrg`, empty until you pick one in Orgs; `pages`, each page's saved layout, sort, grouping, filters and sections, #186) stored with the data and in exports; theme and motion stay per device                                                                                                     | Owner's call (2026-10-24): new projects start in the org you pick; since 2026-10-25 nothing is the default until then, so a new space starts with no orgs. The artifact's export has no settings and imports unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Meeting row actions inline; attendees in a PersonPicker (multi)                    | Edit and Delete in the row's ⋯ menu (Delete confirms in the row); attendees are the same toggle chips as project members                                                                                                                                                                                                        | Phone rows stay readable at 412px; one multi-select pattern across the app.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Summarize hidden when no model is available; errors `not_granted` / `rate_limited` | Summarize is always there; without WebGPU its panel says summaries are unsupported, and before the first download it asks (model picker, size, source). A Settings → Summaries section picks the model and removes the weights. Meeting Summarize is in the row's ⋯ menu                                                        | The model is local and opt-in, so "not available" is a state to explain, not to hide; there is no account to grant or rate-limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -89,6 +89,31 @@ app does); this is where they came from.
 | Templates are project task lists (M7)                                                 | A template with `body` is a note template (#204): `/template` in the composer, the Template picker on a new note, Save as template on a note                                                                                                                                                                            | Owner's request (2026-10-27): 1:1s, retros and status updates are written the same way every time.                                                                                               |
 | Filters live in the URL, layouts in `localStorage`                                    | Each page's layout, sort, grouping, filters and open sections are saved with the space (`settings.pages`, #186) and the rail, tab bar and + menu are configurable per space (`settings.nav`, #187, #201, #213); the URL still wins when it names a filter                                                               | Owner's request (2026-10-27): a page opens the way it was left on every device; six tabs crowd a phone, so the whiteboard stays off its tab bar unless chosen.                                   |
 | Reporting (M13: status reports, metrics, charts)                                      | Not built; its issues were closed on 2026-10-27 with nothing merged. The weekly Digest remains the report                                                                                                                                                                                                               | Owner's call.                                                                                                                                                                                    |
+
+### Datapad v2 (M24, #326)
+
+v2 rebuilt the app around how the owner works, not around object types
+(owner decisions of November 16, 2026, in #326). It replaced the classic
+pages; every old address redirects to its new home (`landRoute()` in
+`shared/routes.ts`).
+
+| Was | Is |
+| --- | --- |
+| Type-by-type pages: Focus, Projects, Archived, Tasks, Notes, Meetings, Lists | **Today** (the day as a timeline, the open loops beside it), **All** (every item of every kind in one list, with layouts, saved views and bulk actions) and the **rooms** (one page per project and per person) (#329, #331, #334, #335, #337, #338) |
+| Focus as a briefing (#206) | Today: Next up, what is due, the timeline, the lanes (Mine, Waiting on, To decide), the recap of the last working day and Brief me (#331, #332) |
+| Weekly digest page | Today's week zoom, with the digest under it and Copy as Markdown; `get_digest` stays (#332) |
+| The Notepad, one running note | **Scratch**: the notes with no home, filed one by one (#333) |
+| Lists, a collection with pages | Retired, data kept: each list became a checklist note (format 3, #328) |
+| The project page | The project room: Stream, Plan and Whiteboard tabs (#334) |
+| A person's page under Settings | The person room at `/people/:id`, the 1:1 prep (#335) |
+| The meeting page | Meeting mode, full screen (#336) |
+| The task page from Tasks | The task panel everywhere (#329) |
+| Quick add, the top bar's + menu and New list | The **capture line** on Today and in every room: notes, tasks, things to decide and waiting-ons (#330); ⌘K adds a task, note, meeting or project; a room's Schedule meeting, Today's Add meeting and All's New project (#341) |
+| Tasks dragged into order on the project page | No manual order: lanes sort by due date. `reorderTasks` still reduces for old clients |
+| A `decide` tag | A real `decide` field on a task (#328) |
+| Settings → Pages and Navigation; configurable rail and tab bar | Settings sections Today, Rooms, Capture and All, defaults in one place, Reset per section; the rail is Today, Scratch, All and the pinned rooms (#329, #343). Old saved prefs are kept and ignored or carried over |
+| `get_focus` and the list tools over MCP | `get_today` (with `get_focus` as its alias), `get_loops`, `get_room`, `list_scratch` (with `list_unfiled` as its alias), `set_decide`, `file_note`; list tools answer with an error for one release (#340) |
+| Summaries on projects, notes and the digest | Summarize in each room's state line and in meeting mode; Brief me on Today; Summarize stays on a task (#339) |
 
 ## Data model
 
@@ -161,11 +186,11 @@ change updates; this plan no longer repeats it.
 Tracking tasks and taking notes are the two jobs this app exists for, so they
 get the most depth and ship before everything else (milestones 2 and 3).
 Beyond the spec:
-- **Tasks.** Quick-add on every list; list keyboard navigation (`j` / `k`
+- **Tasks.** The capture line (v2; quick-add before it); list keyboard navigation (`j` / `k`
   move, `x` toggles, `e` opens the panel, `d` sets due); inline popovers for
   priority, due and assignee from the row; a dense sortable table on desktop
   with multi-select and bulk close / move / assign / delete; undo on close
-  and delete; keyboard and touch reorder, not only mouse drag; a task's
+  and delete; a task's
   source note shown in its panel; "Mine" as a one-key filter.
 - **Notes.** Composer that feels like a text editor: `@` mentions, a `/`
   command menu for formatting (`/h1` `/h2` `/h3`, `/bullet`, `/numbered`,
@@ -176,7 +201,7 @@ Beyond the spec:
   notes support distinct text styles: three heading levels, body, inline
   code, fenced mono blocks, block quotes, dividers, bold, italic, strike,
   links, mention chips, and checklists that are _clickable_ (fixes the
-  spec's known gap). Pinned notes; full-text filter on the Notes page and in
+  spec's known gap). Pinned notes; full-text Find on All and in
   ⌘K; select-text → Make task; notes linked to meetings and to the task they
   produced; edit in place with the same editor.
 
@@ -189,9 +214,9 @@ every view is designed and tested at phone width, not adapted afterwards:
   mobile user agent). A view is not done until both pass, axe included.
   `reflow.spec.ts` also checks 320px.
 - **Navigation for thumbs.** Below 820px the rail is replaced by a bottom tab
-  bar (Focus, Projects, Tasks, Notes, More) that respects
-  `env(safe-area-inset-bottom)`; the top bar keeps search and **+**. Toasts
-  and the quick-add sit above the tab bar, never under it.
+  bar (Today, Scratch, All, since v2) that respects
+  `env(safe-area-inset-bottom)`; the top bar keeps Search. Toasts and the
+  bulk bar sit above the tab bar, never under it.
 - **Touch targets.** 44px rows and at least 44px hit areas for every control
   on touch (`@media (pointer: coarse)`), WCAG 2.5.8 measured in e2e.
 - **No hover-only affordances.** Anything revealed on hover is always
@@ -205,8 +230,9 @@ every view is designed and tested at phone width, not adapted afterwards:
 - **Tables collapse to rows.** Dense desktop tables (Tasks, Projects) render
   as stacked rows on mobile; board and timeline layouts scroll horizontally
   inside their own container, never the page.
-- **Touch reorder and swipe.** Drag reorder has a long-press handle on touch
-  plus Move up / Move down in the row menu.
+- **Touch reorder.** Every drag has a touch way (docs/accessibility.md):
+  a topic's menu has Move up / Move down, a board card's Move to…. Tasks
+  have no manual order since v2.
 - **Installable.** The PWA manifest (see design.md § Installing) makes it a home-screen app with
   standalone display and theme colors per theme.
 
@@ -214,8 +240,9 @@ every view is designed and tested at phone width, not adapted afterwards:
 
 Datapad is mostly typing things in and reading them back, so the entry path
 gets the most care:
-- **Enter adds, stays put.** Every list has a quick-add that creates on Enter
-  and keeps focus. `n` focuses the nearest one. No modal on the common path.
+- **Enter adds, stays put.** The capture line (Today and every room, v2)
+  saves on Enter and keeps focus; topic, milestone and action item fields
+  do the same. `n` goes to the capture line. No modal on the common path.
 - **Panels, not pages, for editing.** Side panel (460px, full width on
   mobile) slides in with `@starting-style`; ⌘/Ctrl+Enter saves, Esc cancels,
   a dirty panel asks before closing. The panel renders once on open, so a
@@ -231,14 +258,13 @@ gets the most care:
 - **Tasks view is a dense table on desktop** (sortable columns, grouped
   headers, sticky header) and rows on mobile. Multi-select with shift-click
   for close / move / assign / delete in bulk.
-- **Switchable layouts behind a button group.** Pages that show a
-  collection offer more than one way to look at it, picked from a segmented
-  `ViewSwitcher` in the page toolbar and remembered per page (URL query +
-  the space's saved page preferences, #186): Projects = Cards · Table · Timeline (target dates and
-  milestones on a time axis); Tasks = List · Table · Board (columns by due
-  bucket, project or assignee) · Timeline (by due date); Notes = List ·
-  Grid (masonry) (the Notepad is a page of its own, `/notepad`, #261); Meetings = List · Calendar (month grid) · Timeline; People = List ·
-  Cards. Switching runs inside a `layout` view transition and FLIPs items
+- **Switchable layouts behind a button group.** All (v2) offers more than
+  one way to look at a kind shown alone, picked from a segmented
+  `ViewSwitcher` and remembered per kind (URL query + the space's saved
+  page preferences, #186, #338): Tasks = List · Table · Board (by status
+  or priority); Meetings = List · Calendar (month grid); Projects = List ·
+  Cards · Timeline (target dates and milestones on a time axis). Today
+  switches Day · Week the same way. Switching runs inside a `layout` view transition and FLIPs items
   that exist in both layouts, so the same task is seen moving rather than
   re-appearing. Every layout exposes the same actions (open, close, inline
   edit, drag where it applies) so none is a dead end.
@@ -246,10 +272,11 @@ gets the most care:
   carries Undo (holocron's `Toast` already supports it). Only project delete
   and person delete keep a confirmation.
 - **Density.** 15px base, 36px rows on desktop, 44px on mobile, 232px rail,
-  1040px content max; project detail is a 3:2 grid above 820px.
+  1040px content max; a room puts its lanes beside its stream above
+  820px.
 - **Accessibility.** WCAG 2.2 AA via axe in every theme; visible focus rings;
-  live region for toasts and sync status; drag reorder has keyboard and
-  touch equivalents (move up / down in the row menu).
+  live region for toasts and sync status; every drag has keyboard and
+  touch equivalents (docs/accessibility.md).
 - **Sync status is visible but quiet.** The top bar shows a dot colored by
   state and "Saved", "Saving…" or "Offline, 3 changes waiting" (on phones
   the dot alone, unless offline); never a blocking spinner (#187).

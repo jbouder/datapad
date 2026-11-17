@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { addTask, expect, test } from './fixtures';
+import { addFromSearch, addTask, expect, test } from './fixtures';
 
 const status = (page: Page) => page.locator('[data-status]').first();
 
@@ -9,15 +9,20 @@ async function openLive(page: Page, path = '/') {
   await expect(status(page)).toHaveAttribute('data-status', 'live');
 }
 
-/** Go to a section from the rail or the tab bar: no reload. */
-async function goTo(page: Page, name: 'Focus' | 'Tasks') {
+/**
+ * Go to Today (from the rail or the tab bar) or Tasks (All, which opens
+ * on Tasks, #343): no reload.
+ */
+async function goTo(page: Page, name: 'Today' | 'Tasks') {
   await page
-    .getByRole('link', { name: new RegExp(`^${name}`) })
+    .getByRole('link', { name: name === 'Today' ? 'Today' : 'All' })
     .filter({ visible: true })
     .first()
     .click();
   await expect(
-    page.getByRole('heading', { level: 1, name, exact: true }),
+    name === 'Today'
+      ? page.locator('[data-day-line]')
+      : page.getByRole('heading', { level: 1, name: 'All', exact: true }),
   ).toBeVisible();
 }
 
@@ -25,11 +30,10 @@ async function goTo(page: Page, name: 'Focus' | 'Tasks') {
 const tasks = (page: Page) => page.getByRole('main');
 
 /**
- * Focus's header: the week's movement. How many were added says each
- * added task arrived, and once.
+ * Today's timeline: how many tasks were added today says each added task
+ * arrived, and once.
  */
-const added = (page: Page, n: number) =>
-  page.getByText(`0 closed this week · ${n} added · 0 overdue`);
+const added = (page: Page, n: number) => page.locator(`ol[data-added="${n}"]`);
 
 /** Wait until the debounced snapshot cache in IndexedDB holds `title`. */
 async function cached(page: Page, title: string) {
@@ -94,7 +98,7 @@ test('offline: reads keep working, writes queue and replay on reconnect', async 
   await goTo(page, 'Tasks');
   await expect(tasks(page)).toContainText('Feed the tauntauns');
 
-  await goTo(page, 'Focus');
+  await goTo(page, 'Today');
   await addTask(page, 'Patch the hangar roof');
   await expect(added(page, 2)).toBeVisible();
   await expect(status(page)).toContainText('Offline, 1 change waiting');
@@ -133,7 +137,7 @@ test('offline changes survive a reload and replay once, in order', async ({
   await expect(status(page)).toContainText('Saved');
   await cached(page, 'Feed the tauntauns');
 
-  // Offline: two tasks on Focus, then a note on another page load.
+  // Offline: two tasks on Today, then a note on another page load.
   blocked = true;
   await (live as WebSocketRoute | null)?.close();
   await expect(status(page)).toContainText('Offline');
@@ -144,10 +148,7 @@ test('offline changes survive a reload and replay once, in order', async ({
   await page.goto('/notes?view=list');
   await expect(status(page)).toHaveAttribute('data-status', 'offline');
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
-  await page
-    .getByRole('main')
-    .getByRole('button', { name: 'Add note' })
-    .click();
+  await addFromSearch(page, 'New note');
   const write = page.getByRole('dialog', { name: 'New note' });
   const box = write.getByRole('combobox', { name: 'Note' });
   await box.fill('Shield numbers look low');

@@ -8,8 +8,6 @@ import {
   currentValues,
   effectiveQuery,
   filterFields,
-  hasPageSettings,
-  listDoneMode,
   PAGES,
   planChange,
   sectionOrder,
@@ -36,7 +34,6 @@ describe('meeting page settings', () => {
       'notes',
       'series',
     ]);
-    expect(hasPageSettings('meeting')).toBe(true);
   });
 
   it('hides and reorders its sections', () => {
@@ -98,32 +95,5 @@ describe('moving a topic among the shown ones', () => {
   it('is null when nothing moves', () => {
     expect(moveAmongShown(all, all, 1, 1)).toBeNull();
     expect(moveAmongShown(all, all, 0, 9)).toBeNull();
-  });
-});
-
-describe('list page settings', () => {
-  it('shows done items collapsed unless told otherwise', () => {
-    const [field] = PAGES.list.fields;
-    expect(field?.def).toBe('collapsed');
-    expect(field?.settingsOnly).toBe(true);
-    expect(field?.options?.map((o) => o.label)).toEqual([
-      'Collapsed',
-      'Expanded',
-      'Hidden',
-    ]);
-    expect(hasPageSettings('list')).toBe(true);
-    expect(filterFields('list')).toEqual([]);
-  });
-
-  it('reads a saved value as a mode, anything else as the default', () => {
-    expect(listDoneMode('expanded')).toBe('expanded');
-    expect(listDoneMode('hidden')).toBe('hidden');
-    expect(listDoneMode('collapsed')).toBe('collapsed');
-    expect(listDoneMode('')).toBe('collapsed');
-    expect(listDoneMode('open')).toBe('collapsed');
-    // A value the field no longer has is dropped when read.
-    expect(
-      currentValues('list', { filters: { done: 'open' } }, emptySnapshot()),
-    ).toEqual({});
   });
 });

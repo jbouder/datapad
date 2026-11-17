@@ -4,7 +4,7 @@ Every release of Datapad, newest first, in the shape of
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are
 [tags](https://github.com/jbouder/datapad/tags) on `main`; each has a
 [GitHub release](https://github.com/jbouder/datapad/releases). The milestone
-numbers (M0–M23) are the
+numbers (M0–M24) are the
 [GitHub milestones](https://github.com/jbouder/datapad/milestones) the work
 was planned under.
 
@@ -17,29 +17,313 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-11-17
+
+Datapad v2 (M24) rebuilds the app around four places and one input.
+**Today** is the home page: the day as a timeline with the open loops
+beside it. **Rooms** are a page for each project and each person, and a
+meeting opens in meeting mode. **All** is every item of every kind in
+one list. **Scratch** holds the notes with no home yet. The capture
+line on Today and in every room takes notes, tasks, things to decide
+and waiting-ons. The type-by-type pages (Focus, Projects, Tasks, Notes,
+Meetings, Lists, the Notepad and the Weekly digest) are gone, and every
+old address lands on its new home. The export format goes to 3 and the
+Durable Object's schema to 5. Nothing is deleted: lists become
+checklist notes and retired settings are kept as stored.
+
 ### Added
 
-- Settings → Pages has New task priority: what a new task starts with when
-  you do not pick one, from the New task panel, `/task`, Make task, action
-  items and MCP's `add_task`.
+- **Today** (#331), the home page at `/`: one day at a time. The header
+  has the long day, a line that counts it ("2 meetings, 3 due, 4 waiting
+  on others, 1 to decide") and Previous day, Today and Next day at the
+  right. Then the capture line, a **Next up** card with Enter meeting
+  while a meeting is ahead, what is due (and late, on today) and the
+  **Timeline**: the day's meetings as anchors, untimed ones first, and
+  the tasks added and done and the notes written that day at their
+  times, with a Now line on today and the meetings that are over dimmed.
+  Beside it on desktop and below it on phones: the Scratch card and the
+  three lanes of open loops. **Mine** is yours or no one's, **Waiting
+  on** is blocked on someone (or no one listed) or assigned to someone
+  else, grouped by person, and **To decide** is every task marked to
+  decide. A loop's checkbox closes it at once, with Undo. On a phone the
+  day line stays on one line, the capture line runs full width with its
+  expand button inside it, and the recap's line is held on every day, so
+  the header keeps its height as you step between days.
+- Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
+  **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
+  seven columns on desktop and seven rows on phones, each day with its
+  meetings and its counts of due, done and notes; a day's name opens it,
+  and Previous and Next step a week. Under the days is the week's
+  digest with Copy as Markdown, Save as note and Summarize. It replaces
+  the Weekly digest page, and `/digest` lands on it. Stepping back to
+  the last working day shows the recap (Since yesterday) above its
+  timeline, and today's line links to it. Brief me is on today, and its
+  brief includes the three lanes.
+- **The capture line** (#330): one input at the top of Today and of each
+  room. Type anything and chips say what it will become and where it
+  goes. A plain line is a note; `[ ]`, `todo` or a date makes a task;
+  `?` or `decide:` something to decide; `waiting on @Name` a task
+  blocked on them. `#project` files it, `@Name` mentions someone (and
+  assigns a task to them), and `@` and `#` open a menu, where a new name
+  can be added to People. Enter saves with Undo, Esc clears, Tab or the
+  kind chip changes the kind, and Shift+Enter or the expand button opens
+  the full note composer. `n` goes to it.
+- **Scratch** (#333) replaces the Notepad: one running pad of the notes
+  with no home, newest first, at `/scratch`. Write at the top and
+  ⌘Enter, or Add block, makes a note. Each block shows when it was
+  written and has **File to…** (a project picker; the note moves, same
+  id and time, with Undo), **Make task** and **To decide** (a task
+  titled from its first line, pointing back at it; the block stays),
+  Edit in place and Delete with Undo. Checklists tick in place, so old
+  lists work here. Adding a mention files a block too. It was called
+  Unfiled on the v2 staging deploy: `/unfiled` lands on `/scratch`, and
+  MCP's `list_unfiled` still answers.
+- **The v2 shell** (#329): the rail has Today, Scratch (with its count)
+  and All, then Rooms: the rooms you pin, or the active projects until
+  you pin one, then the people who owe you something. **Pin** in a
+  project's or a person's header puts it in the rail; Settings → Rooms
+  orders and unpins them.
+- **Rooms on phones**: the tab bar has Today, Scratch, Rooms and All.
+  The Rooms tab (`/rooms`) lists what the desktop rail does: the pinned
+  rooms (or the active projects before anything is pinned) with their
+  open counts, then the people you are waiting on, and links to All to
+  find and pin the rest. The tab stays lit inside a room. With nothing
+  to list it points to All.
+- **The project room** (#334) replaces the project page. The header has
+  the org, the name and a state line (health, status when not active,
+  target date, next milestone, how many loops are open), with Pin,
+  Schedule meeting, Edit and a menu with Summarize, Pause, Mark active
+  or Mark done, Move to…, Save as template, Archive and Delete. Under
+  it: the people to narrow the room to, the **Next meeting** card with
+  Enter meeting, and three tabs. **Stream** has the three lanes beside
+  one stream of everything attached (Coming up first, then notes, tasks
+  added and done, meetings and milestones, newest first, older ones
+  with Show older), with the capture line on top. Notes are open and
+  their checkboxes tick in place. **Plan** (`/projects/:id/plan`) has
+  the description, details and health, the timeline bar, milestones,
+  members, links and Activity. **Whiteboard**
+  (`/projects/:id/whiteboard`) is the project's board in the room.
+  Picking a person narrows the lanes and the stream to what touches them
+  (`?person=`); capture then mentions them, or on a task assigns them,
+  and Pin pins the pair.
+- **The person room** (#335) replaces the person page at `/people/:id`,
+  and is the 1:1 prep. The header has the orgs of their projects, the
+  name and a state line (role, how many projects, how many loops are
+  open), with Pin, Schedule meeting, Edit and Remove. Under it: their
+  projects to narrow the room to, the **Next meeting** card, then three
+  lanes beside one stream. **You owe** is your open tasks that touch
+  them. **They owe you** is what waits on them (assigned to them or
+  blocked on them), then anything else of theirs that waits on someone.
+  **To discuss** is the to-decide tasks that touch them and the open
+  topics of their meetings ahead. The stream has the notes that mention
+  them, the tasks that touch them and the meetings they attend, newest
+  first. Capture there mentions them on a note and assigns them a task.
+  Picking a project narrows the lanes and the stream to the same items
+  as the project room narrowed to them (`?project=`); capture then files
+  to the project too, and Pin pins the same pair the project room does.
+  Meeting mode's 1:1 column shows the same lanes. Settings → People
+  still lists, adds and removes people, and each row opens the room.
+- **Meeting mode** (#336) replaces the meeting page. A meeting opens full
+  screen: the phase (Prep, Live or Debrief), the day, time, room and
+  attendees (each a link to their room), Join, Previous and Next in the
+  series, Edit and Leave. The agenda and topics are on the left, with
+  Carry forward from the last meeting of the series. The note composer
+  is always open in the middle, with the saved notes and the action
+  items under it. The open loops are on the right: the other person's
+  for a 1:1, otherwise the project's. Leave, or Esc, goes back to where
+  you came from, or to Today. `/task` in a meeting's note, and Make
+  task on one, make an action item of that meeting.
+- **All** (#337): every task, note, meeting, project and person in one
+  list. Kind chips pick some kinds (none is every kind). Find, then the
+  filters that fit the kinds picked: Room, Person, Status (Open, Done or
+  past, Archived, All), Due, Tag, and To decide or Waiting on. Tasks or
+  projects alone sort as their pages did; several kinds sort together by
+  Recently updated, Title or Date. Everything stays in the address. The
+  space's whiteboard is linked from the header. It replaces the Tasks,
+  Notes, Meetings, Projects and Archived pages, whose addresses land on
+  it with their filters.
+- **Rooms on All**: a Rooms chip sits beside the kind chips. It shows
+  every project room under its org and every person, each with Pin, in
+  place of the item list (`/all?show=rooms`), with **New project**.
+  Picking a kind turns it off.
+- **All's layouts, saved views and bulk actions** (#338). Tasks alone
+  show as a list, a table or a board (by status or by priority), meetings
+  as a list or a calendar, projects as a list, cards or a timeline. The
+  layout is in the address, and each kind remembers the last one picked,
+  also set in Settings → All. Save view names the kinds, filters, sort
+  and layout shown as a chip above the list, synced with the space; each
+  chip's menu renames it, pins it to the rail like a room, or deletes it
+  with Undo. Every task row has a select box: the bar that appears
+  completes or reopens, marks to decide, moves to a room, assigns, sets
+  the due date or deletes, each as one change with Undo.
+- **Summaries in rooms and meeting mode** (#339): Summarize in a project's
+  or a person's room writes a sentence or two on where things stand, under
+  the state line, from what the room shows (the state line, the lanes,
+  what is coming up and the last 14 days of the stream). In meeting mode,
+  Summarize (in More) writes a short recap from the notes, the covered
+  topics and the action items. Both show in a card with Stop, Regenerate,
+  Save as note and Dismiss. Save as note files to the room (a person's as
+  a note that mentions them) or to the meeting. Everything still runs on
+  the device. Summarize stays in the task panel.
+- **Settings for v2** (#343). The sections follow the app: Appearance,
+  Today, Rooms, Capture, All, then Templates, Summaries, Spaces, People,
+  Orgs, Data, Connected apps and Account, each at its own address.
+  Today sets who Mine means (with unassigned, or only what is assigned
+  to you), how far Next up looks ahead, the day the week starts on (the
+  week zoom and the recap's weekend follow it), Brief me on or off, the
+  lanes shown and their order, and meeting mode's sections. Rooms keeps
+  the pinned rooms and adds whether the people who owe you show in the
+  rail, each room's lanes shown and their order, the tab a project room
+  opens on from the rail, All and Search, and the person room's lane
+  names, which the room shows. Capture sets what a plain line becomes,
+  whether `@Name` assigns a task, the priority a new task starts with
+  when you do not pick one (from the New task panel, `/task`, Make task,
+  action items and MCP's `add_task`) and where a note typed in a room
+  goes. All sets the kinds it opens on (Tasks to start with: the rail's
+  All opens there), each kind's layout, the sort tasks and projects
+  start with, and renames, reorders and deletes saved views. Appearance,
+  Today, Rooms, Capture and All each have Reset to defaults, with Undo;
+  All's keeps the saved views. Every default is in one place in
+  `shared/`. What Focus saved is Today's, and the old Tasks, Meetings
+  and Projects pages' saved layouts and sorts become All's (the Durable
+  Object's schema goes to 5).
+- Datapad v2's data model (#328): a task can be marked to decide
+  (`setDecide`), and a note can be filed to another project or to
+  General without being copied (`moveNote`), keeping its id and time.
+  Lists retire into checklist notes and the Notepad becomes an ordinary
+  General note. On first start after the upgrade, each space is
+  migrated once (the Durable Object's schema goes to 4, then 5 with
+  the settings above). Nothing is deleted: the lists are kept in the
+  data.
+- **MCP tools for v2** (#340). `get_today` reads Today: the day's line,
+  its meetings, what is due, the next meeting, the three lanes and how
+  many notes are in Scratch. `get_loops` reads the lanes, for a project
+  or a person too. `list_scratch` lists Scratch. `get_room` reads a
+  project's or a person's room: for a project, what `get_project` gives
+  plus its state line, lanes and stream. `set_decide` marks a task to
+  decide or decided, and `add_task` and `edit_task` take `decide`.
+  `file_note` files a note to a project. Tasks now carry `decide` and
+  notes `scratch` (and `unfiled`, its old name) in every tool's results.
 - A note being written under a task, a meeting or a meeting row asks
   "Save this note?" (Discard or Save note) when you click away, and holds
   any link, Back or panel close until you answer, then goes on.
+- A staging deploy: the `v2` branch deploys to its own Worker,
+  `datapad-v2`, with its own data, backups and Access application, after
+  CI passes. Production still deploys from `main` only. See
+  docs/self-hosting.md § Staging.
 
 ### Changed
 
+- Every old address lands on its new home: `/focus` on Today, `/digest`
+  on Today's week zoom, `/notepad` and `/unfiled` on Scratch,
+  `/projects`, `/tasks`, `/notes`, `/meetings` and `/archive` on All
+  with that kind (filters kept), `/lists` on All's notes, `/tasks/:id`
+  on the task's project with its panel open, and `/settings/people/:id`
+  on the person's room. A task opens in its panel everywhere.
+- Focus is gone, with its agenda strip, Attention and Follow-ups; Today
+  replaces it, with Since yesterday and Brief me (#332). The rail's
+  Waiting on counts what Today's Waiting on lane holds, so a task to
+  decide no longer counts there, and a task blocked on you is yours.
+- Adding without the + (#341): the capture line takes tasks and notes,
+  ⌘K has New task, New note, New meeting and New project, **Add meeting**
+  sits beside Today's timeline (on the day shown) and **New project**
+  beside All's project rooms. On All filtered to a room, ⌘K's New task,
+  New note and New meeting start in that room.
+- `n` goes to the capture line where there is one (elsewhere it still
+  opens the new-task panel). Shift+N and Shift+L are gone: write a note
+  from the capture line or ⌘K.
+- New list is gone from ⌘K and Shift+L, and the Lists, Notepad, Weekly
+  digest and task pages are gone, as lists and the Notepad became notes.
+  ⌘K no longer finds lists; it finds the checklist notes they became.
+- Summarizing a single note is gone: rooms and meetings cover it.
 - New tasks start at Medium priority instead of none.
-
+- MCP's `get_focus` is now an alias of `get_today` and returns the same
+  thing: the old Focus shape (due buckets, follow-ups, attention,
+  agenda) is gone, and `assignee` is ignored. `add_note` with no
+  project, meeting, task or mention lands in Scratch. `get_project` and
+  `get_overview` no longer show lists. The server's `initialize`
+  instructions describe loops, Scratch and rooms, and the tools'
+  descriptions name All in place of the old pages.
+- MCP's list tools (`list_lists`, `get_list`, `add_list`,
+  `add_list_item`, `check_list_item`) are retired: each answers with an
+  error pointing to checklist notes and changes nothing. They go in the
+  next release. A connected app can no longer send the list ops; it can
+  now send `setDecide` and `moveNote`.
+- The phone's tab bar is opaque, so its labels keep their contrast over
+  whatever scrolls under it.
+- Help describes v2 only, with a new **How Datapad works** section on
+  Today, Rooms, All, Scratch and the capture line. Its Layouts table
+  lists only All's kinds and People. The docs and the README, with new
+  screenshots, describe v2 only.
+- An installed app starts at `/` (Today); one installed before still
+  starts at `/focus`, which lands there too.
+- All loads on demand, like Settings and Help, and is fetched once the
+  browser is idle. The entry script is 388.4 KB gzipped, down from
+  407.3 KB.
 - The components in `src/components/ui` now come from the
   [Beskar](https://github.com/jbouder/beskar) registry in place of stock
   shadcn. Nothing looks different. Combobox buttons gain accessible names,
   and calendar days are named with the full date ("Sunday, November 1,
   2026").
 
+### Removed
+
+- The project page and its sections, with Show done, Show past, the
+  tasks board and the Lists section; Settings no longer lists
+  them. Their saved settings are kept and ignored. Dragging tasks into
+  order went with it: the room's lanes sort by due date, as Today's do.
+- Settings → Navigation. Pinned rooms are the only navigation setting.
+  Saved navigation preferences are kept and ignored, and an export that
+  has them still imports.
+- Settings → Pages (#343). Its options moved to Today, Rooms, Capture and
+  All, and `/settings/pages` opens Settings → Today. The task page's
+  and Lists' settings are no longer shown; what they saved is
+  kept.
+- The top bar's + menu (#341). See Changed for where adding went.
+- What the classic pages left behind (#341): the tasks list and timeline
+  layouts (All shows tasks as a list, table or board), dragging a task's
+  due date on a timeline, the notes grid, the list panel, and Move up,
+  Move down and Move to top on a task. An older client's `reorderTasks`
+  still applies, and the export still carries what the retired pages
+  saved.
+
+### Fixed
+
+- After a save in the task panel moves a task to another lane (Today's
+  or a room's), focus goes to the task in its new lane instead of being
+  lost.
+- The destructive buttons (Remove, Delete) reach 4.5:1 contrast in the
+  Light theme; their red label on its red tint was about 4:1.
+
 ### Export format
 
-- `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
-  `high`). Absent reads as `med`.
+- The format is now 3 (#328). Tasks may carry `decide: true`, absent
+  reading as false. A format 1 or 2 file (or one without `format`) is
+  migrated on import: open tasks tagged `decide` get `decide: true`
+  (the tag is kept), each list becomes a note on its project under the
+  list's id (`## <title>`, then a `- [ ]` or `- [x]` line per item, the
+  list's `createdAt`, its `updatedAt` as `editedAt`), and the Notepad's
+  `scratch` is cleared. `lists` is still written and read; a format 3
+  file's lists are not migrated again. A Datapad that reads up to 2
+  refuses a format 3 file.
+- The rest is additive within format 3:
+  - `settings.user` may carry `pinned` (#329): the pinned rooms in
+    order, each a project id, a person id or `<projectId>+<personId>`,
+    each once, at most 50. Absent until something is pinned. A pinned
+    room may also be `view:<id>`, a saved view of All.
+    `settings.user.nav` is kept as it was and no longer read.
+  - `settings.user.pages` may carry the page key `all` (#338), with the
+    settings `taskView`, `meetingView` and `projectView` under `filters`
+    and `views`, a list of `{ id, name, query }` saved views.
+  - `settings.user` may carry `captureAs`, `mentionAssigns`, `roomNotes`,
+    `railOwed`, `roomTab` and `laneLabels` (#343), each absent at its
+    default. `settings.user.pages.focus` may carry `weekStart` and
+    `brief`, and `settings.user.pages.all` `kinds`, `taskSort` and
+    `projectSort`, under `filters`. An older file whose space saved
+    nothing for All has its old Tasks, Meetings and Projects layouts and
+    sorts carried into All on import; the old entries are kept.
+  - `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
+    `high`). Absent reads as `med`.
 
 ## [1.0.0] — 2026-11-06
 
@@ -645,7 +929,8 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/jbouder/datapad/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/jbouder/datapad/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/jbouder/datapad/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/jbouder/datapad/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jbouder/datapad/compare/v0.2.0...v0.3.0
