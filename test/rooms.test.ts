@@ -12,6 +12,7 @@ import {
   roomKey,
   roomOf,
   unfiledCount,
+  viewOf,
   withPin,
 } from '#shared/rooms';
 import {
@@ -20,6 +21,7 @@ import {
   type Person,
   type Project,
   type Snapshot,
+  settingsOf,
   type Task,
 } from '#shared/types';
 
@@ -109,6 +111,32 @@ describe('roomOf', () => {
       const room = roomOf(entry, space);
       expect(room && roomKey(room)).toBe(entry);
     }
+  });
+
+  it('reads a saved view on All while it exists (#338)', () => {
+    const withViews = state({
+      ...space,
+      settings: {
+        user: {
+          defaultOrg: '',
+          pinned: ['view:v1', 'p-echo', 'view:v-gone'],
+          pages: {
+            all: { views: [{ id: 'v1', name: 'Board', query: 'kind=task' }] },
+          },
+        },
+      },
+    });
+    const room = roomOf('view:v1', withViews);
+    expect(room).toEqual({ kind: 'view', id: 'v1' });
+    expect(room && roomKey(room)).toBe('view:v1');
+    expect(room && viewOf(room, withViews)?.name).toBe('Board');
+    expect(roomOf('view:v-gone', withViews)).toBeNull();
+    // Without settings, no view is known.
+    expect(roomOf('view:v1', space)).toBeNull();
+    expect(railRooms(settingsOf(withViews), withViews).rooms).toEqual([
+      { kind: 'view', id: 'v1' },
+      { kind: 'project', id: 'p-echo' },
+    ]);
   });
 });
 

@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
+import { normalViewQuery, viewRoute } from '#shared/all';
 import {
   owedBy,
   type Room,
   railRooms,
   roomKey,
   unfiledCount,
+  viewOf,
 } from '#shared/rooms';
 import { openCounts } from '#shared/select';
 import { settingsOf } from '#shared/types';
@@ -12,7 +14,7 @@ import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { PLACES, placeOf } from '@/lib/nav';
-import { linkProps, type Route } from '@/lib/router';
+import { linkProps, type Route, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /** A place's or a room's row: the same look, `aria-current` on its page. */
@@ -22,8 +24,12 @@ const CURRENT =
   'bg-sidebar-accent font-semibold text-sidebar-accent-foreground';
 const HEADING = 'px-2 pb-1 text-xs font-medium text-muted-foreground';
 
-/** Whether `route` is `room`'s page. */
-function inRoom(route: Route, room: Room): boolean {
+/**
+ * Whether `route` is `room`'s page; a saved view's when All shows its
+ * address (`here`, normalized).
+ */
+function inRoom(route: Route, room: Room, here?: string): boolean {
+  if (room.kind === 'view') return route.name === 'all' && here === room.id;
   if (room.kind === 'project') {
     return route.name === 'project' && route.id === room.id;
   }
@@ -44,6 +50,7 @@ function inRoom(route: Route, room: Room): boolean {
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const place = placeOf(route);
+  const query = useQuery().toString();
 
   const rail = useMemo(() => {
     if (!state) return null;
@@ -58,19 +65,35 @@ export function Rail({ route }: { route: Route }) {
 
   const roomLabel = (room: Room): string => {
     if (!state) return '';
+    if (room.kind === 'view') return viewOf(room, state)?.name ?? '';
     if (room.kind === 'project') return state.projects[room.id]?.name ?? '';
     if (room.kind === 'person') return state.people[room.id]?.name ?? '';
     const project = state.projects[room.project]?.name ?? '';
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
   };
-  const roomRoute = (room: Room): Route =>
-    room.kind === 'person'
-      ? { name: 'person', id: room.id }
-      : {
-          name: 'project',
-          id: room.kind === 'project' ? room.id : room.project,
-        };
+  const roomLink = (room: Room): [Route, string?] => {
+    if (room.kind === 'view') {
+      const to = viewRoute(state ? (viewOf(room, state)?.query ?? '') : '');
+      return [to.route, to.query];
+    }
+    return room.kind === 'person'
+      ? [{ name: 'person', id: room.id }]
+      : [
+          {
+            name: 'project',
+            id: room.kind === 'project' ? room.id : room.project,
+          },
+        ];
+  };
+  // The saved view All shows now, if any: its address is this one.
+  const hereView = useMemo(() => {
+    if (!state || route.name !== 'all') return undefined;
+    const here = normalViewQuery(query);
+    return settingsOf(state).pages?.all?.views?.find(
+      (v) => normalViewQuery(v.query) === here,
+    )?.id;
+  }, [state, route.name, query]);
   const roomCount = (room: Room): number =>
     room.kind === 'project' ? (rail?.open.get(room.id) ?? 0) : 0;
 
@@ -117,12 +140,12 @@ export function Rail({ route }: { route: Route }) {
             </h2>
             <ul className="flex flex-col" data-pinned={rail.rooms.pinned}>
               {rail.rooms.rooms.map((room) => {
-                const current = inRoom(route, room);
+                const current = inRoom(route, room, hereView);
                 const open = roomCount(room);
                 return (
                   <li key={`${room.kind}:${roomKey(room)}`}>
                     <a
-                      {...linkProps(roomRoute(room))}
+                      {...linkProps(...roomLink(room))}
                       aria-current={current ? 'page' : undefined}
                       className={cn(ROW, 'h-8', current && CURRENT)}
                     >

@@ -109,9 +109,11 @@ test('Settings → Pages edits and resets, with Undo', async ({
   await expectStored(request, 'tasks', { group: 'assignee', sort: 'title' });
 
   // Reset all, then Undo.
-  await page.getByRole('button', { name: 'Reset all' }).click();
+  await page.getByRole('button', { name: 'Reset all', exact: true }).click();
   await expect.poll(() => pages(request)).toEqual({});
-  await expect(page.getByRole('button', { name: 'Reset all' })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Reset all', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect
     .poll(() => pages(request))

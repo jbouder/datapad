@@ -6,27 +6,58 @@
  * projects by recent change, then the people who owe you something.
  *
  * Pins are stored per space in `settings.pinned` (`setSettings`), each
- * entry a project id, a person id, or `<projectId>+<personId>`. The
+ * entry a project id, a person id, `<projectId>+<personId>`, or
+ * `view:<id>` for a view saved on All (#338), which pins like a room. The
  * only navigation setting: Settings → Navigation and its `nav` prefs
  * retired with v2.
  */
 import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
 import { meId } from './select';
-import type { Person, Project, Settings, Snapshot } from './types';
+import {
+  type Person,
+  type Project,
+  type SavedView,
+  type Settings,
+  type Snapshot,
+  settingsOf,
+} from './types';
 
 export type Room =
   | { kind: 'project'; id: string }
   | { kind: 'person'; id: string }
-  | { kind: 'pair'; project: string; person: string };
+  | { kind: 'pair'; project: string; person: string }
+  | { kind: 'view'; id: string };
 
 /** Between a pair's project id and person id. */
 const PAIR = '+';
+/** Before a saved view's id. */
+const VIEW = 'view:';
 
 /** The key a room is pinned under. */
 export function roomKey(room: Room): string {
   if (room.kind === 'pair') return `${room.project}${PAIR}${room.person}`;
+  if (room.kind === 'view') return `${VIEW}${room.id}`;
   return room.id;
+}
+
+/** What `roomOf` reads: the projects, people and (for views) settings. */
+type RoomState = Pick<Snapshot, 'projects' | 'people'> &
+  Partial<Pick<Snapshot, 'settings'>>;
+
+/** The views saved on All (#338), as they stand. */
+export function savedViews(state: Partial<Pick<Snapshot, 'settings'>>) {
+  if (!state.settings) return [];
+  return settingsOf({ settings: state.settings }).pages?.all?.views ?? [];
+}
+
+/** The saved view a room names, if it still exists. */
+export function viewOf(
+  room: Room,
+  state: Partial<Pick<Snapshot, 'settings'>>,
+): SavedView | undefined {
+  if (room.kind !== 'view') return undefined;
+  return savedViews(state).find((v) => v.id === room.id);
 }
 
 /**
@@ -34,10 +65,13 @@ export function roomKey(room: Room): string {
  * space (a deleted project, a removed person): such an entry is skipped,
  * and kept until it is unpinned.
  */
-export function roomOf(
-  entry: string,
-  state: Pick<Snapshot, 'projects' | 'people'>,
-): Room | null {
+export function roomOf(entry: string, state: RoomState): Room | null {
+  if (entry.startsWith(VIEW)) {
+    const id = entry.slice(VIEW.length);
+    return savedViews(state).some((v) => v.id === id)
+      ? { kind: 'view', id }
+      : null;
+  }
   if (Object.hasOwn(state.projects, entry)) {
     return { kind: 'project', id: entry };
   }
@@ -82,7 +116,7 @@ export function withPin(
  */
 export function movePin(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
   key: string,
   by: -1 | 1,
 ): string[] | null {
@@ -98,7 +132,7 @@ export function movePin(
 /** The pinned rooms that exist, in order. */
 export function pinnedRooms(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
 ): Room[] {
   return pinnedOf(settings)
     .map((key) => roomOf(key, state))
@@ -118,7 +152,7 @@ function liveProjects(projects: Snapshot['projects']): Project[] {
  */
 export function railRooms(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
 ): { pinned: boolean; rooms: Room[] } {
   const pinned = pinnedRooms(settings, state);
   if (pinned.length > 0) return { pinned: true, rooms: pinned };

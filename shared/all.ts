@@ -7,7 +7,7 @@ import {
   type ProjectSort,
   selectProjects,
 } from './projects';
-import { ALL_KINDS, type AllKind, kindsOf } from './routes';
+import { ALL_KINDS, type AllKind, kindsOf, type Route } from './routes';
 import { meId } from './select';
 import {
   DEFAULT_TASK_FILTERS,
@@ -26,6 +26,7 @@ import {
   type Note,
   type Person,
   type Project,
+  type SavedView,
   type Snapshot,
   type Task,
 } from './types';
@@ -87,6 +88,85 @@ export interface AllFilters {
   /** One of `sortsFor(kinds)`. */
   sort: string;
   dir: 'asc' | 'desc';
+  /**
+   * The layout asked for in the address (#338), one of `layoutsFor(kinds)`;
+   * `''` is the saved default for the kind (`allLayout`).
+   */
+  view: string;
+  /** The task board's columns: by status or by priority. */
+  board: BoardBy;
+}
+
+/* ---------- layouts (#338) ---------- */
+
+/** The kinds with layouts other than the list. */
+export type LayoutKind = 'task' | 'meeting' | 'project';
+
+export type LayoutOption = { value: string; label: string };
+
+/**
+ * The layouts each kind is offered when it is shown alone, the list first
+ * (every kind's default): tasks as a list, a table or a board, meetings as
+ * a list or a calendar, projects as a list, cards or a timeline.
+ */
+export const ALL_LAYOUTS: Record<LayoutKind, readonly LayoutOption[]> = {
+  task: [
+    { value: 'list', label: 'List' },
+    { value: 'table', label: 'Table' },
+    { value: 'board', label: 'Board' },
+  ],
+  meeting: [
+    { value: 'list', label: 'List' },
+    { value: 'calendar', label: 'Calendar' },
+  ],
+  project: [
+    { value: 'list', label: 'List' },
+    { value: 'cards', label: 'Cards' },
+    { value: 'timeline', label: 'Timeline' },
+  ],
+};
+
+/** Where each kind's default layout is saved (Settings → Pages, All). */
+export const LAYOUT_SETTING: Record<LayoutKind, string> = {
+  task: 'taskView',
+  meeting: 'meetingView',
+  project: 'projectView',
+};
+
+/** The task board's columns. */
+export const BOARD_BY = ['status', 'priority'] as const;
+export type BoardBy = (typeof BOARD_BY)[number];
+
+/** The kind whose layouts the switcher offers: one kind shown alone. */
+export function layoutKind(kinds: readonly AllKind[]): LayoutKind | null {
+  const only = kinds.length === 1 ? kinds[0] : undefined;
+  return only === 'task' || only === 'meeting' || only === 'project'
+    ? only
+    : null;
+}
+
+/** The layouts offered for `kinds`; none (the list alone) for several. */
+export function layoutsFor(kinds: readonly AllKind[]): readonly LayoutOption[] {
+  const kind = layoutKind(kinds);
+  return kind ? ALL_LAYOUTS[kind] : [];
+}
+
+/**
+ * The layout All shows: the address's, else the kind's saved default
+ * (`saved`, by setting key), else the list. A layout the kind does not
+ * have reads as the next one down.
+ */
+export function allLayout(
+  filters: Pick<AllFilters, 'kinds' | 'view'>,
+  saved: Readonly<Record<string, string>> = {},
+): string {
+  const kind = layoutKind(filters.kinds);
+  if (!kind) return 'list';
+  const has = (v: string | undefined): v is string =>
+    Boolean(v) && ALL_LAYOUTS[kind].some((o) => o.value === v);
+  if (has(filters.view)) return filters.view;
+  const def = saved[LAYOUT_SETTING[kind]];
+  return has(def) ? def : 'list';
 }
 
 /** The filters, each a query key; Find, the kinds and the sort are not. */
@@ -191,6 +271,8 @@ export function defaultAllFilters(kinds: readonly AllKind[] = []): AllFilters {
     waiting: false,
     sort: defaultSort(kinds),
     dir: 'asc',
+    view: '',
+    board: 'status',
   };
 }
 
@@ -204,6 +286,7 @@ export function parseAllQuery(params: URLSearchParams): AllFilters {
   const status = params.get('status');
   const due = params.get('due');
   const sort = params.get('sort') ?? '';
+  const view = params.get('view') ?? '';
   return {
     kinds,
     q: params.get('q') ?? '',
@@ -218,6 +301,11 @@ export function parseAllQuery(params: URLSearchParams): AllFilters {
     waiting: params.get('waiting') === '1',
     sort: sortsFor(kinds).some((o) => o.value === sort) ? sort : d.sort,
     dir: params.get('dir') === 'desc' ? 'desc' : 'asc',
+    view: layoutsFor(kinds).some((o) => o.value === view) ? view : '',
+    board:
+      params.get('board') === 'priority' && layoutKind(kinds) === 'task'
+        ? 'priority'
+        : 'status',
   };
 }
 
@@ -240,6 +328,11 @@ export function allQuery(filters: AllFilters): Record<string, string | null> {
     waiting: filters.waiting ? '1' : null,
     sort: value(filters.sort, d.sort),
     dir: filters.dir === 'desc' ? 'desc' : null,
+    view: filters.view || null,
+    board:
+      filters.board === 'priority' && layoutKind(filters.kinds) === 'task'
+        ? 'priority'
+        : null,
   };
 }
 
@@ -258,12 +351,17 @@ export function activeAllFilters(filters: AllFilters): AllFilterKey[] {
   return offered.filter((key) => on[key]);
 }
 
-/** Every filter and Find back to the default; the kinds and sort stay. */
+/**
+ * Every filter and Find back to the default; the kinds, sort and layout
+ * stay.
+ */
 export function clearedAllFilters(filters: AllFilters): AllFilters {
   return {
     ...defaultAllFilters(filters.kinds),
     sort: filters.sort,
     dir: filters.dir,
+    view: filters.view,
+    board: filters.board,
   };
 }
 
@@ -595,3 +693,87 @@ export const KIND_LABELS: Record<AllKind, string> = {
   project: 'Projects',
   person: 'People',
 };
+
+/* ---------- saved views (#338) ---------- */
+
+/**
+ * The address a view saves for `filters`: the kinds first, then the
+ * filters, sort and layout, defaults left out. Find's words are not kept
+ * (search text is never saved), nor a linked note.
+ */
+export function viewQuery(filters: AllFilters): string {
+  const params = new URLSearchParams();
+  if (filters.kinds.length > 0) params.set('kind', filters.kinds.join(','));
+  for (const [key, v] of Object.entries(allQuery({ ...filters, q: '' }))) {
+    if (v) params.set(key, v);
+  }
+  // Commas stay commas, as the router writes them.
+  return params.toString().replaceAll('%2C', ',');
+}
+
+/** A saved query as All reads it, written the one way (`viewQuery`). */
+export function normalViewQuery(query: string): string {
+  return viewQuery(parseAllQuery(new URLSearchParams(query)));
+}
+
+/** Where a saved view goes: All with its kinds, and the rest as its query. */
+export function viewRoute(query: string): { route: Route; query: string } {
+  const params = new URLSearchParams(query);
+  const kinds = kindsOf(params.get('kind'));
+  params.delete('kind');
+  return {
+    route: kinds.length > 0 ? { name: 'all', kinds } : { name: 'all' },
+    query: params.toString(),
+  };
+}
+
+/**
+ * The view `filters` show, if one is saved: the same address, with the
+ * layout shown (`layout`) standing in for an address that names none.
+ */
+export function currentView(
+  views: readonly SavedView[],
+  filters: AllFilters,
+  layout: string,
+): SavedView | undefined {
+  const here = viewQuery({ ...filters, view: layoutOrNone(filters, layout) });
+  return views.find((v) => {
+    const there = parseAllQuery(new URLSearchParams(v.query));
+    return (
+      viewQuery({
+        ...there,
+        view: layoutOrNone(there, there.view || 'list'),
+      }) === here
+    );
+  });
+}
+
+/** `layout` as an address names it: nothing for a kind with no layouts. */
+function layoutOrNone(filters: Pick<AllFilters, 'kinds'>, layout: string) {
+  return layoutsFor(filters.kinds).length > 0 ? layout : '';
+}
+
+/** The views with `view` added at the end. */
+export function addView(
+  views: readonly SavedView[],
+  view: SavedView,
+): SavedView[] {
+  return [...views.filter((v) => v.id !== view.id), view];
+}
+
+/** The views with `id` renamed. */
+export function renameView(
+  views: readonly SavedView[],
+  id: string,
+  name: string,
+): SavedView[] {
+  return views.map((v) => (v.id === id ? { ...v, name } : v));
+}
+
+/** The views without `id`. */
+export function removeView(
+  views: readonly SavedView[],
+  id: string,
+): SavedView[] {
+  return views.filter((v) => v.id !== id);
+}

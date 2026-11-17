@@ -3,6 +3,7 @@ import {
   CalendarBlankIcon,
   CheckIcon,
   FolderIcon,
+  ScalesIcon,
   TrashIcon,
   UserIcon,
   XIcon,
@@ -11,7 +12,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Op } from '#shared/protocol';
 import { undoTaskOps } from '#shared/tasks';
-import type { Task } from '#shared/types';
+import { decideOf, type Task } from '#shared/types';
 import { DatePicker } from '@/components/inputs/DatePicker';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { ProjectPicker } from '@/components/pickers/ProjectPicker';
@@ -27,8 +28,8 @@ import { useToast } from '@/providers/ToastProvider';
 const plural = (n: number) => (n === 1 ? '1 task' : `${n} tasks`);
 
 /**
- * What to do with the selected tasks: close or reopen, move, assign, set
- * the due date, delete. Each action is one `batch` op (all or nothing),
+ * What to do with the selected tasks (All, #338): complete or reopen,
+ * mark to decide, move to a room, assign, set the due date, delete. Each action is one `batch` op (all or nothing),
  * and its toast's Undo puts back what it changed, through the same
  * checked ops (`undoTaskOps`), so an edit made since is kept.
  *
@@ -64,12 +65,13 @@ export function BulkBar({
 
   const openOnes = tasks.filter((t) => t.status === 'open');
   const doneOnes = tasks.filter((t) => t.status === 'done');
+  const notDecide = tasks.filter((t) => !decideOf(t));
 
   return createPortal(
     <div
       role="toolbar"
       aria-label="Selected tasks"
-      className="fixed inset-x-0 bottom-[calc(1rem+var(--tabbar-height)+env(safe-area-inset-bottom))] z-40 mx-auto flex w-[min(calc(100%-2rem),44rem)] flex-wrap items-center gap-1 border bg-popover p-2 text-popover-foreground shadow-lg"
+      className="fixed inset-x-0 bottom-[calc(1rem+var(--tabbar-height)+env(safe-area-inset-bottom))] z-40 mx-auto flex w-[min(calc(100%-2rem),48rem)] flex-wrap items-center gap-1 border bg-popover p-2 text-popover-foreground shadow-lg"
     >
       <p role="status" className="px-2 text-sm font-medium">
         {plural(tasks.length)} selected
@@ -87,12 +89,12 @@ export function BulkBar({
                 id: t.id,
                 done: true,
               })),
-              `Closed ${plural(openOnes.length)}`,
+              `Completed ${plural(openOnes.length)}`,
             )
           }
         >
           <CheckIcon />
-          Close
+          Complete
         </Button>
       )}
       {doneOnes.length > 0 && (
@@ -115,6 +117,26 @@ export function BulkBar({
           Reopen
         </Button>
       )}
+      {notDecide.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="press"
+          onClick={() =>
+            run(
+              notDecide.map((t) => ({
+                type: 'setDecide',
+                id: t.id,
+                decide: true,
+              })),
+              `Marked ${plural(notDecide.length)} to decide`,
+            )
+          }
+        >
+          <ScalesIcon />
+          To decide
+        </Button>
+      )}
       <Popover
         open={open === 'move'}
         onOpenChange={(o) => setOpen(o ? 'move' : null)}
@@ -127,7 +149,7 @@ export function BulkBar({
         </PopoverTrigger>
         <PopoverContent className="w-72 p-2">
           <ProjectPicker
-            aria-label="Move to project"
+            aria-label="Move to room"
             value={null}
             onChange={(projectId) =>
               run(

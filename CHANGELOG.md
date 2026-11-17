@@ -29,7 +29,16 @@ changes the format says so here under **Export format**.
   much they owe you, each with Pin. The space's whiteboard is linked from
   the header. It replaces the Tasks, Notes, Meetings, Projects and
   Archived pages, whose addresses land on it with their filters.
-  Layouts, saved views and bulk actions come back with #338.
+- **All's layouts, saved views and bulk actions** (#338). Tasks alone
+  show as a list, a table or a board (by status or by priority), meetings
+  as a list or a calendar, projects as a list, cards or a timeline. The
+  layout is in the address, and each kind remembers the last one picked,
+  also set in Settings → Pages under All. Save view names the kinds,
+  filters, sort and layout shown as a chip above the list, synced with the
+  space; each chip's menu renames it, pins it to the rail like a room, or
+  deletes it with Undo. Every task row has a select box: the bar that
+  appears completes or reopens, marks to decide, moves to a room, assigns,
+  sets the due date or deletes, each as one change with Undo.
 
 - Settings → Pages has New task priority: what a new task starts with when
   you do not pick one, from the New task panel, `/task`, Make task, action
@@ -149,6 +158,10 @@ changes the format says so here under **Export format**.
 
 ### Export format
 
+- `settings.user.pages` may carry the page key `all` (#338), with the
+  settings `taskView`, `meetingView` and `projectView` under `filters`
+  and `views`, a list of `{ id, name, query }` saved views. A pinned room
+  may be `view:<id>`. Additive: older files import unchanged.
 - `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
   `high`). Absent reads as `med`.
 - The format is now 3 (#328). Tasks may carry `decide: true`, absent

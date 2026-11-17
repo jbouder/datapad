@@ -2511,6 +2511,10 @@ describe('undo of a bulk change (#235)', () => {
       ],
       [{ type: 'moveTask', id: 't1', projectId: 'p2' }],
       [{ type: 'editTask', id: 't1', patch: { due: '2026-11-01' } }],
+      [
+        { type: 'setDecide', id: 't1', decide: true },
+        { type: 'setDecide', id: 't2', decide: true },
+      ],
       [{ type: 'deleteTask', id: 't1' }],
     ] as Op[][]) {
       const { after, undo } = change(state, ops);
@@ -2521,7 +2525,11 @@ describe('undo of a bulk change (#235)', () => {
       for (const id of ['t1', 't2']) {
         const { updatedAt: _a, order: _o, ...was } = taskOf(state, id);
         const { updatedAt: _b, order: _p, ...now } = taskOf(back, id);
-        expect(now).toEqual(was);
+        // Never set and set to false read the same (`decideOf`).
+        expect({ ...now, decide: now.decide ?? false }).toEqual({
+          ...was,
+          decide: was.decide ?? false,
+        });
       }
     }
   });
@@ -2863,6 +2871,61 @@ describe('page preferences (#186)', () => {
     expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
     // Not logged: no activity text anywhere.
     expect(next.activity).toBe(state.activity);
+  });
+
+  it("saves All's views whole; null or an empty list clears (#338)", () => {
+    const views = [
+      { id: 'v1', name: 'Board', query: 'kind=task&view=board' },
+      { id: 'v2', name: 'Echo', query: 'room=p1' },
+    ];
+    const state = run(base(), {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: { views, filters: { taskView: 'table' } },
+    });
+    expect(pages(state)?.all).toEqual({
+      views,
+      filters: { taskView: 'table' },
+    });
+    const renamed = run(state, {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: {
+        views: [
+          { id: 'v1', name: 'Tasks board', query: 'kind=task&view=board' },
+        ],
+      },
+    });
+    expect(pages(renamed)?.all?.views).toEqual([
+      { id: 'v1', name: 'Tasks board', query: 'kind=task&view=board' },
+    ]);
+    const cleared = run(renamed, {
+      type: 'setPagePrefs',
+      page: 'all',
+      patch: { views: null },
+    });
+    expect(pages(cleared)?.all).toEqual({ filters: { taskView: 'table' } });
+    // Each view once, within the limit.
+    expect(
+      OpSchema.safeParse({
+        type: 'setPagePrefs',
+        page: 'all',
+        patch: { views: [views[0], views[0]] },
+      }).success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({
+        type: 'setPagePrefs',
+        page: 'all',
+        patch: {
+          views: Array.from({ length: LIMITS.viewsMax + 1 }, (_, i) => ({
+            id: `v${i}`,
+            name: `View ${i}`,
+            query: '',
+          })),
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('merges key by key; null clears, and an emptied page goes', () => {

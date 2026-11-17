@@ -5,7 +5,7 @@ import {
   FORMAT_SHORTCUTS,
   type FormatShortcut,
 } from '#shared/composer';
-import { PAGES, type PageSpec } from '#shared/pages';
+import { layoutTable } from '#shared/pages';
 import { COMMIT, VERSION } from '#shared/version';
 import { ShortcutList } from '@/components/ShortcutList';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -20,12 +20,7 @@ import { linkProps, type Route } from '@/lib/router';
  */
 
 /** The pages with a layout switcher, each with its layouts and default. */
-const LAYOUTS = Object.values(PAGES).flatMap((page: PageSpec) => {
-  const field = page.fields.find((f) => f.key === 'view');
-  if (!field?.options) return [];
-  const def = field.options.find((o) => o.value === field.def)?.label ?? '';
-  return [{ page: page.label, options: field.options, def }];
-});
+const LAYOUTS = layoutTable();
 
 const SECTIONS = [
   { id: 'about', title: 'What Datapad is' },
@@ -163,7 +158,11 @@ export function HelpPage({ section }: { section?: string }) {
           ])}
         />
         <p className="text-sm">
-          Tasks opens as a list on a phone, where the table would not fit.
+          On All, tasks, meetings or projects shown alone have layouts of their
+          own, remembered for each kind. Save view keeps the kinds, filters,
+          sort and layout as a chip above the list; its menu renames it, pins it
+          to the rail or deletes it. Select tasks with their boxes to complete,
+          mark to decide, move, assign or date them all at once, with Undo.
         </p>
         <p className="text-sm">
           The rail has Today, Unfiled and All, then Rooms: the pinned rooms, or

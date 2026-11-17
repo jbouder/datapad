@@ -1,49 +1,83 @@
 import {
   CalendarBlankIcon,
   ChalkboardSimpleIcon,
+  ChartBarHorizontalIcon,
   CheckSquareIcon,
   FoldersIcon,
   type Icon,
+  KanbanIcon,
+  ListBulletsIcon,
   NoteIcon,
+  SquaresFourIcon,
+  TableIcon,
   UserIcon,
 } from '@phosphor-icons/react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_STATUS_OPTIONS,
   type AllFilters,
   type AllRow,
   activeAllFilters,
+  allLayout,
   allQuery,
   allTags,
+  BOARD_BY,
+  type BoardBy,
   clearedAllFilters,
+  currentView,
   defaultSort,
   filtersFor,
   KIND_LABELS,
+  LAYOUT_SETTING,
+  layoutKind,
+  layoutsFor,
   parseAllQuery,
   selectAll,
   sortsFor,
+  viewQuery,
 } from '#shared/all';
 import { formatDay } from '#shared/dates';
-import { peopleByOwed, projectRoomsByOrg } from '#shared/rooms';
+import type { Op } from '#shared/protocol';
+import { peopleByOwed, projectRoomsByOrg, savedViews } from '#shared/rooms';
 import { ALL_KINDS, type AllKind } from '#shared/routes';
 import { meId, taskNoteCounts } from '#shared/select';
-import { DUE_BUCKETS } from '#shared/tasks';
+import {
+  DEFAULT_TASK_FILTERS,
+  DUE_BUCKETS,
+  type TaskFilters,
+  type TaskSortKey,
+  undoTaskOps,
+} from '#shared/tasks';
 import { healthOf, type Person, type Project, type Task } from '#shared/types';
+import { SavedViews } from '@/components/all/SavedViews';
 import { FindField } from '@/components/inputs/FindField';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
 import { SortField } from '@/components/inputs/SortField';
+import type { Selection } from '@/components/layouts/DataTable';
 import {
   ListEmpty,
   type ListFilters,
   ListToolbar,
 } from '@/components/layouts/ListToolbar';
+import {
+  type ViewOption,
+  ViewSwitcher,
+} from '@/components/layouts/ViewSwitcher';
+import { MeetingLayouts } from '@/components/meetings/MeetingLayouts';
 import { MeetingRow } from '@/components/meetings/MeetingRow';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PinButton } from '@/components/PinButton';
 import { HealthBadge } from '@/components/projects/Health';
+import { ProjectLayouts } from '@/components/projects/ProjectLayouts';
 import { StatusPill } from '@/components/projects/StatusPill';
+import { BulkBar } from '@/components/tasks/BulkBar';
+import {
+  TaskBoard,
+  type TaskLayoutProps,
+  TaskTable,
+} from '@/components/tasks/TaskLayouts';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -53,10 +87,13 @@ import { useFlip } from '@/hooks/useFlip';
 import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
-import { withViewTransition } from '@/lib/motion';
+import { withLayoutTransition, withViewTransition } from '@/lib/motion';
 import { linkProps, navigate, useQuery } from '@/lib/router';
+import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { usePageSettingState } from '@/providers/PagePrefsProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 const KIND_ICONS: Record<AllKind, Icon> = {
   task: CheckSquareIcon,
@@ -66,11 +103,30 @@ const KIND_ICONS: Record<AllKind, Icon> = {
   person: UserIcon,
 };
 
+/** Each layout's icon in the switcher. */
+const LAYOUT_ICONS: Record<string, Icon> = {
+  list: ListBulletsIcon,
+  table: TableIcon,
+  board: KanbanIcon,
+  calendar: CalendarBlankIcon,
+  cards: SquaresFourIcon,
+  timeline: ChartBarHorizontalIcon,
+};
+
+const BOARD_LABELS: Record<BoardBy, string> = {
+  status: 'Status',
+  priority: 'Priority',
+};
+
 /** How many rows show before Show more. */
 const PAGE = 100;
 
 /** The select value that stands for "any" (an empty value is none). */
 const ANY = 'any';
+
+/** The tasks among `rows`. */
+const tasksOf = (rows: readonly AllRow[]): Task[] =>
+  rows.flatMap((r) => (r.kind === 'task' ? [r.item] : []));
 
 /**
  * All (`/all`, #337): every item of every kind in one list. The kind
@@ -82,7 +138,12 @@ const ANY = 'any';
  * their room. Below the list, the rooms with their pins, and the space's
  * whiteboard from the header.
  *
- * Layouts, saved views and bulk actions come with #338.
+ * #338 adds layouts for one kind alone (tasks: list, table, board by
+ * status or priority; meetings: list, calendar; projects: list, cards,
+ * timeline), in the address as `?view=`, each kind's default saved with
+ * the space (Settings → Pages); saved views as chips above the list
+ * (`SavedViews`); and select boxes on tasks for the bulk bar, whose
+ * actions are one `batch` each, with Undo.
  */
 export function AllPage() {
   usePageTitle('All');
@@ -91,6 +152,7 @@ export function AllPage() {
   const { openTask } = useTaskPanels();
   const { toggle, isDone } = useTaskToggle();
   const { active } = useMotion();
+  const { show } = useToast();
   const today = useToday();
   const query = useQuery();
   const value = query.toString();
@@ -103,9 +165,30 @@ export function AllPage() {
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
 
+  // Each kind's saved layout, and the one shown.
+  const [taskView, setTaskView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.task,
+  );
+  const [meetingView, setMeetingView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.meeting,
+  );
+  const [projectView, setProjectView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.project,
+  );
+  const layout = allLayout(filters, {
+    [LAYOUT_SETTING.task]: taskView,
+    [LAYOUT_SETTING.meeting]: meetingView,
+    [LAYOUT_SETTING.project]: projectView,
+  });
+  const kind = layoutKind(filters.kinds);
+  const board = kind === 'task' && layout === 'board';
+
   /** Show `next`: the kinds as the route's, the rest as its query. */
   const change = useCallback(
-    (next: AllFilters, transition = true) => {
+    (next: AllFilters, how: 'filter' | 'layout' | 'none' = 'filter') => {
       const params = new URLSearchParams();
       for (const [key, v] of Object.entries(allQuery(next))) {
         if (v) params.set(key, v);
@@ -113,20 +196,120 @@ export function AllPage() {
       const go = () =>
         navigate(
           { name: 'all', kinds: next.kinds },
-          { query: params.toString(), replace: !transition },
+          { query: params.toString(), replace: how !== 'filter' },
         );
-      if (transition) withViewTransition(go, active, 'filter');
+      if (how === 'filter') withViewTransition(go, active, 'filter');
+      else if (how === 'layout') withLayoutTransition(go, active);
       else go();
       setLimit(PAGE);
     },
     [active],
   );
   const set = (patch: Partial<AllFilters>, transition = true) =>
-    change({ ...filters, ...patch }, transition);
+    change({ ...filters, ...patch }, transition ? 'filter' : 'none');
+
+  /** Switch layout: in the address, and saved as the kind's default. */
+  const setLayout = (view: string) => {
+    if (kind === 'task') setTaskView(view);
+    else if (kind === 'meeting') setMeetingView(view);
+    else if (kind === 'project') setProjectView(view);
+    change({ ...filters, view }, 'layout');
+  };
 
   const rows = useMemo(
     () => (state ? selectAll(state, filters, today, hidden) : []),
     [state, filters, today, hidden],
+  );
+  const tasks = useMemo(() => tasksOf(rows), [rows]);
+  // The board's Done column while Status is Open: the done tasks the
+  // other filters keep.
+  const extraDone = useMemo(() => {
+    if (!state || !board || filters.status !== 'open') return [];
+    return tasksOf(
+      selectAll(state, { ...filters, status: 'done' }, today, hidden),
+    );
+  }, [state, board, filters, today, hidden]);
+
+  /* ---------- selection, for the bulk bar ---------- */
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const anchor = useRef<string | null>(null);
+  const order = useMemo(() => [...tasks, ...extraDone], [tasks, extraDone]);
+
+  // Selection follows what is shown.
+  useEffect(() => {
+    setSelected((s) => {
+      const shown = new Set(order.map((t) => t.id));
+      const next = new Set([...s].filter((id) => shown.has(id)));
+      return next.size === s.size ? s : next;
+    });
+  }, [order]);
+
+  // Esc clears the selection (when nothing else wants it).
+  useEffect(() => {
+    if (selected.size === 0) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !isTypingTarget(event.target) &&
+        !overlayOpen()
+      ) {
+        setSelected(new Set());
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected.size]);
+
+  const selection: Selection = {
+    selected,
+    toggle: (id, range) =>
+      setSelected((s) => {
+        const next = new Set(s);
+        const from = anchor.current
+          ? order.findIndex((t) => t.id === anchor.current)
+          : -1;
+        const to = order.findIndex((t) => t.id === id);
+        if (range && from >= 0 && to >= 0) {
+          const [a, b] = from < to ? [from, to] : [to, from];
+          for (const t of order.slice(a, b + 1)) next.add(t.id);
+        } else if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        anchor.current = id;
+        return next;
+      }),
+    toggleGroup: (ids) =>
+      setSelected((s) => {
+        const all = ids.every((id) => s.has(id));
+        const next = new Set(s);
+        for (const id of ids) {
+          if (all) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      }),
+    selectGroup: (ids) => setSelected((s) => new Set([...s, ...ids])),
+  };
+
+  /** A drag or a drop on the board, as one change with Undo. */
+  const changeTasks = useCallback(
+    (ops: Op[], before: Task[], message: string) => {
+      if (ops.length === 0) {
+        show(message);
+        return;
+      }
+      const inner = ops.filter(
+        (o): o is Exclude<Op, { type: 'batch' }> => o.type !== 'batch',
+      );
+      if (!actions.batch({ ops: inner })) return;
+      show(message, () => {
+        actions.batch({ ops: undoTaskOps(before, ops) });
+      });
+    },
+    [actions, show],
   );
 
   const onEdit = useCallback<NonNullable<TaskRowProps['onEdit']>>(
@@ -156,8 +339,15 @@ export function AllPage() {
     const kinds = filters.kinds.includes(kind)
       ? filters.kinds.filter((k) => k !== kind)
       : ALL_KINDS.filter((k) => k === kind || filters.kinds.includes(k));
-    // The new kinds start at their own sort.
-    change({ ...filters, kinds, sort: defaultSort(kinds), dir: 'asc' });
+    // The new kinds start at their own sort and layout.
+    change({
+      ...filters,
+      kinds,
+      sort: defaultSort(kinds),
+      dir: 'asc',
+      view: '',
+      board: 'status',
+    });
   };
 
   const people = Object.values(state.people).sort((a, b) =>
@@ -173,6 +363,44 @@ export function AllPage() {
   const targetAt = target ? rows.findIndex((r) => r.id === target) : -1;
   const shown = rows.slice(0, Math.max(limit, targetAt + 1));
 
+  const layouts: ViewOption<string>[] = layoutsFor(filters.kinds).map((o) => ({
+    id: o.value,
+    label: o.label,
+    icon: LAYOUT_ICONS[o.value] ?? ListBulletsIcon,
+  }));
+  // What Save view keeps: the address, the layout shown spelled out.
+  const showing = { ...filters, view: layouts.length > 0 ? layout : '' };
+  const here = currentView(savedViews(state), filters, layout);
+  const selectedTasks = order.filter((t) => selected.has(t.id));
+
+  // Tasks alone, for the table and the board: one group, in All's order.
+  const taskFilters: TaskFilters = {
+    ...DEFAULT_TASK_FILTERS,
+    status: filters.status === 'open' ? 'open' : 'all',
+    group: filters.board === 'priority' ? 'priority' : 'none',
+    q: filters.q,
+    sort: filters.sort as TaskSortKey,
+    dir: filters.dir,
+  };
+  const taskLayout: TaskLayoutProps = {
+    groups: [{ id: 'all', label: '', rows: tasks }],
+    filters: taskFilters,
+    state,
+    today,
+    selection,
+    isDone,
+    toggle,
+    openTask,
+    change: changeTasks,
+    onSort: (column) => {
+      const same = filters.sort === column;
+      set(
+        { sort: column, dir: same && filters.dir === 'asc' ? 'desc' : 'asc' },
+        false,
+      );
+    },
+  };
+
   const row = (r: AllRow) => {
     switch (r.kind) {
       case 'task':
@@ -187,6 +415,10 @@ export function AllPage() {
               onToggle={toggle}
               onOpen={openFromRow}
               onEdit={onEdit}
+              select={{
+                selected: selected.has(r.id),
+                onToggle: (range) => selection.toggle(r.id, range),
+              }}
               noteCount={noteCounts.get(r.id)}
             />
           </li>
@@ -214,13 +446,95 @@ export function AllPage() {
     }
   };
 
+  const empty = rows.length === 0 && extraDone.length === 0;
+  const doneTasks =
+    filters.status === 'open'
+      ? extraDone
+      : tasks.filter((t) => t.status === 'done');
+
+  /** The rows in the layout shown. */
+  const body = () => {
+    if (board) {
+      return (
+        <div className="flex flex-col gap-2">
+          <Segmented
+            legend="Columns"
+            value={filters.board}
+            options={BOARD_BY.map((b) => ({
+              value: b,
+              label: BOARD_LABELS[b],
+            }))}
+            onChange={(by) => change({ ...filters, board: by }, 'layout')}
+            className="self-start"
+          />
+          <TaskBoard {...taskLayout} doneTasks={doneTasks} />
+        </div>
+      );
+    }
+    if (kind === 'meeting' && layout === 'calendar') {
+      return (
+        <MeetingLayouts
+          view="calendar"
+          meetings={rows.flatMap((r) => (r.kind === 'meeting' ? [r.item] : []))}
+          state={state}
+          today={today}
+          projectId={
+            filters.room && filters.room !== 'general' ? filters.room : null
+          }
+          filters={listFilters}
+          empty="Nothing here yet."
+        />
+      );
+    }
+    if (empty) {
+      return <ListEmpty state={listFilters}>Nothing here yet.</ListEmpty>;
+    }
+    if (kind === 'task' && layout === 'table') {
+      return <TaskTable {...taskLayout} />;
+    }
+    if (kind === 'project' && (layout === 'cards' || layout === 'timeline')) {
+      return (
+        <ProjectLayouts
+          view={layout}
+          projects={rows.flatMap((r) => (r.kind === 'project' ? [r.item] : []))}
+          label="Projects"
+        />
+      );
+    }
+    return (
+      <>
+        <ul
+          ref={list}
+          aria-label="Items"
+          className="vt-list flex flex-col border-t"
+        >
+          {shown.map(row)}
+        </ul>
+        {shown.length < rows.length && (
+          <Button
+            variant="outline"
+            className="press h-11 self-start desk:h-8"
+            onClick={() => setLimit((n) => n + PAGE)}
+          >
+            Show more ({rows.length - shown.length} left)
+          </Button>
+        )}
+      </>
+    );
+  };
+
   return (
-    <div className="enter flex flex-col gap-10">
+    <div
+      className={cn('enter flex flex-col gap-10', selected.size > 0 && 'pb-24')}
+    >
       <section aria-labelledby="all-title" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <h1 id="all-title" className="text-page-title flex-1">
             All
           </h1>
+          {layouts.length > 0 && (
+            <ViewSwitcher views={layouts} value={layout} onChange={setLayout} />
+          )}
           <a
             {...linkProps({ name: 'whiteboard' })}
             className={cn(
@@ -254,6 +568,8 @@ export function AllPage() {
             })}
           </div>
         </fieldset>
+
+        <SavedViews query={viewQuery(showing)} current={here} />
 
         <ListToolbar
           state={listFilters}
@@ -363,29 +679,14 @@ export function AllPage() {
           {rows.length === 1 ? '1 item' : `${rows.length} items`}
         </p>
 
-        {rows.length === 0 ? (
-          <ListEmpty state={listFilters}>Nothing here yet.</ListEmpty>
-        ) : (
-          <ul
-            ref={list}
-            aria-label="Items"
-            className="vt-list flex flex-col border-t"
-          >
-            {shown.map(row)}
-          </ul>
-        )}
-        {shown.length < rows.length && (
-          <Button
-            variant="outline"
-            className="press h-11 self-start desk:h-8"
-            onClick={() => setLimit((n) => n + PAGE)}
-          >
-            Show more ({rows.length - shown.length} left)
-          </Button>
-        )}
+        {body()}
       </section>
 
       <Rooms />
+
+      {selected.size > 0 && (
+        <BulkBar tasks={selectedTasks} onDone={() => setSelected(new Set())} />
+      )}
     </div>
   );
 }
