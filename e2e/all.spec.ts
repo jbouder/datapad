@@ -12,7 +12,7 @@ import {
 
 /**
  * All (#337): every kind in one list, the kind chips, Find, the filters
- * that follow the kinds, the address keeping them, and the rooms below.
+ * that follow the kinds, the address keeping them, and the Rooms chip.
  */
 
 test.beforeEach(async ({ request }) => {
@@ -89,8 +89,63 @@ test('find a note and open it in place', async ({ page }) => {
   await expectAccessible(page);
 });
 
+test('the Rooms chip: on, off, the address and the kinds', async ({ page }) => {
+  await openLive(page, '/all?kind=task&room=p-echo');
+  const main = page.getByRole('main');
+  const chip = (name: string) =>
+    main.getByRole('button', { name, exact: true });
+  const rooms = main.getByRole('region', { name: 'Rooms' });
+  await expect(chip('Rooms')).toHaveAttribute('aria-pressed', 'false');
+  await expect(rooms).toHaveCount(0);
+  await expect(main.getByRole('searchbox', { name: 'Find' })).toBeVisible();
+
+  // On: the rooms in place of the items, the kinds and filters cleared,
+  // and none of the item toolbar.
+  await chip('Rooms').click();
+  await expect(page).toHaveURL(/\/all\?show=rooms$/);
+  await expect(chip('Rooms')).toHaveAttribute('aria-pressed', 'true');
+  await expect(chip('Tasks')).toHaveAttribute('aria-pressed', 'false');
+  await expect(
+    rooms.getByRole('link', { name: 'Echo Base relocation' }),
+  ).toBeVisible();
+  await expect(items(page)).toHaveCount(0);
+  await expect(main.getByRole('searchbox')).toHaveCount(0);
+  await expect(main.getByRole('button', { name: 'Save view' })).toHaveCount(0);
+  await expect(main.getByText(/^\d+ items?$/)).toHaveCount(0);
+  const box = await chip('Rooms').boundingBox();
+  if (isMobile(page)) expect(box?.height).toBeGreaterThanOrEqual(44);
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // A reload keeps it.
+  await page.reload();
+  await expect(chip('Rooms')).toHaveAttribute('aria-pressed', 'true');
+  await expect(rooms).toBeVisible();
+
+  // A kind turns it off.
+  await chip('Notes').click();
+  await expect(page).toHaveURL(/\/all\?kind=note$/);
+  await expect(chip('Rooms')).toHaveAttribute('aria-pressed', 'false');
+  await expect(rooms).toHaveCount(0);
+  await expect(items(page)).toContainText('Fewer moons');
+
+  // On again clears the kind; off is plain All.
+  await chip('Rooms').click();
+  await expect(page).toHaveURL(/\/all\?show=rooms$/);
+  await expect(chip('Notes')).toHaveAttribute('aria-pressed', 'false');
+  await chip('Rooms').click();
+  await expect(page).toHaveURL(/\/all$/);
+  await expect(rooms).toHaveCount(0);
+  await expect(items(page)).toContainText('Leia Organa');
+
+  // Back goes back to the rooms.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/all\?show=rooms$/);
+  await expect(rooms).toBeVisible();
+});
+
 test('the rooms: open a project room, pin a person', async ({ page }) => {
-  await openLive(page, '/all');
+  await openLive(page, '/all?show=rooms');
   const rooms = page.getByRole('main').getByRole('region', { name: 'Rooms' });
   await expect(
     rooms.getByRole('heading', { name: 'Rebel Alliance' }),

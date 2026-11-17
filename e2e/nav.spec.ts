@@ -292,8 +292,8 @@ test('no +: Search adds a task, Today a meeting and All a project (#341)', async
   await page.keyboard.press('Escape');
   await expect(meeting).toBeHidden();
 
-  // New project beside All's project rooms.
-  await page.goto('/all');
+  // New project beside the project rooms on All's Rooms chip.
+  await page.goto('/all?show=rooms');
   await page.getByRole('button', { name: 'New project' }).click();
   await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible();
 });

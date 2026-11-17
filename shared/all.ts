@@ -715,6 +715,21 @@ export const KIND_LABELS: Record<AllKind, string> = {
   person: 'People',
 };
 
+/* ---------- the rooms list ---------- */
+
+/**
+ * All's rooms list, the Rooms chip beside the kinds: `/all?show=rooms`.
+ * It is not a kind, since it lists rooms, not items: no filter, sort,
+ * layout or saved view applies, and picking a kind leaves it (every other
+ * address All writes drops `show`).
+ */
+export const ALL_ROOMS_QUERY = 'show=rooms';
+
+/** Whether All's query shows the rooms list in place of the items. */
+export function showsRooms(params: URLSearchParams): boolean {
+  return params.get('show') === 'rooms';
+}
+
 /* ---------- saved views (#338) ---------- */
 
 /**

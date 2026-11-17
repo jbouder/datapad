@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { normalViewQuery } from '#shared/all';
+import { normalViewQuery, showsRooms } from '#shared/all';
 import {
   isRoomPage,
   narrowedOf,
@@ -60,10 +60,12 @@ export function useRooms(route: Route): RoomsList | null {
   const { state } = useDatapad();
   const query = useQuery();
   const narrowedTo = narrowedOf(route, query);
-  // The saved view All shows now, if any: its address is this one.
+  // The saved view All shows now, if any: its address is this one. All's
+  // rooms list is no view.
   const here = query.toString();
   const hereView = useMemo(() => {
-    if (!state || route.name !== 'all') return undefined;
+    const params = new URLSearchParams(here);
+    if (!state || route.name !== 'all' || showsRooms(params)) return undefined;
     const normal = normalViewQuery(here);
     return settingsOf(state).pages?.all?.views?.find(
       (v) => normalViewQuery(v.query) === normal,

@@ -228,7 +228,7 @@ All (`/all`, #337, #338) replaces the Tasks, Notes, Meetings, Projects and Archi
 - **Layouts** when one kind is shown alone: tasks as a list, a table or a board (by status or by priority), meetings as a list or a calendar, projects as a list, cards or a timeline. The layout is in the address, and each kind remembers the last one picked (Settings → All sets it too).
 - **Saved views**: Save view names the kinds, filters, sort and layout shown, as a chip above the list, synced with the space (`settings.user.pages.all.views`). Each chip's menu renames it, pins it to the rail like a room, or deletes it with Undo.
 - **Bulk actions**: every task row has a select box. The bar that appears completes or reopens, marks to decide, moves to a room, assigns, sets the due date or deletes, each as one change with Undo.
-- **Rooms**, below the list: project rooms under their orgs (with **New project** by the Projects heading) and people by how much they owe you, each with Pin.
+- **Rooms**: a chip after the kinds (`?show=rooms`) that shows the rooms in place of the list: project rooms under their orgs (with **New project** by the Projects heading) and people by how much they owe you, each with Pin. It is not a kind: it clears the kinds and hides Find, the filters, Sort, the layouts, saved views and the count, and picking a kind turns it off.
 
 ### Rooms
 

@@ -86,7 +86,7 @@ test('with nothing to list, Rooms points to All', async ({ page }) => {
     .getByRole('main')
     .getByRole('link', { name: 'All', exact: true })
     .click();
-  await expect(page).toHaveURL(/\/all\?kind=project,person$/);
+  await expect(page).toHaveURL(/\/all\?show=rooms$/);
 });
 
 test('desktop has no Rooms tab; /rooms still renders', async ({ page }) => {

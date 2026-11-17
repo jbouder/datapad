@@ -19,6 +19,12 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **Rooms on All**: a Rooms chip sits beside the kind chips. It shows
+  every project room under its org and every person, each with Pin, in
+  place of the item list (`/all?show=rooms`). Picking a kind turns it off.
+  The Rooms section at the bottom of All is gone. The phone's Rooms page
+  links here to find and pin the rest.
+
 - **Rooms on phones**: the tab bar has a fourth tab, Rooms, between
   Unfiled and All. It lists what the desktop rail does: the pinned rooms
   (or the active projects before anything is pinned) with their open
