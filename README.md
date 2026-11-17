@@ -19,15 +19,15 @@ SQLite-backed Durable Object per email holds your data, pushes live updates
 over WebSockets, and backs itself up to R2 every night.
 
 <p align="center">
-  <img src="docs/screenshots/today.png" alt="Today on a laptop: the day's line, the capture line, Next up with Enter meeting, what is due and the timeline of the day, with the Scratch card and the Mine, Waiting on and To decide lanes on the right." width="72%" />
+  <img src="docs/screenshots/today.png" alt="Today on a laptop: the day's line, the capture line, Next up with Enter meeting, what is due and the timeline of the day, with the Scratch card and the Mine and Waiting on lanes on the right." width="72%" />
   &nbsp;
-  <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Scratch and All." width="22%" />
+  <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Scratch, Rooms and All." width="22%" />
 </p>
 
 <p align="center">
   <img src="docs/screenshots/project-room.png" alt="A project room on a laptop: the org, name and state line, the Next meeting card, the Stream, Plan and Whiteboard tabs, the three lanes and one stream of notes, tasks and meetings." width="48%" />
   &nbsp;
-  <img src="docs/screenshots/all.png" alt="All on a laptop: kind chips, Save view, Find and filters over one list of projects, notes, tasks and meetings." width="48%" />
+  <img src="docs/screenshots/all.png" alt="All on a laptop: the Tasks, Notes, Meetings, Projects, People and Rooms chips, Save view, Find and filters over one list of projects, notes, tasks and meetings." width="48%" />
 </p>
 
 <p align="center">
@@ -61,12 +61,14 @@ over WebSockets, and backs itself up to R2 every night.
   members, links, activity) and **Whiteboard**. A person room is the
   1:1 prep: **You owe**, **They owe you** and **To discuss** beside
   their stream. Pin rooms to the rail, or a project seen through one
-  person.
+  person. On a phone the Rooms tab lists the same rooms.
 - **All.** Every task, note, meeting, project and person in one list.
   Pick kinds, find, filter and sort; tasks show as a list, a table or a
   board, meetings as a list or a calendar, projects as a list, cards or a
-  timeline. Save a view as a chip, pin it to the rail, and select tasks
-  to complete, move, assign or date them at once, with Undo.
+  timeline. The **Rooms** chip shows every project room under its org
+  and every person, to open or pin. Save a view as a chip, pin it to
+  the rail, and select tasks to complete, move, assign or date them at
+  once, with Undo.
 - **Meeting mode.** A meeting opens full screen: Prep, Live or Debrief,
   the agenda and topics (with Carry forward from the last one in the
   series), the note composer always open, the action items, and the open
@@ -108,8 +110,9 @@ over WebSockets, and backs itself up to R2 every night.
   written to your own R2 bucket, 30 kept, with download and restore in
   Settings → Data.
 - **Phone first.** Every view is built and tested at phone width: a
-  bottom tab bar, 44px touch targets, full-screen panels, tables that
-  collapse to rows, nothing hover-only. Installs to the home screen.
+  bottom tab bar (Today, Scratch, Rooms, All), 44px touch targets,
+  full-screen panels, tables that collapse to rows, nothing hover-only.
+  Installs to the home screen.
 - **Themes.** System, Light and Dark; a Motion switch, with
   `prefers-reduced-motion` as a hard override; a 12-hour or 24-hour
   clock.

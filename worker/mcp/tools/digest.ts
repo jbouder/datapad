@@ -34,7 +34,7 @@ export const getDigest = defineTool({
   name: 'get_digest',
   title: 'Weekly digest',
   description:
-    'The weekly digest for the seven days ending a day (today by default): per project, what closed, what was added, status and health changes, meetings, milestones this week and next, and notes written; with totals and the same Markdown the Digest page copies.',
+    'The weekly digest for the seven days ending a day (today by default): per project, what closed, what was added, status and health changes, meetings, milestones this week and next, and notes written; with totals and the same Markdown Today’s week zoom copies.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
