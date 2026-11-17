@@ -187,7 +187,7 @@ export function TodayPage() {
           >
             {week ? weekLine(week) : line}
           </p>
-          {zoom === 'day' && isToday && recapText && (
+          {zoom === 'day' && isToday && recapText ? (
             <button
               type="button"
               data-recap-link
@@ -196,6 +196,11 @@ export function TodayPage() {
             >
               {recapText}
             </button>
+          ) : (
+            // Holds the recap's line so the header keeps its height from day to day.
+            <span aria-hidden className="text-sm">
+              &nbsp;
+            </span>
           )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 desk:w-auto">
@@ -205,7 +210,7 @@ export function TodayPage() {
           <ViewSwitcher views={ZOOMS} value={zoom} onChange={setZoom} />
           <nav
             aria-label={zoom === 'week' ? 'Week' : 'Day'}
-            className="flex flex-1 items-center gap-1 desk:flex-none"
+            className="ml-auto flex items-center gap-1"
           >
             <Button
               variant="outline"
@@ -220,7 +225,7 @@ export function TodayPage() {
             </Button>
             <Button
               variant="outline"
-              className="press h-11 flex-1 desk:h-8 desk:flex-none"
+              className="press h-11 desk:h-8"
               aria-current={
                 (zoom === 'week' ? weekHasToday : isToday) ? 'date' : undefined
               }
