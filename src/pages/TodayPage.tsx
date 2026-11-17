@@ -183,7 +183,7 @@ export function TodayPage() {
           </h1>
           <p
             data-day-line
-            className="text-sm text-muted-foreground tabular-nums"
+            className="truncate text-sm text-muted-foreground tabular-nums"
           >
             {week ? weekLine(week) : line}
           </p>
@@ -192,20 +192,20 @@ export function TodayPage() {
               type="button"
               data-recap-link
               onClick={() => setOffset(daysBetween(today, recap.window.from))}
-              className="self-start text-left text-sm text-muted-foreground tabular-nums underline-offset-2 outline-ring/50 hover:text-foreground hover:underline focus-visible:outline-2"
+              className="max-w-full self-start truncate text-left text-sm text-muted-foreground tabular-nums underline-offset-2 outline-ring/50 hover:text-foreground hover:underline focus-visible:outline-2"
             >
               {recapText}
             </button>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 desk:w-auto">
           {zoom === 'day' && isToday && brief && (
             <BriefMeButton today={today} options={options} />
           )}
           <ViewSwitcher views={ZOOMS} value={zoom} onChange={setZoom} />
           <nav
             aria-label={zoom === 'week' ? 'Week' : 'Day'}
-            className="flex items-center gap-1"
+            className="flex flex-1 items-center gap-1 desk:flex-none"
           >
             <Button
               variant="outline"
@@ -220,7 +220,7 @@ export function TodayPage() {
             </Button>
             <Button
               variant="outline"
-              className="press h-11 desk:h-8"
+              className="press h-11 flex-1 desk:h-8 desk:flex-none"
               aria-current={
                 (zoom === 'week' ? weekHasToday : isToday) ? 'date' : undefined
               }

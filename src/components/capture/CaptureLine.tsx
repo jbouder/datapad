@@ -269,7 +269,7 @@ export function CaptureLine({
 
   return (
     <div data-capture className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <div className="relative min-w-0 flex-1">
           <label htmlFor={CAPTURE_ID} className="sr-only">
             Capture
@@ -294,7 +294,7 @@ export function CaptureLine({
             placeholder="Capture: a note, [ ] a task, ? to decide, #project, @person"
             autoComplete="off"
             enterKeyHint="done"
-            className="h-11 pl-8 text-base desk:h-9 desk:text-sm"
+            className="h-11 pr-11 pl-8 text-base desk:h-9 desk:pr-9 desk:text-sm"
             onChange={(e) => {
               change(e.target.value);
               track(e.target);
@@ -303,6 +303,17 @@ export function CaptureLine({
             onBlur={() => window.setTimeout(() => setCaret(null), 120)}
             onKeyDown={onKeyDown}
           />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Write a longer note"
+            title="Write a longer note (Shift+Enter)"
+            className="press absolute top-0 right-0 size-11 text-muted-foreground desk:size-9"
+            onClick={expand}
+          >
+            <ArrowsOutSimpleIcon />
+          </Button>
           <div
             id={listId}
             role="listbox"
@@ -337,17 +348,6 @@ export function CaptureLine({
             ))}
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Write a longer note"
-          title="Write a longer note (Shift+Enter)"
-          className="press size-11 desk:size-9"
-          onClick={expand}
-        >
-          <ArrowsOutSimpleIcon />
-        </Button>
       </div>
       {chips.length > 0 && (
         <ul
