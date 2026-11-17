@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
-import { normalViewQuery, viewRoute } from '#shared/all';
+import { normalViewQuery } from '#shared/all';
 import {
+  isRoomPage,
   owedBy,
+  PERSON_PARAM,
   type Room,
   railRooms,
   roomKey,
+  roomLink,
   unfiledCount,
   viewOf,
 } from '#shared/rooms';
@@ -26,21 +29,6 @@ const CURRENT =
 const HEADING = 'px-2 pb-1 text-xs font-medium text-muted-foreground';
 
 /**
- * Whether `route` is `room`'s page; a saved view's when All shows its
- * address (`here`, normalized).
- */
-function inRoom(route: Route, room: Room, here?: string): boolean {
-  if (room.kind === 'view') return route.name === 'all' && here === room.id;
-  if (room.kind === 'project') {
-    return route.name === 'project' && route.id === room.id;
-  }
-  if (room.kind === 'person') {
-    return route.name === 'person' && route.id === room.id;
-  }
-  return false;
-}
-
-/**
  * The desktop rail (≥ 820px, #329): the space switcher; Today, Unfiled
  * (with its count) and All; then Rooms: the pinned rooms in your order,
  * or before anything is pinned the active projects, most recently changed
@@ -54,7 +42,8 @@ export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const place = placeOf(route);
   const places = usePlaces();
-  const query = useQuery().toString();
+  const query = useQuery();
+  const narrowedTo = query.get(PERSON_PARAM);
 
   const rail = useMemo(() => {
     if (!state) return null;
@@ -77,28 +66,15 @@ export function Rail({ route }: { route: Route }) {
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
   };
-  const roomLink = (room: Room): [Route, string?] => {
-    if (room.kind === 'view') {
-      const to = viewRoute(state ? (viewOf(room, state)?.query ?? '') : '');
-      return [to.route, to.query];
-    }
-    return room.kind === 'person'
-      ? [{ name: 'person', id: room.id }]
-      : [
-          {
-            name: 'project',
-            id: room.kind === 'project' ? room.id : room.project,
-          },
-        ];
-  };
   // The saved view All shows now, if any: its address is this one.
+  const here = query.toString();
   const hereView = useMemo(() => {
     if (!state || route.name !== 'all') return undefined;
-    const here = normalViewQuery(query);
+    const normal = normalViewQuery(here);
     return settingsOf(state).pages?.all?.views?.find(
-      (v) => normalViewQuery(v.query) === here,
+      (v) => normalViewQuery(v.query) === normal,
     )?.id;
-  }, [state, route.name, query]);
+  }, [state, route.name, here]);
   const roomCount = (room: Room): number =>
     room.kind === 'project' ? (rail?.open.get(room.id) ?? 0) : 0;
 
@@ -145,12 +121,13 @@ export function Rail({ route }: { route: Route }) {
             </h2>
             <ul className="flex flex-col" data-pinned={rail.rooms.pinned}>
               {rail.rooms.rooms.map((room) => {
-                const current = inRoom(route, room, hereView);
+                const current = isRoomPage(room, route, narrowedTo, hereView);
+                const link = roomLink(room, state ?? {});
                 const open = roomCount(room);
                 return (
                   <li key={`${room.kind}:${roomKey(room)}`}>
                     <a
-                      {...linkProps(...roomLink(room))}
+                      {...linkProps(link.route, link.query)}
                       aria-current={current ? 'page' : undefined}
                       className={cn(ROW, 'h-8', current && CURRENT)}
                     >

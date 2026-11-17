@@ -32,7 +32,7 @@ const OWN_SETTINGS: Record<ResetSection, readonly (keyof Settings)[]> = {
 /** The pages whose saved preferences each section owns (`PAGES`). */
 const OWN_PAGES: Record<ResetSection, readonly PageKey[]> = {
   today: ['focus', 'meeting'],
-  rooms: [],
+  rooms: ['project'],
   capture: [],
   all: ['all'],
 };

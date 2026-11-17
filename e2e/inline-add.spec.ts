@@ -144,7 +144,7 @@ test('meeting attendees: add a person from the meeting form', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   await form.getByLabel('Title').fill('Pilot briefing');
   await form.getByLabel('Date').fill('+1d');
@@ -172,9 +172,10 @@ test('the assignee picker adds a person and assigns them', async ({
   page,
   request,
 }) => {
+  // The task, from the room's Open loops.
   await openLive(page, '/projects/p-echo');
   await page
-    .locator('[data-task-id]')
+    .locator('[data-loop]')
     .filter({ hasText: 'Insulate the hangar doors' })
     .getByRole('button', { name: 'Insulate the hangar doors', exact: true })
     .click();

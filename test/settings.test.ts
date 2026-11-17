@@ -23,6 +23,7 @@ import {
 import { ExportSchema, type Op } from '#shared/protocol';
 import { recapWindow } from '#shared/recap';
 import { reduce } from '#shared/reducer';
+import { projectHome, roomLink } from '#shared/rooms';
 import { FOCUS_DEFAULTS } from '#shared/select';
 import { resetSection } from '#shared/settings';
 import { weekAround } from '#shared/today';
@@ -260,6 +261,32 @@ describe('capture defaults (#343)', () => {
     const capture = parseCapture('todo plan it', state, MONDAY);
     expect(captureOps(capture, state, 't1')[0]).toMatchObject({
       priority: 'high',
+    });
+  });
+});
+
+describe('rooms (#343)', () => {
+  it('opens a project room on the tab Settings → Rooms names', () => {
+    expect(projectHome('falcon', withPeople())).toEqual({
+      name: 'project',
+      id: 'falcon',
+    });
+    const plan = apply(withPeople(), {
+      type: 'setSettings',
+      patch: { roomTab: 'plan' },
+    });
+    expect(projectHome('falcon', plan)).toEqual({
+      name: 'project',
+      id: 'falcon',
+      tab: 'plan',
+    });
+    const board = apply(withPeople(), {
+      type: 'setSettings',
+      patch: { roomTab: 'whiteboard' },
+    });
+    expect(roomLink({ kind: 'project', id: 'falcon' }, board).route).toEqual({
+      name: 'whiteboard',
+      project: 'falcon',
     });
   });
 });

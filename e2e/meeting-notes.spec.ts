@@ -146,16 +146,6 @@ test('notes on a meeting row on Meetings, written in place', async ({
   await expectStoredTwo(request);
 });
 
-test('notes on a meeting row on a project page, in place', async ({
-  page,
-  request,
-}) => {
-  await openLive(page, '/projects/p-echo');
-  await writeTwo(page);
-  await expectSaved(page);
-  await expectStoredTwo(request);
-});
-
 test('the row’s composer: one per meeting, Esc and Cancel', async ({
   page,
 }) => {

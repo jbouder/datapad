@@ -52,28 +52,36 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
+/** A project room's lanes. */
+function lanes(page: Page) {
+  return page.getByRole('complementary', { name: 'Open loops' });
+}
+
 test('sections remember open or closed, one set for every project', async ({
   page,
   request,
   browser,
   email,
 }) => {
+  // A room's lanes, and its Plan's Activity.
   await openLive(page, '/projects/p-echo');
+  await lanes(page).getByRole('button', { name: /^Mine/ }).click();
+  await page.goto('/projects/p-echo/plan');
   const activity = page.getByRole('button', { name: /^Activity/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
   await activity.click();
-  await page.getByRole('button', { name: /^Meetings/ }).click();
   await expectStored(request, 'project', {
-    sections: { activity: true, meetings: false },
+    sections: { activity: true, mine: false },
   });
 
   const other = await otherDevice(browser, page, email);
-  await other.goto('/projects/p-falcon');
+  await other.goto('/projects/p-falcon/plan');
   await expect(
     other.getByRole('button', { name: /^Activity/ }),
   ).toHaveAttribute('aria-expanded', 'true');
+  await other.goto('/projects/p-falcon');
   await expect(
-    other.getByRole('button', { name: /^Meetings/ }),
+    lanes(other).getByRole('button', { name: /^Mine/ }),
   ).toHaveAttribute('aria-expanded', 'false');
   await other.context().close();
 });
@@ -159,4 +167,37 @@ test('Settings → All renames, moves and deletes saved views (#343)', async ({
     page.getByRole('button', { name: 'Reset to defaults' }),
   ).toBeDisabled();
   await expectAccessible(page);
+});
+
+test('a project room’s lanes hide and move from Settings → Rooms, and reset with Undo', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/settings/rooms');
+  const editor = page.getByRole('list', { name: 'Project room lanes' });
+  await editor.getByRole('switch', { name: 'Show To decide' }).click();
+  await editor.getByRole('button', { name: 'Move Waiting on up' }).click();
+  await expectStored(request, 'project', {
+    hidden: ['decide'],
+    order: ['waiting', 'mine', 'decide'],
+  });
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+
+  // A room's lanes follow: To decide hidden, Waiting on first.
+  await openLive(page, '/projects/p-echo');
+  const sections = lanes(page).getByRole('button', {
+    name: /^(Mine|Waiting on|To decide)/,
+  });
+  await expect(sections).toHaveCount(2);
+  await expect(sections.first()).toHaveText(/^Waiting on/);
+
+  await openLive(page, '/settings/rooms');
+  await page.getByRole('button', { name: 'Reset to defaults' }).click();
+  await expectStored(request, 'project', null);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expectStored(request, 'project', {
+    hidden: ['decide'],
+    order: ['waiting', 'mine', 'decide'],
+  });
 });

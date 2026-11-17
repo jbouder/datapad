@@ -1,4 +1,5 @@
 import { LIMITS } from '#shared/limits';
+import { PAGES, savedPrefs } from '#shared/pages';
 import {
   DEFAULT_SETTINGS,
   LANE_KEYS,
@@ -10,8 +11,10 @@ import {
 } from '#shared/types';
 import { Field } from '@/components/Field';
 import { Segmented } from '@/components/inputs/Segmented';
+import { SectionsEditor } from '@/components/SectionsEditor';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
+import { usePagePrefs } from '@/providers/PagePrefsProvider';
 import { Group, Hint, SwitchRow } from './parts';
 
 const LANE_HINTS: Record<LaneKey, string> = {
@@ -22,12 +25,14 @@ const LANE_HINTS: Record<LaneKey, string> = {
 
 /**
  * Settings → Rooms' options below the pinned rooms (#343): whether the
- * rail lists the people who owe you, the tab a project room opens on, and
- * the person room's lane names. Space-wide, each default in
+ * rail lists the people who owe you, a project room's lanes (hidden and
+ * moved, saved under the `project` page) and the tab it opens on, and the
+ * person room's lane names. Space-wide, each default in
  * `DEFAULT_SETTINGS`, saved as nothing.
  */
 export function RoomOptions() {
   const { state, actions } = useDatapad();
+  const { save } = usePagePrefs();
   if (!state) return null;
   const settings = settingsOf(state);
   const stored: LaneLabels = state.settings[SETTINGS_ID]?.laneLabels ?? {};
@@ -57,6 +62,13 @@ export function RoomOptions() {
         />
       </Group>
       <Group title="Project rooms">
+        <SectionsEditor
+          label="Project room lanes"
+          noun="lane"
+          sections={PAGES.project.sectionKeys ?? []}
+          prefs={savedPrefs(state, 'project')}
+          onChange={(patch) => save('project', patch, true)}
+        />
         <Segmented<RoomTab>
           legend="Open on"
           value={settings.roomTab}
@@ -74,7 +86,9 @@ export function RoomOptions() {
           ]}
           className="max-w-sm"
         />
-        <Hint>The tab a project’s room shows first.</Hint>
+        <Hint>
+          The tab a project’s room opens on from the rail, All and Search.
+        </Hint>
       </Group>
       <Group title="Person room lanes">
         <Hint>Your own words for the three lanes. Empty keeps the name.</Hint>

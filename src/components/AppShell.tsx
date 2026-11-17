@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { taskRoom } from '#shared/routes';
+import { projectRoomOf, taskRoom } from '#shared/routes';
 import {
   CrashForTests,
   ErrorBoundary,
@@ -46,7 +46,7 @@ import {
 } from '@/pages/lazy';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonPage } from '@/pages/PersonPage';
-import { ProjectPage } from '@/pages/ProjectPage';
+import { ProjectRoom } from '@/pages/ProjectRoom';
 import { TodayPage } from '@/pages/TodayPage';
 import { UnfiledPage } from '@/pages/UnfiledPage';
 import { useEmail } from '@/providers/DatapadProvider';
@@ -74,34 +74,33 @@ export function AppShell() {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
   }, [active]);
 
-  const pageName =
-    route.name === 'project'
-      ? state?.projects[route.id]?.name
-      : route.name === 'person'
-        ? state?.people[route.id]?.name
-        : route.name === 'task'
-          ? state?.tasks[route.id]?.title
-          : route.name === 'meeting'
-            ? state?.meetings[route.id]?.title
-            : undefined;
+  const room = projectRoomOf(route);
+  const pageName = room
+    ? state?.projects[room.id]?.name
+    : route.name === 'person'
+      ? state?.people[route.id]?.name
+      : route.name === 'task'
+        ? state?.tasks[route.id]?.title
+        : route.name === 'meeting'
+          ? state?.meetings[route.id]?.title
+          : undefined;
 
   // Add task opens the new-task panel, preset to the project you are on.
   const currentProject =
-    route.name === 'project'
-      ? route.id
-      : route.name === 'whiteboard'
-        ? (route.project ?? null)
-        : route.name === 'meeting'
-          ? (state?.meetings[route.id]?.projectId ?? null)
-          : null;
+    room?.id ??
+    (route.name === 'meeting'
+      ? (state?.meetings[route.id]?.projectId ?? null)
+      : null);
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
   // On All, a new note starts in the room it is filtered to.
   const query = useQuery();
-  const room = route.name === 'all' ? query.get('room') : null;
+  const allRoom = route.name === 'all' ? query.get('room') : null;
   const noteProject =
-    room && room !== 'general' && state?.projects[room] ? room : currentProject;
+    allRoom && allRoom !== 'general' && state?.projects[allRoom]
+      ? allRoom
+      : currentProject;
   const addNote = useCallback(() => {
     newNote(noteProject);
   }, [newNote, noteProject]);
@@ -235,7 +234,10 @@ export function AppShell() {
       <Rail route={route} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar
-          title={titleOf(route, pageName)}
+          title={titleOf(
+            room ? { name: 'project', id: room.id } : route,
+            pageName,
+          )}
           pageKey={pageKey(route)}
           email={email}
           quickAdd={QUICK_ADD}
@@ -301,11 +303,13 @@ const DevComponentsPage = __DEV_ROUTES__
   : () => null;
 
 function pageKey(route: Route): string {
-  if (route.name === 'project') return `project:${route.id}`;
+  // A project room's tabs, its whiteboard among them, are one page.
+  const room = projectRoomOf(route);
+  if (room) return `project:${room.id}`;
   if (route.name === 'person') return `person:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
-  if (route.name === 'whiteboard') return `whiteboard:${route.project ?? ''}`;
+  if (route.name === 'whiteboard') return 'whiteboard';
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
 }
@@ -321,7 +325,7 @@ function Page({ route }: { route: Route }) {
     case 'help':
       return <HelpPage section={route.section} />;
     case 'project':
-      return <ProjectPage id={route.id} />;
+      return <ProjectRoom id={route.id} tab={route.tab ?? 'stream'} />;
     case 'person':
       return <PersonPage id={route.id} />;
     case 'task':
@@ -329,7 +333,11 @@ function Page({ route }: { route: Route }) {
     case 'meeting':
       return <MeetingMode id={route.id} />;
     case 'whiteboard':
-      return <WhiteboardPage project={route.project} />;
+      return route.project ? (
+        <ProjectRoom id={route.project} tab="whiteboard" />
+      ) : (
+        <WhiteboardPage />
+      );
     case 'people':
       return <SettingsPage section="people" />;
     case 'orgs':

@@ -47,8 +47,9 @@ changes the format says so here under **Export format**.
   week starts on (the week zoom and the recap's weekend follow it),
   Brief me on or off, the lanes shown and their order, and meeting
   mode's sections. Rooms keeps the pinned rooms and adds whether the
-  people who owe you show in the rail, the tab a project room opens on
-  and the person room's lane names (read once those rooms land, #334 and
+  people who owe you show in the rail, a project room's lanes shown and
+  their order, the tab a project room opens on from the rail, All and
+  Search, and the person room's lane names (read once that room lands,
   #335). Capture sets what a plain line becomes, whether `@Name` assigns
   a task, the new task priority and where a note typed in a room goes.
   All sets the kinds it opens on (Tasks to start with: the rail's All
@@ -128,6 +129,23 @@ changes the format says so here under **Export format**.
   options: what Mine shows (with unassigned, or only what is assigned to
   you), how far Next up looks ahead, and which lanes show and in what
   order. What Focus saved carries over.
+- **The project room** (#334) replaces the project page. The header has
+  the org, the name and a state line (health, status when not active,
+  target date, next milestone, how many loops are open), with Pin,
+  Schedule meeting, Edit and a menu with Summarize, Pause, Mark active
+  or Mark done, Move to…, Save as template, Archive and Delete. Under
+  it: the people to narrow the room to, the **Next meeting** card with
+  Enter meeting, and three tabs. **Stream** has the three lanes beside
+  one stream of everything attached (Coming up first, then notes, tasks
+  added and done, meetings and milestones, newest first, older ones
+  with Show older), with the capture line on top. Notes are open and
+  their checkboxes tick in place. **Plan** (`/projects/:id/plan`) has
+  the description, details and health, the timeline bar, milestones,
+  members, links and Activity. **Whiteboard**
+  (`/projects/:id/whiteboard`) is the project's board in the room.
+  Picking a person narrows the lanes and the stream to what touches them
+  (`?person=`); capture then mentions them, or on a task assigns them,
+  and Pin pins the pair. Settings → Rooms shows the room's lanes.
 - Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
   **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
   seven columns on desktop and seven rows on phones, each day with its
@@ -171,12 +189,16 @@ changes the format says so here under **Export format**.
 
 ### Removed
 
+- The project page and its sections, with Show done, Show past, the
+  tasks board and the Lists section; Settings no longer lists
+  them. Their saved settings are kept and ignored. Dragging tasks into
+  order went with it: the room's lanes sort by due date, as Today's do.
 - Settings → Navigation. Pinned rooms are the only navigation setting.
   Saved navigation preferences are kept and ignored, and an export that
   has them still imports.
 - Settings → Pages (#343). Its options moved to Today, Rooms, Capture and
-  All, and `/settings/pages` opens Settings → Today. The project and task
-  pages' and Lists' settings are no longer shown; what they saved is
+  All, and `/settings/pages` opens Settings → Today. The task page's
+  and Lists' settings are no longer shown; what they saved is
   kept.
 
 ### Export format

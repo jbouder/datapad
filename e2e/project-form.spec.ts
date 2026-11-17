@@ -62,7 +62,7 @@ test('Save never disables: it focuses the first problem', async ({ page }) => {
   await expect(panel(page)).toBeHidden();
 });
 
-test('a start date shows on the page and cannot come after the target', async ({
+test('a start date shows on the Plan and cannot come after the target', async ({
   page,
   request,
 }) => {
@@ -86,7 +86,11 @@ test('a start date shows on the page and cannot come after the target', async ({
   await target.press('Tab');
   await create.click();
   await expect(panel(page)).toBeHidden();
-  await expect(page.getByText(/^Starts .*2030/)).toBeVisible();
+  // The room's Plan lists it under Details.
+  await page.getByRole('link', { name: 'Plan', exact: true }).click();
+  await expect(
+    page.getByRole('main').getByRole('list', { name: 'Details' }),
+  ).toContainText(/Starts.*2030/);
   await expectSaved(page);
   const data = await (await request.get('/api/export.json')).json();
   const hoth = Object.values(data.projects).find(
@@ -172,6 +176,8 @@ test('archive with undo, then delete with the counts', async ({
 
   await moreAction(page, 'Archive');
   await expect(page.getByText('Archived Echo Base relocation')).toBeVisible();
+  // The menu has finished closing before it opens again.
+  await expect(page.getByRole('menu')).toHaveCount(0);
   expect(await moreActions(page)).toContain('Unarchive');
   await page.getByRole('button', { name: 'Undo' }).click();
   expect(await moreActions(page)).toContain('Archive');

@@ -318,11 +318,13 @@ test.describe('Moving a project', () => {
     await expect(page).toHaveTitle('Echo Base relocation · Personal · Datapad');
     if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
     await expect(
-      page.getByText('Confirm shield generator delivery'),
-    ).toBeVisible();
-    const details = page.getByRole('list', { name: 'Details' });
+      page
+        .getByRole('complementary', { name: 'Open loops' })
+        .getByRole('list', { name: 'Mine' }),
+    ).toContainText('Confirm shield generator delivery');
+    const people = page.getByRole('navigation', { name: 'Narrow to a person' });
     for (const name of ['Leia Organa', 'Han Solo', 'Chewbacca']) {
-      await expect(details.getByText(name)).toHaveCount(1);
+      await expect(people.getByRole('link', { name })).toHaveCount(1);
     }
     if (isMobile(page)) await expectNoSidewaysScroll(page);
 

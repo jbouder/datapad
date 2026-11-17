@@ -117,11 +117,14 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   half: tokens resolved, the PNG on a canvas);
   `notes/LinkedNoteList` is the Notes section a task's page and panel and
   a meeting's panel share; `notes/NoteRow` is the compact note
-  row it and the project page use, `notes/NoteCard` the card Notes uses,
+  row it and a room's stream use, `notes/NoteCard` the card Notes uses,
   and `notes/noteParts` what both share: the actions, editing in place,
   Make task, `?note=`), `pages/*` (`MeetingMode` is
-  `/meetings/:id`, full screen without the rail (#336), `ProjectPage`
-  `/projects/:id` and `PersonPage`
+  `/meetings/:id`, full screen without the rail (#336), `ProjectRoom`
+  `/projects/:id` (its Plan tab `/projects/:id/plan`, its Whiteboard tab
+  `/projects/:id/whiteboard`, narrowed to a person with `?person=`; the
+  room's frame, which the person's room reuses, is `components/rooms/`,
+  and its stream's selectors `shared/stream.ts`) and `PersonPage`
   `/people/:id`; `AllPage` is `/all`, every kind in one list with
   `shared/all.ts` reading its address, the layouts for one kind, the
   bulk bar, and `components/all/SavedViews` its saved views, and `UnfiledPage` `/unfiled`; a task opens in its

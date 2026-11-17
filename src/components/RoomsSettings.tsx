@@ -1,7 +1,12 @@
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
-import { viewRoute } from '#shared/all';
-import { pinnedRooms, type Room, roomKey, viewOf } from '#shared/rooms';
+import {
+  pinnedRooms,
+  type Room,
+  roomKey,
+  roomLink,
+  viewOf,
+} from '#shared/rooms';
 import { settingsOf } from '#shared/types';
 import { ResetToDefaults } from '@/components/settings/parts';
 import { RoomOptions } from '@/components/settings/RoomOptions';
@@ -9,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { usePins } from '@/hooks/usePins';
-import { linkProps, type Route } from '@/lib/router';
+import { linkProps } from '@/lib/router';
 import { useMotion } from '@/providers/MotionProvider';
 
 const ICON_BUTTON = 'press size-11 desk:size-8';
@@ -53,20 +58,6 @@ export function RoomsSettings() {
     const project = state.projects[room.project]?.name ?? '';
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
-  };
-  const linkOf = (room: Room): [Route, string?] => {
-    if (room.kind === 'view') {
-      const to = viewRoute(viewOf(room, state)?.query ?? '');
-      return [to.route, to.query];
-    }
-    return room.kind === 'person'
-      ? [{ name: 'person', id: room.id }]
-      : [
-          {
-            name: 'project',
-            id: room.kind === 'project' ? room.id : room.project,
-          },
-        ];
   };
   const kindOf = (room: Room): string =>
     room.kind === 'project'
@@ -112,7 +103,10 @@ export function RoomsSettings() {
               >
                 <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center desk:min-h-9">
                   <a
-                    {...linkProps(...linkOf(room))}
+                    {...linkProps(
+                      roomLink(room, state).route,
+                      roomLink(room, state).query,
+                    )}
                     className="truncate font-medium hover:underline"
                   >
                     {name}

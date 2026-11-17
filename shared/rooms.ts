@@ -11,8 +11,11 @@
  * only navigation setting: Settings → Navigation and its `nav` prefs
  * retired with v2.
  */
+
+import { viewRoute } from './all';
 import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
+import { projectRoomOf, type Route, roomTabRoute } from './routes';
 import { meId } from './select';
 import {
   type Person,
@@ -84,6 +87,64 @@ export function roomOf(entry: string, state: RoomState): Room | null {
     Object.hasOwn(state.people, person)
     ? { kind: 'pair', project, person }
     : null;
+}
+
+/** The query key that narrows a project's room to one person (#334). */
+export const PERSON_PARAM = 'person';
+
+/**
+ * Where a room is: a project's room, a person's, a pair as the project's
+ * room narrowed to the person (`?person=`), or a saved view's All.
+ */
+/**
+ * Where a project's room opens from the rail, All and Search: the tab
+ * Settings → Rooms names (#343), Stream until changed.
+ */
+export function projectHome(
+  id: string,
+  state: Partial<Pick<Snapshot, 'settings'>> = {},
+): Route {
+  const tab = state.settings
+    ? settingsOf({ settings: state.settings }).roomTab
+    : 'stream';
+  return roomTabRoute(id, tab);
+}
+
+export function roomLink(
+  room: Room,
+  state: Partial<Pick<Snapshot, 'settings'>> = {},
+): { route: Route; query: string } {
+  if (room.kind === 'view') return viewRoute(viewOf(room, state)?.query ?? '');
+  if (room.kind === 'person') {
+    return { route: { name: 'person', id: room.id }, query: '' };
+  }
+  if (room.kind === 'project') {
+    return { route: projectHome(room.id, state), query: '' };
+  }
+  return {
+    route: projectHome(room.project, state),
+    query: new URLSearchParams({ [PERSON_PARAM]: room.person }).toString(),
+  };
+}
+
+/**
+ * Whether a page is `room`: a project's room (any tab) with no one, or
+ * with the pair's person, picked; a person's room; a saved view's All
+ * when `hereView` (the view All shows now) is it.
+ */
+export function isRoomPage(
+  room: Room,
+  route: Route,
+  narrowedTo: string | null,
+  hereView?: string,
+): boolean {
+  if (room.kind === 'view') return route.name === 'all' && hereView === room.id;
+  if (room.kind === 'person') {
+    return route.name === 'person' && route.id === room.id;
+  }
+  const project = projectRoomOf(route)?.id;
+  if (room.kind === 'project') return project === room.id && !narrowedTo;
+  return project === room.project && narrowedTo === room.person;
 }
 
 /** The pinned entries as stored, each once. */

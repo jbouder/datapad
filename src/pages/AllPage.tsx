@@ -39,7 +39,12 @@ import {
 import { formatDay } from '#shared/dates';
 import { ALL_SORT_SETTING, allSortDefaults } from '#shared/pages';
 import type { Op } from '#shared/protocol';
-import { peopleByOwed, projectRoomsByOrg, savedViews } from '#shared/rooms';
+import {
+  peopleByOwed,
+  projectHome,
+  projectRoomsByOrg,
+  savedViews,
+} from '#shared/rooms';
 import { ALL_KINDS, type AllKind } from '#shared/routes';
 import { meId, taskNoteCounts } from '#shared/select';
 import {
@@ -712,6 +717,7 @@ const LINE =
 /** A project in the list: its name (to its room), org, status, health, target. */
 function ProjectLine({ project }: { project: Project }) {
   const today = useToday();
+  const { state } = useDatapad();
   return (
     <li data-flip-id={project.id} className={LINE}>
       <FoldersIcon
@@ -720,7 +726,7 @@ function ProjectLine({ project }: { project: Project }) {
       />
       <span className="flex min-w-0 flex-1 flex-col desk:flex-row desk:items-center desk:gap-3">
         <a
-          {...linkProps({ name: 'project', id: project.id })}
+          {...linkProps(projectHome(project.id, state ?? {}))}
           className="truncate font-medium hover:underline"
         >
           {project.name}
@@ -847,12 +853,13 @@ function RoomLine({
   room: { kind: 'project'; id: string } | { kind: 'person'; id: string };
   note?: string;
 }) {
+  const { state } = useDatapad();
   return (
     <li className={cn(LINE, 'gap-2')}>
       <a
         {...linkProps(
           room.kind === 'project'
-            ? { name: 'project', id: room.id }
+            ? projectHome(room.id, state ?? {})
             : { name: 'person', id: room.id },
         )}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-2 hover:underline desk:min-h-8"

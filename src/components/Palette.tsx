@@ -18,6 +18,7 @@ import {
 } from '@phosphor-icons/react';
 import { Command } from 'cmdk';
 import { useMemo, useRef, useState } from 'react';
+import { projectHome } from '#shared/rooms';
 import type { AllKind } from '#shared/routes';
 import {
   type SearchHit,
@@ -241,7 +242,7 @@ export function Palette({
   const openHit = (kind: SearchKind, id: string) => {
     switch (kind) {
       case 'project':
-        return choose(() => navigate({ name: 'project', id }));
+        return choose(() => navigate(projectHome(id, state ?? {})));
       case 'task':
         return choose(() => openTask(id));
       case 'note':

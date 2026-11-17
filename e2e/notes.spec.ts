@@ -2,7 +2,6 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import {
   addFromTopBar,
   expect,
-  expectAccessible,
   expectSaved,
   noteAction,
   noteRow,
@@ -38,15 +37,18 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   page,
   request,
 }) => {
+  // The project room's stream (#334): newest first, so each row says
+  // whether it is pinned.
   await openLive(page, '/projects/p-echo');
-  const notes = page.locator('li[data-note-id]');
-  // Pinned first.
-  await expect(notes.first()).toContainText('Standup');
+  const prep = noteRow(page, 'Bring the power budget');
+  await expect(noteRow(page, 'Standup')).toContainText('Pinned');
+  await expect(prep).not.toContainText('Pinned');
 
   // Pin and Unpin are in each row's ⋯ menu (#273).
-  await noteAction(noteRow(page, 'Bring the power budget'), 'Pin');
+  await noteAction(prep, 'Pin');
   await noteAction(noteRow(page, 'Standup'), 'Unpin');
-  await expect(notes.first()).toContainText('Bring the power budget');
+  await expect(prep).toContainText('Pinned');
+  await expect(noteRow(page, 'Standup')).not.toContainText('Pinned');
 
   // Edit: mentions come back as names, and are tokens again on save.
   const standup = noteRow(page, 'Standup');
@@ -102,36 +104,6 @@ test('delete waits for Undo before it is logged', async ({ page, request }) => {
     .toBeUndefined();
   const data = await stored(request);
   expect(data.activity.general?.events[0]?.text).toBe('Deleted a note');
-});
-
-test('Add note on a project page opens the panel, preset to it', async ({
-  page,
-}) => {
-  await openLive(page, '/projects/p-falcon');
-  // No composer on the page: Add note in the Notes section opens the panel.
-  await expect(page.getByRole('combobox', { name: 'New note' })).toHaveCount(0);
-  // Exact: a meeting row's own is "Add note to “…”".
-  const add = page
-    .getByRole('main')
-    .getByRole('button', { name: 'Add note', exact: true });
-  await expectAccessible(page);
-  const box = await add.boundingBox();
-  const touch = await page.evaluate(
-    () => matchMedia('(pointer: coarse)').matches,
-  );
-  if (touch) expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
-
-  await add.click();
-  const panel = page.getByRole('dialog', { name: 'New note' });
-  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
-  await expect(
-    panel.getByRole('combobox', { name: 'Project', exact: true }),
-  ).toHaveValue('Falcon hyperdrive refit');
-  await page.keyboard.type('Swap the motivator');
-  await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(panel).toBeHidden();
-  await expect(noteRow(page, 'Swap the motivator')).toBeVisible();
-  await expect(add).toBeFocused();
 });
 
 test('Write a note on Notes starts in the filtered project', async ({

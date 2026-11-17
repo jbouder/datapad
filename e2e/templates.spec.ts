@@ -83,11 +83,15 @@ test('save a project’s tasks as a template, then start a project from it', asy
   await expect(
     page.getByRole('heading', { name: 'Hoth outpost', level: 1 }),
   ).toBeVisible();
+  // Its room's open loops have the template's tasks (the order is
+  // checked in the data below).
   await expect(
     page
-      .getByRole('list', { name: 'Open tasks' })
-      .getByRole('listitem')
-      .first(),
+      .getByRole('complementary', { name: 'Open loops' })
+      .locator('[data-loop]'),
+  ).toHaveCount(4);
+  await expect(
+    page.getByRole('complementary', { name: 'Open loops' }),
   ).toContainText('Kickoff call');
   await expectSaved(page);
 

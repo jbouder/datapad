@@ -32,8 +32,9 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 
 const TITLE = 'Insulate the hangar doors';
 
+/** Its row in the room's Open loops lanes. */
 const row = (page: Page) =>
-  page.locator('[data-task-id]').filter({ hasText: TITLE });
+  page.locator('[data-loop]').filter({ hasText: TITLE });
 
 async function openPanel(page: Page) {
   await row(page)
@@ -115,7 +116,11 @@ test('running notes on a task: add, edit and delete from its panel', async ({
   await expect(page.getByText('Deleted the note')).toBeHidden({
     timeout: 10_000,
   });
-  await expect(row(page)).toContainText('1 note');
+  // Tasks' full rows count a task's notes.
+  await openLive(page, '/all?kind=task&view=list');
+  await expect(
+    page.locator('[data-task-id]').filter({ hasText: TITLE }),
+  ).toContainText('1 note');
 
   await expectSaved(page);
   const data = await stored(request);
@@ -168,7 +173,7 @@ test('a task’s note shows on Notes with a link to its task', async ({
   await page.keyboard.press('Escape');
 
   // Delete the task: the note stays, its link says so.
-  await page.goto('/projects/p-echo');
+  await openLive(page, '/projects/p-echo');
   const again = await openPanel(page);
   await again.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(again).toBeHidden();

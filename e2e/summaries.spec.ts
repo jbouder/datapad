@@ -256,7 +256,7 @@ test('Settings picks the model and removes the download', async ({ page }) => {
 
 /**
  * Every place that offers Summarize, by name: how many it shows on each.
- * The task panel opens from the project page; a detail page's and a
+ * The task panel opens from a project room's lanes; a detail page's and a
  * meeting row's are in their More menus.
  */
 async function summarizeOffers(page: Page): Promise<Record<string, number>> {
@@ -267,7 +267,11 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
 
   await openLive(page, '/projects/p-echo');
   counts.project = await inMore();
-  await page.locator('[data-task-id] [data-task-title]').first().click();
+  await page
+    .getByRole('complementary', { name: 'Open loops' })
+    .locator('[data-loop] [data-task-title]')
+    .first()
+    .click();
   const taskPanel = page.getByRole('dialog');
   await expect(taskPanel).toBeVisible();
   counts.taskPanel = await taskPanel

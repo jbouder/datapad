@@ -30,9 +30,10 @@ async function expectKept(page: Page) {
   await expect.poll(() => focused(page)).not.toBe('lost');
 }
 
+/** A task's title in the project room's Open loops lanes. */
 function taskButton(page: Page, title: string) {
   return page
-    .locator('[data-task-id]')
+    .locator('[data-loop]')
     .filter({ hasText: title })
     .getByRole('button', { name: title, exact: true });
 }
