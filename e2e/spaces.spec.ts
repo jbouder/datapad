@@ -76,10 +76,10 @@ async function switchTo(page: Page, name: string) {
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
 }
 
-/** Main's seed on Focus: its overdue task. */
+/** Main's seed on Today: Leia's overdue task, in Mine. */
 const seeded = (page: Page) =>
   page
-    .getByRole('list', { name: 'High priority' })
+    .getByRole('list', { name: 'Mine' })
     .getByText('Confirm shield generator delivery');
 
 test('make a space, work in it, and switch back and forth', async ({
@@ -133,13 +133,9 @@ test('make a space, work in it, and switch back and forth', async ({
   // The new space is open, empty, and says so in the title.
   if (!isMobile(page)) await expect(switcher(page)).toHaveText('Personal');
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
-  await expect(
-    page.getByText(
-      'Nothing needs you. Capture something above, or open a project.',
-    ),
-  ).toBeVisible();
+  await expect(page.getByText('Nothing open is yours.')).toBeVisible();
   await expect(seeded(page)).toBeHidden();
-  await expect(page).toHaveTitle('Focus · Personal · Datapad');
+  await expect(page).toHaveTitle('Today · Personal · Datapad');
   if (isMobile(page)) await expectNoSidewaysScroll(page);
 
   await addTask(page, 'Water the moisture vaporators');
@@ -147,15 +143,17 @@ test('make a space, work in it, and switch back and forth', async ({
     page.getByText('Added “Water the moisture vaporators”'),
   ).toBeVisible();
   await expectSaved(page);
-  // No date, so not in Due: the week's movement counts it.
-  const personal = page.getByText('0 closed this week · 1 added · 0 overdue');
+  // No one's, so in Mine.
+  const personal = page
+    .getByRole('list', { name: 'Mine' })
+    .getByText('Water the moisture vaporators');
   await expect(personal).toBeVisible();
 
   // Back to Main: its data, not Personal's.
   await switchTo(page, 'Main');
   await expect(seeded(page)).toBeVisible();
   await expect(personal).toHaveCount(0);
-  await expect(page).toHaveTitle('Focus · Main · Datapad');
+  await expect(page).toHaveTitle('Today · Main · Datapad');
 
   // And to Personal again: the task is still there.
   await switchTo(page, 'Personal');
@@ -166,7 +164,7 @@ test('make a space, work in it, and switch back and forth', async ({
   await page.reload();
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await expect(personal).toBeVisible();
-  await expect(page).toHaveTitle('Focus · Personal · Datapad');
+  await expect(page).toHaveTitle('Today · Personal · Datapad');
 
   // ⌘K switches too.
   if (isMobile(page)) {
@@ -198,7 +196,7 @@ test('switching away from a project lands on Focus; sections stay', async ({
   ).toBeVisible();
   await switchTo(page, 'Personal');
   await expect(page).toHaveURL(/\/$/);
-  await expect(page).toHaveTitle('Focus · Personal · Datapad');
+  await expect(page).toHaveTitle('Today · Personal · Datapad');
 
   await page.goto('/tasks');
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
@@ -243,7 +241,7 @@ test('when the open space is deleted elsewhere, the first one opens', async ({
     }
   }, space.id);
   await openLive(page, '/');
-  await expect(page).toHaveTitle('Focus · Personal · Datapad');
+  await expect(page).toHaveTitle('Today · Personal · Datapad');
   await expect(seeded(page)).toHaveCount(0);
 
   const issued = await request.get(`/api/erase-token?space=${space.id}`);
@@ -255,7 +253,7 @@ test('when the open space is deleted elsewhere, the first one opens', async ({
 
   // The close reaches the page late through the local preview's proxy.
   await expect(seeded(page)).toBeVisible({ timeout: 20_000 });
-  await expect(page).toHaveTitle('Focus · Datapad');
+  await expect(page).toHaveTitle('Today · Datapad');
   expect(await page.evaluate(() => localStorage.getItem('datapad:space'))).toBe(
     'main',
   );

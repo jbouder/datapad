@@ -98,14 +98,6 @@ test('the row counts the topics; the page lists them', async ({ page }) => {
   await expect(topicList(page)).toContainText('Approved');
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
-
-  // Focus's agenda says how many are left.
-  await page.goto('/?view=week');
-  await expect(
-    page
-      .getByRole('region', { name: 'Next 7 days' })
-      .locator('[data-agenda-id="e-1"] [data-prep]'),
-  ).toContainText('2 of 3 topics left');
 });
 
 test('adds topics in the new meeting panel, in one batch with it', async ({

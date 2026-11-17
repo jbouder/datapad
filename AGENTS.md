@@ -53,7 +53,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   and `orgs.ts` (records by name, inline add), `lists.ts` (a list's
   progress, its items' order, its project, which lists a filter keeps),
   `templates.ts` (project
-  and note templates), `digest.ts` (the weekly digest and its Markdown).
+  and note templates), `digest.ts` (the weekly digest and its Markdown),
+  `loops.ts` (open loops: `lanesOf()` splits open tasks into Mine,
+  Waiting on by person and To decide; `taskTouches()` for person rooms;
+  the rail's `owedBy()` reads it), `today.ts` (Today's day:
+  `dayEntries()`, `dueOn()`, `nextMeeting()`, the header's line).
 - `worker/` — `index.ts` (Access check first, then routes), `access.ts`
   (JWT verification with a JWKS cache, the dev bypass), `datapad.ts` (the
   `DatapadObject` Durable Object: per-space state and seq, the schema
@@ -90,8 +94,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts,
   the topics (`MeetingTopics` on the meeting's page and in its panel,
-  `PendingTopics` for a new meeting's), the meeting note composer and
-  the Focus agenda strip;
+  `PendingTopics` for a new meeting's), and the meeting note composer;
+  `today/` is Today's parts (`LoopLanes` and `LoopRow`, the lanes the
+  rooms reuse; `DayTimeline`);
   `board/` is the whiteboard canvas (`Board`, composition and render;
   `gesture.ts`, the pointer gestures as a pure state machine whose steps
   return effects as data, driven by `useBoardGestures`; `useBoardKeys`,
