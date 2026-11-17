@@ -135,7 +135,7 @@ test('make a space, work in it, and switch back and forth', async ({
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await expect(
     page.getByText(
-      'Nothing needs you. Add a task with + or n, or open a project.',
+      'Nothing needs you. Capture something above, or open a project.',
     ),
   ).toBeVisible();
   await expect(seeded(page)).toBeHidden();

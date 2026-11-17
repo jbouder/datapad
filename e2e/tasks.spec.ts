@@ -32,23 +32,21 @@ test('add three tasks from the project page, close one, undo', async ({
   await openLive(page, '/projects/p-falcon');
   await expect(openList(page).getByRole('listitem')).toHaveCount(1);
 
-  // No quick-add on a project page: `n` (or Add task) opens the panel,
-  // preset to the project; Enter in the title adds.
+  // No quick-add on a project page: Add task opens the panel, preset to
+  // the project; Enter in the title adds.
   await expect(page.getByRole('textbox', { name: 'Add a task' })).toHaveCount(
     0,
   );
   const panel = page.getByRole('dialog', { name: 'New task' });
-  for (const [i, title] of [
+  for (const title of [
     'Patch the hull',
     'Clean the dejarik board',
     'Tune the deflector',
-  ].entries()) {
-    if (i === 0) await page.locator('body').press('n');
-    else
-      await page
-        .getByRole('main')
-        .getByRole('button', { name: 'Add task', exact: true })
-        .click();
+  ]) {
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Add task', exact: true })
+      .click();
     const name = panel.getByRole('textbox', { name: 'Title' });
     await expect(name).toBeFocused();
     await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(

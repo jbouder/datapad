@@ -19,11 +19,14 @@ import { useToast } from '@/providers/ToastProvider';
  */
 export function NewNotePanel({
   projectId,
+  initialText = '',
   open,
   onClose,
   onExited,
 }: {
   projectId: string | null;
+  /** Text to start with (the capture line's expand). */
+  initialText?: string;
   open: boolean;
   onClose: () => void;
   onExited: () => void;
@@ -32,7 +35,7 @@ export function NewNotePanel({
   const { show } = useToast();
   const people = state?.people ?? {};
   const [project, setProject] = useState(projectId);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText);
   const [error, setError] = useState<string | null>(null);
   /** The id the note will have, known before it is added. */
   const noteId = useRef(newId());

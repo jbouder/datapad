@@ -12,6 +12,7 @@ export interface Shortcut {
   /** Where it works. */
   scope:
     | 'Anywhere'
+    | 'Capture line'
     | 'Focus'
     | 'Task lists and tables'
     | 'Collection pages'
@@ -32,13 +33,8 @@ export const BOARD_BIG_STEP = 10;
 export const SHORTCUTS: Shortcut[] = [
   {
     keys: ['n'],
-    action: 'Add a task (the new-task panel)',
-    scope: 'Anywhere',
-  },
-  { keys: ['Shift+N'], action: 'Write a note', scope: 'Anywhere' },
-  {
-    keys: ['Shift+L'],
-    action: 'New list (on a list’s page: add an item to it)',
+    action:
+      'Capture: go to the capture line (where there is none, the new-task panel)',
     scope: 'Anywhere',
   },
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
@@ -51,6 +47,31 @@ export const SHORTCUTS: Shortcut[] = [
     keys: ['Esc'],
     action: 'Close the panel or menu; clear a selection',
     scope: 'Anywhere',
+  },
+  {
+    keys: ['Enter'],
+    action: 'Save it; in the @ or # menu, pick the highlighted one',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Shift+Enter'],
+    action: 'Write it as a longer note, in the full composer',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Tab'],
+    action: 'Change what it becomes: note, task, to decide, waiting on',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['↑', '↓'],
+    action: 'Move through the @ or # menu',
+    scope: 'Capture line',
+  },
+  {
+    keys: ['Esc'],
+    action: 'Close the menu, then clear the line',
+    scope: 'Capture line',
   },
   {
     keys: ['j', 'k'],

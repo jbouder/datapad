@@ -24,10 +24,10 @@ import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
+import { CAPTURE_ID, focusCapture } from '@/lib/capture';
 import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
 import { titleOf, useNav } from '@/lib/nav';
-import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import {
   type Route,
   setRouteTransition,
@@ -128,9 +128,9 @@ export function AppShell() {
     [addTask, addNote, addList, newMeeting, openProjectForm, currentProject],
   );
 
-  // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
-  // task, `N` a note, `L` a list (on a list's page, an item to it; not
-  // while the Lists section is hidden), `?` shows the sheet, and the row
+  // The page-wide keys (shared/shortcuts.ts lists them all): `n` focuses
+  // the capture line (where there is none, the new-task panel), `?` shows
+  // the sheet, and the row
   // keys work on whatever list or table the page shows, starting from its
   // first row when none is focused.
   const [sheet, setSheet] = useState(false);
@@ -156,22 +156,8 @@ export function AppShell() {
       }
       if (event.key === 'n') {
         event.preventDefault();
-        if (!document.getElementById(QUICK_ADD_ID)) newTask(currentProject);
-        else focusQuickAdd();
-        return;
-      }
-      if (event.key === 'N') {
-        event.preventDefault();
-        newNote(noteProject);
-        return;
-      }
-      if (event.key === 'L' && listsOn) {
-        event.preventDefault();
-        const addItem = document.querySelector<HTMLElement>(
-          '#main [data-add-item]',
-        );
-        if (addItem) addItem.click();
-        else addList();
+        if (!document.getElementById(CAPTURE_ID)) newTask(currentProject);
+        else focusCapture();
         return;
       }
       if (event.key === '?') {
@@ -199,7 +185,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, newNote, addList, listsOn, currentProject, noteProject]);
+  }, [newTask, currentProject]);
 
   // A link inside the page took focus away with the old page: give it to
   // the new one, so the next Tab goes on from there, not from the top. A

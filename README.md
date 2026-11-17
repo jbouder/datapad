@@ -45,8 +45,8 @@ over WebSockets, and backs itself up to R2 every night.
   updates you write the same way every time.
 - **Lists.** Titled checklists of one-line items, on a project or in
   General: tick items off, edit them in place, reorder by drag, keyboard
-  or touch, and turn one into a task with Make task. Start one from +,
-  `⌘K` or `Shift+L`. Each list has a page of its own, and a project page
+  or touch, and turn one into a task with Make task. Start one from + or
+  `⌘K`. Each list has a page of its own, and a project page
   shows its lists with their progress.
 - **Meetings.** Date, times, project, attendees and a link. Topics are the
   agenda: tick them off, note an outcome, reorder; a new meeting in a
