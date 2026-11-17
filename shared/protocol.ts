@@ -1529,8 +1529,8 @@ export type OpOf<T extends OpType> = Extract<Op, { type: T }>;
 /**
  * The op types an MCP client may send (#229), the only ones the Durable
  * Object's `apply()` lets through, alone or inside a `batch`. Exactly what
- * the write tools (`worker/mcp/tools/write*.ts`) build: add and edit,
- * never delete, archive, `put`, `remove`, or touch settings, navigation or
+ * the write tools (`worker/mcp/tools/write*.ts`) build: add, edit, mark
+ * to decide and file a note within its space (#340), never delete, archive, `put`, `remove`, or touch settings, navigation or
  * page preferences. This list, not the tool list, is where MCP's no-delete
  * rule lives; a tool that needs another op adds it here, deliberately.
  */
@@ -1541,7 +1541,9 @@ export const MCP_OP_TYPES: ReadonlySet<BaseOp['type']> = new Set<
   'toggleTask',
   'editTask',
   'setBlocked',
+  'setDecide',
   'addNote',
+  'moveNote',
   'addMeeting',
   'addTopic',
   'editTopic',
@@ -1550,9 +1552,6 @@ export const MCP_OP_TYPES: ReadonlySet<BaseOp['type']> = new Set<
   'setStatus',
   'setHealth',
   'addMilestone',
-  'addList',
-  'addListItem',
-  'setListItemDone',
 ]);
 
 /* ---------- socket messages ---------- */

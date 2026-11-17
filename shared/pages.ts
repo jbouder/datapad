@@ -190,10 +190,12 @@ const dayOptions = (choices: readonly number[]): PrefOption[] =>
  * over as they are: `who` is what Mine holds (Focus's Tasks for: Anyone
  * reads as Mine and unassigned, Mine as only what is assigned to me), and
  * `days` how far Next up looks ahead (Focus's Week window). `weekStart`
- * is the day the week zoom and the recap's weekend start from, and
- * `brief` whether Today offers Brief me. Focus's other rules (`target`,
- * `quiet`, `yellow`, `followDays`) stay saved and still feed MCP's
- * `get_focus` (`savedFocusOptions`); Settings no longer shows them.
+ * is the day the week zoom and the recap's weekend start from (MCP's
+ * `get_recap` too), and `brief` whether Today offers Brief me. Focus's
+ * other rules (`target`, `quiet`, `yellow`, `followDays`) stay saved;
+ * Brief me still reads Attention's (`savedFocusOptions`); Settings no
+ * longer shows them. MCP's `get_today` (and `get_focus`, its alias)
+ * reads `who` and `days` as Today does.
  */
 const todayFields: readonly PrefField[] = [
   {
@@ -273,7 +275,7 @@ export function focusOptions(
   };
 }
 
-/** Focus's settings as saved for the space (MCP's `get_focus`, `get_recap`). */
+/** Focus's settings as saved for the space (Brief me, MCP's `get_today` and `get_recap`). */
 export function savedFocusOptions(
   snapshot: Pick<Snapshot, 'settings' | 'people' | 'projects' | 'orgs'>,
 ): FocusOptions {

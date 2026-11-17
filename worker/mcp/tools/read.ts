@@ -1,16 +1,19 @@
 import { z } from 'zod';
-import { listCounts, listProgress } from '#shared/lists';
+import { type Lanes, NOBODY, waitingCount } from '#shared/loops';
 import { tokensToNames } from '#shared/mentions';
+import { isUnfiled } from '#shared/notes';
 import { orgName } from '#shared/orgs';
-import { zonedDay } from '#shared/schedule';
+import { zonedDay, zonedParts } from '#shared/schedule';
+import type { StreamItem } from '#shared/stream';
 import {
   blockedOf,
   type DateString,
-  type List,
+  decideOf,
   type Meeting,
   type Note,
   type Snapshot,
   type Task,
+  type TimeString,
   topicsOf,
 } from '#shared/types';
 import { type McpToolContext, requireSpace, ToolError } from '../tool';
@@ -30,6 +33,11 @@ export interface SpaceRead {
   space: string;
   state: Snapshot;
   today: DateString;
+  /**
+   * The owner's wall clock, `HH:MM`, when `today` is the owner's today;
+   * the start of the day (`00:00`) on any other day a call passes.
+   */
+  now: TimeString;
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -56,10 +64,18 @@ export async function readSpace(
 ): Promise<SpaceRead> {
   const space = await requireSpace(ctx, asked);
   const { state } = await ctx.datapad.snapshot(space);
+  const at = Date.now();
+  const actual = zonedDay(at, ctx.timeZone);
+  const clock = zonedParts(at, ctx.timeZone);
+  const pad = (n: number) => String(n).padStart(2, '0');
   return {
     space,
     state,
-    today: today ?? zonedDay(Date.now(), ctx.timeZone),
+    today: today ?? actual,
+    now:
+      (today ?? actual) === actual
+        ? `${pad(clock.hour)}:${pad(clock.minute)}`
+        : '00:00',
   };
 }
 
@@ -162,21 +178,54 @@ export function resolveMeeting(state: Snapshot, asked: string): string {
   ).id;
 }
 
-export const ListArg = z
+export const RoomArg = z
   .string()
   .min(1)
   .max(200)
-  .describe('A list id or title (ignoring case, or a unique part of it).');
-
-export function resolveList(state: Snapshot, asked: string): List {
-  return resolveByName(
-    state.lists,
-    asked,
-    'list',
-    (l) => l.title,
-    (l) =>
-      `${l.title}, ${l.projectId ? (state.projects[l.projectId]?.name ?? 'a project') : 'General'}`,
+  .describe(
+    'A project or a person: an id, or a name (ignoring case, or a unique part of it).',
   );
+
+/** A room (#334, #335): one project's or one person's. */
+export type RoomRef = { kind: 'project' | 'person'; id: string };
+
+/**
+ * The room `asked` means, by the name rule over projects and people
+ * together: a name both a project and a person match lists both as
+ * candidates.
+ */
+export function resolveRoom(state: Snapshot, asked: string): RoomRef {
+  const rooms: Record<string, RoomRef & { name: string }> = {};
+  for (const p of Object.values(state.projects)) {
+    rooms[p.id] = { kind: 'project', id: p.id, name: p.name };
+  }
+  for (const p of Object.values(state.people)) {
+    rooms[p.id] = { kind: 'person', id: p.id, name: p.name };
+  }
+  const found = resolveByName(
+    rooms,
+    asked,
+    'room',
+    (r) => r.name,
+    (r) => `${r.name}, a ${r.kind}`,
+  );
+  return { kind: found.kind, id: found.id };
+}
+
+export const NoteArg = z
+  .string()
+  .min(1)
+  .max(64)
+  .describe('A note id, from list_unfiled, list_notes or search.');
+
+export function resolveNote(state: Snapshot, asked: string): Note {
+  const note = state.notes[asked];
+  if (!note) {
+    throw new ToolError(
+      `No note has the id "${asked}". list_unfiled, list_notes and search give note ids.`,
+    );
+  }
+  return note;
 }
 
 /* ---- How documents read out ---------------------------------------------- */
@@ -219,6 +268,7 @@ export function taskOut(state: Snapshot, t: Task) {
     project: projectRef(state, t.projectId),
     status: t.status,
     priority: t.priority,
+    decide: decideOf(t),
     due: t.due,
     assignee: personRef(state, t.assignee || null),
     blocked: blocked
@@ -246,6 +296,8 @@ export function noteOut(state: Snapshot, n: Note) {
       : null,
     task: task ? { id: task.id, title: task.title } : null,
     pinned: n.pinned,
+    // No project, meeting, task or mention: it sits in Unfiled (#333).
+    unfiled: isUnfiled(n),
     // The space's Notepad (#218), its running General note.
     ...(n.scratch ? { notepad: true } : {}),
     body: text(state, n.body),
@@ -275,31 +327,57 @@ export function meetingOut(state: Snapshot, m: Meeting) {
   };
 }
 
-/** A list's summary: its title, project and progress, no items. */
-export function listRow(state: Snapshot, l: List) {
-  const { done, total } = listCounts(l);
+/**
+ * The three lanes of open loops (`lanesOf`, #331): Mine, Waiting on (by
+ * person, `person` null for "nobody listed") and To decide, each capped,
+ * with how many each holds.
+ */
+export function lanesOut(state: Snapshot, lanes: Lanes) {
+  const tasks = (list: readonly Task[]) =>
+    cap(list.map((t) => taskOut(state, t)));
   return {
-    id: l.id,
-    title: l.title,
-    project: projectRef(state, l.projectId),
-    done,
-    total,
-    progress: listProgress(l),
-    createdAt: l.createdAt,
-    updatedAt: l.updatedAt,
+    counts: {
+      mine: lanes.mine.length,
+      waiting: waitingCount(lanes),
+      decide: lanes.decide.length,
+    },
+    mine: tasks(lanes.mine),
+    waiting: lanes.waiting.map((g) => ({
+      person: g.personId === NOBODY ? null : personRef(state, g.personId),
+      tasks: tasks(g.tasks),
+    })),
+    decide: tasks(lanes.decide),
   };
 }
 
-/** A list in full: its summary and its items in the order chosen. */
-export function listOut(state: Snapshot, l: List) {
-  return {
-    ...listRow(state, l),
-    items: l.items.map((i) => ({
-      id: i.id,
-      text: i.text,
-      done: i.done,
-      createdAt: i.createdAt,
-      doneAt: i.doneAt,
-    })),
-  };
+/** One item of a room's stream (`shared/stream.ts`), with its document. */
+export function streamItemOut(state: Snapshot, item: StreamItem) {
+  switch (item.kind) {
+    case 'note':
+      return { kind: item.kind, at: item.at, note: noteOut(state, item.note) };
+    case 'task':
+      return {
+        kind: item.kind,
+        at: item.at,
+        event: item.event,
+        task: taskOut(state, item.task),
+      };
+    case 'meeting':
+      return {
+        kind: item.kind,
+        at: item.at,
+        meeting: meetingOut(state, item.meeting),
+      };
+    case 'milestone':
+      return {
+        kind: item.kind,
+        at: item.at,
+        milestone: {
+          id: item.milestone.id,
+          title: item.milestone.title,
+          date: item.milestone.date,
+          project: projectRef(state, item.projectId),
+        },
+      };
+  }
 }

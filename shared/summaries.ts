@@ -1,7 +1,7 @@
 import { itemsOf } from './board';
 import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
-import { lanesOf, NOBODY } from './loops';
+import { NOBODY, todayLanes } from './loops';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import { noteTitle } from './notes';
@@ -613,11 +613,8 @@ export function briefContext(
   );
   const due = [...buckets.overdue, ...buckets.today];
   // Today's lanes (#331, #332): Mine narrowed as Today narrows it.
-  const lanes = lanesOf(state, me);
-  const mine =
-    assignee.kind === 'mine' && me
-      ? lanes.mine.filter((t) => t.assignee === me)
-      : lanes.mine;
+  const lanes = todayLanes(state, me, assignee);
+  const { mine } = lanes;
   const projects = attention(
     state.projects,
     today,
