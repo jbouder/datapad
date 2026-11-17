@@ -1,4 +1,4 @@
-import type { APIRequestContext, Locator } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import {
   expect,
   expectAccessible,
@@ -13,7 +13,10 @@ import {
   test,
 } from './fixtures';
 
-/** Compact note rows (#273) on project, meeting and task pages. */
+/**
+ * Compact note rows (#273) on meeting and task pages (the project room's
+ * stream shows its notes open, see project-room.spec.ts).
+ */
 
 async function stored(
   request: APIRequestContext,
@@ -25,6 +28,8 @@ const toggle = (row: Locator) =>
   row.getByRole('button', { name: /^Note from / });
 const more = (row: Locator) =>
   row.getByRole('button', { name: /^More for note from / });
+const meetingNotes = (page: Page) =>
+  page.getByRole('region', { name: 'Notes', exact: true });
 
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
@@ -32,9 +37,14 @@ test.beforeEach(async ({ request }) => {
 
 test('a closed row is short; it opens in place and closes again', async ({
   page,
+  request,
 }) => {
-  await openLive(page, '/projects/p-echo');
-  const standup = noteRow(page, 'Standup');
+  // The standup, filed on the Shield review, where notes start closed.
+  const seed = structuredClone(SEED);
+  Object.assign(seed.notes['n-1'], { meetingId: 'e-1' });
+  await request.post('/api/import', { data: seed });
+  await openLive(page, '/meetings/e-1');
+  const standup = noteRow(meetingNotes(page), 'Standup');
   await expect(toggle(standup)).toHaveAttribute('aria-expanded', 'false');
 
   // Closed: plain text, two lines at most, no rendered Markdown.
@@ -70,8 +80,8 @@ test('a closed row is short; it opens in place and closes again', async ({
 
 test('the keyboard opens a row and its menu', async ({ page, request }) => {
   test.skip(isMobile(page), 'A keyboard concern.');
-  await openLive(page, '/projects/p-echo');
-  const prep = noteRow(page, 'Bring the power budget');
+  await openLive(page, '/meetings/e-1');
+  const prep = noteRow(meetingNotes(page), 'Bring the power budget');
 
   await toggle(prep).focus();
   await page.keyboard.press('Enter');
@@ -127,8 +137,7 @@ test('the menu works at any width, with touch-sized targets', async ({
   page,
 }) => {
   await openLive(page, '/meetings/e-1');
-  const notes = page.getByRole('region', { name: 'Notes', exact: true });
-  const prep = noteRow(notes, 'Bring the power budget');
+  const prep = noteRow(meetingNotes(page), 'Bring the power budget');
   await expect(prep).toBeVisible();
   const touch = await page.evaluate(
     () => matchMedia('(pointer: coarse)').matches,

@@ -55,8 +55,11 @@ test('a project description renders as Markdown, mentions by name', async ({
   seed.projects['p-echo'].desc =
     '## Scope\n- Shield generator\n\nOwner: @{u-leia}, see `ops/hoth`.';
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/projects/p-echo');
-  const desc = page.locator('header .prose-note');
+  // The room's Plan tab holds the description.
+  await openLive(page, '/projects/p-echo/plan');
+  const desc = page.locator(
+    'section[aria-labelledby="plan-description"] .prose-note',
+  );
   await expect(desc.locator('h4')).toHaveText('Scope');
   await expect(desc.locator('li')).toHaveText('Shield generator');
   await expect(desc.locator('.mention')).toHaveText('@Leia Organa');

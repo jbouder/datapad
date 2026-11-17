@@ -170,11 +170,13 @@ async function expectNoPageScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test('opens from the project page, All, and ⌘K', async ({ page }) => {
+test('opens from the project room, All, and ⌘K', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
-  const section = page.getByRole('heading', { name: /^Whiteboard/ });
-  await expect(section).toBeVisible();
-  await page.getByRole('link', { name: 'Open whiteboard' }).click();
+  // The room's Whiteboard tab.
+  const tabs = page.getByRole('navigation', {
+    name: 'Echo Base relocation room',
+  });
+  await tabs.getByRole('link', { name: 'Whiteboard' }).click();
   await expect(page).toHaveURL(/\/projects\/p-echo\/whiteboard$/);
   await expect(
     page.getByRole('application', {
@@ -182,7 +184,7 @@ test('opens from the project page, All, and ⌘K', async ({ page }) => {
     }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    'Whiteboard',
+    'Echo Base relocation',
   );
   await expect(item(page, 'b-power')).toHaveAccessibleName(
     'Sticky note: Power budget',
@@ -191,10 +193,8 @@ test('opens from the project page, All, and ⌘K', async ({ page }) => {
   await expectNoPageScroll(page);
   await expectAccessible(page);
 
-  // Its own way back to the project.
-  await page
-    .getByRole('link', { name: 'Back to Echo Base relocation' })
-    .click();
+  // The Stream tab is the way back to the rest of the room.
+  await tabs.getByRole('link', { name: 'Stream' }).click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
 
   // The space's board: linked from All (#329).

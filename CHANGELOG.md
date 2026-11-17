@@ -109,6 +109,23 @@ changes the format says so here under **Export format**.
   options: what Mine shows (with unassigned, or only what is assigned to
   you), how far Next up looks ahead, and which lanes show and in what
   order. What Focus saved carries over.
+- **The project room** (#334) replaces the project page. The header has
+  the org, the name and a state line (health, status when not active,
+  target date, next milestone, how many loops are open), with Pin,
+  Schedule meeting, Edit and a menu with Summarize, Pause, Mark active
+  or Mark done, Move to…, Save as template, Archive and Delete. Under
+  it: the people to narrow the room to, the **Next meeting** card with
+  Enter meeting, and three tabs. **Stream** has the three lanes beside
+  one stream of everything attached (Coming up first, then notes, tasks
+  added and done, meetings and milestones, newest first, older ones
+  with Show older), with the capture line on top. Notes are open and
+  their checkboxes tick in place. **Plan** (`/projects/:id/plan`) has
+  the description, details and health, the timeline bar, milestones,
+  members, links and Activity. **Whiteboard**
+  (`/projects/:id/whiteboard`) is the project's board in the room.
+  Picking a person narrows the lanes and the stream to what touches them
+  (`?person=`); capture then mentions them, or on a task assigns them,
+  and Pin pins the pair. Settings → Pages shows the room's lanes.
 - Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
   **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
   seven columns on desktop and seven rows on phones, each day with its
@@ -152,6 +169,10 @@ changes the format says so here under **Export format**.
 
 ### Removed
 
+- The project page and its sections, with Show done, Show past, the
+  tasks board and the Lists section; Settings → Pages no longer lists
+  them. Their saved settings are kept and ignored. Dragging tasks into
+  order went with it: the room's lanes sort by due date, as Today's do.
 - Settings → Navigation. Pinned rooms are the only navigation setting.
   Saved navigation preferences are kept and ignored, and an export that
   has them still imports.

@@ -354,73 +354,15 @@ export const LIST_SHOW_OPTIONS = [
 ] as const;
 
 /**
- * The project page's sections (#312), in today's order: on desktop the
- * first three sit in the left column and the rest in the right, each
- * column in the saved order (`projectColumns`); on a phone, one column in
- * the saved order.
+ * A project room's sections (#334): its three lanes, which hide and move
+ * as Today's do. What the project page saved for its old sections (#312)
+ * is ignored; Activity, under Plan, still remembers open or closed.
  */
-export const PROJECT_PAGE_SECTIONS: readonly PageSection[] = [
-  { key: 'milestones', label: 'Milestones' },
-  { key: 'tasks', label: 'Tasks' },
-  { key: 'meetings', label: 'Meetings' },
-  { key: 'notes', label: 'Notes' },
-  { key: 'lists', label: 'Lists' },
-  { key: 'whiteboard', label: 'Whiteboard' },
-  { key: 'activity', label: 'Activity' },
+export const PROJECT_ROOM_SECTIONS: readonly PageSection[] = [
+  { key: 'mine', label: 'Mine' },
+  { key: 'waiting', label: 'Waiting on' },
+  { key: 'decide', label: 'To decide' },
 ];
-
-/** The project page's sections that sit in its left column on desktop. */
-const PROJECT_LEFT = new Set(['milestones', 'tasks', 'meetings']);
-
-/**
- * The project page's two desktop columns (#312): `visible` (the sections
- * it shows, in the saved order) split by the column each one belongs to,
- * keeping that order within each.
- */
-export function projectColumns(visible: readonly string[]): {
-  left: string[];
-  right: string[];
-} {
-  return {
-    left: visible.filter((key) => PROJECT_LEFT.has(key)),
-    right: visible.filter((key) => !PROJECT_LEFT.has(key)),
-  };
-}
-
-/**
- * The project page's Show past (#320): past meetings after the upcoming
- * ones in Meetings' list. Set from the toggle in the Meetings header or in
- * Settings → Pages; never in the address. It replaced Meetings shows
- * (#312), whose saved `meetings` is ignored, so it reads as Hide.
- */
-const projectPastField: PrefField = {
-  key: 'past',
-  label: 'Past meetings',
-  def: 'hide',
-  options: [
-    { value: 'hide', label: 'Hide' },
-    { value: 'show', label: 'Show' },
-  ],
-  control: 'segmented',
-  settingsOnly: true,
-};
-
-/**
- * The project page's Show done (#318): done tasks after the open ones in
- * Tasks' list, and the board's Done column. Set from the toggle in the
- * Tasks header or in Settings → Pages; never in the address.
- */
-const projectDoneField: PrefField = {
-  key: 'done',
-  label: 'Done tasks',
-  def: 'hide',
-  options: [
-    { value: 'hide', label: 'Hide' },
-    { value: 'show', label: 'Show' },
-  ],
-  control: 'segmented',
-  settingsOnly: true,
-};
 
 /** How the task page shows the note a task was made from (#312). */
 export const SOURCE_NOTE_OPTIONS = [
@@ -698,24 +640,15 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   project: {
-    label: 'Project page',
-    fields: [
-      layout(
-        [
-          { value: 'list', label: 'List' },
-          { value: 'board', label: 'Board' },
-        ],
-        'list',
-        'Tasks layout',
-      ),
-      projectDoneField,
-      projectPastField,
-    ],
+    label: 'Project room',
+    fields: [],
     sections: true,
-    sectionKeys: PROJECT_PAGE_SECTIONS,
-    // Only its own sections: the Done group inside Tasks is gone (#318),
-    // and what it saved is ignored.
-    collapsible: PROJECT_PAGE_SECTIONS.map((s) => s.key),
+    sectionKeys: PROJECT_ROOM_SECTIONS,
+    collapsible: [
+      ...PROJECT_ROOM_SECTIONS.map((s) => s.key),
+      'milestones',
+      'activity',
+    ],
   },
   task: {
     label: 'Task page',

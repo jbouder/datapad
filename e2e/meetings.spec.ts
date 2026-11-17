@@ -23,12 +23,12 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seed });
 });
 
-test('adds a meeting from a project, edits it, sees it on Meetings, deletes it', async ({
+test('schedules a meeting from a project room, edits it on Meetings, deletes one', async ({
   page,
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   // Bound to the project: no picker.
   await expect(form.getByRole('combobox', { name: 'Project' })).toHaveCount(0);
@@ -49,8 +49,20 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
+  // In the room's Coming up, a link to its page.
+  await expect(
+    page
+      .getByRole('list', { name: 'Coming up' })
+      .getByRole('link', { name: 'Hangar walkthrough' }),
+  ).toBeVisible();
+
+  // On Meetings, under its month, with its project.
+  await page.goto('/meetings');
   const added = row(page, 'Hangar walkthrough');
   await expect(added).toContainText('9:30–10:15 AM');
+  await expect(
+    added.getByRole('link', { name: 'Echo Base relocation' }),
+  ).toBeVisible();
 
   // Edit the time: `2pm` reads as 2:00 PM, and the end must come after.
   await added
@@ -74,14 +86,6 @@ test('adds a meeting from a project, edits it, sees it on Meetings, deletes it',
     'Edited meeting "Hangar walkthrough"',
     'Added meeting "Hangar walkthrough"',
   ]);
-
-  // On Meetings, under its month, with its project.
-  await page.goto('/meetings');
-  const there = row(page, 'Hangar walkthrough');
-  await expect(there).toContainText('2:00–3:00 PM');
-  await expect(
-    there.getByRole('link', { name: 'Echo Base relocation' }),
-  ).toBeVisible();
 
   // Delete one with a note: it asks, and the note stays.
   const shield = row(page, 'Shield review');

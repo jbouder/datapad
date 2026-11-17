@@ -6,7 +6,9 @@ import {
   landRoute,
   parseRoute,
   placeOf,
+  projectRoomOf,
   type Route,
+  roomTabRoute,
   routeHref,
   routePath,
   routeSearch,
@@ -269,6 +271,41 @@ describe('whiteboards', () => {
     expect(parseRoute('/projects/p/whiteboard/x')).toEqual({
       name: 'notFound',
     });
+  });
+
+  it('makes a project’s board its room’s Whiteboard tab (#334)', () => {
+    expect(projectRoomOf({ name: 'whiteboard', project: 'p' })).toEqual({
+      id: 'p',
+      tab: 'whiteboard',
+    });
+    expect(projectRoomOf({ name: 'whiteboard' })).toBeNull();
+    expect(projectRoomOf({ name: 'project', id: 'p' })).toEqual({
+      id: 'p',
+      tab: 'stream',
+    });
+    expect(projectRoomOf({ name: 'project', id: 'p', tab: 'plan' })).toEqual({
+      id: 'p',
+      tab: 'plan',
+    });
+    expect(projectRoomOf({ name: 'person', id: 'u' })).toBeNull();
+    expect(roomTabRoute('p', 'stream')).toEqual({ name: 'project', id: 'p' });
+    expect(roomTabRoute('p', 'whiteboard')).toEqual({
+      name: 'whiteboard',
+      project: 'p',
+    });
+  });
+
+  it('reads and writes a project room’s Plan tab', () => {
+    expect(parseRoute('/projects/p%201/plan')).toEqual({
+      name: 'project',
+      id: 'p 1',
+      tab: 'plan',
+    });
+    expect(routePath(roomTabRoute('p 1', 'plan'))).toBe('/projects/p%201/plan');
+    expect(landsOn('/projects/p/plan?person=u')).toBe(
+      '/projects/p/plan?person=u',
+    );
+    expect(parseRoute('/projects/p/plan/x')).toEqual({ name: 'notFound' });
   });
 
   it('links a whiteboard item: its board, with ?item=', () => {

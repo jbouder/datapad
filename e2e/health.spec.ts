@@ -21,11 +21,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('set health in the header; the card says it in words and color', async ({
+test('set health on the Plan; the card says it in words and color', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   const health = page.getByRole('group', { name: 'Health' });
   // Never set in the seed: it reads as None.
   await expect(health.getByRole('radio', { name: 'None' })).toBeChecked();
@@ -47,8 +47,8 @@ test('set health in the header; the card says it in words and color', async ({
 });
 
 test('the project form sets health too', async ({ page, request }) => {
-  await openLive(page, '/projects/p-falcon');
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await openLive(page, '/projects/p-falcon/plan');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const panel = page.getByRole('dialog');
   await panel
     .getByRole('group', { name: 'Health' })
