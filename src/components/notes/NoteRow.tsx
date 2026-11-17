@@ -6,7 +6,6 @@ import {
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
-  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useId, useMemo, useRef, useState } from 'react';
@@ -51,7 +50,7 @@ export type NoteRowChips = Omit<
  * on the preview) opens it in place to the rendered note, where
  * checkboxes save and selected text offers Make task. Open or closed is
  * this row's own, not saved. The ⋯ menu holds Edit (in place), Pin,
- * Make task, Summarize (when on), Save as template and Delete (with
+ * Make task, Save as template and Delete (with
  * Undo). `?note=<id>` scrolls to the row, opens and highlights it.
  *
  * It is an `<li>`: put it in a `<ul>`.
@@ -205,12 +204,6 @@ export function NoteRow({
               <CheckSquareOffsetIcon />
               Make task
             </DropdownMenuItem>
-            {act.summarize && (
-              <DropdownMenuItem onClick={act.summarize}>
-                <SparkleIcon />
-                Summarize
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem onClick={act.saveAsTemplate}>
               <CopySimpleIcon />
               Save as template

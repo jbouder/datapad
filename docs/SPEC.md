@@ -404,11 +404,11 @@ Every project has a whiteboard (the project page's Whiteboard section previews i
 
 ## Claude summaries
 
-A **Summarize** action exists on four item types: project (header's More menu), task (panel footer and page's More menu), meeting (row), note (footer). It is hidden when no model is available. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
+A **Summarize** action exists on a project's and a person's room (a header button, #339), a task (panel footer), a meeting (meeting mode's More menu, #339, and the meeting row). Summarizing a single note was dropped in #339: rooms and meetings cover it. A room's summary is one or two sentences on where things stand, and meeting mode's a short recap; both show in a card under the header (Stop, Regenerate, Save as note, Dismiss) rather than the panel, and each has its own prompt (`ROOM_PROMPT`, `RECAP_PROMPT`). It is hidden while summaries are off on the device. In the artifact this uses the viewer's own Claude account through the platform's `sample` capability; in a standalone app it becomes a server-side call to the Messages API with the same prompt and context.
 
 **Flow.** Click opens the side panel titled `Summary · <item>` showing "Thinking…", with Stop, Copy (disabled until text arrives), and Save as note. Output streams in and is rendered with the markdown subset. On completion Stop is disabled and Copy / Save enable. Closing the panel aborts the request. Errors: `not_granted` hides the feature for the session; `canceled` keeps partial text and appends "Stopped."; `rate_limited` shows a toast; anything else shows partial text or a one-line failure message.
 
-**Save as note** writes a note to the item's project (or General) with body `Summary of <item>` followed by the markdown, converts any `@Name` back to mention tokens, links it to the meeting when summarizing a meeting, and logs activity.
+**Save as note** writes a note to the item's project (or General) with body `Summary of <item>` (a person's room as `Summary of @Name`, so the note mentions them and files to their room) followed by the markdown, converts any `@Name` back to mention tokens, links it to the meeting when summarizing a meeting, and logs activity.
 
 **Context assembled per item** (plain text, labeled sections):
 
@@ -416,10 +416,10 @@ A **Summarize** action exists on four item types: project (header's More menu), 
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project | name, org, status, priority, target date, team names, description; open tasks with priority/due/assignee/details; last 15 done tasks; milestones by date; all meetings (with "n of m topics covered" when a meeting has topics); last 20 notes newest first; last 25 activity lines |
 | Task    | title, project, the meeting it is an action item of, status, priority, due, assignee, tags, details, link labels, source note body if any, its running notes oldest first (the last 20)                                                                                             |
-| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), action items (`- [ ]` open, then `- [x]` done, with due, assignee and when closed), all linked notes, oldest first                   |
-| Note    | date, project, meeting title if linked, task title if it is a task's note, body                                                                                                                                                                                                     |
+| Meeting | title, date and times, project, attendees, agenda note, topics in order (`- [x] <title> — <outcome>` once covered, `- [ ] <title>` otherwise), action items (`- [ ]` open, then `- [x]` done, with due, assignee and when closed), the latest 6 linked notes, oldest first; every section capped (`MEETING_LIMITS`)|
+| Room    | the project or person (and what it is narrowed to), today, the state line as the room computes it; the three lanes as the room labels them (a person's with the open topics of their meetings ahead); what is coming up (meetings, milestones); the stream's last 14 days, newest first. Every section capped, the whole within `ROOM_BUDGET_CHARS` |
 
-Mentions are expanded to names before sending. Nothing outside the item is included.
+Mentions are expanded to names before sending. Nothing outside the item (or the room) is included.
 
 **Prompt** (single user turn; context appended after two newlines):
 

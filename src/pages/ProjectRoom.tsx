@@ -6,7 +6,6 @@ import {
   CopySimpleIcon,
   PauseCircleIcon,
   PlayCircleIcon,
-  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +22,7 @@ import {
   splitStream,
   streamNow,
 } from '#shared/stream';
+import type { SummaryTarget } from '#shared/summaries';
 import { localTime, nextMeeting } from '#shared/today';
 import {
   GENERAL,
@@ -49,7 +49,7 @@ import {
   RoomTabs,
 } from '@/components/rooms/RoomFrame';
 import { RoomStream } from '@/components/rooms/RoomStream';
-import { useSummaries } from '@/components/summary/SummaryProvider';
+import { SummarizeButton, SummaryCard } from '@/components/summary/SummaryCard';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { LoopLanes } from '@/components/today/LoopLanes';
 import { Button } from '@/components/ui/button';
@@ -102,7 +102,6 @@ const STATUS_ACTIONS: {
 export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
   const { state, actions } = useDatapad();
   const { openProjectForm } = useProjectForm();
-  const { summarize, enabled: summariesOn } = useSummaries();
   const { newTemplate } = useTemplateForm();
   const { newMeeting } = useMeetingForm();
   const { hidden } = useNotes();
@@ -263,13 +262,15 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
     navigate({ name: 'all', kinds: ['project'] });
   };
 
+  /** Summarize's target: the room as narrowed, as of when it is asked. */
+  const summaryTarget = (): SummaryTarget => ({
+    kind: 'room',
+    room: { kind: 'project', id: project.id, person },
+    today,
+    now: localTime(Date.now()),
+  });
+
   const menu: MenuAction[] = [
-    {
-      label: 'Summarize',
-      icon: <SparkleIcon />,
-      onSelect: () => summarize({ kind: 'project', id: project.id }),
-      hidden: !summariesOn,
-    },
     ...STATUS_ACTIONS.map((a) => ({
       label: a.label,
       icon: a.icon,
@@ -324,7 +325,13 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
         stateLine={
           personName ? [...stateLine, `Narrowed to ${personName}`] : stateLine
         }
-        // The on-device summary goes here (#339).
+        summary={
+          <SummaryCard
+            target={summaryTarget}
+            footnote="Written on this device by a small model from what this room shows. Check it before you rely on it."
+            className="mt-2"
+          />
+        }
         actions={
           <>
             <PinButton room={room} />
@@ -342,6 +349,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
               <CalendarPlusIcon />
               Schedule meeting
             </Button>
+            <SummarizeButton target={summaryTarget} />
             <DetailActions
               onEdit={() => openProjectForm(project.id)}
               menu={menu}

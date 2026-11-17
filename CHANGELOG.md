@@ -19,6 +19,17 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **Summaries in rooms and meeting mode** (#339): Summarize in a project's
+  or a person's room writes a sentence or two on where things stand, under
+  the state line, from what the room shows (the state line, the lanes,
+  what is coming up and the last 14 days of the stream). In meeting mode,
+  Summarize (in More) writes a short recap from the notes, the covered
+  topics and the action items. Both show in a card with Stop, Regenerate,
+  Save as note and Dismiss. Save as note files to the room (a person's as
+  a note that mentions them) or to the meeting. Everything still runs on
+  the device. Summarizing a single note is gone: rooms and meetings cover
+  it. Summarize stays in the task panel.
+
 - **All** (#337): every task, note, meeting, project and person in one
   list. Kind chips pick some kinds (none is every kind). Find, then the
   filters that fit the kinds picked: Room, Person, Status (Open, Done or

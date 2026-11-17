@@ -6,7 +6,6 @@ import {
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
-  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
@@ -32,7 +31,7 @@ import { cn } from '@/lib/utils';
 /**
  * One note: where it belongs (project or General, and its meeting), when,
  * the rendered body (checkboxes save the note), and Edit, Pin, Make
- * task, Summarize, Save as template (a note template from it), Delete.
+ * task, Save as template (a note template from it), Delete.
  * Long notes clamp at 12 lines behind "Show more". Edit swaps the body
  * for the composer, with mentions as names.
  *
@@ -274,18 +273,6 @@ export function NoteCard({
             <CheckSquareOffsetIcon />
             Make task
           </Button>
-          {act.summarize && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="press h-11 desk:h-7"
-              aria-label="Summarize note"
-              onClick={act.summarize}
-            >
-              <SparkleIcon />
-              Summarize
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="sm"

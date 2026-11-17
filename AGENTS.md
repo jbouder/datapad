@@ -32,7 +32,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   tasks to `decide`, lists to checklist notes, the Notepad to an ordinary
   note; format 1 and 2 imports and the DO's schema 4 run it),
   `summaries.ts` (the models, prompt and per-item context Summarize
-  sends, and Focus's Brief me context and prompt), `schedule.ts` (the
+  sends, Today's Brief me context and prompt, a room's `roomContext()`
+  and meeting mode's recap; `cardOf()` says which card shows one),
+  `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `all.ts` (All's address, its filters
   per kind over each kind's own selector, its rows, each kind's layouts

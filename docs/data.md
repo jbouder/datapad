@@ -40,14 +40,14 @@ errors with the path only, never document content.
 Nothing about your projects, tasks, notes, meetings or people.
 
 **Summaries run on your device.** Summarize builds a plain-text context of
-the one item (`shared/summaries.ts`) and hands it to a small language model
+the one item, room or meeting (`shared/summaries.ts`) and hands it to a small language model
 running in a Web Worker in your browser (WebLLM, on WebGPU). The context
 and the summary never leave the tab; a summary is stored only if you press
 Save as note, and then like any other note.
 
 The only thing downloaded is the model itself: its weights from Hugging
 Face (about 1 GB for the default Qwen3 1.7B) and its WebGPU library from
-`raw.githubusercontent.com`, once, after you agree in the summary panel.
+`raw.githubusercontent.com`, once, after you agree in the summary panel or card.
 Both come from fixed commits, and the library, config and tokenizer are
 checked against hashes before they are used.
 Those requests carry no referrer and nothing of yours. Settings →

@@ -12,7 +12,6 @@ import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
 import { useNoteTemplates } from '@/components/notes/useNoteCommands';
-import { useSummaries } from '@/components/summary/SummaryProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
@@ -27,14 +26,12 @@ import { linkProps, useQuery } from '@/lib/router';
  */
 
 /**
- * A note's actions: Pin/Unpin, Summarize (null while summaries are off),
- * Save as template (a note template from it), Delete (with Undo), and
+ * A note's actions: Pin/Unpin, Save as template (a note template from it), Delete (with Undo), and
  * the text Edit and Make task start from.
  */
 export function useNoteActions(note: Note, people: Record<string, Person>) {
   const { actions } = useDatapad();
   const { removeNote } = useNotes();
-  const { summarize, enabled: summariesOn } = useSummaries();
   const { newNoteTemplate } = useTemplateForm();
   return {
     /** The body with mentions as names, for the composer. */
@@ -42,9 +39,6 @@ export function useNoteActions(note: Note, people: Record<string, Person>) {
     /** The first line, for Make task's title. */
     taskTitle: () => taskTitleFrom(note.body, people),
     togglePin: () => actions.pinNote({ id: note.id, pinned: !note.pinned }),
-    summarize: summariesOn
-      ? () => summarize({ kind: 'note', id: note.id })
-      : null,
     saveAsTemplate: () =>
       newNoteTemplate({
         name: taskTitleFrom(note.body, people).slice(0, LIMITS.nameMax),

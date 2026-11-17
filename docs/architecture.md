@@ -256,7 +256,12 @@ commit of `binary-mlc-llm-libs` and the weights from a Hugging Face
 revision, never a branch, with SRI hashes WebLLM checks for the library,
 the model's config and its tokenizer (it has no option for the weight
 shards; the pinned revision is what fixes those). `SummaryProvider` keeps the model loaded between summaries and
-owns the `Summary · <item>` panel. No Worker route and no API key are
+owns the `Summary · <item>` panel (a task, a meeting row, the week). Today's
+Brief me, a room's state (`roomContext()`: the state line, the lanes, what
+is coming up and the last 14 days of the stream) and meeting mode's recap
+(`meetingContext()`, capped) show in a card on their page instead
+(`SummaryCard`, keyed by `cardOf()`); each context stays within a character
+budget the tests fill past every cap. No Worker route and no API key are
 involved.
 
 ## Backups

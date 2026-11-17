@@ -39,6 +39,7 @@ import { InlineNoteComposer } from '@/components/notes/InlineNoteComposer';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { SyncStatus } from '@/components/SyncStatus';
+import { SummaryCard } from '@/components/summary/SummaryCard';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
 import { useClock } from '@/hooks/useClock';
@@ -73,7 +74,8 @@ function clockTime(ms: number): string {
  *
  * The header has the phase, the title, the day and time, its room and
  * attendees (each a link to their room), Join, Previous and Next in the
- * series, Edit (the meeting form) with More (Summarize, Carry forward to
+ * series, Edit (the meeting form) with More (Summarize, a short recap in
+ * a card under the header, #339; Carry forward to
  * the next one, Delete, which asks first and keeps the notes and action
  * items), and Leave, which goes back to where meeting mode was entered
  * from, or to Today. Esc does the same, when nothing else wants it.
@@ -202,8 +204,7 @@ export function MeetingMode({ id }: { id: string }) {
                 {
                   label: 'Summarize',
                   icon: <SparkleIcon />,
-                  onSelect: () =>
-                    summarize({ kind: 'meeting', id: meeting.id }),
+                  onSelect: () => summarize({ kind: 'recap', id: meeting.id }),
                   hidden: !summariesOn,
                 },
                 {
@@ -323,6 +324,11 @@ export function MeetingMode({ id }: { id: string }) {
             {next && <SeriesLink meeting={next} today={today} />}
           </nav>
         )}
+        <SummaryCard
+          target={() => ({ kind: 'recap', id: meeting.id })}
+          footnote="Written on this device by a small model from this meeting’s notes, topics and action items. Check it before you rely on it."
+          className="mt-2"
+        />
       </header>
 
       <div className="grid grid-cols-1 gap-8 desk:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)_minmax(16rem,20rem)]">

@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import {
+  cardOf,
   findModel,
   type SummaryModel,
   type SummaryRequest,
@@ -30,8 +31,9 @@ import {
  * one Markdown answer instead of three JSON ones). The model stays loaded
  * between summaries once the owner has agreed to it, so the second one
  * starts at once; the panel shows whichever item was asked for last.
- * Brief me (#259, on Today since #332) is the same flow with its own target kind,
- * shown in a card on Today (`useBrief()`) instead of the panel.
+ * Brief me (#259, on Today since #332), a room's state (#339) and meeting
+ * mode's recap (#339) are the same flow shown in a card on their page
+ * (`useSummaryCard()`, keyed by `cardOf()`) instead of the panel.
  */
 
 export type ModelState =
@@ -130,21 +132,25 @@ interface Session {
   key: number;
   open: boolean;
   request: SummaryRequest;
-  /** The side panel, or Today's Brief me card (a `brief` target). */
-  surface: 'panel' | 'card';
+  /** The card that shows it (`cardOf`), or null for the side panel. */
+  card: string | null;
 }
 
-/** Brief me's run in flight, for Today's card. */
-export interface Brief {
+/** A card's run in flight: Brief me's, a room's or a meeting's. */
+export interface CardRun {
   request: SummaryRequest;
   run: Run;
   stop: () => void;
-  /** Stop and forget it (dismiss, or leaving Today). */
+  /** Stop and forget it (dismiss, or leaving the page). */
   close: () => void;
 }
 
 const Context = createContext<Summaries | null>(null);
-const BriefContext = createContext<Brief | null>(null);
+const CardContext = createContext<CardSession | null>(null);
+
+interface CardSession extends CardRun {
+  key: string;
+}
 
 export function SummaryProvider({ children }: { children: ReactNode }) {
   const { state } = useDatapad();
@@ -295,7 +301,7 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       key: Date.now(),
       open: true,
       request,
-      surface: target.kind === 'brief' ? 'card' : 'panel',
+      card: cardOf(target),
     });
   }, []);
 
@@ -313,11 +319,11 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     setSession((s) => (s ? { ...s, open: false } : s));
   }, []);
 
-  /** The card has no exit animation to wait for: gone at once. */
-  const closeBrief = useCallback(() => {
+  /** A card has no exit animation to wait for: gone at once. */
+  const closeCard = useCallback(() => {
     engine.current?.stop();
     runId.current += 1;
-    setSession((s) => (s?.surface === 'card' ? null : s));
+    setSession((s) => (s?.card ? null : s));
     setRun((r) => (r.status === 'idle' ? r : { status: 'idle' }));
   }, []);
 
@@ -330,11 +336,11 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
       // weights; Settings offers to remove them.
       if (!on) {
         close();
-        closeBrief();
+        closeCard();
         unload();
       }
     },
-    [close, closeBrief, unload],
+    [close, closeCard, unload],
   );
 
   const value = useMemo(
@@ -364,17 +370,25 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  const card = session?.surface === 'card' ? session : null;
-  const brief = useMemo(
+  const card = session?.card ? session : null;
+  const cardRun = useMemo(
     () =>
-      card ? { request: card.request, run, stop, close: closeBrief } : null,
-    [card, run, stop, closeBrief],
+      card?.card
+        ? {
+            key: card.card,
+            request: card.request,
+            run,
+            stop,
+            close: closeCard,
+          }
+        : null,
+    [card, run, stop, closeCard],
   );
 
   return (
     <Context.Provider value={value}>
-      <BriefContext.Provider value={brief}>{children}</BriefContext.Provider>
-      {session?.surface === 'panel' && (
+      <CardContext.Provider value={cardRun}>{children}</CardContext.Provider>
+      {session && !session.card && (
         <SummaryPanel
           key={session.key}
           open={session.open}
@@ -393,9 +407,13 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Brief me's run, while Today's card has one; null otherwise. */
-export function useBrief(): Brief | null {
-  return useContext(BriefContext);
+/**
+ * The run for the card `key` names (`cardOf`): Brief me's, a room's or
+ * meeting mode's, while that card has one; null otherwise.
+ */
+export function useSummaryCard(key: string): CardRun | null {
+  const value = useContext(CardContext);
+  return value?.key === key ? value : null;
 }
 
 export function useSummaries(): Summaries {
