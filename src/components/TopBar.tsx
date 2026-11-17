@@ -1,6 +1,5 @@
 import { MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
 import { useRef } from 'react';
-import type { QuickAddAction } from '#shared/nav';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
@@ -18,15 +17,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
-import type { QuickAddItem } from '@/lib/nav';
+import type { QuickAddAction, QuickAddItem } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 
 /**
  * The current title on the left once the page's own h1 has scrolled away
  * (with the brand on phones, where there is no rail), then the sync status
  * (a colored dot, with its word on desktop), Search (with
- * its shortcut on desktop), **+** (a menu of the space's quick-add actions,
- * Add task and Write a note by default; with one, + does it directly) and
+ * its shortcut on desktop), **+** (Add task, Write a note, Add meeting and
+ * Add project; with one, + does it directly) and
  * the account menu (Help is there).
  */
 export function TopBar({
@@ -56,11 +55,11 @@ export function TopBar({
     >
       <div className="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
         <a
-          {...linkProps({ name: 'focus' })}
+          {...linkProps({ name: 'today' })}
           className="press -ml-1.5 flex size-11 shrink-0 items-center justify-center outline-ring/50 focus-visible:outline-2 desk:hidden"
         >
           <DatapadMark className="size-6" />
-          <span className="sr-only">Datapad, Focus</span>
+          <span className="sr-only">Datapad, Today</span>
         </a>
         {/* The page's h1 names it for assistive tech; this is the visual echo,
             shown only once that h1 has scrolled under the bar. */}

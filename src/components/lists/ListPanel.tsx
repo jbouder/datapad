@@ -7,7 +7,6 @@ import { SidePanel, SidePanelCancel, useDirty } from '@/components/SidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
-import { navigate } from '@/lib/router';
 
 /** What the panel opens for: a new list (preset project) or one to edit. */
 export type ListPanelFor =
@@ -56,7 +55,6 @@ export function ListPanel({
     const id = actions.addList({ title: text, projectId });
     if (id === null) return;
     onClose();
-    navigate({ name: 'list', id });
   };
 
   return (

@@ -34,13 +34,13 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   nightly backup's time, DST-safe), `search.ts`
   (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
   what each page remembers, the address over what is saved, what a change
-  saves; `PAGES` is also where Help's Layouts table comes from), `nav.ts`
-  (navigation preferences: the rail's and tab bar's sections and order,
-  what the phone's tab bar leaves out, the Tools (Notepad, Whiteboard,
-  Weekly digest) the same way and what carries over from before them,
-  the + menu), `routes.ts` (the app's
-  addresses, pure: parse, paths, redirects from old addresses, titles;
-  `src/lib/router.ts` re-exports it), `spaces.ts` (space names and order,
+  saves; `PAGES` is also where Help's Layouts table comes from),
+  `rooms.ts` (v2's rail, #329: pinned rooms in `settings.pinned`, the
+  rail's rooms before any pin, the people who owe you something,
+  Unfiled's count), `routes.ts` (the app's
+  addresses, pure: `landRoute()` parses and holds every redirect from an
+  old address, paths, All's `?kind=`, titles; `src/lib/router.ts`
+  re-exports it), `spaces.ts` (space names and order,
   and the pure halves of moving a project between spaces),
   `shortcuts.ts` (every keyboard shortcut and the rule that keeps single
   letters out of inputs and overlays; Help and the `?` sheet list it),
@@ -103,9 +103,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   row it and the project page use, `notes/NoteCard` the card Notes uses,
   and `notes/noteParts` what both share: the actions, editing in place,
   Make task, `?note=`), `pages/*` (`MeetingPage` is
-  `/meetings/:id` and `TaskPage` `/tasks/:id`, as `ProjectPage` is
-  `/projects/:id`; a task opens its page only from Tasks, its panel
-  everywhere else).
+  `/meetings/:id`, `ProjectPage` `/projects/:id` and `PersonPage`
+  `/people/:id`; `AllPage` is `/all`, showing the classic list pages by
+  `?kind=` until #337, and `UnfiledPage` `/unfiled`; a task opens in its
+  panel everywhere, and `/tasks/:id` lands on its room with the panel
+  open).
 - `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth

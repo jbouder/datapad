@@ -50,6 +50,8 @@ export const LIMITS = {
   /** Entries kept in one activity log (newest first). */
   activityMax: 150,
   activityTextMax: 300,
+  /** Pinned rooms in one space (#329). */
+  pinnedMax: 50,
   /** Pages with saved preferences in one space (#186). */
   pagesMax: 16,
   /** A saved filter's or section's name. */

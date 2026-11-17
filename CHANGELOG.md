@@ -29,8 +29,33 @@ changes the format says so here under **Export format**.
   `datapad-v2`, with its own data, backups and Access application, after
   CI passes. Production still deploys from `main` only. See
   docs/self-hosting.md § Staging.
+- **The v2 shell** (#329): the rail has Today, Unfiled (with its count)
+  and All, then Rooms: the rooms you pin, or the active projects until
+  you pin one, then the people who owe you something. A phone's tab bar
+  has Today, Unfiled and All. **Pin** in a project's or a person's
+  header puts it in the rail; Settings → Rooms orders and unpins them.
+  A person has a room of their own at `/people/:id`. Until the pages
+  that follow arrive, Today shows Focus, Unfiled lists the notes with no
+  home, and All shows Projects, Tasks, Notes and Meetings by kind.
 
 ### Changed
+
+- Every old address lands on its new home: `/focus` and `/digest` on
+  Today, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
+  `/meetings` and `/archive` on All with that kind (filters kept),
+  `/lists` on All's notes, `/tasks/:id` on the task's project with its
+  panel open, and `/settings/people/:id` on the person's room. A task
+  opens in its panel everywhere.
+- The top bar's + offers Add task, Write a note, Add meeting and Add
+  project. New list is gone from +, ⌘K and Shift+L, and the Lists,
+  Notepad, Weekly digest and task pages are gone, as lists and the
+  Notepad became notes.
+
+### Removed
+
+- Settings → Navigation. Pinned rooms are the only navigation setting.
+  Saved navigation preferences are kept and ignored, and an export that
+  has them still imports.
 
 - New tasks start at Medium priority instead of none.
 
@@ -44,6 +69,10 @@ changes the format says so here under **Export format**.
 
 - `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
   `high`). Absent reads as `med`.
+- `settings.user` may carry `pinned` (#329): the pinned rooms in order,
+  each a project id, a person id or `<projectId>+<personId>`, each once,
+  at most 50. Absent until something is pinned. `settings.user.nav` is
+  kept as it was and no longer read.
 
 ## [1.0.0] — 2026-11-06
 

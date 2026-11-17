@@ -4,6 +4,7 @@ import { mentionSnippet } from '#shared/mentions';
 import { mentionsOf, type PersonStats } from '#shared/select';
 import type { Note, Person, Snapshot, Task } from '#shared/types';
 import { Initials } from '@/components/Initials';
+import { PinButton } from '@/components/PinButton';
 import { TaskList } from '@/components/tasks/TaskList';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { Button } from '@/components/ui/button';
@@ -37,9 +38,10 @@ function groupMentions(notes: Note[], tasks: Task[]): MentionGroup[] {
 }
 
 /**
- * What is going on with one person, before a 1:1: their projects, the
- * open tasks assigned to them, and every note and task that mentions
- * them, grouped by project, newest first.
+ * A person's room (`/people/:id`, #329; the room itself is #335): what is
+ * going on with them, before a 1:1: their projects, the open tasks
+ * assigned to them, and every note and task that mentions them, grouped
+ * by project, newest first. Pin puts it in the rail.
  */
 export function PersonDetail({
   person,
@@ -69,17 +71,18 @@ export function PersonDetail({
       <div className="flex items-start gap-3">
         <Initials person={person} className="size-10 text-xs" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <h2
+          <h1
             id="person-title"
-            className="flex flex-wrap items-center gap-2 font-heading text-lg font-semibold"
+            className="text-page-title flex flex-wrap items-center gap-2"
           >
             {person.name}
             {person.me && <YouTag />}
-          </h2>
+          </h1>
           {person.role && (
             <p className="text-sm text-muted-foreground">{person.role}</p>
           )}
         </div>
+        <PinButton room={{ kind: 'person', id: person.id }} />
         <Button
           type="button"
           variant="outline"
@@ -92,7 +95,7 @@ export function PersonDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="font-heading text-sm font-semibold">Projects</h3>
+        <h2 className="font-heading text-sm font-semibold">Projects</h2>
         {stats.projects.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Not on any project. Add them in a project’s form.
@@ -119,12 +122,12 @@ export function PersonDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="font-heading text-sm font-semibold">
+        <h2 className="font-heading text-sm font-semibold">
           Open tasks{' '}
           <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {stats.open.length}
           </span>
-        </h3>
+        </h2>
         <TaskList
           label={`Open tasks assigned to ${person.name}`}
           open={stats.open}
@@ -134,12 +137,12 @@ export function PersonDetail({
 
       {stats.waiting.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="font-heading text-sm font-semibold">
+          <h2 className="font-heading text-sm font-semibold">
             Waiting on them{' '}
             <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
               {stats.waiting.length}
             </span>
-          </h3>
+          </h2>
           <TaskList
             label={`Tasks waiting on ${person.name}`}
             open={stats.waiting}
@@ -149,12 +152,12 @@ export function PersonDetail({
       )}
 
       <div className="flex flex-col gap-2">
-        <h3 className="font-heading text-sm font-semibold">
+        <h2 className="font-heading text-sm font-semibold">
           Mentions{' '}
           <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {count}
           </span>
-        </h3>
+        </h2>
         {groups.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No notes or tasks mention them yet.
@@ -169,15 +172,18 @@ export function PersonDetail({
                 aria-label={`Mentions in ${title}`}
                 className="flex flex-col"
               >
-                <h4 className="text-xs font-medium text-muted-foreground">
+                <h3 className="text-xs font-medium text-muted-foreground">
                   {title}
-                </h4>
+                </h3>
                 <ul className="flex flex-col border-t">
                   {g.items.map((m) => (
                     <li key={m.doc.id} className="border-b">
                       {m.kind === 'note' ? (
                         <a
-                          {...linkProps({ name: 'notes' }, `note=${m.doc.id}`)}
+                          {...linkProps(
+                            { name: 'all', kind: 'note' },
+                            `note=${m.doc.id}`,
+                          )}
                           className="press flex min-h-11 flex-col justify-center gap-0.5 py-1.5 text-sm hover:bg-accent/50"
                         >
                           <span className="text-xs text-muted-foreground">

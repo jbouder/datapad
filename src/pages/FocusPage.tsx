@@ -301,10 +301,7 @@ export function FocusPage() {
                 <h3 id={id} className={GROUP_HEAD}>
                   {group.person ? (
                     <a
-                      {...linkProps({
-                        name: 'people',
-                        person: group.person.id,
-                      })}
+                      {...linkProps({ name: 'person', id: group.person.id })}
                       className={GROUP_LINK}
                     >
                       {name}

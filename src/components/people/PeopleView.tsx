@@ -1,9 +1,9 @@
 import { ListIcon, PlusIcon, SquaresFourIcon } from '@phosphor-icons/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { findText } from '#shared/pages';
 import { findPeople } from '#shared/people';
 import { meId, peopleStats, statsFor } from '#shared/select';
-import { type Person, settingsOf } from '#shared/types';
+import { settingsOf } from '#shared/types';
 import { Initials } from '@/components/Initials';
 import { FindField } from '@/components/inputs/FindField';
 import { CardGrid } from '@/components/layouts/CardGrid';
@@ -17,13 +17,12 @@ import {
   type ViewOption,
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
-import { PersonDetail, YouTag } from '@/components/people/PersonDetail';
+import { YouTag } from '@/components/people/PersonDetail';
 import { PersonForm } from '@/components/people/PersonForm';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useDatapad } from '@/hooks/useDatapad';
-import { linkProps, navigate } from '@/lib/router';
-import { cn } from '@/lib/utils';
+import { linkProps } from '@/lib/router';
 import { usePageQuery } from '@/providers/PagePrefsProvider';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -92,22 +91,17 @@ interface Editing {
 }
 
 /**
- * People, as a List (everyone by name beside the selected
- * person's detail, stacked on phones) or Cards (one card per person with
- * their counts, the detail underneath). Selecting someone is a link
- * (`/settings/people/:id`), so search and other pages can point here.
- * Add, Edit and Remove go through the person panel in both.
+ * People, as a List (everyone by name) or Cards (one card per person with
+ * their counts). Each opens the person's room (`/people/:id`, #329). Add
+ * goes through the person panel; Edit and Remove are in the room.
  */
-export function PeopleView({ selected }: { selected?: string }) {
+export function PeopleView() {
   const { state } = useDatapad();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [view, setView] = useView('people', PEOPLE_VIEWS, 'list');
-  const detail = useRef<HTMLDivElement>(null);
   const [query, change] = usePageQuery('people');
   const listFilters = useListFilters('people', query, change);
   const q = findText(query);
-  // Picking someone keeps Find as it is.
-  const keep = q ? new URLSearchParams({ q }).toString() : undefined;
 
   const everyone = useMemo(
     () =>
@@ -121,18 +115,6 @@ export function PeopleView({ selected }: { selected?: string }) {
     [everyone, q, state?.orgs],
   );
   const stats = state ? peopleStats(state.projects, state.tasks) : null;
-  const person: Person | undefined = selected
-    ? state?.people[selected]
-    : undefined;
-
-  // Where the detail sits under the people (phones, Cards): bring it
-  // into view.
-  useEffect(() => {
-    if (!selected || !detail.current) return;
-    if (view === 'cards' || window.matchMedia('(width < 820px)').matches) {
-      detail.current.scrollIntoView({ block: 'start' });
-    }
-  }, [selected, view]);
 
   if (!state || !stats) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -180,12 +162,7 @@ export function PeopleView({ selected }: { selected?: string }) {
       )}
 
       {everyone.length > 0 && (
-        <div
-          className={cn(
-            'grid grid-cols-1 gap-6',
-            view === 'list' && 'desk:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]',
-          )}
-        >
+        <div className="grid grid-cols-1 gap-6">
           {people.length === 0 ? (
             <div className="self-start">
               <ListEmpty state={listFilters}>No people yet.</ListEmpty>
@@ -198,12 +175,8 @@ export function PeopleView({ selected }: { selected?: string }) {
               {people.map((p) => (
                 <li key={p.id} className="border-b">
                   <a
-                    {...linkProps({ name: 'people', person: p.id }, keep)}
-                    aria-current={p.id === selected ? 'true' : undefined}
-                    className={cn(
-                      'press row flex items-center gap-2 px-2 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-                      p.id === selected && 'bg-accent text-accent-foreground',
-                    )}
+                    {...linkProps({ name: 'person', id: p.id })}
+                    className="press row flex items-center gap-2 px-2 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     <span className="flex min-w-0 flex-1 flex-col py-1">
                       <span className="flex items-center gap-2">
@@ -232,12 +205,8 @@ export function PeopleView({ selected }: { selected?: string }) {
                 const s = statsFor(stats, p.id);
                 return (
                   <a
-                    {...linkProps({ name: 'people', person: p.id }, keep)}
-                    aria-current={p.id === selected ? 'true' : undefined}
-                    className={cn(
-                      'press flex min-h-24 items-start gap-3 border bg-card p-3 text-card-foreground outline-ring/50 hover:bg-accent/40 focus-visible:outline-2',
-                      p.id === selected && 'border-foreground',
-                    )}
+                    {...linkProps({ name: 'person', id: p.id })}
+                    className="press flex min-h-24 items-start gap-3 border bg-card p-3 text-card-foreground outline-ring/50 hover:bg-accent/40 focus-visible:outline-2"
                   >
                     <Initials person={p} className="size-10 text-xs" />
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -260,24 +229,6 @@ export function PeopleView({ selected }: { selected?: string }) {
               }}
             />
           )}
-          <div ref={detail} className="min-w-0 scroll-mt-20">
-            {person ? (
-              <PersonDetail
-                person={person}
-                stats={statsFor(stats, person.id)}
-                state={state}
-                onEdit={() =>
-                  setEditing({ key: Date.now(), id: person.id, open: true })
-                }
-              />
-            ) : (
-              <p className="text-state">
-                {selected
-                  ? 'That person is no longer here.'
-                  : 'Pick someone to see their projects, tasks and mentions.'}
-              </p>
-            )}
-          </div>
         </div>
       )}
 
@@ -288,8 +239,6 @@ export function PeopleView({ selected }: { selected?: string }) {
           open={editing.open}
           onClose={() => setEditing((e) => (e ? { ...e, open: false } : e))}
           onExited={() => setEditing((e) => (e?.open ? e : null))}
-          onAdded={(id) => navigate({ name: 'people', person: id })}
-          onRemoved={() => navigate({ name: 'people' })}
         />
       )}
     </>

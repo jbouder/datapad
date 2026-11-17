@@ -6,14 +6,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { listsShown, type QuickAddAction } from '#shared/nav';
-import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
+import { taskRoom } from '#shared/routes';
 import {
   CrashForTests,
   ErrorBoundary,
   PageError,
 } from '@/components/ErrorBoundary';
-import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
@@ -26,9 +24,10 @@ import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
-import { titleOf, useNav } from '@/lib/nav';
+import { QUICK_ADD, type QuickAddAction, titleOf } from '@/lib/nav';
 import { focusQuickAdd, QUICK_ADD_ID } from '@/lib/quickAdd';
 import {
+  navigate,
   type Route,
   setRouteTransition,
   settingsSectionOf,
@@ -37,26 +36,20 @@ import {
 } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
-import { ArchivePage } from '@/pages/ArchivePage';
+import { AllPage } from '@/pages/AllPage';
 import { FocusPage } from '@/pages/FocusPage';
 import {
-  DigestPage,
   HelpPage,
-  ListPage,
-  ListsPage,
   MeetingPage,
   preloadPages,
   SettingsPage,
-  TaskPage,
   WhiteboardPage,
 } from '@/pages/lazy';
-import { MeetingsPage } from '@/pages/MeetingsPage';
-import { NotepadPage } from '@/pages/NotepadPage';
-import { NotesPage, notesPreset } from '@/pages/NotesPage';
+import { notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { PersonPage } from '@/pages/PersonPage';
 import { ProjectPage } from '@/pages/ProjectPage';
-import { ProjectsPage } from '@/pages/ProjectsPage';
-import { TasksPage } from '@/pages/TasksPage';
+import { UnfiledPage } from '@/pages/UnfiledPage';
 import { useEmail } from '@/providers/DatapadProvider';
 import { useMotion } from '@/providers/MotionProvider';
 
@@ -76,9 +69,6 @@ export function AppShell() {
   const { newNote } = useNotes();
   const { newMeeting } = useMeetingForm();
   const { openProjectForm } = useProjectForm();
-  const { openPanel: openListPanel } = useListPanel();
-  const { quickAdd } = useNav();
-  const listsOn = listsShown(state?.settings[SETTINGS_ID] ?? DEFAULT_SETTINGS);
   usePreloadPages();
 
   useEffect(() => {
@@ -88,12 +78,12 @@ export function AppShell() {
   const pageName =
     route.name === 'project'
       ? state?.projects[route.id]?.name
-      : route.name === 'task'
-        ? state?.tasks[route.id]?.title
-        : route.name === 'meeting'
-          ? state?.meetings[route.id]?.title
-          : route.name === 'list'
-            ? state?.lists[route.id]?.title
+      : route.name === 'person'
+        ? state?.people[route.id]?.name
+        : route.name === 'task'
+          ? state?.tasks[route.id]?.title
+          : route.name === 'meeting'
+            ? state?.meetings[route.id]?.title
             : undefined;
 
   // Add task opens the new-task panel, preset to the project you are on.
@@ -109,28 +99,25 @@ export function AppShell() {
   // On Notes, a new note starts in the filtered project, as Add note does.
   const query = useQuery();
   const noteProject =
-    route.name === 'notes' ? notesPreset(query.get('project')) : currentProject;
+    route.name === 'all' && route.kind === 'note'
+      ? notesPreset(query.get('project'))
+      : currentProject;
   const addNote = useCallback(() => {
     newNote(noteProject);
   }, [newNote, noteProject]);
-  const addList = useCallback(() => {
-    openListPanel({ kind: 'new', projectId: currentProject });
-  }, [openListPanel, currentProject]);
-  // The top bar's +: whichever actions Settings → Navigation shows.
+  // The top bar's +.
   const onQuickAdd = useCallback(
     (name: QuickAddAction) => {
       if (name === 'task') addTask();
       else if (name === 'note') addNote();
-      else if (name === 'list') addList();
       else if (name === 'meeting') newMeeting({ projectId: currentProject });
       else openProjectForm();
     },
-    [addTask, addNote, addList, newMeeting, openProjectForm, currentProject],
+    [addTask, addNote, newMeeting, openProjectForm, currentProject],
   );
 
   // The page-wide keys (src/lib/shortcuts.ts lists them all): `n` adds a
-  // task, `N` a note, `L` a list (on a list's page, an item to it; not
-  // while the Lists section is hidden), `?` shows the sheet, and the row
+  // task, `N` a note, `?` shows the sheet, and the row
   // keys work on whatever list or table the page shows, starting from its
   // first row when none is focused.
   const [sheet, setSheet] = useState(false);
@@ -165,15 +152,6 @@ export function AppShell() {
         newNote(noteProject);
         return;
       }
-      if (event.key === 'L' && listsOn) {
-        event.preventDefault();
-        const addItem = document.querySelector<HTMLElement>(
-          '#main [data-add-item]',
-        );
-        if (addItem) addItem.click();
-        else addList();
-        return;
-      }
       if (event.key === '?') {
         event.preventDefault();
         setSheet(true);
@@ -199,7 +177,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, newNote, addList, listsOn, currentProject, noteProject]);
+  }, [newTask, newNote, currentProject, noteProject]);
 
   // A link inside the page took focus away with the old page: give it to
   // the new one, so the next Tab goes on from there, not from the top. A
@@ -233,7 +211,7 @@ export function AppShell() {
           title={titleOf(route, pageName)}
           pageKey={pageKey(route)}
           email={email}
-          quickAdd={quickAdd}
+          quickAdd={QUICK_ADD}
           onQuickAdd={onQuickAdd}
           onSearch={() => setPalette(true)}
         />
@@ -268,7 +246,6 @@ export function AppShell() {
         open={palette}
         onOpenChange={setPalette}
         currentProject={currentProject}
-        onNewList={listsOn ? addList : undefined}
       />
     </div>
   );
@@ -298,9 +275,12 @@ const DevComponentsPage = __DEV_ROUTES__
 
 function pageKey(route: Route): string {
   if (route.name === 'project') return `project:${route.id}`;
+  if (route.name === 'person') return `person:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
-  if (route.name === 'list') return `list:${route.id}`;
+  if (route.name === 'all') {
+    return `all:${route.kind ?? ''}${route.archived ? ':archived' : ''}`;
+  }
   if (route.name === 'whiteboard') return `whiteboard:${route.project ?? ''}`;
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
@@ -308,38 +288,27 @@ function pageKey(route: Route): string {
 
 function Page({ route }: { route: Route }) {
   switch (route.name) {
-    case 'focus':
+    case 'today':
+      // Focus, until Today (#331).
       return <FocusPage />;
+    case 'unfiled':
+      return <UnfiledPage />;
+    case 'all':
+      return <AllPage kind={route.kind} archived={route.archived} />;
     case 'help':
       return <HelpPage section={route.section} />;
     case 'project':
       return <ProjectPage id={route.id} />;
-    case 'projects':
-      return <ProjectsPage />;
-    case 'archive':
-      return <ArchivePage />;
-    case 'tasks':
-      return <TasksPage />;
+    case 'person':
+      return <PersonPage id={route.id} />;
     case 'task':
-      return <TaskPage id={route.id} />;
-    case 'notes':
-      return <NotesPage />;
-    case 'notepad':
-      return <NotepadPage />;
-    case 'meetings':
-      return <MeetingsPage />;
+      return <TaskLanding id={route.id} />;
     case 'meeting':
       return <MeetingPage id={route.id} />;
-    case 'lists':
-      return <ListsPage />;
-    case 'list':
-      return <ListPage id={route.id} />;
-    case 'digest':
-      return <DigestPage />;
     case 'whiteboard':
       return <WhiteboardPage project={route.project} />;
     case 'people':
-      return <SettingsPage section="people" person={route.person} />;
+      return <SettingsPage section="people" />;
     case 'orgs':
       return <SettingsPage section="orgs" org={route.org} />;
     case 'settings':
@@ -349,4 +318,23 @@ function Page({ route }: { route: Route }) {
     case 'notFound':
       return <NotFoundPage />;
   }
+}
+
+/**
+ * `/tasks/:id`, from before v2: once the data is in, on to the task's
+ * room (its project's, or Today for a General task) with its panel open,
+ * in place of this address. A task that is gone is Not found.
+ */
+function TaskLanding({ id }: { id: string }) {
+  const { state } = useDatapad();
+  const { openTask } = useTaskPanels();
+  const task = state?.tasks[id];
+  const known = state !== null;
+  useEffect(() => {
+    if (!task) return;
+    navigate(taskRoom(task), { replace: true });
+    openTask(task.id);
+  }, [task, openTask]);
+  if (!known || task) return null;
+  return <NotFoundPage what="task" />;
 }

@@ -32,7 +32,7 @@ export function WhiteboardPage({ project: id }: { project?: string }) {
       <div className="px-4 pt-6 sm:px-6">
         <NotFoundPage
           what="project"
-          back={{ name: 'projects' }}
+          back={{ name: 'all', kind: 'project' }}
           backLabel="Back to Projects"
         />
       </div>

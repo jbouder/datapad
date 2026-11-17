@@ -430,8 +430,17 @@ export interface Settings {
    * Medium. `defaultPriority()` in `shared/tasks.ts` reads it.
    */
   defaultPriority?: Priority;
-  /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
+  /**
+   * Navigation preferences from before v2 (#187). Retired in #329: kept
+   * as stored, so an old export round-trips, and read by nothing.
+   */
   nav?: NavPrefs;
+  /**
+   * The pinned rooms, in the rail's order (#329): each a project id, a
+   * person id, or a project and a person (`shared/rooms.ts`). Absent
+   * until something is pinned.
+   */
+  pinned?: string[];
   /**
    * Each page's remembered layout, sort, grouping, filters and sections
    * (#186). Absent until something is saved, so older exports round-trip
@@ -441,9 +450,9 @@ export interface Settings {
 }
 
 /**
- * Which sections the rail and tab bar show, and in what order, which of
- * the rail's extras, and what the top bar's + offers. Names are kept as stored and checked when read, so
- * a name from another release is ignored rather than refused.
+ * Which sections the rail and tab bar showed before v2, in what order,
+ * which of the rail's extras, and what the top bar's + offered. Retired
+ * in #329: kept as stored and read by nothing.
  */
 export interface NavPrefs {
   order?: string[];

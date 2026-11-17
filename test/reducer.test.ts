@@ -2631,6 +2631,45 @@ describe('settings', () => {
     expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
     expect(low.activity).toBe(state.activity);
   });
+
+  it('stores the pinned rooms whole, in order, unlogged (#329)', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const { state: pinned, changed } = at(state, {
+      type: 'setSettings',
+      patch: { pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'] },
+    });
+    expect(settingsOf(pinned)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      pinned: ['p-echo', 'pe-leia', 'p-echo+pe-leia'],
+    });
+    expect(changed).toEqual([{ col: 'settings', id: 'user' }]);
+    expect(pinned.activity).toBe(state.activity);
+    const reordered = run(pinned, {
+      type: 'setSettings',
+      patch: { pinned: ['pe-leia', 'p-echo'] },
+    });
+    expect(settingsOf(reordered).pinned).toEqual(['pe-leia', 'p-echo']);
+  });
+
+  it('refuses pinned rooms named twice, or too many', () => {
+    const twice = { type: 'setSettings', patch: { pinned: ['p-1', 'p-1'] } };
+    expect(OpSchema.safeParse(twice).success).toBe(false);
+    const many = Array.from(
+      { length: LIMITS.pinnedMax + 1 },
+      (_, i) => `p-${i}`,
+    );
+    expect(
+      OpSchema.safeParse({ type: 'setSettings', patch: { pinned: many } })
+        .success,
+    ).toBe(false);
+    expect(
+      OpSchema.safeParse({ type: 'setSettings', patch: { pinned: [] } })
+        .success,
+    ).toBe(true);
+  });
 });
 
 describe('page preferences (#186)', () => {

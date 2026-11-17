@@ -193,13 +193,14 @@ destructive; on phones the dot alone unless offline) says Saved, Saving… or "O
 waiting"; only connecting and offline are announced, and it never blocks. The
 router is holocron's small pushState router; route changes run inside a
 `page` view transition. Its pure half (parsing, paths, page titles, and
-the redirects from old addresses, such as the meetings page's address
-from before meetings, which keeps its query and renames the id
-parameter to `meeting`) is `shared/routes.ts`, so Vitest tests it
-without a DOM; `src/lib/router.ts` re-exports it.
+the redirects from every address from before v2 (#329): `/tasks` is
+`/all?kind=task`, `/notepad` is `/unfiled`, `/settings/people/:id` is
+`/people/:id`, …, all in `landRoute()`) is `shared/routes.ts`, so Vitest
+tests it without a DOM; `src/lib/router.ts` re-exports it. `/tasks/:id`
+needs the data to find the task's room, so the shell settles that one.
 
-The pages most visits never open (Whiteboard, Help, Digest, Settings and
-a meeting's and a task's page) are chunks of their own
+The pages most visits never open (Whiteboard, Help, Settings and a
+meeting's page) are chunks of their own
 (`src/pages/lazy.tsx`), rendered inside the page's error boundary with an
 empty, `aria-busy` Suspense fallback. They are fetched anyway once the
 browser is idle, and a first visit straight to one loads its chunk before

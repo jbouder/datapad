@@ -118,9 +118,15 @@ as it is (migrated on the way in, below):
   space starts with no orgs), optionally `assignToMe` (`true` when new
   tasks go to the person marked as you, from Settings → People; absent
   is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
-  what a new task starts with, from Settings → Pages; absent is `med`)
-  and, optionally, `nav`, the navigation
-  preferences from Settings → Navigation (#187):
+  what a new task starts with, from Settings → Pages; absent is `med`),
+  optionally `pinned` (#329), the rooms pinned to the rail, in order:
+  `["p-echo", "pe-leia", "p-echo+pe-leia"]`, each a project id, a person
+  id or a project and a person joined by `+`, each once, 50 at most,
+  absent until something is pinned; an entry that names nothing in the
+  space is kept and skipped when read. And, optionally, `nav`, the
+  navigation preferences from Settings → Navigation (#187), which v2
+  (#329) retired: kept as written, so an older file round-trips, and no
+  longer read. Its shape:
   `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "archived": true }, "tools": { "order": ["digest", "notepad", "whiteboard"], "hidden": ["notepad"], "phoneHidden": ["digest", "whiteboard"] }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
   (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,
   `project`; an action it never names keeps its default. `tools`, #261,

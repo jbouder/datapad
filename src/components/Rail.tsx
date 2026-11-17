@@ -1,76 +1,78 @@
-import { ArchiveIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { agenda, focusBuckets, openCounts } from '#shared/select';
+import {
+  owedBy,
+  type Room,
+  railRooms,
+  roomKey,
+  unfiledCount,
+} from '#shared/rooms';
+import { openCounts } from '#shared/select';
+import { settingsOf } from '#shared/types';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
-import { useToday } from '@/hooks/useNow';
-import { type NavItem, sectionOf, useNav } from '@/lib/nav';
+import { PLACES, placeOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
-const ANYONE = { kind: 'anyone' } as const;
-
-/** A section's or a tool's row: the same look, `aria-current` on its page. */
+/** A place's or a room's row: the same look, `aria-current` on its page. */
 const ROW =
   'press flex h-9 items-center gap-2.5 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2';
 const CURRENT =
   'bg-sidebar-accent font-semibold text-sidebar-accent-foreground';
+const HEADING = 'px-2 pb-1 text-xs font-medium text-muted-foreground';
+
+/** Whether `route` is `room`'s page. */
+function inRoom(route: Route, room: Room): boolean {
+  if (room.kind === 'project') {
+    return route.name === 'project' && route.id === room.id;
+  }
+  if (room.kind === 'person') {
+    return route.name === 'person' && route.id === room.id;
+  }
+  return false;
+}
 
 /**
- * The desktop rail (≥ 820px): the space switcher, the sections with live
- * counts (those Settings → Navigation shows, in its order; People and
- * Orgs among them, Settings sections linked here too), the Tools
- * (#261: Notepad, Whiteboard, Weekly digest, those shown, in their order;
- * the heading goes when none is), the active projects (most recently
- * updated first) with their open counts, Archived when there is any (each
- * extra can be switched off), and the sync status at the foot. Hidden
- * below 820px; the tab bar (and the top bar's copy of the status) takes
- * over.
+ * The desktop rail (≥ 820px, #329): the space switcher; Today, Unfiled
+ * (with its count) and All; then Rooms: the pinned rooms in your order,
+ * or before anything is pinned the active projects, most recently changed
+ * first, with their open counts; then the people who owe you something,
+ * with counts, until they are pinned; and the sync status at the foot.
+ * Hidden below 820px, where the tab bar takes over.
  */
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
-  const today = useToday();
-  const section = sectionOf(route);
-  const nav = useNav();
+  const place = placeOf(route);
 
-  const counts = useMemo(() => {
+  const rail = useMemo(() => {
     if (!state) return null;
-    const b = focusBuckets(state.tasks, state.projects, today, null, ANYONE);
-    const open = openCounts(state.tasks);
+    const settings = settingsOf(state);
     return {
-      focus:
-        b.blocked.length +
-        b.overdue.length +
-        b.today.length +
-        b.upcoming.length +
-        b.later.length +
-        b.noDate.length,
-      tasks: [...open.values()].reduce((a, n) => a + n, 0),
-      meetings: agenda(state.meetings, state.projects, today).filter(
-        (a) => a.kind === 'meeting',
-      ).length,
-      open,
+      unfiled: unfiledCount(state.notes),
+      rooms: railRooms(settings, state),
+      owed: owedBy(state, settings),
+      open: openCounts(state.tasks),
     };
-  }, [state, today]);
+  }, [state]);
 
-  const projects = useMemo(
-    () =>
-      state
-        ? Object.values(state.projects)
-            .filter((p) => !p.archived && p.status !== 'done')
-            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        : [],
-    [state],
-  );
-  const archived = state
-    ? Object.values(state.projects).filter((p) => p.archived).length
-    : 0;
-
-  const countFor = (name: string): number | undefined =>
-    name === 'focus' || name === 'tasks' || name === 'meetings'
-      ? counts?.[name]
-      : undefined;
+  const roomLabel = (room: Room): string => {
+    if (!state) return '';
+    if (room.kind === 'project') return state.projects[room.id]?.name ?? '';
+    if (room.kind === 'person') return state.people[room.id]?.name ?? '';
+    const project = state.projects[room.project]?.name ?? '';
+    const person = state.people[room.person]?.name ?? '';
+    return `${project} · ${person}`;
+  };
+  const roomRoute = (room: Room): Route =>
+    room.kind === 'person'
+      ? { name: 'person', id: room.id }
+      : {
+          name: 'project',
+          id: room.kind === 'project' ? room.id : room.project,
+        };
+  const roomCount = (room: Room): number =>
+    room.kind === 'project' ? (rail?.open.get(room.id) ?? 0) : 0;
 
   return (
     <aside
@@ -84,11 +86,11 @@ export function Rail({ route }: { route: Route }) {
         className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-4"
       >
         <ul className="flex flex-col">
-          {nav.items.map(({ route: to, label, icon: Icon }) => {
-            const count = countFor(to.name);
-            const current = section === to.name;
+          {PLACES.map(({ name, route: to, label, icon: Icon }) => {
+            const current = place === name;
+            const count = name === 'unfiled' ? (rail?.unfiled ?? 0) : 0;
             return (
-              <li key={to.name}>
+              <li key={name}>
                 <a
                   {...linkProps(to)}
                   aria-current={current ? 'page' : undefined}
@@ -96,12 +98,10 @@ export function Rail({ route }: { route: Route }) {
                 >
                   <Icon weight={current ? 'fill' : 'regular'} aria-hidden />
                   <span className="flex-1">{label}</span>
-                  {count !== undefined && count > 0 && (
+                  {count > 0 && (
                     <span className="count text-xs text-muted-foreground tabular-nums">
                       {count}
-                      <span className="sr-only">
-                        {to.name === 'meetings' ? ' this week' : ' open'}
-                      </span>
+                      <span className="sr-only"> unfiled</span>
                     </span>
                   )}
                 </a>
@@ -110,50 +110,25 @@ export function Rail({ route }: { route: Route }) {
           })}
         </ul>
 
-        {nav.tools.length > 0 && (
-          <section aria-labelledby="rail-tools">
-            <h2
-              id="rail-tools"
-              className="px-2 pb-1 text-xs font-medium text-muted-foreground"
-            >
-              Tools
+        {rail && rail.rooms.rooms.length > 0 && (
+          <section aria-labelledby="rail-rooms">
+            <h2 id="rail-rooms" className={HEADING}>
+              Rooms
             </h2>
-            <ul className="flex flex-col">
-              {nav.tools.map((tool) => (
-                <ToolRow
-                  key={tool.name}
-                  tool={tool}
-                  current={section === tool.route.name}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {nav.extras.activeProjects && projects.length > 0 && (
-          <section aria-labelledby="rail-projects">
-            <h2
-              id="rail-projects"
-              className="px-2 pb-1 text-xs font-medium text-muted-foreground"
-            >
-              Active projects
-            </h2>
-            <ul className="flex flex-col">
-              {projects.map((p) => {
-                const current = route.name === 'project' && route.id === p.id;
-                const open = counts?.open.get(p.id) ?? 0;
+            <ul className="flex flex-col" data-pinned={rail.rooms.pinned}>
+              {rail.rooms.rooms.map((room) => {
+                const current = inRoom(route, room);
+                const open = roomCount(room);
                 return (
-                  <li key={p.id}>
+                  <li key={`${room.kind}:${roomKey(room)}`}>
                     <a
-                      {...linkProps({ name: 'project', id: p.id })}
+                      {...linkProps(roomRoute(room))}
                       aria-current={current ? 'page' : undefined}
-                      className={cn(
-                        'press flex h-8 items-center gap-2 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-                        current &&
-                          'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-                      )}
+                      className={cn(ROW, 'h-8', current && CURRENT)}
                     >
-                      <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {roomLabel(room)}
+                      </span>
                       {open > 0 && (
                         <span className="count text-xs text-muted-foreground tabular-nums">
                           {open}
@@ -168,20 +143,35 @@ export function Rail({ route }: { route: Route }) {
           </section>
         )}
 
-        {nav.extras.archived && archived > 0 && (
-          <a
-            {...linkProps({ name: 'archive' })}
-            aria-current={route.name === 'archive' ? 'page' : undefined}
-            className={cn(
-              'press flex h-8 items-center gap-2.5 px-2 text-sm text-muted-foreground outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
-              route.name === 'archive' &&
-                'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
-            )}
-          >
-            <ArchiveIcon aria-hidden />
-            <span className="flex-1">Archived</span>
-            <span className="count text-xs tabular-nums">{archived}</span>
-          </a>
+        {rail && rail.owed.length > 0 && (
+          <section aria-labelledby="rail-owed">
+            <h2 id="rail-owed" className={HEADING}>
+              Waiting on
+            </h2>
+            <ul className="flex flex-col">
+              {rail.owed.map(({ person, count }) => {
+                const current =
+                  route.name === 'person' && route.id === person.id;
+                return (
+                  <li key={person.id}>
+                    <a
+                      {...linkProps({ name: 'person', id: person.id })}
+                      aria-current={current ? 'page' : undefined}
+                      className={cn(ROW, 'h-8', current && CURRENT)}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {person.name}
+                      </span>
+                      <span className="count text-xs text-muted-foreground tabular-nums">
+                        {count}
+                        <span className="sr-only"> waiting</span>
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
       </nav>
 
@@ -189,21 +179,5 @@ export function Rail({ route }: { route: Route }) {
         <SyncStatus />
       </footer>
     </aside>
-  );
-}
-
-function ToolRow({ tool, current }: { tool: NavItem; current: boolean }) {
-  const { route: to, label, icon: Icon } = tool;
-  return (
-    <li>
-      <a
-        {...linkProps(to)}
-        aria-current={current ? 'page' : undefined}
-        className={cn(ROW, current && CURRENT)}
-      >
-        <Icon weight={current ? 'fill' : 'regular'} aria-hidden />
-        <span className="flex-1">{label}</span>
-      </a>
-    </li>
   );
 }

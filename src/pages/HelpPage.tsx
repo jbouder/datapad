@@ -93,7 +93,7 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="views">
         <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
-          <Term name="Focus" to={{ name: 'focus' }}>
+          <Term name="Today" to={{ name: 'today' }}>
             A briefing on what needs you. The week so far (closed, added,
             overdue); Since yesterday, what happened on the last working day
             (Friday through Sunday on a Monday): tasks closed and added,
@@ -108,42 +108,28 @@ export function HelpPage({ section }: { section?: string }) {
             short paragraph about yesterday and today. <Key>v</Key> switches Day
             and Week.
           </Term>
-          <Term name="Projects" to={{ name: 'projects' }}>
-            Every active project as cards, a table or a timeline. A project page
-            has its tasks, milestones, meetings, notes and activity.
+          <Term name="Unfiled" to={{ name: 'unfiled' }}>
+            The notes with no home yet: General, on no meeting or task, and
+            mentioning nobody. It replaces the Notepad.
           </Term>
-          <Term name="Tasks" to={{ name: 'tasks' }}>
-            Every task, as a list, table, board or timeline, grouped and
-            filtered as you like. Add task opens the new-task panel. Each task
-            opens a page of its own with its details and notes; elsewhere a task
-            opens in its panel. Select several to close, move or assign them at
-            once.
+          <Term name="All" to={{ name: 'all' }}>
+            Every kind of item: Projects (archived ones too), Tasks, Notes and
+            Meetings, each as a list, table, board, calendar or timeline,
+            grouped and filtered as you like, and the space’s whiteboard. A task
+            opens in its panel, from any page. Select several tasks to close,
+            move or assign them at once.
           </Term>
-          <Term name="Meetings" to={{ name: 'meetings' }}>
-            Every meeting as a list, a month calendar or a timeline. Each
-            meeting has a page of its own with its topics, action items and
+          <Term name="Rooms">
+            A project’s page, or a person’s. A project’s has its tasks,
+            milestones, meetings, notes and activity; a person’s has their
+            projects, open tasks and mentions, for a quick check before a 1:1.{' '}
+            <strong>Pin</strong> in a room’s header puts it in the rail;
+            Settings → Rooms sets their order. Before anything is pinned, the
+            rail lists the active projects.
+          </Term>
+          <Term name="Meetings">
+            Each meeting has a page of its own with its topics, action items and
             notes.
-          </Term>
-          <Term name="Notes" to={{ name: 'notes' }}>
-            Every note, as a list (one row per note, opening in place) or a
-            grid. Pinned notes stay on top of the grid; the Notepad’s note comes
-            first and opens the Notepad. <strong>Add note</strong> opens a new
-            note in the project you have filtered to, or General.
-          </Term>
-          <Term name="Lists" to={{ name: 'lists' }}>
-            Checklists of short items, for a project or General, as cards or a
-            table. A list’s page is where items are added, ticked, edited and
-            reordered (drag, <Key>Alt</Key>+<Key>↑</Key> / <Key>↓</Key> or the
-            item’s menu); done items fold under Done.
-          </Term>
-          <Term name="Notepad" to={{ name: 'notepad' }}>
-            A tool: one running note for the space, saved as you type. It is a
-            General note too, so Notes lists it.
-          </Term>
-          <Term name="Digest" to={{ name: 'digest' }}>
-            Your own status report: what happened in each project over a week,
-            from tasks, notes, meetings and the activity logs. Copy it as
-            Markdown, keep it as a note, or Summarize it.
           </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
@@ -151,8 +137,7 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
           <Term name="People">
             In Settings → People: everyone you assign, add to projects and
-            mention, each with their projects, open tasks and mentions, for a
-            quick check before a 1:1.
+            mention. Each opens their room.
           </Term>
           <Term name="Orgs">
             In Settings → Orgs: the clients, teams, vendors and partners your
@@ -181,16 +166,11 @@ export function HelpPage({ section }: { section?: string }) {
           Tasks opens as a list on a phone, where the table would not fit.
         </p>
         <p className="text-sm">
-          Settings → Navigation chooses which sections the rail and the tab bar
-          show, and in what order, for the open space; the Tools under them
-          (Notepad, Whiteboard and Weekly digest) the same way, each off the
-          phone’s tab bar by default and in the account menu then; and whether
-          the rail lists Active projects and Archived. A hidden section or tool
-          still opens from its address, <Key>⌘K</Key> and the links above. The
-          address <code>/</code> is always Focus. Its Quick add group chooses
-          what the top bar’s + offers (Add task and Write a note by default; Add
-          meeting and Add project too), in what order; with one shown, + does it
-          directly.
+          The rail has Today, Unfiled and All, then Rooms: the pinned rooms, or
+          the active projects before anything is pinned, and the people who owe
+          you something. A phone has Today, Unfiled and All along the bottom;
+          rooms open from All and from links. The top bar’s + offers Add task,
+          Write a note, Add meeting and Add project.
         </p>
       </Section>
 
@@ -333,7 +313,7 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="whiteboard">
         <p className="text-sm">
           Every project has a whiteboard (<strong>Whiteboard</strong> on its
-          page), and the space has one of its own under Tools in the rail;{' '}
+          page), and the space has one of its own, linked from All;{' '}
           <Key>⌘K</Key> → Open whiteboard goes to the one you are on. It is a
           freeform canvas for sticky notes, text, rectangles, arrows and
           freehand ink, kept with the rest of your data and live on every
@@ -442,28 +422,26 @@ export function HelpPage({ section }: { section?: string }) {
       <Section id="account">
         <p className="text-sm">
           The account button at the top right opens the menu: your spaces,
-          Motion, Theme, on a phone the tools its tab bar leaves out, Settings
-          and Sign out. Settings has Appearance (theme, 12-hour or 24-hour time,
-          motion), Pages (what each page remembers, with Reset), Navigation (the
-          sections and tools the rail and tab bar show, their order, and which
-          the phone’s tab bar has), Templates (the tasks a new project can start
-          with, and the text a new note can; Save as template on a project or a
-          note makes one), Summaries, Spaces, People (each person with their
-          projects, tasks and mentions), Orgs (each org with its projects,
-          contacts, meetings and notes), Data, Connected apps (the MCP apps,
-          such as Claude, you let in, with Revoke) and Account. Signing out ends
-          your Cloudflare Access session on this browser; sign in again to come
-          back. When your device asks for reduced motion, Datapad never
-          animates.
+          Motion, Theme, Help, Settings and Sign out. Settings has Appearance
+          (theme, 12-hour or 24-hour time, motion), Pages (what each page
+          remembers, with Reset), Rooms (the pinned rooms’ order in the rail,
+          with Unpin), Templates (the tasks a new project can start with, and
+          the text a new note can; Save as template on a project or a note makes
+          one), Summaries, Spaces, People (each person with their projects,
+          tasks and mentions), Orgs (each org with its projects, contacts,
+          meetings and notes), Data, Connected apps (the MCP apps, such as
+          Claude, you let in, with Revoke) and Account. Signing out ends your
+          Cloudflare Access session on this browser; sign in again to come back.
+          When your device asks for reduced motion, Datapad never animates.
         </p>
       </Section>
 
       <p>
         <a
-          {...linkProps({ name: 'focus' })}
+          {...linkProps({ name: 'today' })}
           className="underline underline-offset-4"
         >
-          Back to Focus
+          Back to Today
         </a>
       </p>
     </article>

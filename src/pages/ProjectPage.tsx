@@ -32,6 +32,7 @@ import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { MeetingList } from '@/components/meetings/MeetingList';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
+import { PinButton } from '@/components/PinButton';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { ActivityList } from '@/components/projects/ActivityList';
 import { HealthPicker } from '@/components/projects/Health';
@@ -155,8 +156,8 @@ export function ProjectPage({ id }: { id: string }) {
     return (
       <NotFoundPage
         what="project"
-        back={{ name: 'projects' }}
-        backLabel="Back to Projects"
+        back={{ name: 'all', kind: 'project' }}
+        backLabel="Go to All"
       />
     );
   }
@@ -211,7 +212,7 @@ export function ProjectPage({ id }: { id: string }) {
       show(error instanceof Error ? error.message : 'Could not move it');
       return false;
     }
-    navigate({ name: 'projects' });
+    navigate({ name: 'all', kind: 'project' });
     show(`Moved ${project.name} to ${to.name}`, undefined, {
       label: 'Open',
       run: () => openInSpace(to.id, { name: 'project', id }),
@@ -431,6 +432,7 @@ export function ProjectPage({ id }: { id: string }) {
           >
             {project.name}
           </h1>
+          <PinButton room={{ kind: 'project', id: project.id }} />
           <DetailActions
             onEdit={() => openProjectForm(project.id)}
             menu={[
