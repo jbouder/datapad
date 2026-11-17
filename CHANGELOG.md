@@ -46,6 +46,14 @@ changes the format says so here under **Export format**.
   can be added to People. Enter saves with Undo, Esc clears, Tab or the
   kind chip changes the kind, and Shift+Enter or the expand button opens
   the full note composer. `n` goes to it.
+- **Unfiled** (#333) replaces the Notepad: one running pad of the notes
+  with no home, newest first. Write at the top and ⌘Enter, or Add block,
+  makes a note. Each block shows when it was written and has **File
+  to…** (a project picker; the note moves, same id and time, with
+  Undo), **Make task** and **To decide** (a task titled from its first
+  line, pointing back at it; the block stays), Edit in place and Delete
+  with Undo. Checklists tick in place, so old lists work here. Adding a
+  mention files a block too.
 - **The v2 shell** (#329): the rail has Today, Unfiled (with its count)
   and All, then Rooms: the rooms you pin, or the active projects until
   you pin one, then the people who owe you something. A phone's tab bar
