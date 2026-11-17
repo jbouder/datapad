@@ -7,6 +7,7 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
 const ROUTES = [
   '/',
   '/unfiled',
+  '/rooms',
   '/all',
   '/all?kind=project',
   '/all?kind=task',

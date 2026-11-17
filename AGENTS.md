@@ -89,7 +89,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
   `/settings/…`), `lib/nav.ts` (`PLACES`: Today, Unfiled and All for the
-  rail, the tab bar and ⌘K), `lib/capture.ts` (focusing the capture
+  rail, the tab bar and ⌘K; `ROOMS_TAB`, the phone's fourth tab),
+  `hooks/useRooms.ts` + `components/RoomLists.tsx` (the rail's rooms
+  and Waiting on, shared with the phone's Rooms page, `/rooms`), `lib/capture.ts` (focusing the capture
   line), `lib/leave.ts` (holding a link, Back or a panel close while an
   inline note asks "Save this note?"),
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers;

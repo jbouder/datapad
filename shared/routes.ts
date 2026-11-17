@@ -7,7 +7,8 @@ import { GENERAL_BOARD, type RoomTab } from './types';
  * React halves.
  *
  * v2 (#329) has three places and the rooms: Today (`/`), Unfiled
- * (`/unfiled`), All (`/all`, `?kind=` picks kinds), a project's room
+ * (`/unfiled`), All (`/all`, `?kind=` picks kinds), the rooms list for
+ * the phone (`/rooms`), a project's room
  * (`/projects/:id`), a person's room (`/people/:id`) and a meeting
  * (`/meetings/:id`). Every address from before lands on its new home
  * (`landRoute`).
@@ -35,6 +36,11 @@ export type Route =
    * and sort are the rest of the query (`shared/all.ts`).
    */
   | { name: 'all'; kinds?: readonly AllKind[] }
+  /**
+   * The rail's rooms as a page (`/rooms`): the phone's Rooms tab, since
+   * the rail is desktop only. Harmless on desktop.
+   */
+  | { name: 'rooms' }
   /**
    * A project's room (#334): the Stream tab, or with `tab` the Plan tab
    * (`/projects/:id/plan`). Its Whiteboard tab is the project's
@@ -240,6 +246,7 @@ export function landRoute(
   if (DECISIONS.test(clean)) return [{ name: 'today' }, ''];
   if (clean === '/notepad') return [{ name: 'unfiled' }, ''];
   if (clean === '/unfiled') return [{ name: 'unfiled' }, search];
+  if (clean === '/rooms') return [{ name: 'rooms' }, search];
   if (clean === '/all') {
     const route = allFrom(params);
     if (params.get('archived') === '1') {
@@ -458,18 +465,24 @@ export function roomTabRoute(id: string, tab: RoomTab): Route {
     : { name: 'project', id };
 }
 
-/** The rail's and tab bar's places. */
-export type Place = 'today' | 'unfiled' | 'all';
+/**
+ * The rail's and tab bar's places. Rooms is the phone's fourth tab; the
+ * rail lists the rooms themselves instead.
+ */
+export type Place = 'today' | 'unfiled' | 'rooms' | 'all';
 
 /**
- * Which of the three places a route is in, for `aria-current`: the
- * space's whiteboard is reached from All. A room, a meeting, Settings and
- * Help are in none.
+ * Which place a route is in, for `aria-current`: the space's whiteboard
+ * is reached from All; the Rooms page and every project or person room
+ * (a pair is a project room) are in Rooms. A meeting, Settings and Help
+ * are in none.
  */
 export function placeOf(route: Route): Place | null {
   if (route.name === 'today' || route.name === 'unfiled') return route.name;
   if (route.name === 'all') return 'all';
   if (route.name === 'whiteboard' && !route.project) return 'all';
+  if (route.name === 'rooms' || route.name === 'person') return 'rooms';
+  if (projectRoomOf(route)) return 'rooms';
   return null;
 }
 
@@ -490,6 +503,7 @@ export function settingsRoute(section: SettingsSection): Route {
 const TITLES: Partial<Record<RouteName, string>> = {
   today: 'Today',
   unfiled: 'Unfiled',
+  rooms: 'Rooms',
   all: 'All',
   whiteboard: 'Whiteboard',
   people: 'People',

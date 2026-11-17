@@ -23,6 +23,7 @@ const ROUTES = [
   // Today's heading is the day: "Tuesday 17 November".
   { path: '/', heading: /^\w+day \d{1,2} \w+/ },
   { path: '/unfiled', heading: 'Unfiled' },
+  { path: '/rooms', heading: 'Rooms' },
   { path: '/all', heading: 'All' },
   { path: '/all?kind=task', heading: 'All' },
   { path: '/people/nope', heading: 'Not found' },
@@ -53,6 +54,7 @@ const WITH_DATA = [
   '/all?kind=meeting&status=all',
   '/all?kind=note&note=n-1',
   '/unfiled',
+  '/rooms',
   '/all',
   '/meetings/e-1',
   '/people/u-han',

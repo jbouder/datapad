@@ -19,6 +19,12 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **Rooms on phones**: the tab bar has a fourth tab, Rooms, between
+  Unfiled and All. It lists what the desktop rail does: the pinned rooms
+  (or the active projects before anything is pinned) with their open
+  counts, then the people you are waiting on. The tab stays lit inside a
+  room. With nothing to list it points to All.
+
 - **Summaries in rooms and meeting mode** (#339): Summarize in a project's
   or a person's room writes a sentence or two on where things stand, under
   the state line, from what the room shows (the state line, the lanes,

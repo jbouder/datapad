@@ -113,7 +113,7 @@ export function HelpPage({ section }: { section?: string }) {
             your 1:1 prep: what you owe them, what they owe you, and what to
             discuss. <strong>Pin</strong> puts a room in the rail; Settings →
             Rooms orders them. Before anything is pinned, the rail lists the
-            active projects.
+            active projects. On a phone the Rooms tab lists the same.
           </Term>
           <Term name="All" to={{ name: 'all' }}>
             Every task, note, meeting, project and person in one list. Pick
@@ -144,11 +144,11 @@ export function HelpPage({ section }: { section?: string }) {
         <p className="text-sm">
           The rail has Today, Unfiled and All, then Rooms: the pinned rooms, or
           the active projects before anything is pinned, and the people who owe
-          you something. A phone has Today, Unfiled and All along the bottom;
-          rooms open from All and from links. Add meeting is beside Today’s
-          timeline and Schedule meeting in each room; New project is beside
-          All’s project rooms. People and Orgs are in Settings, and each person
-          opens their room.
+          you something. A phone has Today, Unfiled, Rooms and All along the
+          bottom; Rooms lists what the rail does, and stays lit inside a room.
+          Add meeting is beside Today’s timeline and Schedule meeting in each
+          room; New project is beside All’s project rooms. People and Orgs are
+          in Settings, and each person opens their room.
         </p>
       </Section>
 

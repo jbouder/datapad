@@ -37,6 +37,7 @@ import {
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonRoom } from '@/pages/PersonRoom';
 import { ProjectRoom } from '@/pages/ProjectRoom';
+import { RoomsPage } from '@/pages/RoomsPage';
 import { TodayPage } from '@/pages/TodayPage';
 import { UnfiledPage } from '@/pages/UnfiledPage';
 import { useEmail } from '@/providers/DatapadProvider';
@@ -287,6 +288,8 @@ function Page({ route }: { route: Route }) {
       return <TodayPage />;
     case 'unfiled':
       return <UnfiledPage />;
+    case 'rooms':
+      return <RoomsPage />;
     case 'all':
       return <AllPage />;
     case 'help':

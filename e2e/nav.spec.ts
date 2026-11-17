@@ -11,7 +11,7 @@ import {
 
 /**
  * The v2 shell (#329): the rail (Today, Unfiled, All, then Rooms and the
- * people who owe you something), the phone's three tabs, and every old
+ * people who owe you something), the phone's four tabs, and every old
  * address landing on its new home.
  */
 
@@ -86,14 +86,19 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
   await expectAccessible(page);
 });
 
-test('a phone has three tabs, Today, Unfiled and All, each a 44px target', async ({
+test('a phone has four tabs, Today, Unfiled, Rooms and All, each a 44px target', async ({
   page,
 }) => {
   test.skip(!isMobile(page), 'The tab bar is for phones.');
   await page.goto('/');
   const tabs = page.getByRole('navigation', { name: 'Sections' }).last();
   await expect(tabs).toBeVisible();
-  await expect(tabs.getByRole('link')).toHaveText(['Today', 'Unfiled', 'All']);
+  await expect(tabs.getByRole('link')).toHaveText([
+    'Today',
+    'Unfiled',
+    'Rooms',
+    'All',
+  ]);
   await expect(tabs.getByRole('link', { name: 'Today' })).toHaveAttribute(
     'aria-current',
     'page',
