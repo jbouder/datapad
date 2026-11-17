@@ -157,8 +157,9 @@ describe('redirects from every old address (#329)', () => {
   it('sends Focus, the digest and Decisions to Today', () => {
     expect(landsOn('/focus')).toBe('/');
     expect(landsOn('/focus?view=week')).toBe('/?view=week');
-    expect(landsOn('/digest')).toBe('/');
-    expect(landsOn('/digest?week=2026-11-09')).toBe('/');
+    // The digest is Today's week zoom (#332).
+    expect(landsOn('/digest')).toBe('/?view=week');
+    expect(landsOn('/digest?to=2026-11-09')).toBe('/?view=week');
     expect(landsOn('/decisions')).toBe('/');
     expect(landsOn('/decisions/d-1?decision=d-1')).toBe('/');
   });

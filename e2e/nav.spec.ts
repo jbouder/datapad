@@ -120,11 +120,12 @@ test('a phone has three tabs, Today, Unfiled and All, each a 44px target', async
 
 test('old addresses land on their new homes', async ({ page, request }) => {
   await request.post('/api/import', { data: SEED });
-  // Focus and the digest are Today.
-  for (const path of ['/focus', '/digest']) {
-    await openLive(page, path);
-    await expect(page).toHaveURL(/localhost:\d+\/$/);
-  }
+  // Focus is Today; the digest is its week zoom.
+  await openLive(page, '/focus');
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
+  await openLive(page, '/digest');
+  await expect(page).toHaveURL(/localhost:\d+\/\?view=week$/);
+  await expect(page.getByRole('region', { name: 'Digest' })).toBeVisible();
   // The Notepad is Unfiled.
   await page.goto('/notepad');
   await expect(page).toHaveURL(/\/unfiled$/);
