@@ -34,7 +34,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends, and Focus's Brief me context and prompt), `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`
-  (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
+  (the ⌘K index and ranking), `all.ts` (All's address, its filters
+  per kind over each kind's own selector, its rows, each kind's layouts
+  and the saved views' addresses), `pages.ts` (saved page preferences, pure:
   what each page remembers, the address over what is saved, what a change
   saves; `PAGES` is also where Help's Layouts table comes from),
   `rooms.ts` (v2's rail, #329: pinned rooms in `settings.pinned`, the
@@ -93,8 +95,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts,
-  the topics (`MeetingTopics` on the meeting's page and in its panel,
-  `PendingTopics` for a new meeting's), and the meeting note composer;
+  the topics (`MeetingTopics` in meeting mode and in the meeting's panel,
+  `PendingTopics` for a new meeting's), the meeting note composer, and
+  `MeetingLoops`, meeting mode's open loops (#336);
   `today/` is Today's parts (`LoopLanes` and `LoopRow`, the lanes the
   rooms reuse; `DayTimeline`);
   `board/` is the whiteboard canvas (`Board`, composition and render;
@@ -106,16 +109,18 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
   half: tokens resolved, the PNG on a canvas);
   `notes/LinkedNoteList` is the Notes section a task's page and panel and
-  a meeting's page and panel share; `notes/NoteRow` is the compact note
+  a meeting's panel share; `notes/NoteRow` is the compact note
   row it and a room's stream use, `notes/NoteCard` the card Notes uses,
   and `notes/noteParts` what both share: the actions, editing in place,
-  Make task, `?note=`), `pages/*` (`MeetingPage` is
-  `/meetings/:id`, `ProjectRoom` `/projects/:id` (its Plan tab
-  `/projects/:id/plan`, its Whiteboard tab `/projects/:id/whiteboard`,
-  narrowed to a person with `?person=`) and `PersonPage` `/people/:id`;
-  the room's frame, which the person's room reuses, is
-  `components/rooms/`, and its stream's selectors `shared/stream.ts`; `AllPage` is `/all`, showing the classic list pages by
-  `?kind=` until #337, and `UnfiledPage` `/unfiled`; a task opens in its
+  Make task, `?note=`), `pages/*` (`MeetingMode` is
+  `/meetings/:id`, full screen without the rail (#336), `ProjectRoom`
+  `/projects/:id` (its Plan tab `/projects/:id/plan`, its Whiteboard tab
+  `/projects/:id/whiteboard`, narrowed to a person with `?person=`; the
+  room's frame, which the person's room reuses, is `components/rooms/`,
+  and its stream's selectors `shared/stream.ts`) and `PersonPage`
+  `/people/:id`; `AllPage` is `/all`, every kind in one list with
+  `shared/all.ts` reading its address, the layouts for one kind, the
+  bulk bar, and `components/all/SavedViews` its saved views, and `UnfiledPage` `/unfiled`; a task opens in its
   panel everywhere, and `/tasks/:id` lands on its room with the panel
   open).
 - `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.

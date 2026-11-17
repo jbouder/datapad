@@ -152,7 +152,7 @@ export function Palette({
         id: `go-${n.kind}`,
         label: `Go to ${n.label}`,
         icon: n.icon,
-        run: go({ name: 'all', kind: n.kind }),
+        run: go({ name: 'all', kinds: [n.kind] }),
       })),
       {
         id: 'go-people',
@@ -244,13 +244,13 @@ export function Palette({
         return choose(() => openTask(id));
       case 'note':
         return choose(() =>
-          navigate({ name: 'all', kind: 'note' }, { query: `note=${id}` }),
+          navigate({ name: 'all', kinds: ['note'] }, { query: `note=${id}` }),
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));
       case 'list':
         // Lists became notes (#328): All's notes.
-        return choose(() => navigate({ name: 'all', kind: 'note' }));
+        return choose(() => navigate({ name: 'all', kinds: ['note'] }));
       case 'org':
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':

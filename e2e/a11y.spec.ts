@@ -24,11 +24,7 @@ const ROUTES = [
   { path: '/', heading: /^\w+day \d{1,2} \w+/ },
   { path: '/unfiled', heading: 'Unfiled' },
   { path: '/all', heading: 'All' },
-  { path: '/all?kind=project', heading: 'Projects' },
-  { path: '/all?kind=project&archived=1', heading: 'Archived' },
-  { path: '/all?kind=task', heading: 'Tasks' },
-  { path: '/all?kind=note', heading: 'Notes' },
-  { path: '/all?kind=meeting', heading: 'Meetings' },
+  { path: '/all?kind=task', heading: 'All' },
   { path: '/people/nope', heading: 'Not found' },
   { path: '/settings', heading: 'Settings' },
   { path: '/settings/pages', heading: 'Settings' },
@@ -50,12 +46,9 @@ const ROUTES = [
 
 /** Every page and layout with data in it (`e2e/seed.ts`). */
 const WITH_DATA = [
-  ...['cards', 'table', 'timeline'].map((v) => `/all?kind=project&view=${v}`),
-  '/all?kind=project&archived=1',
-  ...['list', 'table', 'board', 'timeline'].map(
-    (v) => `/all?kind=task&view=${v}`,
-  ),
-  ...['list', 'grid'].map((v) => `/all?kind=note&view=${v}`),
+  '/all?kind=project&status=all',
+  '/all?kind=task',
+  '/all?kind=meeting&status=all',
   '/all?kind=note&note=n-1',
   '/unfiled',
   '/all',
@@ -134,10 +127,12 @@ for (const theme of CHECKED) {
     });
 
     test('with the project form open', async ({ page }) => {
-      await page.goto('/projects');
+      await page.goto('/all');
       await page
-        .getByRole('button', { name: 'Add project', exact: true })
+        .getByRole('banner')
+        .getByRole('button', { name: 'Add', exact: true })
         .click();
+      await page.getByRole('menuitem', { name: 'Add project' }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
       await expectAccessible(page);
     });
@@ -146,26 +141,6 @@ for (const theme of CHECKED) {
       await request.post('/api/import', { data: SEED });
       await page.goto('/projects/p-echo');
       await expect(page.locator('[data-loop]').first()).toBeVisible();
-      await expectAccessible(page);
-    });
-
-    test('the Tasks view with data and a selection', async ({
-      page,
-      request,
-    }) => {
-      await request.post('/api/import', { data: SEED });
-      await page.goto('/tasks');
-      await expect(
-        page.locator('[data-task-title]').filter({ visible: true }).first(),
-      ).toBeVisible();
-      if ((page.viewportSize()?.width ?? 0) >= 820) {
-        await page
-          .getByRole('checkbox', { name: 'Select “Renew the docking permit”' })
-          .click();
-        await expect(
-          page.getByRole('toolbar', { name: 'Selected tasks' }),
-        ).toBeVisible();
-      }
       await expectAccessible(page);
     });
 
@@ -184,34 +159,14 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
-    test('the Meetings view with data, Past open', async ({
-      page,
-      request,
-    }) => {
-      await request.post('/api/import', { data: SEED });
-      await page.goto('/meetings');
-      await page.getByRole('button', { name: /^Past/ }).click();
-      await expect(page.locator('[data-meeting-id]').first()).toBeVisible();
-      await expectAccessible(page);
-    });
-
-    for (const view of ['calendar', 'timeline']) {
-      test(`the Meetings ${view}`, async ({ page, request }) => {
-        await request.post('/api/import', { data: SEED });
-        await page.goto(`/meetings?view=${view}`);
-        await expect(
-          page.getByRole('radio', {
-            name: view === 'calendar' ? 'Calendar' : 'Timeline',
-          }),
-        ).toBeChecked();
-        await expectAccessible(page);
-      });
-    }
-
     test('with the meeting form open', async ({ page, request }) => {
       await request.post('/api/import', { data: SEED });
-      await page.goto('/meetings');
-      await page.getByRole('button', { name: 'Add meeting' }).click();
+      await page.goto('/all?kind=meeting');
+      await page
+        .getByRole('banner')
+        .getByRole('button', { name: 'Add', exact: true })
+        .click();
+      await page.getByRole('menuitem', { name: 'Add meeting' }).click();
       await expect(
         page.getByRole('dialog', { name: 'New meeting' }),
       ).toBeVisible();
@@ -240,16 +195,16 @@ for (const theme of CHECKED) {
   });
 }
 
-test('forced colours keep the selected layout and current section visible', async ({
+test('forced colours keep the pressed kind and current section visible', async ({
   page,
 }) => {
   await page.emulateMedia({ forcedColors: 'active' });
-  await page.goto('/tasks');
+  await page.goto('/all?kind=task');
   const outline = (el: Element) => getComputedStyle(el).outlineStyle;
-  const checked = page
-    .getByRole('group', { name: /^Layout/ })
-    .locator('label:has(input:checked)');
-  expect(await checked.evaluate(outline)).toBe('solid');
+  const kind = page
+    .getByRole('main')
+    .getByRole('button', { name: 'Tasks', exact: true });
+  expect(await kind.evaluate(outline)).toBe('solid');
   const current = page
     .locator('[aria-current="page"]')
     .filter({ visible: true })

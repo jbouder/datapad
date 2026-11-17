@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { normalViewQuery } from '#shared/all';
 import {
   isRoomPage,
   owedBy,
@@ -8,6 +9,7 @@ import {
   roomKey,
   roomLink,
   unfiledCount,
+  viewOf,
 } from '#shared/rooms';
 import { openCounts } from '#shared/select';
 import { settingsOf } from '#shared/types';
@@ -36,7 +38,8 @@ const HEADING = 'px-2 pb-1 text-xs font-medium text-muted-foreground';
 export function Rail({ route }: { route: Route }) {
   const { state } = useDatapad();
   const place = placeOf(route);
-  const narrowedTo = useQuery().get(PERSON_PARAM);
+  const query = useQuery();
+  const narrowedTo = query.get(PERSON_PARAM);
 
   const rail = useMemo(() => {
     if (!state) return null;
@@ -51,12 +54,22 @@ export function Rail({ route }: { route: Route }) {
 
   const roomLabel = (room: Room): string => {
     if (!state) return '';
+    if (room.kind === 'view') return viewOf(room, state)?.name ?? '';
     if (room.kind === 'project') return state.projects[room.id]?.name ?? '';
     if (room.kind === 'person') return state.people[room.id]?.name ?? '';
     const project = state.projects[room.project]?.name ?? '';
     const person = state.people[room.person]?.name ?? '';
     return `${project} · ${person}`;
   };
+  // The saved view All shows now, if any: its address is this one.
+  const here = query.toString();
+  const hereView = useMemo(() => {
+    if (!state || route.name !== 'all') return undefined;
+    const normal = normalViewQuery(here);
+    return settingsOf(state).pages?.all?.views?.find(
+      (v) => normalViewQuery(v.query) === normal,
+    )?.id;
+  }, [state, route.name, here]);
   const roomCount = (room: Room): number =>
     room.kind === 'project' ? (rail?.open.get(room.id) ?? 0) : 0;
 
@@ -103,8 +116,8 @@ export function Rail({ route }: { route: Route }) {
             </h2>
             <ul className="flex flex-col" data-pinned={rail.rooms.pinned}>
               {rail.rooms.rooms.map((room) => {
-                const current = isRoomPage(room, route, narrowedTo);
-                const link = roomLink(room);
+                const current = isRoomPage(room, route, narrowedTo, hereView);
+                const link = roomLink(room, state ?? {});
                 const open = roomCount(room);
                 return (
                   <li key={`${room.kind}:${roomKey(room)}`}>

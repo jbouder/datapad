@@ -39,12 +39,11 @@ import { cn } from '@/lib/utils';
 import { AllPage } from '@/pages/AllPage';
 import {
   HelpPage,
-  MeetingPage,
+  MeetingMode,
   preloadPages,
   SettingsPage,
   WhiteboardPage,
 } from '@/pages/lazy';
-import { notesPreset } from '@/pages/NotesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PersonPage } from '@/pages/PersonPage';
 import { ProjectRoom } from '@/pages/ProjectRoom';
@@ -87,15 +86,20 @@ export function AppShell() {
           : undefined;
 
   // Add task opens the new-task panel, preset to the project you are on.
-  const currentProject = room?.id ?? null;
+  const currentProject =
+    room?.id ??
+    (route.name === 'meeting'
+      ? (state?.meetings[route.id]?.projectId ?? null)
+      : null);
   const addTask = useCallback(() => {
     newTask(currentProject);
   }, [newTask, currentProject]);
-  // On Notes, a new note starts in the filtered project, as Add note does.
+  // On All, a new note starts in the room it is filtered to.
   const query = useQuery();
+  const allRoom = route.name === 'all' ? query.get('room') : null;
   const noteProject =
-    route.name === 'all' && route.kind === 'note'
-      ? notesPreset(query.get('project'))
+    allRoom && allRoom !== 'general' && state?.projects[allRoom]
+      ? allRoom
       : currentProject;
   const addNote = useCallback(() => {
     newNote(noteProject);
@@ -185,6 +189,37 @@ export function AppShell() {
   // A whiteboard takes the whole viewport below the top bar (and above
   // the tab bar): the page itself never scrolls.
   const fullBleed = route.name === 'whiteboard';
+  // Meeting mode (#336) is the whole screen: no rail, top bar or tab bar.
+  // Leave (or Esc) goes back; search and the shortcut sheet still open.
+  const fullScreen = route.name === 'meeting';
+
+  if (fullScreen) {
+    return (
+      <div className="flex min-h-dvh">
+        <main
+          id="main"
+          key={key}
+          tabIndex={-1}
+          className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none sm:px-6"
+        >
+          <ErrorBoundary
+            where="page"
+            fallback={(reset) => <PageError reset={reset} />}
+          >
+            <Suspense fallback={<PageLoading />}>
+              <Page route={route} />
+            </Suspense>
+          </ErrorBoundary>
+        </main>
+        <ShortcutSheet open={sheet} onOpenChange={setSheet} />
+        <Palette
+          open={palette}
+          onOpenChange={setPalette}
+          currentProject={currentProject}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -274,9 +309,6 @@ function pageKey(route: Route): string {
   if (route.name === 'person') return `person:${route.id}`;
   if (route.name === 'task') return `task:${route.id}`;
   if (route.name === 'meeting') return `meeting:${route.id}`;
-  if (route.name === 'all') {
-    return `all:${route.kind ?? ''}${route.archived ? ':archived' : ''}`;
-  }
   if (route.name === 'whiteboard') return 'whiteboard';
   // People and Orgs are Settings sections: the page stays mounted.
   return settingsSectionOf(route) ? 'settings' : route.name;
@@ -289,7 +321,7 @@ function Page({ route }: { route: Route }) {
     case 'unfiled':
       return <UnfiledPage />;
     case 'all':
-      return <AllPage kind={route.kind} archived={route.archived} />;
+      return <AllPage />;
     case 'help':
       return <HelpPage section={route.section} />;
     case 'project':
@@ -299,7 +331,7 @@ function Page({ route }: { route: Route }) {
     case 'task':
       return <TaskLanding id={route.id} />;
     case 'meeting':
-      return <MeetingPage id={route.id} />;
+      return <MeetingMode id={route.id} />;
     case 'whiteboard':
       return route.project ? (
         <ProjectRoom id={route.project} tab="whiteboard" />

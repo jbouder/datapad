@@ -6,28 +6,61 @@
  * projects by recent change, then the people who owe you something.
  *
  * Pins are stored per space in `settings.pinned` (`setSettings`), each
- * entry a project id, a person id, or `<projectId>+<personId>`. The
+ * entry a project id, a person id, `<projectId>+<personId>`, or
+ * `view:<id>` for a view saved on All (#338), which pins like a room. The
  * only navigation setting: Settings → Navigation and its `nav` prefs
  * retired with v2.
  */
+
+import { viewRoute } from './all';
 import { lanesOf, waitingPeople } from './loops';
 import { isUnfiled } from './notes';
 import { projectRoomOf, type Route } from './routes';
 import { meId } from './select';
-import type { Person, Project, Settings, Snapshot } from './types';
+import {
+  type Person,
+  type Project,
+  type SavedView,
+  type Settings,
+  type Snapshot,
+  settingsOf,
+} from './types';
 
 export type Room =
   | { kind: 'project'; id: string }
   | { kind: 'person'; id: string }
-  | { kind: 'pair'; project: string; person: string };
+  | { kind: 'pair'; project: string; person: string }
+  | { kind: 'view'; id: string };
 
 /** Between a pair's project id and person id. */
 const PAIR = '+';
+/** Before a saved view's id. */
+const VIEW = 'view:';
 
 /** The key a room is pinned under. */
 export function roomKey(room: Room): string {
   if (room.kind === 'pair') return `${room.project}${PAIR}${room.person}`;
+  if (room.kind === 'view') return `${VIEW}${room.id}`;
   return room.id;
+}
+
+/** What `roomOf` reads: the projects, people and (for views) settings. */
+type RoomState = Pick<Snapshot, 'projects' | 'people'> &
+  Partial<Pick<Snapshot, 'settings'>>;
+
+/** The views saved on All (#338), as they stand. */
+export function savedViews(state: Partial<Pick<Snapshot, 'settings'>>) {
+  if (!state.settings) return [];
+  return settingsOf({ settings: state.settings }).pages?.all?.views ?? [];
+}
+
+/** The saved view a room names, if it still exists. */
+export function viewOf(
+  room: Room,
+  state: Partial<Pick<Snapshot, 'settings'>>,
+): SavedView | undefined {
+  if (room.kind !== 'view') return undefined;
+  return savedViews(state).find((v) => v.id === room.id);
 }
 
 /**
@@ -35,10 +68,13 @@ export function roomKey(room: Room): string {
  * space (a deleted project, a removed person): such an entry is skipped,
  * and kept until it is unpinned.
  */
-export function roomOf(
-  entry: string,
-  state: Pick<Snapshot, 'projects' | 'people'>,
-): Room | null {
+export function roomOf(entry: string, state: RoomState): Room | null {
+  if (entry.startsWith(VIEW)) {
+    const id = entry.slice(VIEW.length);
+    return savedViews(state).some((v) => v.id === id)
+      ? { kind: 'view', id }
+      : null;
+  }
   if (Object.hasOwn(state.projects, entry)) {
     return { kind: 'project', id: entry };
   }
@@ -57,10 +93,14 @@ export function roomOf(
 export const PERSON_PARAM = 'person';
 
 /**
- * Where a room is: a project's room, a person's, or a pair as the
- * project's room narrowed to the person (`?person=`).
+ * Where a room is: a project's room, a person's, a pair as the project's
+ * room narrowed to the person (`?person=`), or a saved view's All.
  */
-export function roomLink(room: Room): { route: Route; query: string } {
+export function roomLink(
+  room: Room,
+  state: Partial<Pick<Snapshot, 'settings'>> = {},
+): { route: Route; query: string } {
+  if (room.kind === 'view') return viewRoute(viewOf(room, state)?.query ?? '');
   if (room.kind === 'person') {
     return { route: { name: 'person', id: room.id }, query: '' };
   }
@@ -75,13 +115,16 @@ export function roomLink(room: Room): { route: Route; query: string } {
 
 /**
  * Whether a page is `room`: a project's room (any tab) with no one, or
- * with the pair's person, picked; a person's room.
+ * with the pair's person, picked; a person's room; a saved view's All
+ * when `hereView` (the view All shows now) is it.
  */
 export function isRoomPage(
   room: Room,
   route: Route,
   narrowedTo: string | null,
+  hereView?: string,
 ): boolean {
+  if (room.kind === 'view') return route.name === 'all' && hereView === room.id;
   if (room.kind === 'person') {
     return route.name === 'person' && route.id === room.id;
   }
@@ -120,7 +163,7 @@ export function withPin(
  */
 export function movePin(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
   key: string,
   by: -1 | 1,
 ): string[] | null {
@@ -136,7 +179,7 @@ export function movePin(
 /** The pinned rooms that exist, in order. */
 export function pinnedRooms(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
 ): Room[] {
   return pinnedOf(settings)
     .map((key) => roomOf(key, state))
@@ -156,7 +199,7 @@ function liveProjects(projects: Snapshot['projects']): Project[] {
  */
 export function railRooms(
   settings: Pick<Settings, 'pinned'>,
-  state: Pick<Snapshot, 'projects' | 'people'>,
+  state: RoomState,
 ): { pinned: boolean; rooms: Room[] } {
   const pinned = pinnedRooms(settings, state);
   if (pinned.length > 0) return { pinned: true, rooms: pinned };
@@ -192,6 +235,51 @@ export function owedBy(
       (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
     )
     .slice(0, OWED_MAX);
+}
+
+/**
+ * Every person but you, by how much they owe you (as `owedBy` counts it),
+ * most first, then by name: All's people rooms (#337).
+ */
+export function peopleByOwed(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+): { person: Person; count: number }[] {
+  const me = meId(state.people);
+  const counts = new Map(
+    waitingPeople(lanesOf(state, me), state.people).map(({ person, tasks }) => [
+      person.id,
+      tasks.length,
+    ]),
+  );
+  return Object.values(state.people)
+    .filter((person) => person.id !== me)
+    .map((person) => ({ person, count: counts.get(person.id) ?? 0 }))
+    .sort(
+      (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
+    );
+}
+
+/**
+ * All's project rooms (#337): every project not archived, by name, under
+ * its org (orgs A to Z, then those with none, under `''`).
+ */
+export function projectRoomsByOrg(
+  projects: Snapshot['projects'],
+): { org: string; projects: Project[] }[] {
+  const groups = new Map<string, Project[]>();
+  for (const project of Object.values(projects)) {
+    if (project.archived) continue;
+    const org = project.org.trim();
+    groups.set(org, [...(groups.get(org) ?? []), project]);
+  }
+  return [...groups]
+    .map(([org, list]) => ({
+      org,
+      projects: list.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort(
+      (a, b) => Number(!a.org) - Number(!b.org) || a.org.localeCompare(b.org),
+    );
 }
 
 /** How many notes have no home yet: Unfiled's count. */

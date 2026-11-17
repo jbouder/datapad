@@ -23,10 +23,14 @@ export function useNoteTemplates(): TemplateChoice[] {
 }
 
 /**
- * A note composer's extras: `/task`, a task in the note's project, and
- * the note templates `/template` inserts.
+ * A note composer's extras: `/task`, a task in the note's project (an
+ * action item, with `meetingId`, on a meeting's note, #336), and the note
+ * templates `/template` inserts.
  */
-export function useNoteCommands(projectId: string | null): {
+export function useNoteCommands(
+  projectId: string | null,
+  meetingId?: string | null,
+): {
   onTask: (title: string) => boolean;
   templates: TemplateChoice[];
 } {
@@ -37,9 +41,14 @@ export function useNoteCommands(projectId: string | null): {
     onTask: (title) => {
       const assignee = state ? defaultAssignee(state) : '';
       const priority = state ? defaultPriority(state) : 'med';
-      if (actions.addTask({ projectId, title, assignee, priority }) === null) {
-        return false;
-      }
+      const added = actions.addTask({
+        projectId,
+        ...(meetingId ? { meetingId } : {}),
+        title,
+        assignee,
+        priority,
+      });
+      if (added === null) return false;
       show(`Added “${title}”`);
       return true;
     },

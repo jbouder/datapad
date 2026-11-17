@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
+  addFromTopBar,
   expect,
   expectSaved,
   openLive,
@@ -210,8 +211,8 @@ test('Orgs: a default org that new projects start in', async ({
   ).toContainText('2 projects');
 
   // New projects start in no org.
-  await page.goto('/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await page.goto('/all');
+  await addFromTopBar(page, 'Add project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('No org');
@@ -234,8 +235,8 @@ test('Orgs: a default org that new projects start in', async ({
   await expectSaved(page);
 
   // Now new projects start in it.
-  await page.goto('/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await page.goto('/all');
+  await addFromTopBar(page, 'Add project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: 'Org' }),
   ).toHaveValue('Rebel Alliance');

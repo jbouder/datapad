@@ -55,7 +55,7 @@ export function hrefFor(route: Route, query = ''): string {
  * Two routes are the same page (same name, same project, task, meeting or
  * list). Settings sections, People and Orgs among them, are one page, so
  * moving between them is no page transition; so is picking another person
- * or org.
+ * or org, and All is one page whatever its kinds.
  */
 export function samePage(a: Route, b: Route): boolean {
   if (settingsSectionOf(a) && settingsSectionOf(b)) return true;
@@ -63,15 +63,6 @@ export function samePage(a: Route, b: Route): boolean {
   const roomA = projectRoomOf(a);
   const roomB = projectRoomOf(b);
   if (roomA || roomB) return roomA?.id === roomB?.id;
-  // All with another kind shows another page.
-  if (a.name === 'all' || b.name === 'all') {
-    return (
-      a.name === 'all' &&
-      b.name === 'all' &&
-      a.kind === b.kind &&
-      a.archived === b.archived
-    );
-  }
   if (a.name === 'whiteboard' || b.name === 'whiteboard') {
     return (
       a.name === 'whiteboard' &&
@@ -135,6 +126,22 @@ function notify() {
   }
 }
 
+/**
+ * The last page left that was not a meeting, with its query: where
+ * meeting mode's Leave goes back to (#336). Moving through a series
+ * keeps it.
+ */
+let outside: { route: Route; search: string } | null = null;
+
+/**
+ * Leave meeting mode: to the page it was entered from, or to Today.
+ * `replace` drops the meeting from the history (it was deleted).
+ */
+export function leaveMeeting(options: { replace?: boolean } = {}) {
+  const to = outside ?? { route: { name: 'today' } as Route, search: '' };
+  navigate(to.route, { query: to.search, replace: options.replace });
+}
+
 /** The latest commit's number: an older one that lands late is dropped. */
 let latest = 0;
 
@@ -144,6 +151,9 @@ function commit(next: Route, nextSearch: string, instant = false) {
     // Back pressed mid-transition: the view transition API can run the
     // earlier update after this one, which would leave the old page up.
     if (id !== latest) return;
+    if (current.name !== 'meeting' && !samePage(next, current)) {
+      outside = { route: current, search };
+    }
     current = next;
     search = nextSearch;
     notify();

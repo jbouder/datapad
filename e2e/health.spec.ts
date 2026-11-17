@@ -1,6 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
 import {
-  chooseFilter,
   expect,
   expectAccessible,
   expectSaved,
@@ -37,21 +36,14 @@ test('set health on the Plan; the card says it in words and color', async ({
   expect(data.projects['p-echo']?.health).toBe('red');
   expect(data.activity['p-echo']?.events[0]?.text).toBe('Health set to red');
 
-  await openLive(page, '/projects');
-  const card = page
-    .getByRole('main')
-    .getByRole('link', { name: /Echo Base relocation/ });
-  await expect(card).toContainText('Red health');
-  await expectAccessible(page);
-
-  // Filter: only Red.
-  await chooseFilter(page, 'Health', 'Red');
-  await expect(page).toHaveURL(/health=red/);
+  // All's project row says it in words.
+  await openLive(page, '/all?kind=project');
   await expect(
-    page.getByRole('main').getByRole('link', { name: /Echo Base relocation/ }),
-  ).toBeVisible();
-  await chooseFilter(page, 'Health', 'Green');
-  await expect(page.getByText('None match these filters.')).toBeVisible();
+    page.getByRole('list', { name: 'Items' }).getByRole('listitem').filter({
+      hasText: 'Echo Base relocation',
+    }),
+  ).toContainText('Red health');
+  await expectAccessible(page);
 });
 
 test('the project form sets health too', async ({ page, request }) => {

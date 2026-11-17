@@ -105,14 +105,3 @@ test('following a link in the page moves focus to the new page', async ({
     ),
   ).toBe(true);
 });
-
-test('switching layout keeps focus on the switcher', async ({ page }) => {
-  await openLive(page, '/tasks?view=list');
-  const layouts = page.getByRole('group', { name: /^Layout/ });
-  await layouts.getByRole('radio', { name: 'List' }).focus();
-  await page.keyboard.press('ArrowRight');
-  const next = layouts.getByRole('radio', { checked: true });
-  await expect(next).not.toHaveAccessibleName('List');
-  await expect(next).toBeFocused();
-  await expectKept(page);
-});

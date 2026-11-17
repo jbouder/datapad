@@ -29,12 +29,12 @@ export function routeAfterSwitch(route: {
   name: string;
   org?: string;
   [key: string]: unknown;
-}): { name: 'today' } | { name: 'all'; kind: 'meeting' | 'task' } | null {
+}): { name: 'today' } | { name: 'all'; kinds: ['meeting' | 'task'] } | null {
   if (route.name === 'project' || route.name === 'person') {
     return { name: 'today' };
   }
-  if (route.name === 'meeting') return { name: 'all', kind: 'meeting' };
-  if (route.name === 'task') return { name: 'all', kind: 'task' };
+  if (route.name === 'meeting') return { name: 'all', kinds: ['meeting'] };
+  if (route.name === 'task') return { name: 'all', kinds: ['task'] };
   // A project's whiteboard belongs to the space too; the space's own
   // board stays (the next space's board).
   if (route.name === 'whiteboard' && route.project) return { name: 'today' };

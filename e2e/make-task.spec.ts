@@ -19,6 +19,7 @@ interface Stored {
       projectId: string | null;
       order: number;
       sourceNoteId?: string;
+      meetingId?: string | null;
     }
   >;
   notes: Record<string, { body: string }>;
@@ -69,8 +70,10 @@ test('select text, make a task, open it, follow the source link back', async ({
   expect(made?.projectId).toBe('p-echo');
   expect(made?.order).toBe(Math.max(...others.map((t) => t.order)) + 1);
   expect(data.notes['n-2']?.body).toBe(SEED.notes['n-2'].body);
+  // The note is Shield review's, so the task is its action item (#336).
+  expect(made?.meetingId).toBe('e-1');
   expect(data.activity['p-echo']?.events[0]?.text).toBe(
-    'Added task "Prep: Shield review — 2026-10-27"',
+    'Added action item "Prep: Shield review — 2026-10-27" to "Shield review"',
   );
 
   // Back to the note from the task's panel (a task opens in its panel

@@ -5,13 +5,16 @@ import {
   movePin,
   OWED_MAX,
   owedBy,
+  peopleByOwed,
   pinnedOf,
   pinnedRooms,
+  projectRoomsByOrg,
   railRooms,
   roomKey,
   roomLink,
   roomOf,
   unfiledCount,
+  viewOf,
   withPin,
 } from '#shared/rooms';
 import {
@@ -20,6 +23,7 @@ import {
   type Person,
   type Project,
   type Snapshot,
+  settingsOf,
   type Task,
 } from '#shared/types';
 
@@ -109,6 +113,32 @@ describe('roomOf', () => {
       const room = roomOf(entry, space);
       expect(room && roomKey(room)).toBe(entry);
     }
+  });
+
+  it('reads a saved view on All while it exists (#338)', () => {
+    const withViews = state({
+      ...space,
+      settings: {
+        user: {
+          defaultOrg: '',
+          pinned: ['view:v1', 'p-echo', 'view:v-gone'],
+          pages: {
+            all: { views: [{ id: 'v1', name: 'Board', query: 'kind=task' }] },
+          },
+        },
+      },
+    });
+    const room = roomOf('view:v1', withViews);
+    expect(room).toEqual({ kind: 'view', id: 'v1' });
+    expect(room && roomKey(room)).toBe('view:v1');
+    expect(room && viewOf(room, withViews)?.name).toBe('Board');
+    expect(roomOf('view:v-gone', withViews)).toBeNull();
+    // Without settings, no view is known.
+    expect(roomOf('view:v1', space)).toBeNull();
+    expect(railRooms(settingsOf(withViews), withViews).rooms).toEqual([
+      { kind: 'view', id: 'v1' },
+      { kind: 'project', id: 'p-echo' },
+    ]);
   });
 });
 
@@ -223,6 +253,37 @@ describe('owedBy', () => {
       many[`t${i}`] = task(`t${i}`, { assignee: `p${i}` });
     }
     expect(owedBy(state({ people, tasks: many }))).toHaveLength(OWED_MAX);
+  });
+
+  it('lists everyone but you for All, owing or not (#337)', () => {
+    expect(
+      peopleByOwed(owed).map(({ person: p, count }) => [p.id, count]),
+    ).toEqual([
+      ['pe-han', 2],
+      ['pe-leia', 2],
+    ]);
+    expect(peopleByOwed(space).map(({ person: p }) => p.id)).toEqual([
+      'pe-han',
+      'pe-leia',
+    ]);
+  });
+});
+
+describe('projectRoomsByOrg', () => {
+  it('groups the live projects under their orgs, those with none last', () => {
+    const rooms = projectRoomsByOrg({
+      ...space.projects,
+      'p-x': project('p-x', { org: 'Rebels', name: 'X-wing' }),
+      'p-a': project('p-a', { org: 'Rebels', name: 'A-wing' }),
+      'p-b': project('p-b', { org: ' Alliance ' }),
+    });
+    expect(
+      rooms.map(({ org, projects }) => [org, projects.map((p) => p.id)]),
+    ).toEqual([
+      ['Alliance', ['p-b']],
+      ['Rebels', ['p-a', 'p-x']],
+      ['', ['p-done', 'p-echo', 'p-falcon']],
+    ]);
   });
 });
 

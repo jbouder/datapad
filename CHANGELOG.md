@@ -19,6 +19,27 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- **All** (#337): every task, note, meeting, project and person in one
+  list. Kind chips pick some kinds (none is every kind). Find, then the
+  filters that fit the kinds picked: Room, Person, Status (Open, Done or
+  past, Archived, All), Due, Tag, and To decide or Waiting on. Tasks or
+  projects alone sort as their pages did; several kinds sort together by
+  Recently updated, Title or Date. Everything stays in the address. Below
+  the list are the rooms: projects under their orgs and people by how
+  much they owe you, each with Pin. The space's whiteboard is linked from
+  the header. It replaces the Tasks, Notes, Meetings, Projects and
+  Archived pages, whose addresses land on it with their filters.
+- **All's layouts, saved views and bulk actions** (#338). Tasks alone
+  show as a list, a table or a board (by status or by priority), meetings
+  as a list or a calendar, projects as a list, cards or a timeline. The
+  layout is in the address, and each kind remembers the last one picked,
+  also set in Settings → Pages under All. Save view names the kinds,
+  filters, sort and layout shown as a chip above the list, synced with the
+  space; each chip's menu renames it, pins it to the rail like a room, or
+  deletes it with Undo. Every task row has a select box: the bar that
+  appears completes or reopens, marks to decide, moves to a room, assigns,
+  sets the due date or deletes, each as one change with Undo.
+
 - Settings → Pages has New task priority: what a new task starts with when
   you do not pick one, from the New task panel, `/task`, Make task, action
   items and MCP's `add_task`.
@@ -62,6 +83,16 @@ changes the format says so here under **Export format**.
   A person has a room of their own at `/people/:id`. Until the pages
   that follow arrive, All shows Projects, Tasks, Notes and Meetings by
   kind.
+- **Meeting mode** (#336) replaces the meeting page. A meeting opens full
+  screen: the phase (Prep, Live or Debrief), the day, time, room and
+  attendees (each a link to their room), Join, Previous and Next in the
+  series, Edit and Leave. The agenda and topics are on the left, with
+  Carry forward from the last meeting of the series. The note composer
+  is always open in the middle, with the saved notes and the action
+  items under it. The open loops are on the right: the other person's
+  for a 1:1, otherwise the project's. Leave, or Esc, goes back to where
+  you came from, or to Today. `/task` in a meeting's note, and Make
+  task on one, make an action item of that meeting.
 - **Today** (#331), the home page at `/`: one day at a time. The header
   has the long day, a line that counts it ("2 meetings, 3 due, 4 waiting
   on others, 1 to decide") and Previous day, Today and Next day. Then the
@@ -95,11 +126,21 @@ changes the format says so here under **Export format**.
   Picking a person narrows the lanes and the stream to what touches them
   (`?person=`); capture then mentions them, or on a task assigns them,
   and Pin pins the pair. Settings → Pages shows the room's lanes.
+- Today's **week zoom**, **recap** and **Brief me** (#332). **Day** and
+  **Week** switch the zoom (`v` cycles). Week shows Monday to Sunday,
+  seven columns on desktop and seven rows on phones, each day with its
+  meetings and its counts of due, done and notes; a day's name opens it,
+  and Previous and Next step a week. Under the days is the week's
+  digest with Copy as Markdown, Save as note and Summarize. It replaces
+  the Weekly digest page, and `/digest` lands on it. Stepping back to
+  the last working day shows the recap (Since yesterday) above its
+  timeline, and today's line links to it. Brief me is back on today,
+  and its brief now includes the three lanes.
 
 ### Changed
 
-- Every old address lands on its new home: `/focus` and `/digest` on
-  Today, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
+- Every old address lands on its new home: `/focus` on Today, `/digest`
+  on Today's week zoom, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
   `/meetings` and `/archive` on All with that kind (filters kept),
   `/lists` on All's notes, `/tasks/:id` on the task's project with its
   panel open, and `/settings/people/:id` on the person's room. A task
@@ -110,7 +151,7 @@ changes the format says so here under **Export format**.
   Notepad became notes.
 - Focus is gone, with its agenda strip, Since yesterday, Attention,
   Follow-ups and Brief me; Today replaces it. Since yesterday and Brief me
-  come back on Today in #332. The rail's Waiting on counts what Today's
+  are back on Today (#332). The rail's Waiting on counts what Today's
   Waiting on lane holds, so a task to decide no longer counts there, and
   a task blocked on you is yours.
 - The phone's tab bar is opaque, so its labels keep their contrast over
@@ -138,6 +179,10 @@ changes the format says so here under **Export format**.
 
 ### Export format
 
+- `settings.user.pages` may carry the page key `all` (#338), with the
+  settings `taskView`, `meetingView` and `projectView` under `filters`
+  and `views`, a list of `{ id, name, query }` saved views. A pinned room
+  may be `view:<id>`. Additive: older files import unchanged.
 - `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
   `high`). Absent reads as `med`.
 - The format is now 3 (#328). Tasks may carry `decide: true`, absent

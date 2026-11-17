@@ -620,6 +620,7 @@ describe('briefContext', () => {
         blocked: { on: 'han', note: '' },
         updatedAt: '2026-10-19T12:00:00.000Z',
       }),
+      decide: task('decide', { title: 'Pick a landing site', decide: true }),
       archived: task('archived', {
         title: 'Write the Yavin report',
         projectId: 'old',
@@ -688,8 +689,15 @@ describe('briefContext', () => {
         '- Calibrate shields (Echo Base), overdue since Mon 26 Oct 2026, priority high, assigned to Leia Organa',
         '- Brief the pilots (Echo Base), due today',
         '',
-        'Waiting on (1):',
-        '- Han Solo, 1 task, waiting 9 days: Get the redline',
+        'My open tasks (2):',
+        '- Calibrate shields (Echo Base), due Mon 26 Oct 2026',
+        '- Brief the pilots (Echo Base), due Wed 28 Oct 2026',
+        '',
+        'Waiting on others (1):',
+        '- Han Solo, 2 tasks: Get the redline; Map the ice caves',
+        '',
+        'To decide (1):',
+        '- Pick a landing site (Echo Base)',
         '',
         'Projects that need attention (1):',
         '- Echo Base: yellow · quiet 27 days',
@@ -716,7 +724,11 @@ describe('briefContext', () => {
     expect(mine).toContain('Tasks closed (1):');
     expect(mine).toContain('Tasks added (0):');
     expect(mine).toContain('Due (overdue and today) (1):');
-    expect(mine).toContain('Waiting on (0):');
+    // Mine holds only what is assigned to me, as on Today.
+    expect(mine).toContain(
+      'My open tasks (1):\n- Calibrate shields (Echo Base), due Mon 26 Oct 2026\n\n',
+    );
+    expect(mine).toContain('Waiting on others (1):');
     // Meetings and projects are no one's.
     expect(mine).toContain('Agenda (1):');
     const han = briefContext(busy(), today, {
@@ -808,8 +820,9 @@ describe('briefContext', () => {
     );
     expect(text).toContain(`Agenda (400):`);
     expect(text).toContain(`- and ${200 - BRIEF_LIMITS.due} more`);
-    expect(text).toContain('Waiting on (200):');
-    expect(text).toContain('; and 2 more');
+    expect(text).toContain(`- and ${200 - BRIEF_LIMITS.mine} more`);
+    expect(text).toContain('Waiting on others (200):');
+    expect(text).toContain('; and 3 more');
     expect(text).toContain(`- and ${2000 - BRIEF_LIMITS.activity} more`);
     // No title, name or note runs on.
     expect(text).not.toContain('x'.repeat(BRIEF_LIMITS.text));

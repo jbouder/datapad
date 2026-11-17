@@ -1,3 +1,9 @@
+import {
+  ALL_LAYOUTS,
+  KIND_LABELS,
+  LAYOUT_SETTING,
+  type LayoutKind,
+} from './all';
 import { LIMITS } from './limits';
 import { LIST_SORTS } from './lists';
 import { PROJECT_SORTS } from './projects';
@@ -78,6 +84,11 @@ export interface PrefField {
    * the address alone for it, and it is not a filter (`filterFields()`).
    */
   settingsOnly?: true;
+  /**
+   * A layout field other than `view` (All's per kind, #338): the page as
+   * Help's Layouts table names it.
+   */
+  layoutOf?: string;
 }
 
 /** A section a page can hide and move (#310), and its name in Settings. */
@@ -424,6 +435,23 @@ export function listDoneMode(value: string): ListDoneMode {
   return value === 'expanded' || value === 'hidden' ? value : 'collapsed';
 }
 
+/**
+ * All's layouts (#338): the one each kind opens with when it is shown
+ * alone, set here or by switching layout on All, never in the address
+ * (`?view=` there says what one link shows).
+ */
+const allLayoutFields: readonly PrefField[] = (
+  Object.keys(ALL_LAYOUTS) as LayoutKind[]
+).map((kind) => ({
+  key: LAYOUT_SETTING[kind],
+  label: `${KIND_LABELS[kind]} layout`,
+  def: 'list',
+  options: ALL_LAYOUTS[kind],
+  control: 'segmented',
+  settingsOnly: true,
+  layoutOf: `All, ${KIND_LABELS[kind].toLowerCase()}`,
+}));
+
 /** What each page remembers, in the order Settings → Pages shows them. */
 export const PAGES: Record<PageKey, PageSpec> = {
   focus: {
@@ -436,6 +464,11 @@ export const PAGES: Record<PageKey, PageSpec> = {
       { key: 'waiting', label: 'Waiting on' },
       { key: 'decide', label: 'To decide' },
     ],
+  },
+  all: {
+    label: 'All',
+    fields: allLayoutFields,
+    sections: false,
   },
   projects: {
     label: 'Projects',
@@ -647,6 +680,26 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
 };
+
+/**
+ * Every page's layouts, for Help's Layouts table: each page's `view` and
+ * each per-kind layout (All's), with its options and the one it opens as.
+ */
+export function layoutTable(): {
+  page: string;
+  options: readonly PrefOption[];
+  def: string;
+}[] {
+  return Object.values(PAGES).flatMap((page) =>
+    page.fields
+      .filter((f) => f.options && (f.key === 'view' || f.layoutOf))
+      .map((f) => ({
+        page: f.layoutOf ?? page.label,
+        options: f.options ?? [],
+        def: f.options?.find((o) => o.value === f.def)?.label ?? '',
+      })),
+  );
+}
 
 /**
  * Whether a page has anything to set in Settings → Pages: a remembered
@@ -971,12 +1024,16 @@ export function prefsAsPatch(prefs: PagePrefs): PagePrefsPatch {
   }
   if (prefs.hidden && prefs.hidden.length > 0) patch.hidden = [...prefs.hidden];
   if (prefs.order && prefs.order.length > 0) patch.order = [...prefs.order];
+  if (prefs.views && prefs.views.length > 0) {
+    patch.views = prefs.views.map((v) => ({ ...v }));
+  }
   return patch;
 }
 
 /**
  * Two patches as one: the later wins key by key (coalescing quick
- * changes); `hidden` and `order` are whole lists, so the later one wins.
+ * changes); `hidden`, `order` and `views` are whole lists, so the later
+ * one wins.
  */
 export function mergePatches(
   a: PagePrefsPatch,
@@ -992,8 +1049,8 @@ export function mergePatches(
 
 /**
  * A page's preferences after `patch`: values set, `null`s cleared, maps
- * merged key by key, `hidden` and `order` replaced whole (an empty list
- * clears too); `undefined` when nothing is left.
+ * merged key by key, `hidden`, `order` and `views` replaced whole (an
+ * empty list clears too); `undefined` when nothing is left.
  */
 export function applyPagePatch(
   prefs: PagePrefs | undefined,
@@ -1029,6 +1086,10 @@ export function applyPagePatch(
     if (value === undefined) continue;
     if (value === null || value.length === 0) delete next[key];
     else next[key] = [...value];
+  }
+  if (patch.views !== undefined) {
+    if (patch.views === null || patch.views.length === 0) delete next.views;
+    else next.views = patch.views.map((v) => ({ ...v }));
   }
   return Object.keys(next).length > 0 ? next : undefined;
 }

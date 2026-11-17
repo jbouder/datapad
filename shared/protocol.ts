@@ -464,6 +464,24 @@ const sectionList = z
   .max(LIMITS.prefSectionsMax)
   .refine((keys) => new Set(keys).size === keys.length, 'Each section once');
 
+/**
+ * Saved views (#338): each once by id, `LIMITS.viewsMax` at most. The
+ * query is only size-checked: All reads what it knows of it.
+ */
+const savedViews = z
+  .array(
+    z.object({
+      id,
+      name: z.string().trim().min(1).max(LIMITS.nameMax),
+      query: z.string().max(LIMITS.viewQueryMax),
+    }),
+  )
+  .max(LIMITS.viewsMax)
+  .refine(
+    (views) => new Set(views.map((v) => v.id)).size === views.length,
+    'Each view once',
+  );
+
 export const PagePrefsSchema = z.object({
   view: prefValue.optional(),
   sort: prefValue.optional(),
@@ -479,6 +497,7 @@ export const PagePrefsSchema = z.object({
     .optional(),
   hidden: sectionList.optional(),
   order: sectionList.optional(),
+  views: savedViews.optional(),
 }) satisfies z.ZodType<PagePrefs, unknown>;
 
 /** Every page's preferences; a page this version does not know is dropped. */
@@ -513,6 +532,7 @@ export const PagePrefsPatchSchema = z
       .refine(...atMost(LIMITS.prefSectionsMax, 'sections')),
     hidden: sectionList.nullable(),
     order: sectionList.nullable(),
+    views: savedViews.nullable(),
   })
   .partial()
   .refine((p) => Object.keys(p).length > 0, 'Nothing to change');

@@ -1,6 +1,7 @@
 import { itemsOf } from './board';
 import { formatDay } from './dates';
 import { buildDigest, digestMarkdown, weekEnding } from './digest';
+import { lanesOf, NOBODY } from './loops';
 import { byWhen, timeRange } from './meetings';
 import { tokensToNames } from './mentions';
 import { noteTitle } from './notes';
@@ -10,7 +11,6 @@ import {
   agenda,
   attention,
   attentionLine,
-  daysSince,
   FOCUS_DEFAULTS,
   type FocusOptions,
   focusBuckets,
@@ -18,8 +18,6 @@ import {
   prepLine,
   prepOf,
   tasksOfMeeting,
-  waitingFor,
-  waitingOn,
 } from './select';
 import {
   blockedOf,
@@ -464,6 +462,9 @@ export const BRIEF_LIMITS = {
   activity: 6,
   agenda: 6,
   due: 8,
+  /** Today's lanes (#332): Mine and To decide. */
+  mine: 8,
+  decide: 5,
   /** People in Waiting on; each lists at most `waitingTasks`. */
   waiting: 4,
   waitingTasks: 2,
@@ -523,12 +524,13 @@ function filterLabel(state: Lookup, filter: AssigneeFilter): string {
 }
 
 /**
- * What Brief me sends: the last working day (`buildRecap`, #258), then
- * today's Agenda (each meeting with its prep line), Due (overdue and
- * today, not blocked), Waiting on and Attention, selected the way Focus
- * selects them (archived projects out, Focus's settings applied: `who`
- * narrowing the tasks, Attention's rules; #311). A section hidden on
- * Focus is still sent. Mentions are names; every section is capped
+ * What Brief me sends (Today, #332): the last working day (`buildRecap`,
+ * #258), then today's Agenda (each meeting with its prep line), Due
+ * (overdue and today, not blocked), Today's three lanes (`lanesOf`:
+ * Mine, Waiting on, To decide) and Attention. Archived projects are left
+ * out and the saved settings apply (`who` narrowing the recap, Due and
+ * Mine as Today narrows them; Attention's rules; #311). A lane hidden on
+ * Today is still sent. Mentions are names; every section is capped
  * (`BRIEF_LIMITS`).
  */
 export function briefContext(
@@ -610,13 +612,12 @@ export function briefContext(
     assignee,
   );
   const due = [...buckets.overdue, ...buckets.today];
-  const waiting = waitingOn(
-    state.tasks,
-    state.projects,
-    state.people,
-    me,
-    assignee,
-  );
+  // Today's lanes (#331, #332): Mine narrowed as Today narrows it.
+  const lanes = lanesOf(state, me);
+  const mine =
+    assignee.kind === 'mine' && me
+      ? lanes.mine.filter((t) => t.assignee === me)
+      : lanes.mine;
   const projects = attention(
     state.projects,
     today,
@@ -661,16 +662,36 @@ export function briefContext(
     ),
     '',
     ...section(
-      'Waiting on',
-      waiting.map((g) => {
-        const who = g.person ? clipName(g.person.name) : 'no one listed';
+      'My open tasks',
+      mine.map(
+        (t) =>
+          `- ${title(t)} (${where(t.projectId)})${t.due ? `, due ${day(t.due)}` : ''}`,
+      ),
+      BRIEF_LIMITS.mine,
+    ),
+    '',
+    ...section(
+      'Waiting on others',
+      lanes.waiting.map((g) => {
+        const who =
+          g.personId === NOBODY
+            ? 'no one listed'
+            : clipName(
+                personName(state, g.personId) ?? 'someone no longer listed',
+              );
         const shown = g.tasks.slice(0, BRIEF_LIMITS.waitingTasks).map(title);
         const more = g.tasks.length - shown.length;
         if (more > 0) shown.push(`and ${more} more`);
         const count = `${g.tasks.length} ${g.tasks.length === 1 ? 'task' : 'tasks'}`;
-        return `- ${who}, ${count}, ${waitingFor(daysSince(g.since, today))}: ${shown.join('; ')}`;
+        return `- ${who}, ${count}: ${shown.join('; ')}`;
       }),
       BRIEF_LIMITS.waiting,
+    ),
+    '',
+    ...section(
+      'To decide',
+      lanes.decide.map((t) => `- ${title(t)} (${where(t.projectId)})`),
+      BRIEF_LIMITS.decide,
     ),
     '',
     ...section(

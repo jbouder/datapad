@@ -50,8 +50,8 @@ function lazyPage<P extends object>(
 export const HelpPage = lazyPage(() =>
   import('@/pages/HelpPage').then((m) => m.HelpPage),
 );
-export const MeetingPage = lazyPage(() =>
-  import('@/pages/MeetingPage').then((m) => m.MeetingPage),
+export const MeetingMode = lazyPage(() =>
+  import('@/pages/MeetingMode').then((m) => m.MeetingMode),
 );
 export const SettingsPage = lazyPage(() =>
   import('@/pages/SettingsPage').then((m) => m.SettingsPage),
@@ -77,7 +77,7 @@ const ROOM_BOARD: Preload[] = [ProjectBoard, ProjectBoardMenu];
 
 const LAZY: Partial<Record<Route['name'], Preload[]>> = {
   help: [HelpPage],
-  meeting: [MeetingPage],
+  meeting: [MeetingMode],
   project: ROOM_BOARD,
   settings: [SettingsPage],
   people: [SettingsPage],

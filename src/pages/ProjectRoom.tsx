@@ -163,7 +163,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
       <div className={cn(tab === 'whiteboard' && 'px-4 pt-6 sm:px-6')}>
         <NotFoundPage
           what="project"
-          back={{ name: 'all', kind: 'project' }}
+          back={{ name: 'all', kinds: ['project'] }}
           backLabel="Go to All"
         />
       </div>
@@ -244,7 +244,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
       show(error instanceof Error ? error.message : 'Could not move it');
       return false;
     }
-    navigate({ name: 'all', kind: 'project' });
+    navigate({ name: 'all', kinds: ['project'] });
     show(`Moved ${project.name} to ${to.name}`, undefined, {
       label: 'Open',
       run: () => openInSpace(to.id, { name: 'project', id }),
@@ -260,7 +260,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
     }
     setDeleteOpen(false);
     show(`Deleted ${project.name}`);
-    navigate({ name: 'all', kind: 'project' });
+    navigate({ name: 'all', kinds: ['project'] });
   };
 
   const menu: MenuAction[] = [

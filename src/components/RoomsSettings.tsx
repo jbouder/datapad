@@ -1,6 +1,12 @@
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
-import { pinnedRooms, type Room, roomKey, roomLink } from '#shared/rooms';
+import {
+  pinnedRooms,
+  type Room,
+  roomKey,
+  roomLink,
+  viewOf,
+} from '#shared/rooms';
 import { settingsOf } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -42,6 +48,7 @@ export function RoomsSettings() {
   const rooms = pinnedRooms(settingsOf(state), state);
 
   const nameOf = (room: Room): string => {
+    if (room.kind === 'view') return viewOf(room, state)?.name ?? '';
     if (room.kind === 'project') return state.projects[room.id]?.name ?? '';
     if (room.kind === 'person') return state.people[room.id]?.name ?? '';
     const project = state.projects[room.project]?.name ?? '';
@@ -53,7 +60,9 @@ export function RoomsSettings() {
       ? 'Project'
       : room.kind === 'person'
         ? 'Person'
-        : 'Project and person';
+        : room.kind === 'view'
+          ? 'Saved view on All'
+          : 'Project and person';
 
   const moveRoom = (key: string, by: -1 | 1) => {
     refocus.current = { key, by };
@@ -64,8 +73,8 @@ export function RoomsSettings() {
     <>
       <p className="text-sm text-muted-foreground">
         The rooms pinned to the rail, in its order. Pin a project or a person
-        from its room’s header. With nothing pinned, the rail lists the active
-        projects.
+        from its room’s header, and a saved view from its menu on All. With
+        nothing pinned, the rail lists the active projects.
       </p>
       {rooms.length === 0 ? (
         <p className="text-state">Nothing pinned yet.</p>
@@ -87,7 +96,10 @@ export function RoomsSettings() {
               >
                 <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center desk:min-h-9">
                   <a
-                    {...linkProps(roomLink(room).route, roomLink(room).query)}
+                    {...linkProps(
+                      roomLink(room, state).route,
+                      roomLink(room, state).query,
+                    )}
                     className="truncate font-medium hover:underline"
                   >
                     {name}

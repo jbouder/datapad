@@ -69,8 +69,8 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
     page.getByRole('heading', { level: 1, name: 'All' }),
   ).toBeVisible();
   await page
-    .getByRole('navigation', { name: 'Kinds' })
-    .getByRole('link', { name: 'Tasks' })
+    .getByRole('main')
+    .getByRole('button', { name: 'Tasks', exact: true })
     .click();
   await expect(page).toHaveURL(/\/all\?kind=task$/);
   await expect(places.getByRole('link', { name: 'All' })).toHaveAttribute(
@@ -120,32 +120,33 @@ test('a phone has three tabs, Today, Unfiled and All, each a 44px target', async
 
 test('old addresses land on their new homes', async ({ page, request }) => {
   await request.post('/api/import', { data: SEED });
-  // Focus and the digest are Today.
-  for (const path of ['/focus', '/digest']) {
-    await openLive(page, path);
-    await expect(page).toHaveURL(/localhost:\d+\/$/);
-  }
+  // Focus is Today; the digest is its week zoom.
+  await openLive(page, '/focus');
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
+  await openLive(page, '/digest');
+  await expect(page).toHaveURL(/localhost:\d+\/\?view=week$/);
+  await expect(page.getByRole('region', { name: 'Digest' })).toBeVisible();
   // The Notepad is Unfiled.
   await page.goto('/notepad');
   await expect(page).toHaveURL(/\/unfiled$/);
   await expect(
     page.getByRole('heading', { level: 1, name: 'Unfiled' }),
   ).toBeVisible();
-  // The list pages are All, by kind, their filters kept.
-  for (const [path, url, heading] of [
-    ['/projects', /\/all\?kind=project$/, 'Projects'],
-    ['/archive', /\/all\?kind=project&archived=1$/, 'Archived'],
-    ['/tasks?who=mine', /\/all\?kind=task&who=mine$/, 'Tasks'],
-    ['/notes', /\/all\?kind=note$/, 'Notes'],
-    ['/meetings', /\/all\?kind=meeting$/, 'Meetings'],
-    ['/lists/l-evac', /\/all\?kind=note$/, 'Notes'],
+  // The list pages are All, by kind, their filters as All reads them.
+  for (const [path, url] of [
+    ['/projects', /\/all\?kind=project$/],
+    ['/archive', /\/all\?kind=project&status=archived$/],
+    ['/tasks?who=mine', /\/all\?kind=task&person=me$/],
+    ['/notes', /\/all\?kind=note$/],
+    ['/meetings', /\/all\?kind=meeting$/],
+    ['/lists/l-evac', /\/all\?kind=note$/],
   ] as const) {
     await page.goto(path);
     await expect(page).toHaveURL(url);
     await expect(
-      page.getByRole('heading', { level: 1, name: heading }),
+      page.getByRole('heading', { level: 1, name: 'All' }),
     ).toBeVisible();
-    await expect(page).toHaveTitle(`${heading} · Datapad`);
+    await expect(page).toHaveTitle('All · Datapad');
   }
   // A person under Settings is their room.
   await page.goto('/settings/people/u-chewie');

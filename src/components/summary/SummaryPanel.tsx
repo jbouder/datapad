@@ -178,7 +178,7 @@ function Output({
 
 /**
  * Before the model is ready: the browser check, the opt-in, the download
- * progress, or the error (holocron's `ModelGate`). Focus's Brief me card
+ * progress, or the error (holocron's `ModelGate`). Today's Brief me card
  * shows it too.
  */
 export function ModelGate({ summaries }: { summaries: Summaries }) {

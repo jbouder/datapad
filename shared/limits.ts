@@ -65,6 +65,10 @@ export const LIMITS = {
    * page's `hidden` or `order` may name (#310).
    */
   prefSectionsMax: 24,
+  /** Saved views on All (#338). */
+  viewsMax: 30,
+  /** A saved view's address: All's query string. */
+  viewQueryMax: 1_000,
   /** Ops in one batch (bulk actions and their undo). */
   batchMax: 200,
   /** Tasks named in one reorder. */

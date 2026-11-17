@@ -88,40 +88,42 @@ test('capture in the room, then move, edit, complete and date without the mouse'
   expect(task.projectId).toBe('p-falcon');
 
   // d opens the focused task's due popover where rows edit in place:
-  // Timeline's No date. Type a date and it leaves No date.
-  await openLive(page, '/all?kind=task&view=timeline');
-  const undated = page.locator('section[aria-labelledby="undated-title"]');
-  await undated
-    .getByRole('button', { name: 'Tune the deflector', exact: true })
+  // Today's Due. Move the late shield generator to tomorrow.
+  await openLive(page, '/');
+  const dueList = page.getByRole('list', { name: 'Due' });
+  await dueList
+    .getByRole('button', {
+      name: 'Confirm shield generator delivery',
+      exact: true,
+    })
     .focus();
   await page.keyboard.press('d');
   const due = page.getByRole('textbox', { name: 'Due' });
   await expect(due).toBeFocused();
   await due.fill('tomorrow');
   await due.press('Enter');
-  await expect(undated).not.toContainText('Tune the deflector');
+  await expect(
+    dueList.getByText('Confirm shield generator delivery'),
+  ).toHaveCount(0);
   await expectSaved(page);
   const after = await (await request.get('/api/export.json')).json();
-  const tuned = Object.values(after.tasks).find(
-    (t) => (t as { title: string }).title === 'Tune the deflector',
-  ) as { due: string };
-  expect(tuned.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(after.tasks['t-1'].due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('the Tasks table: j focuses a row, x completes, e opens its panel', async ({
+test('All’s tasks: j focuses a row, x completes, e opens its panel', async ({
   page,
 }) => {
-  await openLive(page, '/tasks?view=table&group=none&sort=title');
+  await openLive(page, '/all?kind=task&sort=title');
+  const rows = page.getByRole('main').locator('[data-task-id]');
   await page.keyboard.press('j');
-  const first = page.locator('tr[data-row-id]').first();
-  await expect(first).toBeFocused();
+  await expect(rows.first().locator('[data-row-focus]')).toBeFocused();
   await page.keyboard.press('j');
-  await expect(page.locator('tr[data-row-id]').nth(1)).toBeFocused();
+  await expect(rows.nth(1).locator('[data-row-focus]')).toBeFocused();
   await page.keyboard.press('x');
   await expect(page.getByText(/^Closed “/)).toBeVisible();
-  const opened = page.locator('tr[data-row-id]').first();
-  const title = (await opened.locator('[data-task-title]').textContent()) ?? '';
-  await opened.focus();
+  const first = rows.first().locator('[data-row-focus]');
+  const title = (await first.textContent()) ?? '';
+  await first.focus();
   await page.keyboard.press('e');
   // A task opens in its panel everywhere (#329).
   const panel = page.getByRole('dialog', { name: 'Task' });
@@ -156,12 +158,11 @@ test.describe('the shortcut sheet', () => {
 test('letters type, not trigger, while you are in a field', async ({
   page,
 }) => {
-  // Notes' Find (no page has a quick-add since #218).
-  await openLive(page, '/notes?view=list');
+  // All's Find.
+  await openLive(page, '/all?kind=note');
   const input = page.getByRole('searchbox', { name: 'Find' });
   await input.click();
   await page.keyboard.type('jxenv?');
   await expect(input).toHaveValue('jxenv?');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
 });

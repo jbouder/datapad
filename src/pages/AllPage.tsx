@@ -1,141 +1,855 @@
 import {
   CalendarBlankIcon,
   ChalkboardSimpleIcon,
+  ChartBarHorizontalIcon,
   CheckSquareIcon,
   FoldersIcon,
   type Icon,
+  KanbanIcon,
+  ListBulletsIcon,
   NoteIcon,
+  SquaresFourIcon,
+  TableIcon,
+  UserIcon,
 } from '@phosphor-icons/react';
-import type { AllKind } from '#shared/routes';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ALL_STATUS_OPTIONS,
+  type AllFilters,
+  type AllRow,
+  activeAllFilters,
+  allLayout,
+  allQuery,
+  allTags,
+  BOARD_BY,
+  type BoardBy,
+  clearedAllFilters,
+  currentView,
+  defaultSort,
+  filtersFor,
+  KIND_LABELS,
+  LAYOUT_SETTING,
+  layoutKind,
+  layoutsFor,
+  parseAllQuery,
+  selectAll,
+  sortsFor,
+  viewQuery,
+} from '#shared/all';
+import { formatDay } from '#shared/dates';
+import type { Op } from '#shared/protocol';
+import { peopleByOwed, projectRoomsByOrg, savedViews } from '#shared/rooms';
+import { ALL_KINDS, type AllKind } from '#shared/routes';
+import { meId, taskNoteCounts } from '#shared/select';
+import {
+  DEFAULT_TASK_FILTERS,
+  DUE_BUCKETS,
+  type TaskFilters,
+  type TaskSortKey,
+  undoTaskOps,
+} from '#shared/tasks';
+import { healthOf, type Person, type Project, type Task } from '#shared/types';
+import { SavedViews } from '@/components/all/SavedViews';
+import { FindField } from '@/components/inputs/FindField';
+import { Segmented } from '@/components/inputs/Segmented';
+import { SelectField } from '@/components/inputs/SelectField';
+import { SortField } from '@/components/inputs/SortField';
+import type { Selection } from '@/components/layouts/DataTable';
+import {
+  ListEmpty,
+  type ListFilters,
+  ListToolbar,
+} from '@/components/layouts/ListToolbar';
+import {
+  type ViewOption,
+  ViewSwitcher,
+} from '@/components/layouts/ViewSwitcher';
+import { MeetingLayouts } from '@/components/meetings/MeetingLayouts';
+import { MeetingRow } from '@/components/meetings/MeetingRow';
+import { NoteRow } from '@/components/notes/NoteRow';
+import { useNotes } from '@/components/notes/NotesProvider';
+import { PinButton } from '@/components/PinButton';
+import { HealthBadge } from '@/components/projects/Health';
+import { ProjectLayouts } from '@/components/projects/ProjectLayouts';
+import { StatusPill } from '@/components/projects/StatusPill';
+import { BulkBar } from '@/components/tasks/BulkBar';
+import {
+  TaskBoard,
+  type TaskLayoutProps,
+  TaskTable,
+} from '@/components/tasks/TaskLayouts';
+import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
+import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useFlip } from '@/hooks/useFlip';
+import { useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { linkProps, type Route } from '@/lib/router';
+import { useTaskToggle } from '@/hooks/useTaskToggle';
+import { withLayoutTransition, withViewTransition } from '@/lib/motion';
+import { linkProps, navigate, useQuery } from '@/lib/router';
+import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
-import { ArchivePage } from '@/pages/ArchivePage';
-import { MeetingsPage } from '@/pages/MeetingsPage';
-import { NotesPage } from '@/pages/NotesPage';
-import { ProjectsPage } from '@/pages/ProjectsPage';
-import { TasksPage } from '@/pages/TasksPage';
+import { useMotion } from '@/providers/MotionProvider';
+import { usePageSettingState } from '@/providers/PagePrefsProvider';
+import { useToast } from '@/providers/ToastProvider';
 
-const KINDS: { kind: AllKind; label: string; icon: Icon }[] = [
-  { kind: 'project', label: 'Projects', icon: FoldersIcon },
-  { kind: 'task', label: 'Tasks', icon: CheckSquareIcon },
-  { kind: 'note', label: 'Notes', icon: NoteIcon },
-  { kind: 'meeting', label: 'Meetings', icon: CalendarBlankIcon },
-];
+const KIND_ICONS: Record<AllKind, Icon> = {
+  task: CheckSquareIcon,
+  note: NoteIcon,
+  meeting: CalendarBlankIcon,
+  project: FoldersIcon,
+  person: UserIcon,
+};
+
+/** Each layout's icon in the switcher. */
+const LAYOUT_ICONS: Record<string, Icon> = {
+  list: ListBulletsIcon,
+  table: TableIcon,
+  board: KanbanIcon,
+  calendar: CalendarBlankIcon,
+  cards: SquaresFourIcon,
+  timeline: ChartBarHorizontalIcon,
+};
+
+const BOARD_LABELS: Record<BoardBy, string> = {
+  status: 'Status',
+  priority: 'Priority',
+};
+
+/** How many rows show before Show more. */
+const PAGE = 100;
+
+/** The select value that stands for "any" (an empty value is none). */
+const ANY = 'any';
+
+/** The tasks among `rows`. */
+const tasksOf = (rows: readonly AllRow[]): Task[] =>
+  rows.flatMap((r) => (r.kind === 'task' ? [r.item] : []));
 
 /**
- * All (`/all`, #329): every kind of item. Until #337 makes it one list,
- * `?kind=` shows that kind's page from before v2 (Projects, Tasks, Notes,
- * Meetings; archived projects with `archived=1`) under a row of kinds,
- * and with no kind it links to each, and to the space's whiteboard.
+ * All (`/all`, #337): every item of every kind in one list. The kind
+ * chips pick some kinds (none is every kind); the toolbar's Find, filters
+ * and Sort follow the kinds picked, and everything lives in the address
+ * (`shared/all.ts` reads and writes it). Each kind keeps its own row:
+ * a task opens its panel, a note opens in place (`?note=<id>` opens and
+ * highlights one), a meeting goes to its page, a project or a person to
+ * their room. Below the list, the rooms with their pins, and the space's
+ * whiteboard from the header.
+ *
+ * #338 adds layouts for one kind alone (tasks: list, table, board by
+ * status or priority; meetings: list, calendar; projects: list, cards,
+ * timeline), in the address as `?view=`, each kind's default saved with
+ * the space (Settings → Pages); saved views as chips above the list
+ * (`SavedViews`); and select boxes on tasks for the bulk bar, whose
+ * actions are one `batch` each, with Undo.
  */
-export function AllPage({
-  kind,
-  archived,
-}: {
-  kind?: AllKind;
-  archived?: boolean;
-}) {
+export function AllPage() {
+  usePageTitle('All');
+  const { state, actions } = useDatapad();
+  const { hidden } = useNotes();
+  const { openTask } = useTaskPanels();
+  const { toggle, isDone } = useTaskToggle();
+  const { active } = useMotion();
+  const { show } = useToast();
+  const today = useToday();
+  const query = useQuery();
+  const value = query.toString();
+  const filters = useMemo(
+    () => parseAllQuery(new URLSearchParams(value)),
+    [value],
+  );
+  const target = query.get('note');
+  const [limit, setLimit] = useState(PAGE);
+  const list = useRef<HTMLUListElement>(null);
+  useFlip(list, active);
+
+  // Each kind's saved layout, and the one shown.
+  const [taskView, setTaskView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.task,
+  );
+  const [meetingView, setMeetingView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.meeting,
+  );
+  const [projectView, setProjectView] = usePageSettingState(
+    'all',
+    LAYOUT_SETTING.project,
+  );
+  const layout = allLayout(filters, {
+    [LAYOUT_SETTING.task]: taskView,
+    [LAYOUT_SETTING.meeting]: meetingView,
+    [LAYOUT_SETTING.project]: projectView,
+  });
+  const kind = layoutKind(filters.kinds);
+  const board = kind === 'task' && layout === 'board';
+
+  /** Show `next`: the kinds as the route's, the rest as its query. */
+  const change = useCallback(
+    (next: AllFilters, how: 'filter' | 'layout' | 'none' = 'filter') => {
+      const params = new URLSearchParams();
+      for (const [key, v] of Object.entries(allQuery(next))) {
+        if (v) params.set(key, v);
+      }
+      const go = () =>
+        navigate(
+          { name: 'all', kinds: next.kinds },
+          { query: params.toString(), replace: how !== 'filter' },
+        );
+      if (how === 'filter') withViewTransition(go, active, 'filter');
+      else if (how === 'layout') withLayoutTransition(go, active);
+      else go();
+      setLimit(PAGE);
+    },
+    [active],
+  );
+  const set = (patch: Partial<AllFilters>, transition = true) =>
+    change({ ...filters, ...patch }, transition ? 'filter' : 'none');
+
+  /** Switch layout: in the address, and saved as the kind's default. */
+  const setLayout = (view: string) => {
+    if (kind === 'task') setTaskView(view);
+    else if (kind === 'meeting') setMeetingView(view);
+    else if (kind === 'project') setProjectView(view);
+    change({ ...filters, view }, 'layout');
+  };
+
+  const rows = useMemo(
+    () => (state ? selectAll(state, filters, today, hidden) : []),
+    [state, filters, today, hidden],
+  );
+  const tasks = useMemo(() => tasksOf(rows), [rows]);
+  // The board's Done column while Status is Open: the done tasks the
+  // other filters keep.
+  const extraDone = useMemo(() => {
+    if (!state || !board || filters.status !== 'open') return [];
+    return tasksOf(
+      selectAll(state, { ...filters, status: 'done' }, today, hidden),
+    );
+  }, [state, board, filters, today, hidden]);
+
+  /* ---------- selection, for the bulk bar ---------- */
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const anchor = useRef<string | null>(null);
+  const order = useMemo(() => [...tasks, ...extraDone], [tasks, extraDone]);
+
+  // Selection follows what is shown.
+  useEffect(() => {
+    setSelected((s) => {
+      const shown = new Set(order.map((t) => t.id));
+      const next = new Set([...s].filter((id) => shown.has(id)));
+      return next.size === s.size ? s : next;
+    });
+  }, [order]);
+
+  // Esc clears the selection (when nothing else wants it).
+  useEffect(() => {
+    if (selected.size === 0) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !isTypingTarget(event.target) &&
+        !overlayOpen()
+      ) {
+        setSelected(new Set());
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected.size]);
+
+  const selection: Selection = {
+    selected,
+    toggle: (id, range) =>
+      setSelected((s) => {
+        const next = new Set(s);
+        const from = anchor.current
+          ? order.findIndex((t) => t.id === anchor.current)
+          : -1;
+        const to = order.findIndex((t) => t.id === id);
+        if (range && from >= 0 && to >= 0) {
+          const [a, b] = from < to ? [from, to] : [to, from];
+          for (const t of order.slice(a, b + 1)) next.add(t.id);
+        } else if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        anchor.current = id;
+        return next;
+      }),
+    toggleGroup: (ids) =>
+      setSelected((s) => {
+        const all = ids.every((id) => s.has(id));
+        const next = new Set(s);
+        for (const id of ids) {
+          if (all) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      }),
+    selectGroup: (ids) => setSelected((s) => new Set([...s, ...ids])),
+  };
+
+  /** A drag or a drop on the board, as one change with Undo. */
+  const changeTasks = useCallback(
+    (ops: Op[], before: Task[], message: string) => {
+      if (ops.length === 0) {
+        show(message);
+        return;
+      }
+      const inner = ops.filter(
+        (o): o is Exclude<Op, { type: 'batch' }> => o.type !== 'batch',
+      );
+      if (!actions.batch({ ops: inner })) return;
+      show(message, () => {
+        actions.batch({ ops: undoTaskOps(before, ops) });
+      });
+    },
+    [actions, show],
+  );
+
+  const onEdit = useCallback<NonNullable<TaskRowProps['onEdit']>>(
+    (task, patch) => {
+      actions.editTask({ id: task.id, patch });
+    },
+    [actions],
+  );
+  const openFromRow = useCallback(
+    (task: Task) => openTask(task.id),
+    [openTask],
+  );
+
+  const offered = filtersFor(filters.kinds);
+  const count = activeAllFilters(filters).length;
+  const listFilters: ListFilters = {
+    count,
+    filtered: count > 0 || filters.q.trim() !== '',
+    clear: () => change(clearedAllFilters(filters)),
+  };
+
+  if (!state) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+
+  const toggleKind = (kind: AllKind) => {
+    const kinds = filters.kinds.includes(kind)
+      ? filters.kinds.filter((k) => k !== kind)
+      : ALL_KINDS.filter((k) => k === kind || filters.kinds.includes(k));
+    // The new kinds start at their own sort and layout.
+    change({
+      ...filters,
+      kinds,
+      sort: defaultSort(kinds),
+      dir: 'asc',
+      view: '',
+      board: 'status',
+    });
+  };
+
+  const people = Object.values(state.people).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const me = meId(state.people);
+  const projects = Object.values(state.projects).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const tags = allTags(state);
+  const noteCounts = taskNoteCounts(state.notes);
+  // A linked note is shown, however far down it is.
+  const targetAt = target ? rows.findIndex((r) => r.id === target) : -1;
+  const shown = rows.slice(0, Math.max(limit, targetAt + 1));
+
+  const layouts: ViewOption<string>[] = layoutsFor(filters.kinds).map((o) => ({
+    id: o.value,
+    label: o.label,
+    icon: LAYOUT_ICONS[o.value] ?? ListBulletsIcon,
+  }));
+  // What Save view keeps: the address, the layout shown spelled out.
+  const showing = { ...filters, view: layouts.length > 0 ? layout : '' };
+  const here = currentView(savedViews(state), filters, layout);
+  const selectedTasks = order.filter((t) => selected.has(t.id));
+
+  // Tasks alone, for the table and the board: one group, in All's order.
+  const taskFilters: TaskFilters = {
+    ...DEFAULT_TASK_FILTERS,
+    status: filters.status === 'open' ? 'open' : 'all',
+    group: filters.board === 'priority' ? 'priority' : 'none',
+    q: filters.q,
+    sort: filters.sort as TaskSortKey,
+    dir: filters.dir,
+  };
+  const taskLayout: TaskLayoutProps = {
+    groups: [{ id: 'all', label: '', rows: tasks }],
+    filters: taskFilters,
+    state,
+    today,
+    selection,
+    isDone,
+    toggle,
+    openTask,
+    change: changeTasks,
+    onSort: (column) => {
+      const same = filters.sort === column;
+      set(
+        { sort: column, dir: same && filters.dir === 'asc' ? 'desc' : 'asc' },
+        false,
+      );
+    },
+  };
+
+  const row = (r: AllRow) => {
+    switch (r.kind) {
+      case 'task':
+        return (
+          <li key={`task:${r.id}`} data-flip-id={r.id}>
+            <TaskRow
+              task={r.item}
+              done={isDone(r.item)}
+              today={today}
+              projects={state.projects}
+              people={state.people}
+              onToggle={toggle}
+              onOpen={openFromRow}
+              onEdit={onEdit}
+              select={{
+                selected: selected.has(r.id),
+                onToggle: (range) => selection.toggle(r.id, range),
+              }}
+              noteCount={noteCounts.get(r.id)}
+            />
+          </li>
+        );
+      case 'note':
+        return (
+          <NoteRow
+            key={`note:${r.id}`}
+            note={r.item}
+            state={state}
+            chips={{ project: true, meeting: true, task: true }}
+            className="border-x-0 border-t-0 bg-transparent"
+          />
+        );
+      case 'meeting':
+        return (
+          <li key={`meeting:${r.id}`} data-flip-id={r.id}>
+            <MeetingRow meeting={r.item} state={state} today={today} />
+          </li>
+        );
+      case 'project':
+        return <ProjectLine key={`project:${r.id}`} project={r.item} />;
+      case 'person':
+        return <PersonLine key={`person:${r.id}`} person={r.item} />;
+    }
+  };
+
+  const empty = rows.length === 0 && extraDone.length === 0;
+  const doneTasks =
+    filters.status === 'open'
+      ? extraDone
+      : tasks.filter((t) => t.status === 'done');
+
+  /** The rows in the layout shown. */
+  const body = () => {
+    if (board) {
+      return (
+        <div className="flex flex-col gap-2">
+          <Segmented
+            legend="Columns"
+            value={filters.board}
+            options={BOARD_BY.map((b) => ({
+              value: b,
+              label: BOARD_LABELS[b],
+            }))}
+            onChange={(by) => change({ ...filters, board: by }, 'layout')}
+            className="self-start"
+          />
+          <TaskBoard {...taskLayout} doneTasks={doneTasks} />
+        </div>
+      );
+    }
+    if (kind === 'meeting' && layout === 'calendar') {
+      return (
+        <MeetingLayouts
+          view="calendar"
+          meetings={rows.flatMap((r) => (r.kind === 'meeting' ? [r.item] : []))}
+          state={state}
+          today={today}
+          projectId={
+            filters.room && filters.room !== 'general' ? filters.room : null
+          }
+          filters={listFilters}
+          empty="Nothing here yet."
+        />
+      );
+    }
+    if (empty) {
+      return <ListEmpty state={listFilters}>Nothing here yet.</ListEmpty>;
+    }
+    if (kind === 'task' && layout === 'table') {
+      return <TaskTable {...taskLayout} />;
+    }
+    if (kind === 'project' && (layout === 'cards' || layout === 'timeline')) {
+      return (
+        <ProjectLayouts
+          view={layout}
+          projects={rows.flatMap((r) => (r.kind === 'project' ? [r.item] : []))}
+          label="Projects"
+        />
+      );
+    }
+    return (
+      <>
+        <ul
+          ref={list}
+          aria-label="Items"
+          className="vt-list flex flex-col border-t"
+        >
+          {shown.map(row)}
+        </ul>
+        {shown.length < rows.length && (
+          <Button
+            variant="outline"
+            className="press h-11 self-start desk:h-8"
+            onClick={() => setLimit((n) => n + PAGE)}
+          >
+            Show more ({rows.length - shown.length} left)
+          </Button>
+        )}
+      </>
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <KindLinks kind={kind} />
-      {kind === 'project' && archived ? (
-        <ArchivePage />
-      ) : kind === 'project' ? (
-        <ProjectsPage />
-      ) : kind === 'task' ? (
-        <TasksPage />
-      ) : kind === 'note' ? (
-        <NotesPage />
-      ) : kind === 'meeting' ? (
-        <MeetingsPage />
-      ) : (
-        <Everything />
+    <div
+      className={cn('enter flex flex-col gap-10', selected.size > 0 && 'pb-24')}
+    >
+      <section aria-labelledby="all-title" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 id="all-title" className="text-page-title flex-1">
+            All
+          </h1>
+          {layouts.length > 0 && (
+            <ViewSwitcher views={layouts} value={layout} onChange={setLayout} />
+          )}
+          <a
+            {...linkProps({ name: 'whiteboard' })}
+            className={cn(
+              buttonVariants({ variant: 'outline' }),
+              'press h-11 desk:h-8',
+            )}
+          >
+            <ChalkboardSimpleIcon aria-hidden />
+            Whiteboard
+          </a>
+        </div>
+
+        <fieldset className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <legend className="sr-only">Kinds</legend>
+          <div className="flex w-max gap-1 pr-4 sm:w-auto sm:flex-wrap sm:pr-0">
+            {ALL_KINDS.map((kind) => {
+              const on = filters.kinds.includes(kind);
+              const KindIcon = KIND_ICONS[kind];
+              return (
+                <Toggle
+                  key={kind}
+                  variant="outline"
+                  className="press h-11 px-3 desk:h-8"
+                  pressed={on}
+                  onPressedChange={() => toggleKind(kind)}
+                >
+                  <KindIcon weight={on ? 'fill' : 'regular'} aria-hidden />
+                  {KIND_LABELS[kind]}
+                </Toggle>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <SavedViews query={viewQuery(showing)} current={here} />
+
+        <ListToolbar
+          state={listFilters}
+          find={
+            <FindField
+              value={filters.q}
+              placeholder="Words in anything"
+              onChange={(q) => set({ q }, false)}
+            />
+          }
+          filters={
+            <>
+              {offered.includes('room') && (
+                <SelectField
+                  label="Room"
+                  value={filters.room || ANY}
+                  options={[
+                    { value: ANY, label: 'Any room' },
+                    { value: 'general', label: 'General' },
+                    ...projects.map((p) => ({ value: p.id, label: p.name })),
+                  ]}
+                  onChange={(v) => set({ room: v === ANY ? '' : v })}
+                />
+              )}
+              {offered.includes('person') && (
+                <SelectField
+                  label="Person"
+                  value={filters.person || ANY}
+                  options={[
+                    { value: ANY, label: 'Anyone' },
+                    ...(me ? [{ value: 'me', label: 'Me' }] : []),
+                    ...people
+                      .filter((p) => p.id !== me)
+                      .map((p) => ({ value: p.id, label: p.name })),
+                  ]}
+                  onChange={(v) => set({ person: v === ANY ? '' : v })}
+                />
+              )}
+              {offered.includes('status') && (
+                <SelectField
+                  label="Status"
+                  value={filters.status}
+                  options={[...ALL_STATUS_OPTIONS]}
+                  onChange={(status) => set({ status })}
+                />
+              )}
+              {offered.includes('due') && (
+                <SelectField
+                  label="Due"
+                  value={filters.due || ANY}
+                  options={[
+                    { value: ANY, label: 'Any time' },
+                    ...DUE_BUCKETS.map((b) => ({
+                      value: b.id,
+                      label: b.label,
+                    })),
+                  ]}
+                  onChange={(v) =>
+                    set({ due: v === ANY ? '' : (v as AllFilters['due']) })
+                  }
+                />
+              )}
+              {offered.includes('tag') && tags.length > 0 && (
+                <SelectField
+                  label="Tag"
+                  value={filters.tag || ANY}
+                  options={[
+                    { value: ANY, label: 'Any tag' },
+                    ...tags.map((t) => ({ value: t, label: t })),
+                  ]}
+                  onChange={(v) => set({ tag: v === ANY ? '' : v })}
+                />
+              )}
+              {offered.includes('decide') && (
+                <Segmented
+                  legend="Tasks"
+                  value={
+                    filters.decide
+                      ? 'decide'
+                      : filters.waiting
+                        ? 'waiting'
+                        : ANY
+                  }
+                  options={[
+                    { value: ANY, label: 'Any' },
+                    { value: 'decide', label: 'To decide' },
+                    { value: 'waiting', label: 'Waiting on' },
+                  ]}
+                  onChange={(v) =>
+                    set({ decide: v === 'decide', waiting: v === 'waiting' })
+                  }
+                />
+              )}
+            </>
+          }
+          sort={
+            <SortField
+              value={filters.sort}
+              options={sortsFor(filters.kinds)}
+              dir={filters.dir}
+              onChange={(sort, dir) => set({ sort, dir }, false)}
+            />
+          }
+        />
+
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {rows.length === 1 ? '1 item' : `${rows.length} items`}
+        </p>
+
+        {body()}
+      </section>
+
+      <Rooms />
+
+      {selected.size > 0 && (
+        <BulkBar tasks={selectedTasks} onDone={() => setSelected(new Set())} />
       )}
     </div>
   );
 }
 
-/** The kinds, as links: the one shown is current. */
-function KindLinks({ kind }: { kind?: AllKind }) {
+const LINE =
+  'flex min-h-11 items-center gap-3 border-b py-1.5 pr-1 text-sm desk:min-h-9';
+
+/** A project in the list: its name (to its room), org, status, health, target. */
+function ProjectLine({ project }: { project: Project }) {
+  const today = useToday();
   return (
-    <nav
-      aria-label="Kinds"
-      className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
-    >
-      <ul className="flex w-max gap-1 pr-4 sm:pr-0">
-        {KINDS.map(({ kind: k, label, icon: KindIcon }) => {
-          const current = k === kind;
-          return (
-            <li key={k}>
-              <a
-                {...linkProps({ name: 'all', kind: k })}
-                aria-current={current ? 'page' : undefined}
-                className={cn(
-                  'press flex min-h-11 items-center gap-2 border px-3 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 desk:min-h-8',
-                  current && 'bg-accent font-semibold text-accent-foreground',
-                )}
-              >
-                <KindIcon weight={current ? 'fill' : 'regular'} aria-hidden />
-                {label}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+    <li data-flip-id={project.id} className={LINE}>
+      <FoldersIcon
+        className="ml-2 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
+      <span className="flex min-w-0 flex-1 flex-col desk:flex-row desk:items-center desk:gap-3">
+        <a
+          {...linkProps({ name: 'project', id: project.id })}
+          className="truncate font-medium hover:underline"
+        >
+          {project.name}
+        </a>
+        {project.org && (
+          <span className="truncate text-xs text-muted-foreground">
+            {project.org}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+        <HealthBadge
+          health={healthOf(project)}
+          className="hidden sm:inline-flex"
+        />
+        {project.targetDate && (
+          <span className="hidden tabular-nums sm:inline">
+            {formatDay(project.targetDate, today)}
+          </span>
+        )}
+        {project.archived ? (
+          <span className="border px-1.5">Archived</span>
+        ) : (
+          <StatusPill status={project.status} />
+        )}
+      </span>
+    </li>
   );
 }
 
-/** `/all` with no kind: each kind, with how many there are. */
-function Everything() {
-  usePageTitle('All');
-  const { state } = useDatapad();
-  const counts: Record<AllKind, number> = {
-    project: Object.values(state?.projects ?? {}).filter((p) => !p.archived)
-      .length,
-    task: Object.values(state?.tasks ?? {}).filter((t) => t.status === 'open')
-      .length,
-    note: Object.keys(state?.notes ?? {}).length,
-    meeting: Object.keys(state?.meetings ?? {}).length,
-  };
-  const items: { route: Route; label: string; icon: Icon; count?: number }[] = [
-    ...KINDS.map(({ kind, label, icon }) => ({
-      route: { name: 'all', kind } as Route,
-      label,
-      icon,
-      count: state ? counts[kind] : undefined,
-    })),
-    {
-      route: { name: 'whiteboard' },
-      label: 'Whiteboard',
-      icon: ChalkboardSimpleIcon,
-    },
-  ];
+/** A person in the list: their name (to their room) and role. */
+function PersonLine({ person }: { person: Person }) {
   return (
-    <section aria-labelledby="all-title" className="enter flex flex-col gap-4">
-      <h1 id="all-title" className="text-page-title">
-        All
-      </h1>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 desk:grid-cols-3">
-        {items.map(({ route, label, icon: ItemIcon, count }) => (
-          <li key={label}>
-            <a
-              {...linkProps(route)}
-              className="press flex min-h-16 items-center gap-3 border bg-card p-3 text-card-foreground outline-ring/50 hover:bg-accent/40 focus-visible:outline-2"
-            >
-              <ItemIcon className="size-5" aria-hidden />
-              <span className="flex-1 font-medium">{label}</span>
-              {count !== undefined && (
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {count}
-                </span>
+    <li data-flip-id={person.id} className={LINE}>
+      <UserIcon className="ml-2 shrink-0 text-muted-foreground" aria-hidden />
+      <a
+        {...linkProps({ name: 'person', id: person.id })}
+        className="min-w-0 truncate font-medium hover:underline"
+      >
+        {person.name}
+      </a>
+      {person.role && (
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {person.role}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The rooms, below the list: project rooms under their orgs, and people
+ * by how much they owe you, each with Pin.
+ */
+function Rooms() {
+  const { state } = useDatapad();
+  if (!state) return null;
+  const orgs = projectRoomsByOrg(state.projects);
+  const people = peopleByOwed(state);
+  const grouped = orgs.some((g) => g.org);
+  return (
+    <section aria-labelledby="rooms-title" className="flex flex-col gap-4">
+      <h2 id="rooms-title" className="font-heading text-xl font-semibold">
+        Rooms
+      </h2>
+      <div className="grid gap-8 desk:grid-cols-2">
+        <section
+          aria-labelledby="project-rooms"
+          className="flex flex-col gap-3"
+        >
+          <h3 id="project-rooms" className="text-sm font-semibold">
+            Projects
+          </h3>
+          {orgs.length === 0 && <p className="text-state">No projects yet.</p>}
+          {orgs.map((group) => (
+            <div key={group.org} className="flex flex-col gap-1">
+              {grouped && (
+                <h4 className="text-xs font-medium text-muted-foreground">
+                  {group.org || 'No org'}
+                </h4>
               )}
-            </a>
-          </li>
-        ))}
-      </ul>
+              <ul className="flex flex-col border-t">
+                {group.projects.map((p) => (
+                  <RoomLine
+                    key={p.id}
+                    name={p.name}
+                    room={{ kind: 'project', id: p.id }}
+                  />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+        <section aria-labelledby="people-rooms" className="flex flex-col gap-3">
+          <h3 id="people-rooms" className="text-sm font-semibold">
+            People
+          </h3>
+          {people.length === 0 ? (
+            <p className="text-state">No people yet.</p>
+          ) : (
+            <ul className="flex flex-col border-t">
+              {people.map(({ person, count }) => (
+                <RoomLine
+                  key={person.id}
+                  name={person.name}
+                  room={{ kind: 'person', id: person.id }}
+                  note={count > 0 ? `owes you ${count}` : undefined}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </section>
+  );
+}
+
+function RoomLine({
+  name,
+  room,
+  note,
+}: {
+  name: string;
+  room: { kind: 'project'; id: string } | { kind: 'person'; id: string };
+  note?: string;
+}) {
+  return (
+    <li className={cn(LINE, 'gap-2')}>
+      <a
+        {...linkProps(
+          room.kind === 'project'
+            ? { name: 'project', id: room.id }
+            : { name: 'person', id: room.id },
+        )}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 hover:underline desk:min-h-8"
+      >
+        <span className="truncate">{name}</span>
+        {note && (
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {note}
+          </span>
+        )}
+      </a>
+      <PinButton room={room} name={name} />
+    </li>
   );
 }

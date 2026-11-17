@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ALL_LAYOUTS } from '#shared/all';
 import {
   activeFilterCount,
   applyPagePatch,
@@ -11,6 +12,7 @@ import {
   hasPagePrefs,
   hasPageSettings,
   isFiltered,
+  layoutTable,
   legacyPrefs,
   mergePatches,
   optionsFor,
@@ -472,10 +474,38 @@ describe('patches', () => {
       dir: 'desc',
       filters: { status: 'done' },
       sections: { done: true },
+      views: [{ id: 'v1', name: 'Board', query: 'kind=task&view=board' }],
     };
     const patch = prefsAsPatch(prefs);
     expect(PagePrefsPatchSchema.safeParse(patch).success).toBe(true);
     expect(applyPagePatch(undefined, patch)).toEqual(prefs);
+  });
+
+  it("list All's layouts per kind in Help's table (#338)", () => {
+    const rows = layoutTable();
+    expect(rows.filter((r) => r.page.startsWith('All'))).toEqual([
+      {
+        page: 'All, tasks',
+        options: ALL_LAYOUTS.task,
+        def: 'List',
+      },
+      {
+        page: 'All, meetings',
+        options: ALL_LAYOUTS.meeting,
+        def: 'List',
+      },
+      {
+        page: 'All, projects',
+        options: ALL_LAYOUTS.project,
+        def: 'List',
+      },
+    ]);
+    // Settings-only: never read from the address.
+    expect(
+      effectiveQuery('all', new URLSearchParams('taskView=board'), {}).get(
+        'taskView',
+      ),
+    ).toBeNull();
   });
 
   it('count sections closed and open', () => {

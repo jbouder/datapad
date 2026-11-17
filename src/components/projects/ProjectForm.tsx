@@ -248,7 +248,7 @@ export function ProjectForm({
     if (!actions.deleteProject({ id: project.id })) return;
     onClose();
     show(`Deleted ${project.name}`);
-    navigate({ name: 'all', kind: 'project' });
+    navigate({ name: 'all', kinds: ['project'] });
   };
 
   return (
