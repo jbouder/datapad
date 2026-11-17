@@ -203,9 +203,10 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
-- Today on a phone: the day line stays on one line, so the page no longer
-  jumps between days. The capture line runs full width, with its expand
-  button inside it, and the day controls fill the width above it.
+- Today on a phone: the day line stays on one line, and the recap's line
+  is held on every day, so the header keeps its height as you step between
+  days. The capture line runs full width, with its expand button inside
+  it, and the previous, Today and next buttons sit at the right.
 
 - MCP's `get_focus` is now an alias of `get_today` and returns the same
   thing: the old Focus shape (due buckets, follow-ups, attention,
