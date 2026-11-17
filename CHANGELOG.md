@@ -33,6 +33,10 @@ changes the format says so here under **Export format**.
   migrated once (the Durable Object's schema goes to 4). Nothing is
   deleted: the lists are kept in the data. The classic pages do not use
   these yet.
+- A staging deploy: the `v2` branch deploys to its own Worker,
+  `datapad-v2`, with its own data, backups and Access application, after
+  CI passes. Production still deploys from `main` only. See
+  docs/self-hosting.md § Staging.
 
 ### Changed
 
