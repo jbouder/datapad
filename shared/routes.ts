@@ -6,8 +6,8 @@ import { GENERAL_BOARD, type RoomTab } from './types';
  * rail's place and the title. `src/lib/router.ts` holds the history and
  * React halves.
  *
- * v2 (#329) has three places and the rooms: Today (`/`), Unfiled
- * (`/unfiled`), All (`/all`, `?kind=` picks kinds), the rooms list for
+ * v2 (#329) has three places and the rooms: Today (`/`), Scratch
+ * (`/scratch`), All (`/all`, `?kind=` picks kinds), the rooms list for
  * the phone (`/rooms`), a project's room
  * (`/projects/:id`), a person's room (`/people/:id`) and a meeting
  * (`/meetings/:id`). Every address from before lands on its new home
@@ -30,7 +30,7 @@ export type AllKind = (typeof ALL_KINDS)[number];
 export type Route =
   | { name: 'today' }
   /** Lines with no home yet (#333); replaces the Notepad. */
-  | { name: 'unfiled' }
+  | { name: 'scratch' }
   /**
    * Every item of every kind (#337), or of the `kinds` given. Its filters
    * and sort are the rest of the query (`shared/all.ts`).
@@ -216,7 +216,8 @@ function oldListQuery(
  *
  * - `/focus` and `/decisions…` are Today (`/`); `/digest` is its week
  *   zoom (`/?view=week`)
- * - `/notepad` (and Notes' old Notepad layout) is `/unfiled`
+ * - `/notepad` (and Notes' old Notepad layout) is `/scratch`, as is
+ *   `/unfiled` (Scratch's old name)
  * - `/projects`, `/tasks`, `/notes`, `/meetings` (and `/events`) are All
  *   with that kind, their filters as All reads them (`oldListQuery`);
  *   `/archive` is All's projects with `status=archived`, as is
@@ -244,8 +245,10 @@ export function landRoute(
   // The Weekly digest is Today's week zoom (#332).
   if (clean === '/digest') return [{ name: 'today' }, '?view=week'];
   if (DECISIONS.test(clean)) return [{ name: 'today' }, ''];
-  if (clean === '/notepad') return [{ name: 'unfiled' }, ''];
-  if (clean === '/unfiled') return [{ name: 'unfiled' }, search];
+  if (clean === '/notepad') return [{ name: 'scratch' }, ''];
+  if (clean === '/scratch') return [{ name: 'scratch' }, search];
+  // Scratch was named Unfiled; its old address still lands there.
+  if (clean === '/unfiled') return [{ name: 'scratch' }, search];
   if (clean === '/rooms') return [{ name: 'rooms' }, search];
   if (clean === '/all') {
     const route = allFrom(params);
@@ -260,7 +263,7 @@ export function landRoute(
   const kind = OLD_LISTS[clean];
   if (kind) {
     if (clean === '/notes' && params.get('view') === 'notepad') {
-      return [{ name: 'unfiled' }, ''];
+      return [{ name: 'scratch' }, ''];
     }
     // An old link to one meeting opens it.
     const meeting =
@@ -469,7 +472,7 @@ export function roomTabRoute(id: string, tab: RoomTab): Route {
  * The rail's and tab bar's places. Rooms is the phone's fourth tab; the
  * rail lists the rooms themselves instead.
  */
-export type Place = 'today' | 'unfiled' | 'rooms' | 'all';
+export type Place = 'today' | 'scratch' | 'rooms' | 'all';
 
 /**
  * Which place a route is in, for `aria-current`: the space's whiteboard
@@ -478,7 +481,7 @@ export type Place = 'today' | 'unfiled' | 'rooms' | 'all';
  * are in none.
  */
 export function placeOf(route: Route): Place | null {
-  if (route.name === 'today' || route.name === 'unfiled') return route.name;
+  if (route.name === 'today' || route.name === 'scratch') return route.name;
   if (route.name === 'all') return 'all';
   if (route.name === 'whiteboard' && !route.project) return 'all';
   if (route.name === 'rooms' || route.name === 'person') return 'rooms';
@@ -502,7 +505,7 @@ export function settingsRoute(section: SettingsSection): Route {
 
 const TITLES: Partial<Record<RouteName, string>> = {
   today: 'Today',
-  unfiled: 'Unfiled',
+  scratch: 'Scratch',
   rooms: 'Rooms',
   all: 'All',
   whiteboard: 'Whiteboard',

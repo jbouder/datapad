@@ -10,12 +10,12 @@ import {
 } from './fixtures';
 
 /**
- * The v2 shell (#329): the rail (Today, Unfiled, All, then Rooms and the
+ * The v2 shell (#329): the rail (Today, Scratch, All, then Rooms and the
  * people who owe you something), the phone's four tabs, and every old
  * address landing on its new home.
  */
 
-test('the rail has Today, Unfiled and All, the active projects as rooms, and who owes you', async ({
+test('the rail has Today, Scratch and All, the active projects as rooms, and who owes you', async ({
   page,
   request,
 }) => {
@@ -25,10 +25,10 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
   const rail = page.getByRole('complementary', { name: 'Datapad' });
   const places = rail.getByRole('navigation', { name: 'Sections' });
 
-  // The seed's Ideas note is General and mentions nobody: one unfiled.
+  // The seed's Ideas note is General and mentions nobody: one in Scratch.
   await expect(places.getByRole('list').first().getByRole('link')).toHaveText([
     /^Today$/,
-    /^Unfiled\s*1 unfiled$/,
+    /^Scratch\s*1 in Scratch$/,
     /^All$/,
   ]);
   await expect(rail.getByRole('link', { name: 'Today' })).toHaveAttribute(
@@ -77,16 +77,16 @@ test('the rail has Today, Unfiled and All, the active projects as rooms, and who
     'page',
   );
 
-  // The Unfiled count follows the data.
-  await places.getByRole('link', { name: /Unfiled/ }).click();
-  await expect(page).toHaveURL(/\/unfiled$/);
+  // The Scratch count follows the data.
+  await places.getByRole('link', { name: /Scratch/ }).click();
+  await expect(page).toHaveURL(/\/scratch$/);
   await expect(
-    page.getByRole('list', { name: 'Unfiled notes' }).getByRole('article'),
+    page.getByRole('list', { name: 'Scratch notes' }).getByRole('article'),
   ).toHaveCount(1);
   await expectAccessible(page);
 });
 
-test('a phone has four tabs, Today, Unfiled, Rooms and All, each a 44px target', async ({
+test('a phone has four tabs, Today, Scratch, Rooms and All, each a 44px target', async ({
   page,
 }) => {
   test.skip(!isMobile(page), 'The tab bar is for phones.');
@@ -95,7 +95,7 @@ test('a phone has four tabs, Today, Unfiled, Rooms and All, each a 44px target',
   await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('link')).toHaveText([
     'Today',
-    'Unfiled',
+    'Scratch',
     'Rooms',
     'All',
   ]);
@@ -114,10 +114,10 @@ test('a phone has four tabs, Today, Unfiled, Rooms and All, each a 44px target',
     'aria-current',
     'page',
   );
-  await tabs.getByRole('link', { name: 'Unfiled' }).click();
-  await expect(page).toHaveURL(/\/unfiled$/);
+  await tabs.getByRole('link', { name: 'Scratch' }).click();
+  await expect(page).toHaveURL(/\/scratch$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Unfiled' }),
+    page.getByRole('heading', { level: 1, name: 'Scratch' }),
   ).toBeVisible();
   await expectAccessible(page);
 });
@@ -130,11 +130,16 @@ test('old addresses land on their new homes', async ({ page, request }) => {
   await openLive(page, '/digest');
   await expect(page).toHaveURL(/localhost:\d+\/\?view=week$/);
   await expect(page.getByRole('region', { name: 'Digest' })).toBeVisible();
-  // The Notepad is Unfiled.
+  // The Notepad is Scratch, and so is Unfiled, its old name.
   await page.goto('/notepad');
-  await expect(page).toHaveURL(/\/unfiled$/);
+  await expect(page).toHaveURL(/\/scratch$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Unfiled' }),
+    page.getByRole('heading', { level: 1, name: 'Scratch' }),
+  ).toBeVisible();
+  await page.goto('/unfiled');
+  await expect(page).toHaveURL(/\/scratch$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Scratch' }),
   ).toBeVisible();
   // The list pages are All, by kind, their filters as All reads them.
   for (const [path, url] of [

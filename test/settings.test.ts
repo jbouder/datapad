@@ -238,12 +238,13 @@ describe('capture defaults (#343)', () => {
     ).toBe('han');
   });
 
-  it('sends a room’s note to Unfiled when set to; tasks still file there', () => {
+  it('sends a room’s note to Scratch when set to; tasks still file there', () => {
+    // `unfiled` is the stored value for Scratch.
     const state = set({ roomNotes: 'unfiled' });
     const room = { projectId: 'falcon' };
     const note = parseCapture('Ask about parts', state, MONDAY, room);
     expect(note.projectId).toBeNull();
-    expect(note.unfiled).toBe(true);
+    expect(note.toScratch).toBe(true);
     const task = parseCapture('todo ask about parts', state, MONDAY, room);
     expect(task.projectId).toBe('falcon');
     // A #word still files the note.

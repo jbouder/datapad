@@ -46,18 +46,18 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('capture a note: it goes to Unfiled, with Undo', async ({
+test('capture a note: it goes to Scratch, with Undo', async ({
   page,
   request,
 }) => {
   await openLive(page);
   await capture(page).fill('The hangar doors stick in the cold');
-  await expect(chips(page)).toHaveText(['Note', 'Unfiled']);
+  await expect(chips(page)).toHaveText(['Note', 'Scratch']);
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
   await capture(page).press('Enter');
   await expect(capture(page)).toHaveValue('');
-  await expect(toast(page)).toContainText('Added a note to Unfiled');
+  await expect(toast(page)).toContainText('Added a note to Scratch');
   await expectSaved(page);
   let data = await stored(request);
   const note = Object.values(data.notes).find(
@@ -265,5 +265,5 @@ test('Settings → Capture changes what a plain line saves (#343)', async ({
   await expectSaved(page);
   await openLive(page);
   await capture(page).fill('The hangar doors stick in the cold');
-  await expect(chips(page)).toHaveText(['Note', 'Unfiled']);
+  await expect(chips(page)).toHaveText(['Note', 'Scratch']);
 });

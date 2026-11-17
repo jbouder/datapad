@@ -11,7 +11,7 @@ import { useToast } from '@/providers/ToastProvider';
  * (`sourceNoteId`), with a toast that opens the task. The note itself is
  * not changed. A meeting's note makes an action item of that meeting
  * (#336). Returns whether the task was made. With `decide`, it is
- * something to decide (#328), as Unfiled's To decide makes (#333).
+ * something to decide (#328), as Scratch's To decide makes (#333).
  */
 export function useMakeTask(): (
   note: Note,

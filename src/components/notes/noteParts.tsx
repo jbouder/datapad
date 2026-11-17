@@ -77,12 +77,13 @@ export function NoteChips({
   return (
     <>
       {showProject &&
+        // `note.scratch` is the old Notepad flag; the `scratch` route is Scratch.
         (note.scratch || project ? (
           <a
             {...linkProps(
               project && !note.scratch
                 ? { name: 'project', id: project.id }
-                : { name: 'unfiled' },
+                : { name: 'scratch' },
             )}
             className={CHIP}
           >

@@ -32,7 +32,7 @@ const ACTION = 'press h-11 px-1.5 desk:h-7 desk:px-2.5';
 const ICON_ON_PHONE = 'press size-11 desk:h-7 desk:w-auto desk:px-2.5';
 
 /**
- * One block on Unfiled (#333): a note with no home, its relative time,
+ * One block on Scratch (#333): a note with no home, its relative time,
  * the rendered body (checklists tick in place) and its actions, always
  * shown: File to (a project picker; `moveNote`, with Undo), Make task
  * and To decide (a task titled from the first line, pointing back at the
@@ -42,7 +42,7 @@ const ICON_ON_PHONE = 'press size-11 desk:h-7 desk:w-auto desk:px-2.5';
  *
  * It is an `<li>`: put it in a `<ul>`.
  */
-export function UnfiledBlock({
+export function ScratchBlock({
   note,
   state,
 }: {

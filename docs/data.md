@@ -132,9 +132,10 @@ as it is (migrated on the way in, below):
   a plain line on the capture line becomes; absent is `note`),
   `mentionAssigns` (`false` when `@Name` on a captured task only mentions
   the person; absent assigns), `roomNotes` (`room` or `unfiled`: where a
-  note captured in a room goes when it names no project; absent is
-  `room`), `railOwed` (`false` hides the people who owe you from the
-  rail; absent shows them), `roomTab` (`stream`, `plan` or `whiteboard`:
+  note captured in a room goes when it names no project, `unfiled`
+  being Scratch under its old name; absent is `room`), `railOwed`
+  (`false` hides the people who owe you from the rail; absent shows
+  them), `roomTab` (`stream`, `plan` or `whiteboard`:
   the tab a project room opens on; absent is `stream`) and `laneLabels`
   (the person room's lane names, `{ "youOwe": "On me" }`, keys `youOwe`,
   `theyOwe` and `discuss`, each 1 to 40 characters; a lane left out keeps
@@ -260,8 +261,8 @@ as it is (migrated on the way in, below):
   decide, not just to do. Optional: absent reads as false, and an
   export writes it only on tasks that have it (last among their
   fields).
-- A note is **Unfiled** (#328) when it is General, on no meeting or
-  task, and mentions nobody (`isUnfiled()` in
+- A note is in **Scratch** (#328) when it is General, on no meeting or
+  task, and mentions nobody (`inScratch()` in
   [`shared/notes.ts`](../shared/notes.ts)). That is worked out, never
   stored: filing a note is moving it to a project or mentioning
   someone in it.

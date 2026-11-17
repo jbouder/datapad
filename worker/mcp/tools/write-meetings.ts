@@ -59,7 +59,7 @@ export const addNote = defineTool({
   name: 'add_note',
   title: 'Write a note',
   description:
-    'Write a Markdown note in a project. With `meeting` it is a note on that meeting (in its project); with `task`, a running note on that task (in its project). Not both. Mentions as @Name become links to the person. With no project, meeting, task or mention it lands in Unfiled (`unfiled: true`), to be filed later with file_note. A checklist is a note with a "- [ ] item" line per item. Logs "Added a note" (or "Added a note to …").',
+    'Write a Markdown note in a project. With `meeting` it is a note on that meeting (in its project); with `task`, a running note on that task (in its project). Not both. Mentions as @Name become links to the person. With no project, meeting, task or mention it lands in Scratch (`scratch: true`), to be filed later with file_note. A checklist is a note with a "- [ ] item" line per item. Logs "Added a note" (or "Added a note to …").',
   scope: 'write',
   input: z.object({
     space: SpaceArg,
@@ -126,7 +126,7 @@ export const fileNote = defineTool({
   name: 'file_note',
   title: 'File a note',
   description:
-    'File a note to a project (or, with "general", to no project), keeping its text and when it was written: how a note leaves Unfiled. A meeting’s or a task’s note stays where it is. Filing a note where it already is changes nothing. Logs "Filed a note to …".',
+    'File a note to a project (or, with "general", to no project), keeping its text and when it was written: how a note leaves Scratch. A meeting’s or a task’s note stays where it is. Filing a note where it already is changes nothing. Logs "Filed a note to …".',
   scope: 'write',
   input: z.object({
     space: SpaceArg,

@@ -11,7 +11,7 @@ import {
 } from './fixtures';
 
 /**
- * Today (#331): the day as a timeline, what is due, Next up, the Unfiled
+ * Today (#331): the day as a timeline, what is due, Next up, the Scratch
  * card and the three lanes of open loops. The seed has Leia Organa marked
  * as me, today's Shield review (2–3 PM), her shield generator (3 days
  * late), the tauntaun vet and the docking permit (no one's), Chewbacca's
@@ -108,9 +108,9 @@ test('Today: the day, Next up, what is due, the timeline and the loops', async (
     lane(page, 'Waiting on Han Solo').getByRole('listitem'),
   ).toHaveText([/Find a replacement motivator/]);
   await expect(page.getByText('Nothing to decide.')).toBeVisible();
-  await expect(page.locator('[data-unfiled-card]')).toHaveAttribute(
+  await expect(page.locator('[data-scratch-card]')).toHaveAttribute(
     'href',
-    '/unfiled',
+    '/scratch',
   );
 
   // A loop's room and person link to their rooms.

@@ -87,7 +87,7 @@ refused. Protocol versions `2025-11-25`, `2025-06-18` and `2025-03-26`.
 At `initialize` the server tells the model how the data is shaped and
 which tools to reach for in order: `list_spaces` (`main` is the default),
 then `get_today`, `get_recap` or `get_overview`, then the specific reads.
-It names v2's ideas (#340): open loops in three lanes, Unfiled, and a
+It names v2's ideas (#340): open loops in three lanes, Scratch, and a
 room per project and per person. Ids are
 opaque, dates are `YYYY-MM-DD`, names match ignoring case, lists are
 capped, read before you write. It also says (#244) that every text field
@@ -117,11 +117,12 @@ the Worker over one space's snapshot (the Durable Object's
 | `whoami`        | none                                                                                                     | The email this connection acts for, its scopes, and every space with its counts (projects, archived projects, tasks, open tasks, notes, meetings, people)                                    |
 | `list_spaces`   | none                                                                                                     | Every space (id, name, position, created) in the order the app shows them                                                                                                                    |
 | `get_overview`  | `space`, `today`                                                                                         | The space's counts, the week's movement (closed, added, overdue), and each project outside the archive with status, health, priority, dates, next milestone, open and blocked counts         |
-| `get_today`     | `space`, `today`                                                                                         | Today (#331): the day's line (`dayLine`), its meetings in time order, the open tasks due (`dueOn`, overdue too), the next meeting (`nextMeeting`, within the days Settings → Today sets, 7 unless set), the three lanes (`lanesOf`: `mine`, `waiting` by person, `decide`, with `counts`; Mine holds only your tasks when Tasks for is Mine) and how many notes are in Unfiled. Archived projects are left out |
+| `get_today`     | `space`, `today`                                                                                         | Today (#331): the day's line (`dayLine`), its meetings in time order, the open tasks due (`dueOn`, overdue too), the next meeting (`nextMeeting`, within the days Settings → Today sets, 7 unless set), the three lanes (`lanesOf`: `mine`, `waiting` by person, `decide`, with `counts`; Mine holds only your tasks when Tasks for is Mine) and how many notes are in Scratch. Archived projects are left out |
 | `get_focus`     | `space`, `today`                                                                                         | The same as `get_today`, kept under Focus's name (#340). The old Focus shape (due buckets, follow-ups, attention, agenda) is gone; an `assignee` is ignored |
 | `get_recap`     | `space`, `date`, `assignee`                                                                              | Today's recap (Since yesterday) for the working day before `date` (Friday to Sunday on a Monday; a day earlier when Settings → Today starts the week on Sunday): tasks closed and added, meetings held with action items and notes, notes written, other activity; without `assignee`, follows Mine shows in Settings → Today |
 | `get_loops`     | `space`, `project`, `person`                                                                             | The three lanes, each due first: for a project's tasks (`projectKeep`), the tasks that touch a person (`personLanes`: assigned, blocked on, mentioned; their own Waiting on group first), both, or with neither the lanes as Today shows them |
-| `list_unfiled`  | `space`, `limit`                                                                                         | Unfiled (`unfiledNotes`): notes with no project, meeting, task or mention, newest first |
+| `list_scratch`  | `space`, `limit`                                                                                         | Scratch (`scratchNotes`): notes with no project, meeting, task or mention, newest first |
+| `list_unfiled`  | `space`, `limit`                                                                                         | The same as `list_scratch`, under Scratch's old name, Unfiled |
 | `get_room`      | `space`, `room`, `person`, `project`, `limit`, `today`                                                            | A room by id or name, projects and people together. A project's: everything `get_project` returns, plus `stateLine` (`projectStateLine`), `people` (`roomPeople`), `lanes` and the stream (`projectStream`) split at now into `upcoming` (soonest first) and `stream` (newest first), 50 items each unless `limit`; `person` narrows it to what touches them. A person's (#335's selectors): the person, `stateLine` (`personStateLine`), `projects` (`personProjects`), `lanes` (`personLanes`: Mine is what you owe them, their own Waiting on group first), `toDiscuss` (`personTopics`: open topics of meetings ahead they attend) and the stream (`personStream`); `project` narrows it to one project |
 | `list_projects` | `space`, `status`, `health`, `org`, `archived`, `sort`, `today`                                          | Projects as the Projects page selects them (by default every status outside the archive, most recently updated first), each as on `get_overview`                                             |
 | `get_project`   | `space`, `project`, `today`                                                                              | One project (or `general`): details, members, links, milestones, open tasks in order, the 10 latest notes (pinned first; checklists are notes), 5 upcoming and 5 recent meetings with topics, 25 activity lines    |
@@ -141,9 +142,11 @@ The rules every tool keeps:
   ignoring case, else the one name that contains it. A name that matches
   several returns the candidates' ids and names instead of a guess.
   `project: "general"` is General, the work in no project. A `note` is
-  an id only, from `list_unfiled`, `list_notes` or `search`.
+  an id only, from `list_scratch`, `list_notes` or `search`.
 - **Documents.** A task carries `decide` (to decide, #328); a note
-  carries `unfiled` (it sits in Unfiled). A stream item is
+  carries `scratch` (it sits in Scratch; `unfiled`, Scratch's old name,
+  says the same for older clients, and `notepad` is the old Notepad
+  flag). A stream item is
   `{ kind, at, … }` with `at` a local `YYYY-MM-DDTHH:MM`, and a task's
   `event` (`added` or `done`).
 - **Lists** carry at most 200 items, as `{ count, truncated, items }`:
@@ -190,7 +193,7 @@ now is and the activity lines the change wrote (`{ project, text }`,
 | `edit_task`          | `space`, `task`, `title`, `due` (`none` clears), `priority`, `assignee` (`unassigned` clears), `desc`, `tags`, `decide`, `today` | `editTask`                              |
 | `set_blocked`        | `space`, `task`, `blocked` (false unblocks), `on`, `note`                                                              | `setBlocked`                                      |
 | `set_decide`         | `space`, `task`, `decide` (default true; false: decided, still open)                                                   | `setDecide`                                       |
-| `add_note`           | `space`, `body`, `project`, `meeting` or `task`; with none of them and no mention it lands in Unfiled                  | `addNote`                                         |
+| `add_note`           | `space`, `body`, `project`, `meeting` or `task`; with none of them and no mention it lands in Scratch                  | `addNote`                                         |
 | `file_note`          | `space`, `note` (an id), `project` (`general` for none)                                                                | `moveNote` (not a meeting's or a task's note)     |
 | `add_meeting`        | `space`, `title`, `date`, `time`, `end`, `project`, `attendees`, `link`, `note`, `today`                               | `addMeeting`                                      |
 | `add_topic`          | `space`, `meeting`, `title`                                                                                            | `addTopic`                                        |

@@ -14,7 +14,7 @@ const CURRENT =
   'bg-sidebar-accent font-semibold text-sidebar-accent-foreground';
 
 /**
- * The desktop rail (≥ 820px, #329): the space switcher; Today, Unfiled
+ * The desktop rail (≥ 820px, #329): the space switcher; Today, Scratch
  * (with its count) and All; then Rooms: the pinned rooms in your order,
  * or before anything is pinned the active projects, most recently changed
  * first, with their open counts; then the people who owe you something,
@@ -43,7 +43,7 @@ export function Rail({ route }: { route: Route }) {
         <ul className="flex flex-col">
           {places.map(({ name, route: to, label, icon: Icon }) => {
             const current = place === name;
-            const count = name === 'unfiled' ? (rail?.unfiled ?? 0) : 0;
+            const count = name === 'scratch' ? (rail?.scratch ?? 0) : 0;
             return (
               <li key={name}>
                 <a
@@ -56,7 +56,7 @@ export function Rail({ route }: { route: Route }) {
                   {count > 0 && (
                     <span className="count text-xs text-muted-foreground tabular-nums">
                       {count}
-                      <span className="sr-only"> unfiled</span>
+                      <span className="sr-only"> in Scratch</span>
                     </span>
                   )}
                 </a>

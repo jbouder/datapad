@@ -476,7 +476,8 @@ export interface Settings {
   mentionAssigns?: boolean;
   /**
    * Where a note captured in a room goes when it names no project
-   * (#343): the room, or Unfiled. Absent: the room.
+   * (#343): the room, or Scratch (stored as `unfiled`, its old name).
+   * Absent: the room.
    */
   roomNotes?: RoomNotes;
   /** Whether the rail lists the people who owe you (#343). Absent: it does. */
@@ -494,7 +495,10 @@ export interface Settings {
 export const CAPTURE_AS = ['note', 'task'] as const;
 export type CaptureAs = (typeof CAPTURE_AS)[number];
 
-/** Where a note captured in a room goes when it names no project. */
+/**
+ * Where a note captured in a room goes when it names no project.
+ * `unfiled` is Scratch: the stored value keeps its old name.
+ */
 export const ROOM_NOTES = ['room', 'unfiled'] as const;
 export type RoomNotes = (typeof ROOM_NOTES)[number];
 

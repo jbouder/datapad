@@ -27,10 +27,10 @@ function landsOn(address: string, hash = ''): string {
 }
 
 describe('the v2 addresses (#329)', () => {
-  it('reads Today, Unfiled and All', () => {
+  it('reads Today, Scratch and All', () => {
     expect(parseRoute('/')).toEqual({ name: 'today' });
-    expect(parseRoute('/unfiled')).toEqual({ name: 'unfiled' });
-    expect(parseRoute('/unfiled/')).toEqual({ name: 'unfiled' });
+    expect(parseRoute('/scratch')).toEqual({ name: 'scratch' });
+    expect(parseRoute('/scratch/')).toEqual({ name: 'scratch' });
     expect(parseRoute('/rooms')).toEqual({ name: 'rooms' });
     expect(parseRoute('/rooms/')).toEqual({ name: 'rooms' });
     expect(routePath({ name: 'rooms' })).toBe('/rooms');
@@ -116,7 +116,7 @@ describe('the v2 addresses (#329)', () => {
   it('round-trips every route through its address', () => {
     const routes: Route[] = [
       { name: 'today' },
-      { name: 'unfiled' },
+      { name: 'scratch' },
       { name: 'rooms' },
       { name: 'all' },
       { name: 'all', kinds: ['task'] },
@@ -175,11 +175,18 @@ describe('redirects from every old address (#329)', () => {
     expect(landsOn('/decisions/d-1?decision=d-1')).toBe('/');
   });
 
-  it('sends the Notepad to Unfiled', () => {
-    expect(landsOn('/notepad')).toBe('/unfiled');
-    expect(landsOn('/notepad/')).toBe('/unfiled');
-    expect(landsOn('/notes?view=notepad')).toBe('/unfiled');
-    expect(landsOn('/notes/?project=p1&view=notepad')).toBe('/unfiled');
+  it('sends the Notepad to Scratch', () => {
+    expect(landsOn('/notepad')).toBe('/scratch');
+    expect(landsOn('/notepad/')).toBe('/scratch');
+    expect(landsOn('/notes?view=notepad')).toBe('/scratch');
+    expect(landsOn('/notes/?project=p1&view=notepad')).toBe('/scratch');
+  });
+
+  it('sends Unfiled, Scratch’s old name, to Scratch', () => {
+    expect(parseRoute('/unfiled')).toEqual({ name: 'scratch' });
+    expect(landsOn('/unfiled')).toBe('/scratch');
+    expect(landsOn('/unfiled/')).toBe('/scratch');
+    expect(landsOn('/unfiled?note=n1')).toBe('/scratch?note=n1');
   });
 
   it('sends each list page to All with its kind, filters as All reads them', () => {
@@ -329,7 +336,7 @@ describe('whiteboards', () => {
 describe('placeOf and titleOf', () => {
   it('puts each route in its place, or none', () => {
     expect(placeOf({ name: 'today' })).toBe('today');
-    expect(placeOf({ name: 'unfiled' })).toBe('unfiled');
+    expect(placeOf({ name: 'scratch' })).toBe('scratch');
     expect(placeOf({ name: 'all' })).toBe('all');
     expect(placeOf({ name: 'all', kinds: ['task'] })).toBe('all');
     // The space's board is linked from All; a project's is in its room.
@@ -346,7 +353,7 @@ describe('placeOf and titleOf', () => {
 
   it('titles the pages', () => {
     expect(titleOf({ name: 'today' })).toBe('Today');
-    expect(titleOf({ name: 'unfiled' })).toBe('Unfiled');
+    expect(titleOf({ name: 'scratch' })).toBe('Scratch');
     expect(titleOf({ name: 'rooms' })).toBe('Rooms');
     expect(titleOf({ name: 'all' })).toBe('All');
     expect(titleOf({ name: 'all', kinds: ['task'] })).toBe('All');

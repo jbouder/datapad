@@ -121,7 +121,7 @@ export function HelpPage({ section }: { section?: string }) {
             Rooms chip shows every project and person room instead, each with
             Pin. The space’s whiteboard is in the header.
           </Term>
-          <Term name="Unfiled" to={{ name: 'unfiled' }}>
+          <Term name="Scratch" to={{ name: 'scratch' }}>
             The notes with no home yet. Write at the top, then{' '}
             <strong>File to…</strong> a project, make a task of a note, or mark
             it to decide.
@@ -143,9 +143,9 @@ export function HelpPage({ section }: { section?: string }) {
           </Term>
         </dl>
         <p className="text-sm">
-          The rail has Today, Unfiled and All, then Rooms: the pinned rooms, or
+          The rail has Today, Scratch and All, then Rooms: the pinned rooms, or
           the active projects before anything is pinned, and the people who owe
-          you something. A phone has Today, Unfiled, Rooms and All along the
+          you something. A phone has Today, Scratch, Rooms and All along the
           bottom; Rooms lists what the rail does, and stays lit inside a room.
           Add meeting is beside Today’s timeline and Schedule meeting in each
           room; New project is beside the project rooms on All’s Rooms chip.

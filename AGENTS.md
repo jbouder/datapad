@@ -8,7 +8,7 @@ A private, single-user project tracker for an engineering leader, built
 around three places and one input: **Today** (the day as a timeline,
 the open loops beside it), the **rooms** (one per project and per
 person), **All** (every item of every kind in one list) and the
-**capture line**. Lines with no home go to **Unfiled**; a meeting opens
+**capture line**. Lines with no home go to **Scratch**; a meeting opens
 in full-screen **meeting mode**. Search and summaries run on the device. Built the way [holocron](https://github.com/jbouder/holocron) is
 built. Runs entirely on Cloudflare: Cloudflare Access sits in front of the
 hostname, a Worker verifies the Access JWT on every request and serves the
@@ -88,7 +88,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
 - `src/` — React 19 + Vite app. `lib/router.ts` (pushState router;
   `SETTINGS_SECTIONS` lists Settings' sections, `spaces`, `people` and
   `orgs` among them; People and Orgs are their own routes under
-  `/settings/…`), `lib/nav.ts` (`PLACES`: Today, Unfiled and All for the
+  `/settings/…`), `lib/nav.ts` (`PLACES`: Today, Scratch and All for the
   rail, the tab bar and ⌘K; `ROOMS_TAB`, the phone's fourth tab),
   `hooks/useRooms.ts` + `components/RoomLists.tsx` (the rail's rooms
   and Waiting on, shared with the phone's Rooms page, `/rooms`), `lib/capture.ts` (focusing the capture
@@ -102,7 +102,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `lib/themes.ts` (System, Light, Dark: neutral, no tint),
   `lib/spaces.ts` (the active space key, per-space cache keys),
   `providers/*` (Motion, Theme, Toast, Datapad with `useSpaces()`,
-  PagePrefs), `pages/*` (`TodayPage` is `/`, `UnfiledPage` `/unfiled`,
+  PagePrefs), `pages/*` (`TodayPage` is `/`, `ScratchPage` `/scratch`,
   `AllPage` `/all`, `ProjectRoom` `/projects/:id` (Stream, `/plan` and
   `/whiteboard` tabs), `PersonRoom` `/people/:id`, `MeetingMode`
   `/meetings/:id` (full screen: no rail, top bar or tab bar),
@@ -111,7 +111,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   capture line on Today and in each room), `today/` (the day timeline,
   the loop lanes and rows, the recap, the week zoom, Brief me),
   `rooms/` (`RoomFrame`, the frame both rooms share, and `RoomStream`),
-  `unfiled/UnfiledBlock` (one note on Unfiled, with File to…, Make task
+  `scratch/ScratchBlock` (one note on Scratch, with File to…, Make task
   and To decide), `all/SavedViews` (All's saved view chips),
   `settings/` (the v2 sections: Today, Rooms' options, Capture, All),
   shared layouts in `components/layouts/` (ViewSwitcher, ListToolbar

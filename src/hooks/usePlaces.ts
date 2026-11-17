@@ -4,7 +4,7 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { PLACES, type PlaceItem } from '@/lib/nav';
 
 /**
- * Today, Unfiled and All as the rail, the tab bar and ⌘K link them: All
+ * Today, Scratch and All as the rail, the tab bar and ⌘K link them: All
  * opens on the kinds set in Settings → All (#343), Tasks until changed.
  */
 export function usePlaces(): PlaceItem[] {

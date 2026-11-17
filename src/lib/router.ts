@@ -89,7 +89,8 @@ function here(): string {
 /**
  * Where an address lands: the route and its query. Old addresses settle on
  * their new homes (`landRoute`): /focus is /, /tasks is /all?kind=task,
- * /notepad is /unfiled, /settings/people/<id> is /people/<id>, …
+ * /notepad and /unfiled are /scratch, /settings/people/<id> is
+ * /people/<id>, …
  */
 function land(pathname: string, query: string, hash: string): [Route, string] {
   return landRoute(pathname, query, hash, DEV_ROUTES);

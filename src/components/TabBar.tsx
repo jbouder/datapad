@@ -4,7 +4,7 @@ import { linkProps, type Route } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /**
- * The phone's navigation (< 820px, #329): Today, Unfiled, Rooms and All,
+ * The phone's navigation (< 820px, #329): Today, Scratch, Rooms and All,
  * in four columns along the bottom, one thumb away, above the home
  * indicator. Rooms opens the rail's rooms as a page (`/rooms`) and stays
  * current inside any room. Opaque, so its labels keep their contrast

@@ -8,7 +8,7 @@ import {
   railRooms,
   roomKey,
   roomLink,
-  unfiledCount,
+  scratchCount,
   viewOf,
 } from '#shared/rooms';
 import { openCounts } from '#shared/select';
@@ -35,8 +35,8 @@ export interface RoomsList {
   rooms: RoomRow[];
   /** The people who owe you something, unless Settings → Rooms hides them. */
   owed: RoomRow[];
-  /** Unfiled's count, for the rail. */
-  unfiled: number;
+  /** Scratch's count, for the rail. */
+  scratch: number;
 }
 
 function roomLabel(room: Room, state: Snapshot): string {
@@ -76,7 +76,7 @@ export function useRooms(route: Route): RoomsList | null {
     if (!state) return null;
     const settings = settingsOf(state);
     return {
-      unfiled: unfiledCount(state.notes),
+      scratch: scratchCount(state.notes),
       rooms: railRooms(settings, state),
       // Settings → Rooms can leave them out (#343).
       owed: settings.railOwed ? owedBy(state, settings) : [],
@@ -87,7 +87,7 @@ export function useRooms(route: Route): RoomsList | null {
   if (!state || !data) return null;
   return {
     pinned: data.rooms.pinned,
-    unfiled: data.unfiled,
+    scratch: data.scratch,
     rooms: data.rooms.rooms.map((room) => {
       const link = roomLink(room, state);
       return {

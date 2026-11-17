@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { lanesOf, todayLanes, waitingCount } from '#shared/loops';
-import { unfiledNotes } from '#shared/notes';
+import { scratchNotes } from '#shared/notes';
 import { savedFocusOptions } from '#shared/pages';
 import { meId } from '#shared/select';
 import {
@@ -43,7 +43,7 @@ import {
 } from './read';
 
 /**
- * v2's reads (#340): Today, the open loops, Unfiled and the rooms, each
+ * v2's reads (#340): Today, the open loops, Scratch and the rooms, each
  * selected by `shared/today.ts`, `shared/loops.ts`, `shared/notes.ts` and
  * `shared/stream.ts` as the app's pages select them.
  */
@@ -78,13 +78,15 @@ function todayOut({ space, state, today, now }: SpaceRead) {
     due: cap(due.map((t) => taskOut(state, t))),
     nextMeeting: next ? meetingOut(state, next) : null,
     lanes: lanesOut(state, lanes),
-    unfiled: unfiledNotes(state.notes).length,
+    scratch: scratchNotes(state.notes).length,
+    // Scratch's old name, for clients that read it.
+    unfiled: scratchNotes(state.notes).length,
     me: personRef(state, me),
   };
 }
 
 const TODAY_DESCRIPTION =
-  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the next meeting (within the days Settings → Today sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Mine shows is set to Only assigned to me) and how many notes sit in Unfiled. Projects in the archive are left out.';
+  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the next meeting (within the days Settings → Today sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Mine shows is set to Only assigned to me) and how many notes sit in Scratch. Projects in the archive are left out.';
 
 export const getToday = defineTool({
   name: 'get_today',
@@ -166,23 +168,47 @@ function generalKeep(person: string | undefined): (task: Task) => boolean {
   return (task) => task.projectId === null && (!touches || touches(task));
 }
 
-export const listUnfiled = defineTool({
-  name: 'list_unfiled',
-  title: 'List Unfiled',
-  description:
-    'Unfiled: the notes with no home (no project, meeting or task, and no one mentioned), newest first. file_note files one to a project.',
+const SCRATCH_DESCRIPTION =
+  'Scratch: the notes with no home (no project, meeting or task, and no one mentioned), newest first. file_note files one to a project.';
+
+/** Scratch's notes, newest first, for `list_scratch` and its alias. */
+async function scratchOut(
+  ctx: Parameters<typeof readSpace>[0],
+  spaceArg: string | undefined,
+  limit: number | undefined,
+) {
+  const { space, state } = await readSpace(ctx, spaceArg);
+  return {
+    space,
+    notes: cap(
+      scratchNotes(state.notes).map((n) => noteOut(state, n)),
+      limit,
+    ),
+  };
+}
+
+export const listScratch = defineTool({
+  name: 'list_scratch',
+  title: 'List Scratch',
+  description: SCRATCH_DESCRIPTION,
   scope: 'read',
   input: z.object({ space: SpaceArg, limit: LimitArg }),
   annotations: READ_ONLY,
   async run(args, ctx) {
-    const { space, state } = await readSpace(ctx, args.space);
-    return {
-      space,
-      notes: cap(
-        unfiledNotes(state.notes).map((n) => noteOut(state, n)),
-        args.limit,
-      ),
-    };
+    return scratchOut(ctx, args.space, args.limit);
+  },
+});
+
+/** Scratch was named Unfiled: the same read under its old name. */
+export const listUnfiled = defineTool({
+  name: 'list_unfiled',
+  title: 'List Unfiled (Scratch)',
+  description: `The same as list_scratch, under the name it had before Unfiled became Scratch. ${SCRATCH_DESCRIPTION}`,
+  scope: 'read',
+  input: z.object({ space: SpaceArg, limit: LimitArg }),
+  annotations: READ_ONLY,
+  async run(args, ctx) {
+    return scratchOut(ctx, args.space, args.limit);
   },
 });
 

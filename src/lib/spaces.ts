@@ -22,7 +22,7 @@ export function keyFor(base: string, space: string): string {
  * Where switching spaces leaves you: a room (a project's or a person's)
  * or an org belongs to the space you are leaving, so its page goes to
  * Today, and a meeting or a task goes to All's meetings or tasks; a place
- * (Today, Unfiled, All, Settings, …) stays where it is. Null means stay.
+ * (Today, Scratch, All, Settings, …) stays where it is. Null means stay.
  */
 export function routeAfterSwitch(route: {
   // Structural (a `Route` fits), so the unit tests need no router.

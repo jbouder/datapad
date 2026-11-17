@@ -12,7 +12,7 @@
  *
  * Settings → Capture (#343) changes three of those: a plain line can be a
  * task instead (`captureAs`), `@Name` can leave a task unassigned
- * (`mentionAssigns`), and a note in a room can go to Unfiled rather than
+ * (`mentionAssigns`), and a note in a room can go to Scratch rather than
  * the room (`roomNotes`). New tasks start at the space's default
  * priority. The defaults are in `DEFAULT_SETTINGS`.
  */
@@ -64,8 +64,11 @@ export interface Capture {
   assignee: string;
   /** Who a waiting-on task waits on; null when nobody is named. */
   waitingOn: string | null;
-  /** A note with no project and no one mentioned: it goes to Unfiled. */
-  unfiled: boolean;
+  /**
+   * A note with no project and no one mentioned: it goes to Scratch.
+   * Not `Note.scratch`, the old Notepad flag.
+   */
+  toScratch: boolean;
 }
 
 const TASK_PREFIX = /^(?:[-*]\s*)?(?:\[\s?\]|todo:?)(?:\s+|$)/i;
@@ -191,7 +194,7 @@ export function parseCapture(
     context.personId && state.people[context.personId]
       ? context.personId
       : null;
-  // A note in a room can go to Unfiled instead, unless a `#word` filed it.
+  // A note in a room can go to Scratch instead, unless a `#word` filed it.
   const roomFiles = kind !== 'note' || settings.roomNotes === 'room';
   if (
     !projectId &&
@@ -222,8 +225,8 @@ export function parseCapture(
     people.push(roomPerson);
   }
 
-  const unfiled = kind === 'note' && !projectId && people.length === 0;
-  return { kind, text, projectId, due, people, assignee, waitingOn, unfiled };
+  const toScratch = kind === 'note' && !projectId && people.length === 0;
+  return { kind, text, projectId, due, people, assignee, waitingOn, toScratch };
 }
 
 /** Captured text as a task's title: mentions back to names. */
@@ -250,7 +253,7 @@ export function canSave(capture: Capture, state: Snapshot): boolean {
 }
 
 export interface CaptureChip {
-  kind: 'kind' | 'project' | 'person' | 'date' | 'unfiled';
+  kind: 'kind' | 'project' | 'person' | 'date' | 'scratch';
   label: string;
 }
 
@@ -287,7 +290,7 @@ export function captureChips(
   if (capture.due) {
     chips.push({ kind: 'date', label: `Due ${formatDay(capture.due, today)}` });
   }
-  if (capture.unfiled) chips.push({ kind: 'unfiled', label: 'Unfiled' });
+  if (capture.toScratch) chips.push({ kind: 'scratch', label: 'Scratch' });
   return chips;
 }
 
@@ -349,7 +352,7 @@ export function captureToast(capture: Capture, state: Snapshot): string {
   if (capture.kind === 'note') {
     if (project) return `Added a note to ${project}`;
     if (person) return `Added a note about ${person}`;
-    return 'Added a note to Unfiled';
+    return 'Added a note to Scratch';
   }
   const where = project ?? 'General';
   if (capture.kind === 'decide') return `Added to decide in ${where}`;

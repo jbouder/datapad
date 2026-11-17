@@ -48,6 +48,7 @@ const READ_TOOLS = [
   'get_focus',
   'get_recap',
   'get_loops',
+  'list_scratch',
   'list_unfiled',
   'get_room',
   'list_projects',
