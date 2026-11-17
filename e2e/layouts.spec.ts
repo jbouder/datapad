@@ -70,7 +70,8 @@ test('v cycles layouts, but not while typing', async ({ page }) => {
   await expect(
     layout(page).getByRole('radio', { name: 'Cards' }),
   ).toBeChecked();
-  await page.getByRole('textbox', { name: 'Add a task' }).fill('v');
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await name.first().press('v');
   await expect(
     layout(page).getByRole('radio', { name: 'Cards' }),
   ).toBeChecked();
