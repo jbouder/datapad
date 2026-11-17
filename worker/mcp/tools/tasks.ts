@@ -65,7 +65,7 @@ export const listTasks = defineTool({
   name: 'list_tasks',
   title: 'List tasks',
   description:
-    'Tasks as the Tasks page selects them, soonest due first (undated last). Open tasks by default. Filter by project, assignee, due bucket (overdue, today, week = after today to Sunday, later, none = no date), blocked, a meeting (its action items) or text.',
+    'Tasks as All selects them, soonest due first (undated last). Open tasks by default. Filter by project, assignee, due bucket (overdue, today, week = after today to Sunday, later, none = no date), blocked, a meeting (its action items) or text.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,

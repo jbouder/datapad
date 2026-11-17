@@ -127,7 +127,7 @@ Datapad is used on phones a lot. Every view is designed at 320–430px first:
 
 ## Installing (PWA)
 
-- `public/site.webmanifest`: standalone, opens at `/focus`, which lands on Today, scope `/`.
+- `public/site.webmanifest`: standalone, opens at `/`, Today, scope `/`.
   The page links it with `crossorigin="use-credentials"`: behind
   Cloudflare Access, a manifest fetched without the session cookie would
   get the login page instead.

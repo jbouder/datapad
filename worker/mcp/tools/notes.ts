@@ -16,7 +16,7 @@ import {
   resolveProject,
 } from './read';
 
-/** Notes and meetings (#153), selected as the Notes and Meetings pages do. */
+/** Notes and meetings (#153), selected as All selects them. */
 
 const DEFAULT_NOTES = 50;
 
@@ -24,7 +24,7 @@ export const listNotes = defineTool({
   name: 'list_notes',
   title: 'List notes',
   description:
-    'Notes as the Notes page selects them, newest first, mentions as @Name. Without a project, notes of archived projects are left out. Filter by project, meeting, pinned, or text (every word must match). 50 by default.',
+    'Notes as All selects them, newest first, mentions as @Name. Without a project, notes of archived projects are left out. Filter by project, meeting, pinned, or text (every word must match). 50 by default.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
@@ -70,7 +70,7 @@ export const listMeetings = defineTool({
   name: 'list_meetings',
   title: 'List meetings',
   description:
-    'Meetings soonest first, with attendees, topics (covered or not, with outcomes) and counts of their notes and open action items. Filter by project and by a from/to date range (inclusive). Archived projects’ meetings are included, as on the Meetings page.',
+    'Meetings soonest first, with attendees, topics (covered or not, with outcomes) and counts of their notes and open action items. Filter by project and by a from/to date range (inclusive). Archived projects’ meetings are included, as on All.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
