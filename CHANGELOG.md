@@ -25,6 +25,14 @@ changes the format says so here under **Export format**.
 - A note being written under a task, a meeting or a meeting row asks
   "Save this note?" (Discard or Save note) when you click away, and holds
   any link, Back or panel close until you answer, then goes on.
+- Datapad v2's data model (#328): a task can be marked to decide
+  (`setDecide`), and a note can be filed to another project or to
+  General without being copied (`moveNote`), keeping its id and time.
+  Lists retire into checklist notes and the Notepad becomes an ordinary
+  General note. On first start after the upgrade, each space is
+  migrated once (the Durable Object's schema goes to 4). Nothing is
+  deleted: the lists are kept in the data. The classic pages do not use
+  these yet.
 - A staging deploy: the `v2` branch deploys to its own Worker,
   `datapad-v2`, with its own data, backups and Access application, after
   CI passes. Production still deploys from `main` only. See
@@ -44,6 +52,15 @@ changes the format says so here under **Export format**.
 
 - `settings.user` may carry `defaultPriority` (`none`, `low`, `med` or
   `high`). Absent reads as `med`.
+- The format is now 3 (#328). Tasks may carry `decide: true`, absent
+  reading as false. A format 1 or 2 file (or one without `format`) is
+  migrated on import: open tasks tagged `decide` get `decide: true`
+  (the tag is kept), each list becomes a note on its project under the
+  list's id (`## <title>`, then a `- [ ]` or `- [x]` line per item, the
+  list's `createdAt`, its `updatedAt` as `editedAt`), and the Notepad's
+  `scratch` is cleared. `lists` is still written and read; a format 3
+  file's lists are not migrated again. A Datapad that reads up to 2
+  refuses a format 3 file.
 
 ## [1.0.0] — 2026-11-06
 

@@ -80,7 +80,7 @@ as it is (migrated on the way in, below):
 
 ```json
 {
-  "format": 2,
+  "format": 3,
   "exportedAt": "2026-10-23T12:00:00.000Z",
   "projects": { "<id>": { "id": "<id>", "name": "…", … } },
   "tasks": { … },
@@ -97,21 +97,24 @@ as it is (migrated on the way in, below):
 }
 ```
 
-- `format` (#240) is the file's format version, `2` today
+- `format` (#240) is the file's format version, `3` today
   (`EXPORT_FORMAT` in [`shared/types.ts`](../shared/types.ts)); every
   export and nightly backup writes it. A file without it (the
   artifact's, or Datapad's from before #240) is legacy, read as before
   and migrated by its shape (below). A file with a higher `format` than this Datapad knows is
   from a newer version: Import and restoring a backup refuse it whole,
   before reading anything else, with "This file is from a newer version
-  of Datapad (export format 3; this one reads up to 2). Update Datapad,
+  of Datapad (export format 4; this one reads up to 3). Update Datapad,
   then try again." A `format` that is not a whole number from 1 is
   refused as invalid. The number goes up only when a change would be
   misread by an older Datapad, and CHANGELOG.md says so under **Export
   format**. Format 2 (#298) adds `lists`: a format 1 Datapad drops
   unknown keys, so it would import such a file and lose its lists
   without a word. With `2` it refuses the file instead, and says to
-  update. Every format 1 file reads as it is, with no lists.
+  update. Every format 1 file reads as it is, with no lists. Format 3
+  (#328) adds `tasks[].decide` and retires lists and the Notepad; a
+  format 1 or 2 file (or one without `format`) is brought up to it on
+  the way in (below).
 - `settings` is Datapad's own (the artifact has none, and a file without
   it imports fine): preferences that follow your data, per space: the
   default org for new projects (none until you pick one in Orgs; a new
@@ -184,8 +187,11 @@ as it is (migrated on the way in, below):
   list's `updatedAt` and its project's. Deleting a project deletes its
   lists; moving one takes them along. A file without them imports with
   none. They are stored like every other document, one row each in the
-  object's `docs` table keyed `(space, col, id)`, so they needed no
-  schema change: the object's schema is still version 3.
+  object's `docs` table keyed `(space, col, id)`. Lists are retired in
+  format 3 (#328), as decisions were: each became a checklist note
+  (below). The collection is still imported, exported, kept and moved
+  with its project, and an old client's list ops still apply, but
+  nothing new reads it.
 - A whiteboard's own **Download as PNG / SVG** (its ⋯ menu) is a picture,
   not data: it is made in the browser from the items with the theme's
   colors resolved, and never sent anywhere. The JSON export above is the
@@ -206,10 +212,20 @@ as it is (migrated on the way in, below):
   unchanged, its notes without one (read as null), and an export writes
   it only on notes that have it.
 - A note may carry `scratch: true` (#218): the space's Notepad, its one
-  running General note. Optional: a file from before it imports
-  unchanged, and an export writes it only on that note. An import that
-  brings a second one keeps the older as the Notepad; the other loses the
-  mark and stays an ordinary note.
+  running General note. Retired in format 3 (#328): the migration
+  clears it, so the Notepad is an ordinary General note. Only an old
+  client's Notepad still writes one. An export writes it only on that
+  note. An import that brings a second one keeps the older as the
+  Notepad; the other loses the mark and stays an ordinary note.
+- A task may carry `decide: true` (#328, format 3): something to
+  decide, not just to do. Optional: absent reads as false, and an
+  export writes it only on tasks that have it (last among their
+  fields).
+- A note is **Unfiled** (#328) when it is General, on no meeting or
+  task, and mentions nobody (`isUnfiled()` in
+  [`shared/notes.ts`](../shared/notes.ts)). That is worked out, never
+  stored: filing a note is moving it to a project or mentioning
+  someone in it.
 - A task may carry `meetingId` (#185): an action item of that meeting,
   in the meeting's project. It is optional too: a file from before it
   imports unchanged (read as null), and an export writes it only on
@@ -222,6 +238,22 @@ as it is (migrated on the way in, below):
   forward from an earlier meeting also has `carriedFrom`, the day
   (`YYYY-MM-DD`) it was first raised; `done` and `outcome` may be left
   out and read as `false` and `''`.
+- A format 1 or 2 file, or one without `format`, is brought up to
+  format 3 on the way in (`migrateFormat3()` in
+  [`shared/migrate.ts`](../shared/migrate.ts)); the Durable Object ran
+  the same rules over each space at schema 4:
+  - An open task tagged `decide` gets `decide: true`. The tag is kept.
+  - Each list becomes a note on the same project (or General), under
+    the list's id: `## <title>`, then one `- [ ] <text>` or
+    `- [x] <text>` line per item, in order. The note keeps the list's
+    `createdAt` and takes its `updatedAt` as `editedAt`. A list too long
+    for one note (20 000 characters) goes on in more, `<id>-2`, `<id>-3`
+    and so on, under the same heading. The list itself is kept.
+  - The Notepad's `scratch` is cleared.
+
+  A note already under a list's id is left alone, so running it twice
+  changes nothing. A format 3 file is read as it is: its lists are not
+  turned into notes again.
 - A file from before meetings (the artifact's, or an older Datapad
   export or backup) has `events` instead of `meetings`, and notes with
   `eventId`. It imports as it is, migrated on the way in
