@@ -240,8 +240,8 @@ the AUD, so a hostname that Access does not cover gets 401.
 
 ## Deploy from GitHub Actions
 
-`.github/workflows/ci.yml` runs on every pull request and on `main`: Biome,
-knip, type check, build, Vitest in workerd with
+`.github/workflows/ci.yml` runs on every pull request and on `main` and
+`v2`: Biome, knip, type check, build, Vitest in workerd with
 coverage, then Playwright + axe (desktop and phone) against `vite
 preview`, split across four runners on the Playwright container image.
 The `check` job also runs `bun audit` and fails on a known advisory of
@@ -257,8 +257,9 @@ against an allowlist. Each of these fails the job:
   `shared/` and `worker/`, just under where the suite is. Raise them as
   it grows. `.github/workflows/codeql.yml`
 runs CodeQL (security-extended queries) over the TypeScript and over the
-workflows themselves, on every pull request, on `main` and weekly.
-`.github/workflows/deploy.yml` deploys `main` after a green CI run.
+workflows themselves, on every pull request, on `main` and `v2`, and
+weekly. `.github/workflows/deploy.yml` deploys `main` after a green CI
+run, and `v2` to staging (below).
 1. Create an API token from the **Edit Cloudflare Workers** template (it
    includes Workers KV Storage, which the first deploy needs to create
    `OAUTH_KV`).
@@ -283,6 +284,54 @@ forks and fresh clones are safe.
 The e2e job signs in with the dev bypass (it writes a `.dev.vars` with
 `DEV_ACCESS_EMAIL` and an empty `ACCESS_AUD` for the preview build only). It
 never uses real credentials.
+
+### Staging
+
+The `v2` branch deploys to a second Worker, `datapad-v2`, so the next
+version can be used on real data before it replaces `main`. It is the
+`staging` environment in `wrangler.jsonc`, and it shares nothing with
+production: its own Worker (and so its own Durable Objects), backups
+bucket, `OAUTH_KV`, `REGISTER_LIMIT` counter and Access application.
+
+`.github/workflows/deploy.yml` picks the target from the branch. A
+successful CI run on `main` deploys production, as before. One on `v2`
+builds with `CLOUDFLARE_ENV=staging` (the Vite plugin then writes the
+staging config that `wrangler deploy` ships) and deploys `datapad-v2`
+under the GitHub environment `staging`. `bun scripts/check-deploy.ts`
+checks the top-level vars and every environment's, so it refuses an empty
+`ACCESS_AUD` or `ACCESS_TEAM_DOMAIN`, or any `DEV_ACCESS_EMAIL`, in
+either.
+
+To set it up once:
+1. Create the bucket: `npx wrangler r2 bucket create datapad-v2-backups`.
+2. Create an Access application for the staging hostname
+   (`datapad-v2.<subdomain>.workers.dev`), with the same Allow policy as
+   production, as in [step 4](#4-put-cloudflare-access-in-front). Put its
+   audience tag in `env.staging.vars.ACCESS_AUD`. Every Access rule holds
+   unchanged; never add a Bypass for the whole Worker.
+3. Give `env.staging.ratelimits` a `namespace_id` of its own (production
+   uses `225`, staging `327`), so the two Workers do not share a counter.
+4. Leave the `OAUTH_KV` binding without an id. The first staging deploy
+   creates the Worker's own namespace. Check under Storage & Databases →
+   KV that it is not production's.
+5. Protect `v2` like `main`: require `check` and `e2e`. CI and CodeQL run
+   on pushes to `v2` as well as `main`.
+6. Push to `v2`. GitHub creates the `staging` environment on the first
+   deploy.
+
+MCP on staging is optional. To use it, add a Bypass application for
+exactly the OAuth paths on the staging hostname, as in
+[step 5](#5-mcp-clients).
+
+**Data.** Staging starts empty. To try it on your own data, once:
+1. On production, open each space and Settings → Data → **Export**.
+2. On staging, sign in, create the same spaces (Settings → Spaces), and in
+   each one Settings → Data → **Import…** that space's file.
+
+Import replaces a document with the same id and keeps everything else,
+so repeating it is safe.
+Nothing on staging writes back to production. Changes made on staging
+stay there, and production's data is untouched until cutover.
 
 ### Pull request previews: off
 

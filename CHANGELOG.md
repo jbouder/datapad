@@ -25,6 +25,10 @@ changes the format says so here under **Export format**.
 - A note being written under a task, a meeting or a meeting row asks
   "Save this note?" (Discard or Save note) when you click away, and holds
   any link, Back or panel close until you answer, then goes on.
+- A staging deploy: the `v2` branch deploys to its own Worker,
+  `datapad-v2`, with its own data, backups and Access application, after
+  CI passes. Production still deploys from `main` only. See
+  docs/self-hosting.md § Staging.
 
 ### Changed
 

@@ -1,14 +1,15 @@
 name: Deploy
 
 on:
-  # After CI finishes on `main`. The `gate` job below only lets a successful
-  # run of a commit pushed to this repository's `main` through.
+  # After CI finishes on `main` (production) or `v2` (staging, #327). The
+  # `gate` job below only lets a successful run of a commit pushed to one of
+  # those branches in this repository through.
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main]
-  # Re-deploy the current `main` (new Cloudflare token, a `wrangler.jsonc`
-  # var change) without re-running CI.
+    branches: [main, v2]
+  # Re-deploy the current `main` or `v2` (new Cloudflare token, a
+  # `wrangler.jsonc` var change) without re-running CI.
   workflow_dispatch:
 
 permissions:
@@ -17,18 +18,25 @@ permissions:
 jobs:
   # Jobs cannot be skipped on a secret directly, so this one reads the secret
   # once and hands the answer to `deploy`. Without CLOUDFLARE_API_TOKEN
-  # (forks, fresh clones) `deploy` is skipped and the run stays green.
+  # (forks, fresh clones) `deploy` is skipped and the run stays green. It
+  # also picks the target from the branch: `main` is production, `v2` is
+  # staging (`env.staging` in wrangler.jsonc, the `datapad-v2` Worker).
   gate:
     runs-on: ubuntu-latest
-    # `branches: [main]` above matches a fork PR whose branch is also named
-    # `main`, so check the event and the head repository as well.
+    # `branches: [main, v2]` above matches a fork PR whose branch has the
+    # same name, so check the event and the head repository as well.
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v2')) ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event != 'pull_request' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.head_branch == 'main' ||
+        github.event.workflow_run.head_branch == 'v2'))
     outputs:
       enabled: ${{ steps.secret.outputs.enabled }}
+      environment: ${{ steps.target.outputs.environment }}
+      cloudflare_env: ${{ steps.target.outputs.cloudflare_env }}
     steps:
       - id: secret
         env:
@@ -40,20 +48,46 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
           fi
+      # `main` ships the top-level config to production; `v2` ships
+      # `env.staging` to staging. Any other branch is an error, never a
+      # guess.
+      - id: target
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+        run: |
+          case "$BRANCH" in
+            main)
+              echo "environment=production" >> "$GITHUB_OUTPUT"
+              echo "cloudflare_env=" >> "$GITHUB_OUTPUT"
+              ;;
+            v2)
+              echo "environment=staging" >> "$GITHUB_OUTPUT"
+              echo "cloudflare_env=staging" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::No deploy target for branch $BRANCH"
+              exit 1
+              ;;
+          esac
 
   deploy:
     needs: gate
     if: needs.gate.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: ${{ needs.gate.outputs.environment }}
     concurrency:
-      group: deploy-production
+      group: deploy-${{ needs.gate.outputs.environment }}
       cancel-in-progress: false
+    env:
+      # Read by the Cloudflare Vite plugin at build time: empty builds the
+      # top-level (production) config, `staging` builds `env.staging`.
+      # `wrangler deploy` then ships the config the build wrote.
+      CLOUDFLARE_ENV: ${{ needs.gate.outputs.cloudflare_env }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The commit CI passed, not whatever `main` points at by now.
+          # The commit CI passed, not whatever the branch points at by now.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -66,7 +100,8 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       # Refuse to ship without Access: an empty ACCESS_AUD or
-      # ACCESS_TEAM_DOMAIN, or DEV_ACCESS_EMAIL among the vars (#232).
+      # ACCESS_TEAM_DOMAIN, or DEV_ACCESS_EMAIL among the vars. It checks
+      # production's vars and every environment's (#232, #327).
       - name: Check Access is configured
         run: bun scripts/check-deploy.ts
       - run: bun run build
