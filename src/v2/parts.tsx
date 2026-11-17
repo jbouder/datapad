@@ -181,9 +181,9 @@ export function TaskList({
       </ul>
       {tasks.length > limit && (
         <p className="pt-1 text-muted-foreground text-xs">
-          and {tasks.length - limit} more in{' '}
-          <Go to={{ name: 'library' }} className="underline">
-            Library
+          and {tasks.length - limit} more under{' '}
+          <Go to={{ name: 'all' }} className="underline">
+            All
           </Go>
         </p>
       )}

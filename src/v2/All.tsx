@@ -1,5 +1,5 @@
 /**
- * Prototype: Library, where the type-by-type pages go. Every kind of item
+ * Prototype: All, where the type-by-type pages go. Every kind of item
  * in one filterable list, plus the rooms (on a phone, the only way to
  * them besides links).
  */
@@ -34,7 +34,7 @@ interface Row {
   done: boolean;
 }
 
-export function Library() {
+export function AllPage() {
   const { state } = useDatapad();
   const today = useToday();
   const [types, setTypes] = useState<Set<ItemType>>(new Set(['task']));
@@ -60,7 +60,7 @@ export function Library() {
           type: 'note' as const,
           id: n.id,
           title: notePreview(n.body, state.people),
-          where: proj(n.projectId) || 'Loose',
+          where: proj(n.projectId) || 'Unfiled',
           when: n.createdAt.slice(0, 10),
           done: false,
         })),
@@ -132,7 +132,7 @@ export function Library() {
   return (
     <div>
       <RoomHeader
-        title="Library"
+        title="All"
         state="Everything, by kind. The rooms are below."
       />
       <div className="mb-3 flex flex-col gap-2">

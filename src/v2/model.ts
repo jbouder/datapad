@@ -1,9 +1,9 @@
 /**
- * Prototype (Day, Rooms, Library): the pure half. What a capture line
- * means, the three lanes of open loops, the Loose pile and a day's
+ * Prototype (Day, Rooms, All): the pure half. What a capture line
+ * means, the three lanes of open loops, the Unfiled pile and a day's
  * timeline, all read from the existing snapshot. Nothing here is a new
  * field or op: a "decide" item is a task tagged `decide`, "waiting on" is
- * a blocked task or one assigned to someone else, and Loose is a General
+ * a blocked task or one assigned to someone else, and Unfiled is a General
  * note that mentions nobody.
  */
 import { addDays, dayOf, parseDate } from '#shared/dates';
@@ -225,10 +225,10 @@ export function lanesOf(
   };
 }
 
-/* ---------- Loose ---------- */
+/* ---------- Unfiled ---------- */
 
 /** A note with no home: General, on no meeting or task, mentioning nobody. */
-export function isLoose(note: Note): boolean {
+export function isUnfiled(note: Note): boolean {
   return (
     note.projectId === null &&
     !note.meetingId &&
@@ -238,9 +238,9 @@ export function isLoose(note: Note): boolean {
   );
 }
 
-export function looseNotes(state: Snapshot): Note[] {
+export function unfiledNotes(state: Snapshot): Note[] {
   return Object.values(state.notes)
-    .filter(isLoose)
+    .filter(isUnfiled)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

@@ -6,8 +6,8 @@ import { useSyncExternalStore } from 'react';
 
 export type V2Route =
   | { name: 'today' }
-  | { name: 'loose' }
-  | { name: 'library' }
+  | { name: 'unfiled' }
+  | { name: 'all' }
   | { name: 'project'; id: string }
   | { name: 'person'; id: string }
   | { name: 'meeting'; id: string };
@@ -15,8 +15,8 @@ export type V2Route =
 export function parseV2(pathname: string): V2Route {
   const [, , kind, id] = pathname.replace(/\/$/, '').split('/');
   const key = id ? decodeURIComponent(id) : '';
-  if (kind === 'loose') return { name: 'loose' };
-  if (kind === 'library') return { name: 'library' };
+  if (kind === 'unfiled') return { name: 'unfiled' };
+  if (kind === 'all') return { name: 'all' };
   if (kind === 'p' && key) return { name: 'project', id: key };
   if (kind === 'person' && key) return { name: 'person', id: key };
   if (kind === 'm' && key) return { name: 'meeting', id: key };
@@ -27,10 +27,10 @@ export function v2Path(route: V2Route): string {
   switch (route.name) {
     case 'today':
       return '/v2';
-    case 'loose':
-      return '/v2/loose';
-    case 'library':
-      return '/v2/library';
+    case 'unfiled':
+      return '/v2/unfiled';
+    case 'all':
+      return '/v2/all';
     case 'project':
       return `/v2/p/${encodeURIComponent(route.id)}`;
     case 'person':

@@ -95,7 +95,7 @@ export function Capture({
       const where = projectId
         ? state.projects[projectId]?.name
         : kind === 'note' && people.length === 0
-          ? 'Loose'
+          ? 'Unfiled'
           : null;
       show(`${KIND_LABELS[kind]} saved${where ? ` to ${where}` : ''}`);
       setText('');
@@ -173,7 +173,7 @@ export function Capture({
           {parsed.due && <Chip>{formatDay(parsed.due, today)}</Chip>}
           {parsed.kind === 'note' &&
             !parsed.projectId &&
-            parsed.people.length === 0 && <Chip>Loose</Chip>}
+            parsed.people.length === 0 && <Chip>Unfiled</Chip>}
         </div>
       )}
     </form>

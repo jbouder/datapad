@@ -1,5 +1,5 @@
 /**
- * Prototype: Loose, what Notepad becomes. One running pad, newest block on
+ * Prototype: Unfiled, what Notepad becomes. One running pad, newest block on
  * top. Each block is a note with no home; file it to a project, make it a
  * task, or leave it. Checklists in a block tick in place, which is how
  * Lists fold into notes.
@@ -15,14 +15,14 @@ import { useClock } from '@/hooks/useClock';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useNow } from '@/hooks/useNow';
 import { useToast } from '@/providers/ToastProvider';
-import { looseNotes } from './model';
+import { unfiledNotes } from './model';
 import { RoomHeader } from './parts';
 
-export function Loose() {
+export function UnfiledPage() {
   const { state, actions } = useDatapad();
   const [draft, setDraft] = useState('');
   if (!state) return null;
-  const blocks = looseNotes(state);
+  const blocks = unfiledNotes(state);
   const pad = notepadOf(state.notes);
 
   const save = () => {
@@ -34,7 +34,7 @@ export function Loose() {
   return (
     <div className="mx-auto max-w-3xl">
       <RoomHeader
-        title="Loose"
+        title="Unfiled"
         state="Everything with no home yet. Write first, file later."
       />
       <div className="mb-6 border border-border focus-within:border-ring">
@@ -59,7 +59,7 @@ export function Loose() {
         </div>
       </div>
       {blocks.length === 0 && !pad?.body && (
-        <p className="text-muted-foreground text-sm">Nothing loose. Nice.</p>
+        <p className="text-muted-foreground text-sm">Nothing unfiled. Nice.</p>
       )}
       <ol className="flex flex-col gap-3">
         {blocks.map((note) => (

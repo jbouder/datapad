@@ -2,7 +2,7 @@
  * Prototype: Today. One day as a timeline: meetings are the anchors, what
  * was done, added and written sits between them, a Now line moves
  * through it. Step back a day or zoom out to the week. The open loops and
- * the Loose pile sit beside it.
+ * the Unfiled pile sit beside it.
  */
 import { useMemo, useState } from 'react';
 import { addDays, formatTime, longDay } from '#shared/dates';
@@ -20,8 +20,8 @@ import {
   dueOn,
   lanesOf,
   localTime,
-  looseNotes,
   nextMeetingFrom,
+  unfiledNotes,
   weekOf,
 } from './model';
 import {
@@ -48,7 +48,7 @@ export function Today() {
 
   const entries = dayEntries(state, day);
   const due = dueOn(state, day, today);
-  const loose = looseNotes(state);
+  const unfiled = unfiledNotes(state);
   const next = nextMeetingFrom(Object.values(state.meetings), today, nowHHMM);
   const meetingsToday = entries.filter((e) => e.kind === 'meeting').length;
   const waitingCount = lanes.waiting.reduce((n, g) => n + g.tasks.length, 0);
@@ -144,14 +144,14 @@ export function Today() {
 
       <aside className="flex flex-col gap-8">
         <Go
-          to={{ name: 'loose' }}
+          to={{ name: 'unfiled' }}
           className="block border border-border p-3 hover:bg-muted"
         >
-          <span className="font-medium text-sm">Loose</span>
+          <span className="font-medium text-sm">Unfiled</span>
           <span className="block text-muted-foreground text-sm">
-            {loose.length === 0
+            {unfiled.length === 0
               ? 'Nothing waiting for a home.'
-              : `${loose.length} ${loose.length === 1 ? 'block' : 'blocks'} with no home yet.`}
+              : `${unfiled.length} ${unfiled.length === 1 ? 'block' : 'blocks'} with no home yet.`}
           </span>
         </Go>
         <LanesPanel lanes={lanes} />
@@ -325,7 +325,7 @@ function EntryBody({ entry }: { entry: DayEntry }) {
             ) : n.meetingId ? (
               ` · ${state.meetings[n.meetingId]?.title ?? 'meeting'}`
             ) : (
-              ' · Loose'
+              ' · Unfiled'
             )}
           </span>
         </div>

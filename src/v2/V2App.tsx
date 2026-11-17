@@ -1,7 +1,7 @@
 /**
- * Prototype: Day, Rooms, Library, at `/v2`. A second shell over the same
- * data and ops as the classic app: the rail is Today, Loose, the active
- * project rooms and Library; a phone gets three tabs and the capture line
+ * Prototype: Day, Rooms, All, at `/v2`. A second shell over the same
+ * data and ops as the classic app: the rail is Today, Unfiled, the active
+ * project rooms and All; a phone gets three tabs and the capture line
  * docked above them. Meeting mode takes the whole screen.
  */
 import { useEffect } from 'react';
@@ -10,15 +10,15 @@ import { SyncStatus } from '@/components/SyncStatus';
 import { useDatapad } from '@/hooks/useDatapad';
 import { cn } from '@/lib/utils';
 import { useSpaceTitle } from '@/providers/DatapadProvider';
+import { AllPage } from './All';
 import { Capture } from './Capture';
-import { Library } from './Library';
-import { Loose } from './Loose';
 import { MeetingMode } from './MeetingMode';
-import { lanesOf, looseNotes } from './model';
+import { lanesOf, unfiledNotes } from './model';
 import { useV2Route, type V2Route } from './nav';
 import { Go } from './parts';
 import { PersonRoom, ProjectRoom } from './Room';
 import { Today } from './Today';
+import { UnfiledPage } from './Unfiled';
 
 export default function V2App() {
   const route = useV2Route();
@@ -73,10 +73,10 @@ function Page({ route }: { route: V2Route }) {
   switch (route.name) {
     case 'today':
       return <Today />;
-    case 'loose':
-      return <Loose />;
-    case 'library':
-      return <Library />;
+    case 'unfiled':
+      return <UnfiledPage />;
+    case 'all':
+      return <AllPage />;
     case 'project':
       return <ProjectRoom key={route.id} id={route.id} />;
     case 'person':
@@ -93,10 +93,10 @@ function titleOf(
   switch (route.name) {
     case 'today':
       return 'Today';
-    case 'loose':
-      return 'Loose';
-    case 'library':
-      return 'Library';
+    case 'unfiled':
+      return 'Unfiled';
+    case 'all':
+      return 'All';
     case 'project':
       return state?.projects[route.id]?.name ?? 'Project';
     case 'person':
@@ -139,7 +139,7 @@ function NavLink({
 function Rail({ route, space }: { route: V2Route; space: string | null }) {
   const { state } = useDatapad();
   if (!state) return null;
-  const loose = looseNotes(state).length;
+  const unfiled = unfiledNotes(state).length;
   const me = meId(state.people);
   const lanes = lanesOf(state, me);
   const rooms = Object.values(state.projects)
@@ -169,14 +169,14 @@ function Rail({ route, space }: { route: V2Route; space: string | null }) {
           Today
         </NavLink>
         <NavLink
-          to={{ name: 'loose' }}
-          active={here({ name: 'loose' })}
-          count={loose}
+          to={{ name: 'unfiled' }}
+          active={here({ name: 'unfiled' })}
+          count={unfiled}
         >
-          Loose
+          Unfiled
         </NavLink>
-        <NavLink to={{ name: 'library' }} active={here({ name: 'library' })}>
-          Library
+        <NavLink to={{ name: 'all' }} active={here({ name: 'all' })}>
+          All
         </NavLink>
       </div>
       <div className="flex flex-col gap-0.5">
@@ -216,8 +216,8 @@ function Rail({ route, space }: { route: V2Route; space: string | null }) {
 function TabBar({ route }: { route: V2Route }) {
   const tabs: { to: V2Route; label: string }[] = [
     { to: { name: 'today' }, label: 'Today' },
-    { to: { name: 'loose' }, label: 'Loose' },
-    { to: { name: 'library' }, label: 'Library' },
+    { to: { name: 'unfiled' }, label: 'Unfiled' },
+    { to: { name: 'all' }, label: 'All' },
   ];
   return (
     <nav

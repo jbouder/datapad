@@ -279,7 +279,7 @@ function Room({
           </ol>
           {sorted.length > 80 && (
             <p className="text-muted-foreground text-xs">
-              Older items are in Library.
+              Older items are under All.
             </p>
           )}
         </section>
