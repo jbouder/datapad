@@ -123,8 +123,9 @@ as it is (migrated on the way in, below):
   is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
   what a new task starts with, from Settings → Pages; absent is `med`),
   optionally `pinned` (#329), the rooms pinned to the rail, in order:
-  `["p-echo", "pe-leia", "p-echo+pe-leia"]`, each a project id, a person
-  id or a project and a person joined by `+`, each once, 50 at most,
+  `["p-echo", "pe-leia", "p-echo+pe-leia", "view:v-1"]`, each a project
+  id, a person id, a project and a person joined by `+`, or `view:` and
+  the id of a view saved on All (#338), each once, 50 at most,
   absent until something is pinned; an entry that names nothing in the
   space is kept and skipped when read. And, optionally, `nav`, the
   navigation preferences from Settings → Navigation (#187), which v2
@@ -147,7 +148,7 @@ as it is (migrated on the way in, below):
   until something is saved, holds each page's layout, sort, grouping,
   filters and sections as you left them (never the search text); a file
   without it imports unchanged, and a value a page no longer has is
-  ignored. Its keys are `focus`, `projects`, `archive`, `tasks`,
+  ignored. Its keys are `focus`, `all` (#338), `projects`, `archive`, `tasks`,
   `meetings`, `notes`, `lists`, `people` and the detail pages `project`,
   `task`, `meeting` and `list` (#310), one set each for every item of
   that kind. A page may also carry `hidden` (section keys it leaves out)
@@ -159,7 +160,14 @@ as it is (migrated on the way in, below):
   The meeting page's sections are `topics`, `actions`, `notes` and
   `series`, and its settings `covered` and `doneActions` (`show` or
   `hide`); the list page's setting is `done` (`collapsed`, `expanded` or
-  `hidden`) (#313).
+  `hidden`) (#313). All's settings are `taskView` (`list`, `table` or
+  `board`), `meetingView` (`list` or `calendar`) and `projectView`
+  (`list`, `cards` or `timeline`), each kind's layout; All may also carry
+  `views` (#338), its saved views in chip order:
+  `[{ "id": "v-1", "name": "Echo tasks", "query": "kind=task&room=p-echo&view=table" }]`,
+  each id once, 30 at most, a name of 1 to 120 characters and `query` All's
+  address without the `?` (1,000 characters at most), read as All reads
+  its address, so a value it no longer has is ignored.
 - `decisions`, `orgs` and `templates` are Datapad's own too (M7): the
   decision log, org records and templates. A template with `body`
   (Markdown, mentions as `@{personId}`) is a note template, with empty

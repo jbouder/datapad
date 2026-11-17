@@ -2,15 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
   type AllFilters,
   activeAllFilters,
+  addView,
+  allLayout,
   allQuery,
   allTags,
   clearedAllFilters,
+  currentView,
   defaultAllFilters,
   filtersFor,
+  layoutsFor,
+  normalViewQuery,
   parseAllQuery,
+  removeView,
+  renameView,
   rowStatus,
   selectAll,
   sortsFor,
+  viewQuery,
+  viewRoute,
 } from '#shared/all';
 import { selectProjects } from '#shared/projects';
 import { DEFAULT_TASK_FILTERS, selectTasks } from '#shared/tasks';
@@ -197,6 +206,8 @@ describe('parseAllQuery and allQuery', () => {
       waiting: true,
       sort: 'title',
       dir: 'desc',
+      view: '',
+      board: 'status',
     });
     const back = new URLSearchParams({ kind: 'task,project' });
     for (const [key, value] of Object.entries(allQuery(filters))) {
@@ -388,5 +399,124 @@ describe('selectAll', () => {
 describe('allTags', () => {
   it('lists each tag once, ignoring case, as first written', () => {
     expect(allTags(state)).toEqual(['ops']);
+  });
+});
+
+describe('layouts (#338)', () => {
+  it('offers layouts to tasks, meetings or projects alone', () => {
+    const ids = (kinds: Parameters<typeof layoutsFor>[0]) =>
+      layoutsFor(kinds).map((o) => o.value);
+    expect(ids(['task'])).toEqual(['list', 'table', 'board']);
+    expect(ids(['meeting'])).toEqual(['list', 'calendar']);
+    expect(ids(['project'])).toEqual(['list', 'cards', 'timeline']);
+    expect(ids(['note'])).toEqual([]);
+    expect(ids(['task', 'project'])).toEqual([]);
+    expect(ids([])).toEqual([]);
+  });
+
+  it('reads the address, then the saved default, then the list', () => {
+    const tasks = parseAllQuery(new URLSearchParams('kind=task&view=board'));
+    expect(tasks.view).toBe('board');
+    expect(allLayout(tasks, { taskView: 'table' })).toBe('board');
+    expect(allLayout({ ...tasks, view: '' }, { taskView: 'table' })).toBe(
+      'table',
+    );
+    expect(allLayout({ ...tasks, view: '' })).toBe('list');
+    // A layout the kind does not have reads as the next one down.
+    expect(
+      parseAllQuery(new URLSearchParams('kind=task&view=calendar')).view,
+    ).toBe('');
+    expect(allLayout({ ...tasks, view: '' }, { taskView: 'cards' })).toBe(
+      'list',
+    );
+    // Several kinds are a list, whatever was asked.
+    expect(
+      allLayout(
+        { kinds: ['task', 'note'], view: 'board' },
+        { taskView: 'board' },
+      ),
+    ).toBe('list');
+  });
+
+  it('keeps the board by priority in the address for tasks only', () => {
+    const board = parseAllQuery(
+      new URLSearchParams('kind=task&view=board&board=priority'),
+    );
+    expect(board.board).toBe('priority');
+    expect(allQuery(board)).toMatchObject({ view: 'board', board: 'priority' });
+    expect(
+      parseAllQuery(new URLSearchParams('kind=note&board=priority')).board,
+    ).toBe('status');
+    expect(allQuery({ ...board, board: 'status' }).board).toBeNull();
+  });
+
+  it('Clear filters keeps the layout', () => {
+    const filters = parseAllQuery(
+      new URLSearchParams('kind=task&view=table&room=p1'),
+    );
+    expect(clearedAllFilters(filters)).toMatchObject({
+      room: '',
+      view: 'table',
+    });
+  });
+});
+
+describe('saved views (#338)', () => {
+  it('saves the kinds, filters, sort and layout, not Find', () => {
+    const filters = parseAllQuery(
+      new URLSearchParams(
+        'kind=task,note&q=base&room=p1&sort=title&dir=desc&view=board',
+      ),
+    );
+    expect(viewQuery(filters)).toBe(
+      'kind=task,note&room=p1&sort=title&dir=desc',
+    );
+    expect(
+      viewQuery(
+        parseAllQuery(
+          new URLSearchParams('kind=task&view=board&board=priority'),
+        ),
+      ),
+    ).toBe('kind=task&view=board&board=priority');
+    expect(viewQuery(defaultAllFilters())).toBe('');
+  });
+
+  it('goes to All with its kinds and the rest as the query', () => {
+    expect(viewRoute('kind=task&view=table&room=p1')).toEqual({
+      route: { name: 'all', kinds: ['task'] },
+      query: 'view=table&room=p1',
+    });
+    expect(viewRoute('status=all')).toEqual({
+      route: { name: 'all' },
+      query: 'status=all',
+    });
+  });
+
+  it('writes a query the one way', () => {
+    expect(normalViewQuery('room=p1&kind=task&q=x&status=open')).toBe(
+      'kind=task&room=p1',
+    );
+  });
+
+  it('finds the view All shows, the layout shown standing in', () => {
+    const views = [
+      { id: 'v1', name: 'Board', query: 'kind=task&view=board' },
+      { id: 'v2', name: 'Echo', query: 'room=p1' },
+    ];
+    const tasks = parseAllQuery(new URLSearchParams('kind=task'));
+    expect(currentView(views, tasks, 'board')?.id).toBe('v1');
+    expect(currentView(views, tasks, 'list')).toBeUndefined();
+    // Find's words do not make it another view.
+    const echo = parseAllQuery(new URLSearchParams('room=p1&q=hi'));
+    expect(currentView(views, echo, 'list')?.id).toBe('v2');
+  });
+
+  it('adds, renames and removes', () => {
+    const a = { id: 'a', name: 'A', query: '' };
+    const b = { id: 'b', name: 'B', query: 'kind=note' };
+    const views = addView(addView([], a), b);
+    expect(views.map((v) => v.id)).toEqual(['a', 'b']);
+    expect(renameView(views, 'b', 'Notes')[1]?.name).toBe('Notes');
+    expect(removeView(views, 'a')).toEqual([b]);
   });
 });

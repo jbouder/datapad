@@ -493,6 +493,7 @@ export interface NavPrefs {
  */
 export const PAGE_KEYS = [
   'focus',
+  'all',
   'projects',
   'archive',
   'tasks',
@@ -532,6 +533,20 @@ export interface PagePrefs {
    * list does not name keeps its default place.
    */
   order?: string[];
+  /**
+   * Saved views (All, #338): a name over an address (`query`, All's
+   * query string without the `?`, its kinds included), in the order the
+   * chips show them.
+   */
+  views?: SavedView[];
+}
+
+/** A saved view on All (#338): its address, named. */
+export interface SavedView {
+  id: string;
+  name: string;
+  /** All's query string, without the `?` (`kind=task&view=board`). */
+  query: string;
 }
 
 export const SETTINGS_ID = 'user';

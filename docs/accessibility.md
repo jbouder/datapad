@@ -51,6 +51,22 @@ drawing.
 | Whiteboard: re-aim an arrow                                             | Enter (its head) or Shift+Enter (its tail) on it, then Tab to an item or the arrow keys       | Drag an arrow's end                                           |
 | Whiteboard: freehand ink                                                | Exempt: the path is the content                                                               | One finger                                                    |
 
+## All's layouts and bulk actions
+
+All (#338) offers a layout when one kind is shown alone. Each works
+without a mouse and on touch; `e2e/all-views.spec.ts` runs them at
+desktop and phone width, with axe.
+
+| Layout or action                   | Keyboard                                                                                         | Touch                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Pick a layout                      | The Layout radios (arrow keys move, Space picks); `v` cycles them                                | Tap a layout                                                  |
+| Tasks: table                       | ↑ ↓ between rows, Enter opens, Space selects, ⌘A selects every row; column headers sort          | Rows instead of the table; tap a row's title to open it       |
+| Tasks: board, by status or priority | Tab to a card; its Move to… menu changes the column                                             | Columns scroll sideways; the card's Move to… menu             |
+| Meetings: calendar                 | Tab to a day or a meeting; Enter opens it                                                        | A week at a time; tap a day for its meetings                  |
+| Projects: cards and timeline       | Tab to a card or a row; Enter opens the project                                                  | Tap a card or a row                                           |
+| Select tasks for the bulk bar      | Space on a select box (Shift extends a range); the bar's buttons; Esc clears the selection       | Tap select boxes; the bar sits above the tab bar              |
+| A saved view                       | Tab to its chip (a link) or its Options menu: Rename, Pin to the rail, Delete                    | The same chip and menu, 44px tall                             |
+
 ## Known exceptions
 
 - **Summaries are written by a language model**, on the device. Their text
