@@ -4,7 +4,7 @@ import { formatDay, formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { notesOfTask } from '#shared/select';
-import { defaultAssignee } from '#shared/tasks';
+import { defaultAssignee, defaultPriority } from '#shared/tasks';
 import {
   blockedOf,
   type Link,
@@ -442,7 +442,8 @@ export function NewTaskPanel({
   const [initial] = useState(() => ({
     title,
     projectId,
-    priority: 'none' as Priority,
+    // Medium, or what Settings → Pages says.
+    priority: (state ? defaultPriority(state) : 'med') as Priority,
     due: '',
     // Every new task starts with the default assignee: you, when
     // Settings → People says so.

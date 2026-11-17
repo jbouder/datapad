@@ -425,6 +425,11 @@ export interface Settings {
    * round-trip unchanged; `defaultAssignee()` in `shared/tasks.ts` reads it.
    */
   assignToMe?: boolean;
+  /**
+   * The priority a new task starts with when none is picked. Absent:
+   * Medium. `defaultPriority()` in `shared/tasks.ts` reads it.
+   */
+  defaultPriority?: Priority;
   /** Navigation preferences (`shared/nav.ts`); absent for the default nav. */
   nav?: NavPrefs;
   /**

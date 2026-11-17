@@ -112,7 +112,11 @@ const cases = {
     invalid: { events: [{ t: 'yesterday', text: 'Created project' }] },
   },
   settings: {
-    valid: { defaultOrg: 'Rebel Alliance', assignToMe: true },
+    valid: {
+      defaultOrg: 'Rebel Alliance',
+      assignToMe: true,
+      defaultPriority: 'med',
+    },
     invalid: { defaultOrg: 'Rebel Alliance', assignToMe: 'yes' },
   },
   templates: {

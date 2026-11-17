@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { defaultAssignee } from '#shared/tasks';
+import { defaultAssignee, defaultPriority } from '#shared/tasks';
 import type { Note, Snapshot } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -24,6 +24,7 @@ export function useMakeTask(): (note: Note, title: string) => boolean {
         title: clean,
         sourceNoteId: note.id,
         assignee: state ? defaultAssignee(state) : '',
+        priority: state ? defaultPriority(state) : 'med',
       });
       if (id === null) return false;
       show(`Added “${clean}”`, undefined, {

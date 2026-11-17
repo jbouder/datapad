@@ -1026,6 +1026,23 @@ describe('the write tools', () => {
     expect(nobody.task.assignee).toBeNull();
   });
 
+  it('add_task with no priority takes the owner’s default, Medium unless changed', async () => {
+    const ctx = await writer();
+    const med = await call(ctx, 'add_task', { title: 'Sweep the hangar' });
+    expect(med.task.priority).toBe('med');
+    const on = await ctx.datapad.import(MAIN_SPACE, {
+      settings: { user: { defaultOrg: '', defaultPriority: 'low' } },
+    });
+    expect(on.ok).toBe(true);
+    const low = await call(ctx, 'add_task', { title: 'Check the shields' });
+    expect(low.task.priority).toBe('low');
+    const high = await call(ctx, 'add_task', {
+      title: 'Fix the hyperdrive',
+      priority: 'high',
+    });
+    expect(high.task.priority).toBe('high');
+  });
+
   it('complete_task and reopen_task, idempotent', async () => {
     const ctx = await writer();
     const done = await call(ctx, 'complete_task', { task: 't-1' });

@@ -11,6 +11,7 @@ import {
   sectionCounts,
 } from '#shared/pages';
 import type { PagePrefsPatch } from '#shared/protocol';
+import { defaultPriority } from '#shared/tasks';
 import {
   PAGE_KEYS,
   type PageKey,
@@ -18,8 +19,10 @@ import {
   type Snapshot,
   settingsOf,
 } from '#shared/types';
+import { PriorityPicker } from '@/components/inputs/PriorityPicker';
 import { Segmented } from '@/components/inputs/Segmented';
 import { SelectField } from '@/components/inputs/SelectField';
+import { PRIORITY_LABELS } from '@/components/PriorityDot';
 import { SectionsEditor } from '@/components/SectionsEditor';
 import { defaultTaskView } from '@/components/tasks/TaskLayouts';
 import { Button } from '@/components/ui/button';
@@ -124,6 +127,33 @@ export function PagesSettings() {
           <ArrowCounterClockwiseIcon />
           Reset all
         </Button>
+      </div>
+      <div className="flex flex-col gap-2">
+        <PriorityPicker
+          label="New task priority"
+          value={defaultPriority(state)}
+          onChange={(priority) => {
+            const before = defaultPriority(state);
+            if (priority === before) return;
+            if (
+              !actions.setSettings({ patch: { defaultPriority: priority } })
+            ) {
+              return;
+            }
+            const said =
+              priority === 'none'
+                ? 'New tasks start with no priority'
+                : `New tasks start at ${PRIORITY_LABELS[priority]}`;
+            show(said, () =>
+              actions.setSettings({ patch: { defaultPriority: before } }),
+            );
+          }}
+          className="max-w-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          What a new task starts with when you do not pick one, everywhere you
+          add tasks.
+        </p>
       </div>
       <ul aria-label="Pages" className="flex flex-col gap-4">
         {LISTED.map((page) => (

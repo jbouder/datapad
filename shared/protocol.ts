@@ -478,6 +478,7 @@ export type PagePrefsPatch = z.infer<typeof PagePrefsPatchSchema>;
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
   assignToMe: z.boolean().optional(),
+  defaultPriority: priority.optional(),
   nav: NavPrefsSchema.optional(),
   pages: PagesSchema.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
@@ -1345,6 +1346,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
     patch: patch({
       defaultOrg: z.string().trim().max(LIMITS.nameMax),
       assignToMe: z.boolean(),
+      defaultPriority: priority,
     }),
   }),
   /** Navigation preferences; `null` clears a key (all six: the default). */

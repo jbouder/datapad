@@ -9,6 +9,7 @@ import {
 import {
   blockedOf,
   type DateString,
+  type Priority,
   type Snapshot,
   settingsOf,
   type Task,
@@ -26,6 +27,15 @@ export function defaultAssignee(
 ): string {
   if (!settingsOf(state).assignToMe) return '';
   return meId(state.people) ?? '';
+}
+
+/**
+ * The priority a new task starts with when none is picked: Settings →
+ * Pages' "New task priority", Medium until it is changed. Every way of
+ * adding a task reads it, as `defaultAssignee()`.
+ */
+export function defaultPriority(state: Pick<Snapshot, 'settings'>): Priority {
+  return settingsOf(state).defaultPriority ?? 'med';
 }
 
 /** The Tasks view's controls, as kept in the URL. */

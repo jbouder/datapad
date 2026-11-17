@@ -12,13 +12,15 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { focusPage, hasFocus } from '@/lib/focus';
+import { holdLeave } from '@/lib/leave';
 
 /**
  * The slide-over every editor uses (task, project, meeting, person,
  * summary): 460px from the right, the whole screen on phones, a scrim
  * behind. Focus goes to the first field on open and back to whatever
  * opened it on close; the page behind does not scroll. Esc, the scrim and
- * Cancel all ask first when `dirty`; ⌘/Ctrl+Enter submits from anywhere.
+ * Cancel all ask first when `dirty`, or when a note written inside it is
+ * unsaved; ⌘/Ctrl+Enter submits from anywhere.
  */
 
 interface PanelContext {
@@ -99,6 +101,8 @@ export function SidePanel({
   );
 
   const requestClose = useCallback(() => {
+    // A note being written in the panel asks first, then closes it.
+    if (popup.current && holdLeave(onClose, popup.current)) return;
     if (dirty) setAsking(true);
     else onClose();
   }, [dirty, onClose]);
