@@ -7,8 +7,10 @@ import {
   carryOps,
   checkTopicLines,
   describeWhen,
+  meetingPhase,
   monthLabel,
   nextMeeting,
+  oneOnOneWith,
   parseTime,
   previousMeeting,
   projectMeetings,
@@ -497,5 +499,46 @@ describe('carrying topics forward', () => {
     );
     expect(topicsOf(back.meetings.last as Meeting)).toEqual(topics);
     expect(topicsOf(back.meetings.next as Meeting)).toEqual([]);
+  });
+});
+
+describe('meeting mode (#336)', () => {
+  const day = '2026-11-16';
+  const at = (time: string, end = '') => ({ date: day, time, end });
+
+  it('is Prep before the day and Debrief after it', () => {
+    expect(meetingPhase(at('14:00'), '2026-11-15', '23:59')).toBe('prep');
+    expect(meetingPhase(at('14:00'), '2026-11-17', '00:00')).toBe('debrief');
+  });
+
+  it('is Live all day for an untimed meeting today', () => {
+    expect(meetingPhase(at(''), day, '00:00')).toBe('live');
+    expect(meetingPhase(at(''), day, '23:59')).toBe('live');
+  });
+
+  it('follows the start and end today', () => {
+    expect(meetingPhase(at('14:00', '15:30'), day, '13:59')).toBe('prep');
+    expect(meetingPhase(at('14:00', '15:30'), day, '14:00')).toBe('live');
+    expect(meetingPhase(at('14:00', '15:30'), day, '15:29')).toBe('live');
+    expect(meetingPhase(at('14:00', '15:30'), day, '15:30')).toBe('debrief');
+  });
+
+  it('takes an hour for a meeting with no end', () => {
+    expect(meetingPhase(at('09:00'), day, '09:59')).toBe('live');
+    expect(meetingPhase(at('09:00'), day, '10:00')).toBe('debrief');
+  });
+
+  it('finds the other person in a 1:1', () => {
+    expect(oneOnOneWith({ attendees: ['me', 'han'] }, 'me')).toBe('han');
+    expect(oneOnOneWith({ attendees: ['han'] }, 'me')).toBe('han');
+    expect(oneOnOneWith({ attendees: ['han'] }, null)).toBe('han');
+    expect(oneOnOneWith({ attendees: ['han', 'han'] }, null)).toBe('han');
+  });
+
+  it('is no 1:1 with nobody else or with several', () => {
+    expect(oneOnOneWith({ attendees: [] }, 'me')).toBeNull();
+    expect(oneOnOneWith({ attendees: ['me'] }, 'me')).toBeNull();
+    expect(oneOnOneWith({ attendees: ['han', 'leia'] }, 'me')).toBeNull();
+    expect(oneOnOneWith({ attendees: ['me', 'han'] }, null)).toBeNull();
   });
 });

@@ -95,8 +95,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   Board, Timeline, Calendar; `SpaceSwitcher`,
   `SpacesSettings`, `projects/MoveProjectDialog`, `projects/Milestones`;
   `meetings/` holds the meeting form, row, list, layouts,
-  the topics (`MeetingTopics` on the meeting's page and in its panel,
-  `PendingTopics` for a new meeting's), and the meeting note composer;
+  the topics (`MeetingTopics` in meeting mode and in the meeting's panel,
+  `PendingTopics` for a new meeting's), the meeting note composer, and
+  `MeetingLoops`, meeting mode's open loops (#336);
   `today/` is Today's parts (`LoopLanes` and `LoopRow`, the lanes the
   rooms reuse; `DayTimeline`);
   `board/` is the whiteboard canvas (`Board`, composition and render;
@@ -108,11 +109,12 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `export.ts`, the pure SVG serialiser, and `download.ts`, its browser
   half: tokens resolved, the PNG on a canvas);
   `notes/LinkedNoteList` is the Notes section a task's page and panel and
-  a meeting's page and panel share; `notes/NoteRow` is the compact note
+  a meeting's panel share; `notes/NoteRow` is the compact note
   row it and the project page use, `notes/NoteCard` the card Notes uses,
   and `notes/noteParts` what both share: the actions, editing in place,
-  Make task, `?note=`), `pages/*` (`MeetingPage` is
-  `/meetings/:id`, `ProjectPage` `/projects/:id` and `PersonPage`
+  Make task, `?note=`), `pages/*` (`MeetingMode` is
+  `/meetings/:id`, full screen without the rail (#336), `ProjectPage`
+  `/projects/:id` and `PersonPage`
   `/people/:id`; `AllPage` is `/all`, every kind in one list with
   `shared/all.ts` reading its address, the layouts for one kind, the
   bulk bar, and `components/all/SavedViews` its saved views, and `UnfiledPage` `/unfiled`; a task opens in its

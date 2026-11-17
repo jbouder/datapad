@@ -4,7 +4,7 @@
  * local calendar (`dates.ts`): a timestamp's day and `HH:MM` are where it
  * fell for the person reading. Archived projects' items are left out.
  */
-import { addDays, dayOf } from './dates';
+import { addDays, dayOf, endOfWeek } from './dates';
 import { byLoop, isOpenLoop } from './loops';
 import type {
   DateString,
@@ -166,5 +166,89 @@ export function dayLine(counts: DayCounts): string {
     `${counts.due} due`,
     `${counts.waiting} waiting on others`,
     `${counts.decide} to decide`,
+  ].join(', ');
+}
+
+/** The Monday-to-Sunday week holding `day`, both ends included. */
+export function weekAround(day: DateString): {
+  from: DateString;
+  to: DateString;
+} {
+  const to = endOfWeek(day);
+  return { from: addDays(to, -6), to };
+}
+
+/** One day of the week zoom (#332): its meetings and what it counts. */
+export interface WeekDay {
+  day: DateString;
+  /** By time, untimed first (as the timeline has them). */
+  meetings: Meeting[];
+  /** Open tasks due that day. */
+  due: number;
+  /** Tasks done that day. */
+  done: number;
+  /** Notes written that day. */
+  notes: number;
+}
+
+/**
+ * The week zoom's seven days, Monday to Sunday, around `day`: each with
+ * its meetings and how many tasks fall due, are done and notes are
+ * written, from `dayEntries()` (archived projects left out).
+ */
+export function weekDays(
+  state: Pick<Snapshot, 'meetings' | 'tasks' | 'notes' | 'projects'>,
+  day: DateString,
+): WeekDay[] {
+  const { from } = weekAround(day);
+  const open = Object.values(state.tasks).filter(
+    (t) => t.due && isOpenLoop(t, state.projects),
+  );
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(from, i);
+    const entries = dayEntries(state, d);
+    const meetings: Meeting[] = [];
+    let done = 0;
+    let notes = 0;
+    for (const e of entries) {
+      if (e.kind === 'meeting') meetings.push(e.meeting);
+      else if (e.kind === 'done') done++;
+      else if (e.kind === 'note') notes++;
+    }
+    return {
+      day: d,
+      meetings,
+      due: open.filter((t) => t.due === d).length,
+      done,
+      notes,
+    };
+  });
+}
+
+/** One day's counts in the week zoom: "2 due · 1 done · 3 notes", or "". */
+export function weekDayLine(day: Pick<WeekDay, 'due' | 'done' | 'notes'>) {
+  return [
+    day.due > 0 && `${day.due} due`,
+    day.done > 0 && `${day.done} done`,
+    day.notes > 0 && plural(day.notes, 'note'),
+  ]
+    .filter((p): p is string => typeof p === 'string')
+    .join(' · ');
+}
+
+/** The week zoom's header line: "3 meetings, 4 due, 5 done, 2 notes". */
+export function weekLine(days: readonly WeekDay[]): string {
+  const sum = (f: (d: WeekDay) => number) => days.reduce((n, d) => n + f(d), 0);
+  return [
+    plural(
+      sum((d) => d.meetings.length),
+      'meeting',
+    ),
+    `${sum((d) => d.due)} due`,
+    `${sum((d) => d.done)} done`,
+    plural(
+      sum((d) => d.notes),
+      'note',
+    ),
   ].join(', ');
 }

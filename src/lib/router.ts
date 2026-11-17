@@ -121,6 +121,22 @@ function notify() {
   }
 }
 
+/**
+ * The last page left that was not a meeting, with its query: where
+ * meeting mode's Leave goes back to (#336). Moving through a series
+ * keeps it.
+ */
+let outside: { route: Route; search: string } | null = null;
+
+/**
+ * Leave meeting mode: to the page it was entered from, or to Today.
+ * `replace` drops the meeting from the history (it was deleted).
+ */
+export function leaveMeeting(options: { replace?: boolean } = {}) {
+  const to = outside ?? { route: { name: 'today' } as Route, search: '' };
+  navigate(to.route, { query: to.search, replace: options.replace });
+}
+
 /** The latest commit's number: an older one that lands late is dropped. */
 let latest = 0;
 
@@ -130,6 +146,9 @@ function commit(next: Route, nextSearch: string, instant = false) {
     // Back pressed mid-transition: the view transition API can run the
     // earlier update after this one, which would leave the old page up.
     if (id !== latest) return;
+    if (current.name !== 'meeting' && !samePage(next, current)) {
+      outside = { route: current, search };
+    }
     current = next;
     search = nextSearch;
     notify();

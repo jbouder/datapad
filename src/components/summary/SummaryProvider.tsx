@@ -30,8 +30,8 @@ import {
  * one Markdown answer instead of three JSON ones). The model stays loaded
  * between summaries once the owner has agreed to it, so the second one
  * starts at once; the panel shows whichever item was asked for last.
- * Focus's Brief me (#259) is the same flow with its own target kind,
- * shown in a card on Focus (`useBrief()`) instead of the panel.
+ * Brief me (#259, on Today since #332) is the same flow with its own target kind,
+ * shown in a card on Today (`useBrief()`) instead of the panel.
  */
 
 export type ModelState =
@@ -130,16 +130,16 @@ interface Session {
   key: number;
   open: boolean;
   request: SummaryRequest;
-  /** The side panel, or Focus's Brief me card (a `brief` target). */
+  /** The side panel, or Today's Brief me card (a `brief` target). */
   surface: 'panel' | 'card';
 }
 
-/** Brief me's run in flight, for Focus's card. */
+/** Brief me's run in flight, for Today's card. */
 export interface Brief {
   request: SummaryRequest;
   run: Run;
   stop: () => void;
-  /** Stop and forget it (dismiss, or leaving Focus). */
+  /** Stop and forget it (dismiss, or leaving Today). */
   close: () => void;
 }
 
@@ -393,7 +393,7 @@ export function SummaryProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Brief me's run, while Focus's card has one; null otherwise. */
+/** Brief me's run, while Today's card has one; null otherwise. */
 export function useBrief(): Brief | null {
   return useContext(BriefContext);
 }

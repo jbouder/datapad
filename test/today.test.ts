@@ -6,6 +6,10 @@ import {
   localTime,
   meetingPast,
   nextMeeting,
+  weekAround,
+  weekDayLine,
+  weekDays,
+  weekLine,
 } from '#shared/today';
 import {
   emptySnapshot,
@@ -254,5 +258,60 @@ describe('dayLine', () => {
     expect(dayLine({ meetings: 1, due: 0, waiting: 0, decide: 0 })).toBe(
       '1 meeting, 0 due, 0 waiting on others, 0 to decide',
     );
+  });
+});
+
+describe('the week zoom (#332)', () => {
+  it('is Monday to Sunday around a day', () => {
+    // 2026-11-16 is a Monday.
+    expect(weekAround(DAY)).toEqual({ from: DAY, to: '2026-11-22' });
+    expect(weekAround('2026-11-19')).toEqual({ from: DAY, to: '2026-11-22' });
+    expect(weekAround('2026-11-22')).toEqual({ from: DAY, to: '2026-11-22' });
+    expect(weekAround('2026-11-23').from).toBe('2026-11-23');
+  });
+
+  it('has each day’s meetings and its due, done and notes', () => {
+    const s = state({
+      meetings: {
+        later: meeting('later', { time: '15:00', date: '2026-11-17' }),
+        early: meeting('early', { time: '09:00', date: '2026-11-17' }),
+        allDay: meeting('allDay', { date: '2026-11-17' }),
+        old: meeting('old', { projectId: 'p-old', date: '2026-11-17' }),
+        before: meeting('before', { date: '2026-11-15' }),
+      },
+      tasks: {
+        due: task('due', { due: '2026-11-18' }),
+        doneDue: task('doneDue', {
+          due: '2026-11-18',
+          status: 'done',
+          completedAt: '2026-11-18T10:00:00.000Z',
+        }),
+        archived: task('archived', { due: '2026-11-18', projectId: 'p-old' }),
+      },
+      notes: { n: note('n', { createdAt: '2026-11-22T08:00:00.000Z' }) },
+    });
+    const days = weekDays(s, '2026-11-19');
+    expect(days.map((d) => d.day)).toEqual([
+      '2026-11-16',
+      '2026-11-17',
+      '2026-11-18',
+      '2026-11-19',
+      '2026-11-20',
+      '2026-11-21',
+      '2026-11-22',
+    ]);
+    expect(days[1]?.meetings.map((m) => m.id)).toEqual([
+      'allDay',
+      'early',
+      'later',
+    ]);
+    expect(days[2]).toMatchObject({ due: 1, done: 1, notes: 0 });
+    expect(days[6]).toMatchObject({ due: 0, done: 0, notes: 1 });
+    expect(weekDayLine(days[2] as (typeof days)[number])).toBe(
+      '1 due · 1 done',
+    );
+    expect(weekDayLine({ due: 0, done: 0, notes: 2 })).toBe('2 notes');
+    expect(weekDayLine({ due: 0, done: 0, notes: 0 })).toBe('');
+    expect(weekLine(days)).toBe('3 meetings, 1 due, 1 done, 1 note');
   });
 });
