@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { AppShell } from '@/components/AppShell';
 import {
   AppError,
@@ -22,6 +23,7 @@ import { MotionProvider } from '@/providers/MotionProvider';
 import { PagePrefsProvider } from '@/providers/PagePrefsProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
+import { isV2Path } from '@/v2/nav';
 
 export default function App() {
   return (
@@ -63,12 +65,23 @@ export default function App() {
   );
 }
 
+/** Prototype: Day, Rooms, Library (`src/v2`), at `/v2`. */
+const V2App = lazy(() => import('@/v2/V2App'));
+
 /** The app, or "Sign in again" once the Access session has ended. */
 function Shell() {
   const signedOut = useSignedOut();
   return (
     <>
-      {signedOut ? <SignedOutPage /> : <AppShell />}
+      {signedOut ? (
+        <SignedOutPage />
+      ) : isV2Path(window.location.pathname) ? (
+        <Suspense fallback={null}>
+          <V2App />
+        </Suspense>
+      ) : (
+        <AppShell />
+      )}
       {__DEV_ROUTES__ && <CrashForTests where="app" />}
     </>
   );
