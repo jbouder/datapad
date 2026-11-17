@@ -230,7 +230,7 @@ export function ProjectFilter({
 
 /**
  * The meeting coming up in a room, with Enter meeting. It opens the
- * meeting's page until meeting mode lands (#336).
+ * meeting in meeting mode (#336).
  */
 export function NextMeeting({
   meeting,

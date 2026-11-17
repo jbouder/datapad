@@ -1,6 +1,7 @@
 import {
   CalendarDotIcon,
   CalendarDotsIcon,
+  CalendarPlusIcon,
   CaretLeftIcon,
   CaretRightIcon,
 } from '@phosphor-icons/react';
@@ -34,6 +35,7 @@ import {
   type ViewOption,
   ViewSwitcher,
 } from '@/components/layouts/ViewSwitcher';
+import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow } from '@/components/tasks/TaskRow';
 import { BriefCard, BriefMeButton } from '@/components/today/BriefMe';
@@ -88,6 +90,7 @@ export function TodayPage() {
   usePageTitle('Today');
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
+  const { newMeeting } = useMeetingForm();
   const { toggle, isDone } = useTaskToggle();
   const { active } = useMotion();
   const clock = useClock();
@@ -304,9 +307,19 @@ export function TodayPage() {
             )}
 
             <section aria-labelledby="timeline-title" className="flex flex-col">
-              <h2 id="timeline-title" className={HEADING}>
-                Timeline
-              </h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 id="timeline-title" className={HEADING}>
+                  Timeline
+                </h2>
+                <Button
+                  variant="ghost"
+                  className="press h-11 text-muted-foreground desk:h-8"
+                  onClick={() => newMeeting({ projectId: null, date: day })}
+                >
+                  <CalendarPlusIcon />
+                  Add meeting
+                </Button>
+              </div>
               <DayTimeline
                 entries={entries}
                 state={state}
@@ -351,7 +364,7 @@ export function TodayPage() {
 
 /**
  * The meeting coming up (or going on), with Enter meeting. It opens the
- * meeting's page until meeting mode lands (#336).
+ * meeting in meeting mode (#336).
  */
 function NextUp({
   meeting,

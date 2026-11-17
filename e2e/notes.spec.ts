@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectSaved,
   noteAction,
@@ -110,7 +110,7 @@ test('Write a note on Notes starts in the filtered project', async ({
   page,
 }) => {
   await openLive(page, '/notes?project=p-falcon');
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
@@ -120,7 +120,7 @@ test('Write a note on Notes starts in the filtered project', async ({
 
   // General, filtered or not, starts in General.
   await page.goto('/notes?project=general');
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
   ).toHaveValue('General');
@@ -131,7 +131,7 @@ test('writes a note from anywhere, into the project you are on', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   const body = panel.getByRole('combobox', { name: 'Note' });
   await expect(body).toBeFocused();
@@ -163,7 +163,7 @@ test('Write a note writes a General note from a page with no project', async ({
   page,
 }) => {
   await openLive(page, '/tasks');
-  await addFromTopBar(page, 'Write a note');
+  await addFromSearch(page, 'New note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
   await expect(

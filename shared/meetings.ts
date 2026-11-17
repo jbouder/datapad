@@ -1,4 +1,4 @@
-import { type Clock, formatDay, formatTimeRange } from './dates';
+import { type Clock, formatTimeRange } from './dates';
 import { LIMITS } from './limits';
 import { tokensToNames } from './mentions';
 import type { OpOf } from './protocol';
@@ -70,17 +70,6 @@ export function timeRange(
 ): string {
   if (!meeting.time) return '';
   return formatTimeRange(meeting.time, meeting.end, clock);
-}
-
-/** "Mon 27 Oct, 2:00–3:00 PM". */
-export function describeWhen(
-  meeting: Meeting,
-  today: DateString,
-  clock: Clock,
-): string {
-  const range = timeRange(meeting, clock);
-  const day = formatDay(meeting.date, today);
-  return range ? `${day}, ${range}` : day;
 }
 
 /** A meeting's words for Find: title, agenda, topics, attendees' names. */

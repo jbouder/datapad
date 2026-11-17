@@ -3,7 +3,7 @@
   "name": "Datapad",
   "short_name": "Datapad",
   "description": "A private project tracker: projects, tasks, notes, meetings, milestones and people.",
-  "start_url": "/focus",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

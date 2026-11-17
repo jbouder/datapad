@@ -60,7 +60,7 @@ test.describe('on a phone', () => {
     const banner = page.getByRole('banner');
     const controls = [
       banner.getByRole('button', { name: 'Account and settings' }),
-      banner.getByRole('button', { name: 'Add', exact: true }),
+      banner.getByRole('button', { name: 'Search', exact: true }),
       ...['Today', 'Unfiled', 'All'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })

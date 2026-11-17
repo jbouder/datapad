@@ -319,6 +319,7 @@ test('Edit, Schedule meeting, and Remove', async ({ page, request }) => {
   await expect(ask).toContainText(
     'Remove Han Solo? Mentions of them show as @unknown and 1 task becomes unassigned.',
   );
+  await expectAccessible(page);
   await ask.getByRole('button', { name: 'Remove' }).click();
   await expect(page).toHaveURL(/\/settings\/people$/);
   await expectSaved(page);

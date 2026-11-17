@@ -1,21 +1,11 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { projectRoomOf, taskRoom } from '#shared/routes';
 import {
   CrashForTests,
   ErrorBoundary,
   PageError,
 } from '@/components/ErrorBoundary';
-import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
-import { useNotes } from '@/components/notes/NotesProvider';
 import { Palette } from '@/components/Palette';
-import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { Rail } from '@/components/Rail';
 import { ShortcutSheet } from '@/components/ShortcutSheet';
 import { TabBar } from '@/components/TabBar';
@@ -25,7 +15,7 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { CAPTURE_ID, focusCapture } from '@/lib/capture';
 import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
-import { QUICK_ADD, type QuickAddAction, titleOf } from '@/lib/nav';
+import { titleOf } from '@/lib/nav';
 import {
   navigate,
   type Route,
@@ -36,8 +26,8 @@ import {
 } from '@/lib/router';
 import { handleRowKey, shortcutAllowed } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
-import { AllPage } from '@/pages/AllPage';
 import {
+  AllPage,
   HelpPage,
   MeetingMode,
   preloadPages,
@@ -65,9 +55,6 @@ export function AppShell() {
   const email = useEmail();
   const { state } = useDatapad();
   const { newTask } = useTaskPanels();
-  const { newNote } = useNotes();
-  const { newMeeting } = useMeetingForm();
-  const { openProjectForm } = useProjectForm();
   usePreloadPages();
 
   useEffect(() => {
@@ -85,35 +72,17 @@ export function AppShell() {
           ? state?.meetings[route.id]?.title
           : undefined;
 
-  // Add task opens the new-task panel, preset to the project you are on.
+  // New task, note and meeting (`n`, ⌘K) start in the project you are on,
+  // or on All, the room it is filtered to.
+  const query = useQuery();
+  const allRoom = route.name === 'all' ? query.get('room') : null;
   const currentProject =
     room?.id ??
     (route.name === 'meeting'
       ? (state?.meetings[route.id]?.projectId ?? null)
-      : null);
-  const addTask = useCallback(() => {
-    newTask(currentProject);
-  }, [newTask, currentProject]);
-  // On All, a new note starts in the room it is filtered to.
-  const query = useQuery();
-  const allRoom = route.name === 'all' ? query.get('room') : null;
-  const noteProject =
-    allRoom && allRoom !== 'general' && state?.projects[allRoom]
-      ? allRoom
-      : currentProject;
-  const addNote = useCallback(() => {
-    newNote(noteProject);
-  }, [newNote, noteProject]);
-  // The top bar's +.
-  const onQuickAdd = useCallback(
-    (name: QuickAddAction) => {
-      if (name === 'task') addTask();
-      else if (name === 'note') addNote();
-      else if (name === 'meeting') newMeeting({ projectId: currentProject });
-      else openProjectForm();
-    },
-    [addTask, addNote, newMeeting, openProjectForm, currentProject],
-  );
+      : allRoom && allRoom !== 'general' && state?.projects[allRoom]
+        ? allRoom
+        : null);
 
   // The page-wide keys (shared/shortcuts.ts lists them all): `n` focuses
   // the capture line (where there is none, the new-task panel), `?` shows
@@ -240,8 +209,6 @@ export function AppShell() {
           )}
           pageKey={pageKey(route)}
           email={email}
-          quickAdd={QUICK_ADD}
-          onQuickAdd={onQuickAdd}
           onSearch={() => setPalette(true)}
         />
         {/* Keyed by page so each mounts fresh and its entrances replay. */}

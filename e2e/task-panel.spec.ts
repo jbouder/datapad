@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
-  addFromTopBar,
+  addFromSearch,
   expect,
   expectSaved,
   isMobile,
@@ -191,7 +191,7 @@ test('+ opens a new task preset to the project you are on', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-falcon');
-  await addFromTopBar(page, 'Add task');
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel.getByRole('combobox', { name: 'Project' })).toHaveValue(
     'Falcon hyperdrive refit',

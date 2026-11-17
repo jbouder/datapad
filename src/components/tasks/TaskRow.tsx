@@ -1,8 +1,5 @@
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
   CheckIcon,
-  DotsSixVerticalIcon,
   DotsThreeIcon,
   LockSimpleIcon,
   NoteIcon,
@@ -21,7 +18,6 @@ import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { PersonPicker } from '@/components/pickers/PersonPicker';
 import { useBlocked } from '@/components/tasks/BlockedProvider';
 import { DueDate } from '@/components/tasks/DueDate';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,23 +50,10 @@ export interface TaskRowProps {
     task: Task,
     patch: Partial<Pick<Task, 'priority' | 'due' | 'assignee'>>,
   ) => void;
-  /** Manual order (project page, open tasks): handle, menu, controls. */
-  reorder?: RowReorder;
   /** A select box for bulk actions (Shift extends a range). */
   select?: { selected: boolean; onToggle: (range: boolean) => void };
   /** How many running notes it has (`taskNoteCounts`); none shows nothing. */
   noteCount?: number;
-}
-
-export interface RowReorder {
-  index: number;
-  count: number;
-  /** Move this row to `to` (0-based). */
-  move: (to: number) => void;
-  /** Touch reorder mode: up / down buttons on every row. */
-  controls: boolean;
-  /** The handle was pressed (mouse: arm drag; touch: long-press). */
-  onHandlePointerDown: (event: React.PointerEvent) => void;
 }
 
 const POPOVER_TRIGGER =
@@ -165,7 +148,6 @@ export const TaskRow = memo(function TaskRow({
   onToggle,
   onOpen,
   onEdit,
-  reorder,
   select,
   noteCount,
 }: TaskRowProps) {
@@ -185,16 +167,6 @@ export const TaskRow = memo(function TaskRow({
       )}
       data-task-id={task.id}
     >
-      {reorder && (
-        <span
-          aria-hidden
-          title="Drag to reorder"
-          onPointerDown={reorder.onHandlePointerDown}
-          className="flex h-11 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing desk:h-8"
-        >
-          <DotsSixVerticalIcon weight="bold" />
-        </span>
-      )}
       {select && (
         <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center desk:size-8">
           <input
@@ -380,34 +352,7 @@ export const TaskRow = memo(function TaskRow({
       )}
       {select && <TaskCheck task={task} done={done} onToggle={onToggle} />}
 
-      {reorder?.controls && (
-        <span className="flex shrink-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="press size-11"
-            disabled={reorder.index === 0}
-            onClick={() => reorder.move(reorder.index - 1)}
-          >
-            <ArrowUpIcon />
-            <span className="sr-only">Move “{task.title}” up</span>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="press size-11"
-            disabled={reorder.index === reorder.count - 1}
-            onClick={() => reorder.move(reorder.index + 1)}
-          >
-            <ArrowDownIcon />
-            <span className="sr-only">Move “{task.title}” down</span>
-          </Button>
-        </span>
-      )}
-
-      {(reorder || !done) && (
+      {!done && (
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(POPOVER_TRIGGER, 'size-11 desk:size-8')}
@@ -430,28 +375,6 @@ export const TaskRow = memo(function TaskRow({
               <DropdownMenuItem onClick={() => blocking.unblock(task)}>
                 Unblock
               </DropdownMenuItem>
-            )}
-            {reorder && (
-              <>
-                <DropdownMenuItem
-                  disabled={reorder.index === 0}
-                  onClick={() => reorder.move(reorder.index - 1)}
-                >
-                  Move up
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={reorder.index === reorder.count - 1}
-                  onClick={() => reorder.move(reorder.index + 1)}
-                >
-                  Move down
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={reorder.index === 0}
-                  onClick={() => reorder.move(0)}
-                >
-                  Move to top
-                </DropdownMenuItem>
-              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

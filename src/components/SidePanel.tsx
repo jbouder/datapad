@@ -63,8 +63,8 @@ export function SidePanel({
   onSubmit?: () => void;
   footer?: ReactNode;
   /** Where focus goes on close instead of the opener, when it answers one
-   * (the opener may be gone with what the panel deleted). */
-  returnFocus?: () => HTMLElement | null;
+   * (the opener may be gone with what the panel deleted or moved). */
+  returnFocus?: (opener: HTMLElement | null) => HTMLElement | null;
   children: ReactNode;
 }) {
   const popup = useRef<HTMLDivElement>(null);
@@ -77,7 +77,8 @@ export function SidePanel({
   useEffect(() => {
     if (open) {
       opener.current =
-        document.activeElement instanceof HTMLElement
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement !== document.body
           ? document.activeElement
           : null;
     } else {
@@ -135,8 +136,13 @@ export function SidePanel({
             popup.current?.querySelector<HTMLElement>(FIELDS) ?? true
           }
           finalFocus={() =>
-            returnFocus?.() ??
-            (opener.current?.isConnected ? opener.current : true)
+            returnFocus?.(opener.current) ??
+            (opener.current?.isConnected
+              ? opener.current
+              : opener.current
+                ? true
+                : // Opened with nothing focused (⌘K's New task): the page.
+                  (document.getElementById('main') ?? true))
           }
           onKeyDown={(event) => {
             // A composer that took ⌘Enter for itself (a note's Save

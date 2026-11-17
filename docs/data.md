@@ -145,7 +145,7 @@ as it is (migrated on the way in, below):
   (#329) retired: kept as written, so an older file round-trips, and no
   longer read. Its shape:
   `{ "order": ["focus", "notes", …], "hidden": ["meetings"], "extras": { "activeProjects": true, "archived": true }, "tools": { "order": ["digest", "notepad", "whiteboard"], "hidden": ["notepad"], "phoneHidden": ["digest", "whiteboard"] }, "quickAdd": { "order": ["meeting", "task", "note", "project"], "hidden": ["project"] } }`
-  (`quickAdd`, #201, is the top bar's + menu: `task`, `note`, `meeting`,
+  (`quickAdd`, #201, was the top bar's + menu, removed in v2: `task`, `note`, `meeting`,
   `project`; an action it never names keeps its default. `tools`, #261,
   is the rail's Tools: `notepad`, `whiteboard`, `digest`, written whole;
   a tool it never names keeps its default place, shown and off the
@@ -384,7 +384,7 @@ the `/api/spaces` list.
 
 ## Moving a project to another space
 
-With more than one space, a project page's menu has **Move to…**. The
+With more than one space, a project room's More menu has **Move to…**. The
 project goes with its tasks (action items keep `meetingId` when their meeting goes too), notes (its tasks' running notes among them, `taskId` kept), meetings (and their topics), milestones, lists (and their items), decisions and
 activity log (unlike deleting a project, its meetings and decisions go with it rather
 than to General), and the log gains "Moved from <space>". The people it

@@ -1,5 +1,5 @@
 import {
-  addFromTopBar,
+  addFromSearch,
   addTask,
   expect,
   expectAccessible,
@@ -265,25 +265,32 @@ test('tab order is rail, then top bar, then main', async ({ page }) => {
   expect(first('top')).toBeLessThan(first('main'));
 });
 
-test('+ offers Add task, Write a note, Add meeting and Add project', async ({
+test('no +: Search adds a task, Today a meeting and All a project (#341)', async ({
   page,
 }) => {
   await page.goto('/help');
-  await page
-    .getByRole('banner')
-    .getByRole('button', { name: 'Add', exact: true })
-    .click();
-  await expect(page.getByRole('menuitem')).toHaveText([
-    /Add task/,
-    /Write a note/,
-    /Add meeting/,
-    /Add project/,
-  ]);
-  await page.keyboard.press('Escape');
-  await addFromTopBar(page, 'Add task');
+  await expect(
+    page.getByRole('banner').getByRole('button', { name: 'Add', exact: true }),
+  ).toHaveCount(0);
+  await addFromSearch(page, 'New task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+
+  // Add meeting beside Today's timeline starts on the day shown.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add meeting' }).click();
+  const meeting = page.getByRole('dialog', { name: 'New meeting' });
+  await expect(meeting).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(meeting).toBeHidden();
+
+  // New project beside All's project rooms.
+  await page.goto('/all');
+  await page.getByRole('button', { name: 'New project' }).click();
+  await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible();
 });
 
 test('the rail’s counts follow the data', async ({ page, request }) => {

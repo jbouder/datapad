@@ -215,10 +215,9 @@ changes the format says so here under **Export format**.
   `/lists` on All's notes, `/tasks/:id` on the task's project with its
   panel open, and `/settings/people/:id` on the person's room. A task
   opens in its panel everywhere.
-- The top bar's + offers Add task, Write a note, Add meeting and Add
-  project. New list is gone from +, ⌘K and Shift+L, and the Lists,
-  Notepad, Weekly digest and task pages are gone, as lists and the
-  Notepad became notes.
+- New list is gone from ⌘K and Shift+L, and the Lists, Notepad, Weekly
+  digest and task pages are gone, as lists and the Notepad became notes.
+  ⌘K no longer finds lists; it finds the checklist notes they became.
 - Focus is gone, with its agenda strip, Since yesterday, Attention,
   Follow-ups and Brief me; Today replaces it. Since yesterday and Brief me
   are back on Today (#332). The rail's Waiting on counts what Today's
@@ -229,7 +228,21 @@ changes the format says so here under **Export format**.
 - New tasks start at Medium priority instead of none.
 - `n` goes to the capture line where there is one (elsewhere it still
   opens the new-task panel). Shift+N and Shift+L are gone: write a note
-  from + or ⌘K. The + menu no longer shows shortcuts.
+  from the capture line or ⌘K.
+- Adding without the + (#341): the capture line takes tasks and notes,
+  ⌘K has New task, New note, New meeting and New project, **Add meeting**
+  sits beside Today's timeline (on the day shown) and **New project**
+  beside All's project rooms. On All filtered to a room, ⌘K's New task,
+  New note and New meeting start in that room.
+- Help describes v2 only, with a new **How Datapad works** section on
+  Today, Rooms, All, Unfiled and the capture line. Its Layouts table
+  lists only All's kinds and People. The docs and the README, with new
+  screenshots, describe v2 only.
+- An installed app starts at `/` (Today); one installed before still
+  starts at `/focus`, which lands there too.
+- All loads on demand, like Settings and Help, and is fetched once the
+  browser is idle. The entry script is 388.4 KB gzipped, down from
+  407.3 KB.
 
 - The components in `src/components/ui` now come from the
   [Beskar](https://github.com/jbouder/beskar) registry in place of stock
@@ -250,6 +263,21 @@ changes the format says so here under **Export format**.
   All, and `/settings/pages` opens Settings → Today. The task page's
   and Lists' settings are no longer shown; what they saved is
   kept.
+- The top bar's + menu (#341). See Changed for where adding went.
+- What the classic pages left behind (#341): the tasks list and timeline
+  layouts (All shows tasks as a list, table or board), dragging a task's
+  due date on a timeline, the notes grid, the list panel, and Move up,
+  Move down and Move to top on a task. An older client's `reorderTasks`
+  still applies, and the export still carries what the retired pages
+  saved.
+
+### Fixed
+
+- After a save in the task panel moves a task to another lane (Today's
+  or a room's), focus goes to the task in its new lane instead of being
+  lost.
+- The destructive buttons (Remove, Delete) reach 4.5:1 contrast in the
+  Light theme; their red label on its red tint was about 4:1.
 
 ### Export format
 

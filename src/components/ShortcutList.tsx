@@ -3,10 +3,9 @@ import { SHORTCUTS, type Shortcut } from '@/lib/shortcuts';
 const SCOPES: Shortcut['scope'][] = [
   'Anywhere',
   'Capture line',
-  'Focus',
   'Task lists and tables',
-  'Collection pages',
-  'Lists',
+  'Today and All',
+  'Pages with Find',
   'Meeting mode',
   'Panels',
   'Whiteboard',

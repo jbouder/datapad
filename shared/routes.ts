@@ -1,4 +1,4 @@
-import { GENERAL_BOARD, ROOM_TABS, type RoomTab } from './types';
+import { GENERAL_BOARD, type RoomTab } from './types';
 
 /**
  * The app's addresses, as pure functions: what an address means, the
@@ -430,8 +430,8 @@ export function boardItemLink(
   };
 }
 
-/** A project room's tabs (#334), in order (`shared/types.ts`). */
-export { ROOM_TABS, type RoomTab };
+/** A project room's tabs (#334), in order (`ROOM_TABS` in `shared/types.ts`). */
+export type { RoomTab };
 
 /**
  * The project room a route shows and its tab: a project's address is its

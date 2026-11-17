@@ -1,9 +1,3 @@
-import {
-  ChartBarHorizontalIcon,
-  KanbanIcon,
-  ListBulletsIcon,
-  TableIcon,
-} from '@phosphor-icons/react';
 import { useState } from 'react';
 import { formatDay, relativeTime } from '#shared/dates';
 import type { Op } from '#shared/protocol';
@@ -24,27 +18,11 @@ import {
 } from '#shared/types';
 import { Board, type BoardColumn } from '@/components/layouts/Board';
 import { DataTable, type Selection } from '@/components/layouts/DataTable';
-import { Timeline } from '@/components/layouts/Timeline';
-import type { ViewOption } from '@/components/layouts/ViewSwitcher';
 import { PRIORITY_LABELS, PriorityDot } from '@/components/PriorityDot';
 import { DueDate } from '@/components/tasks/DueDate';
 import { NoteCount, TaskCheck, TaskRow } from '@/components/tasks/TaskRow';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-
-export type TaskView = 'list' | 'table' | 'board' | 'timeline';
-
-export const TASK_VIEWS: readonly ViewOption<TaskView>[] = [
-  { id: 'list', label: 'List', icon: ListBulletsIcon },
-  { id: 'table', label: 'Table', icon: TableIcon },
-  { id: 'board', label: 'Board', icon: KanbanIcon },
-  { id: 'timeline', label: 'Timeline', icon: ChartBarHorizontalIcon },
-];
-
-/** Desktop opens on the table, phones on the list. */
-export function defaultTaskView(): TaskView {
-  return window.matchMedia('(min-width: 820px)').matches ? 'table' : 'list';
-}
 
 export interface TaskLayoutProps {
   groups: TaskGroup[];
@@ -71,52 +49,6 @@ const selectOf = (selection: Selection | undefined, t: Task) =>
         onToggle: (range: boolean) => selection.toggle(t.id, range),
       }
     : undefined;
-
-/* ---------- List ---------- */
-
-/** Task rows under group headers, on every screen size. */
-export function TaskListLayout(props: TaskLayoutProps) {
-  const { groups, filters, state, today, selection, isDone, toggle, openTask } =
-    props;
-  return (
-    <div className="vt-list flex flex-col gap-4">
-      {groups.map((group) => (
-        <section
-          key={group.id}
-          aria-label={group.label || 'Tasks'}
-          className="flex flex-col"
-        >
-          {group.label && (
-            <h3 className="flex items-center gap-2 pb-1 font-heading text-sm font-semibold">
-              {group.label}
-              <span className="count font-sans text-xs font-normal text-muted-foreground">
-                {group.rows.length}
-              </span>
-            </h3>
-          )}
-          <ul className="flex flex-col border-t">
-            {group.rows.map((t) => (
-              <li key={t.id} data-layout-id={t.id} data-flip-id={t.id}>
-                <TaskRow
-                  task={t}
-                  done={isDone(t)}
-                  today={today}
-                  projects={state.projects}
-                  people={state.people}
-                  showProject={filters.group !== 'project'}
-                  onToggle={toggle}
-                  onOpen={(task) => openTask(task.id)}
-                  select={selectOf(selection, t)}
-                  noteCount={taskNoteCounts(state.notes).get(t.id)}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
 
 /* ---------- Table ---------- */
 
@@ -490,121 +422,6 @@ export function TaskBoard(
           />
         )}
       />
-    </div>
-  );
-}
-
-/* ---------- Timeline ---------- */
-
-/**
- * Tasks with a due date as points on a time axis, a lane per project.
- * Drag a point to change its due date; drag an undated task from the tray
- * onto a lane to give it one (and move it to that lane's project).
- */
-export function TaskTimeline(props: TaskLayoutProps) {
-  const { groups, state, today, selection, isDone, toggle, openTask, change } =
-    props;
-  const tasks = groups.flatMap((g) => g.rows);
-  const dated = tasks.filter((t) => t.due);
-  const undated = tasks.filter((t) => !t.due);
-  const lanes = [
-    ...Object.values(state.projects)
-      .filter((p) => !p.archived && dated.some((t) => t.projectId === p.id))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((p) => ({ id: p.id, label: p.name })),
-    { id: 'general', label: 'General' },
-  ];
-  const byId = new Map(tasks.map((t) => [t.id, t]));
-
-  return (
-    <div className="flex flex-col gap-4">
-      <Timeline
-        label="Tasks by due date"
-        defaultZoom="week"
-        rows={lanes.map((lane) => ({
-          id: lane.id,
-          label: lane.label,
-          noBar: true,
-          points: dated
-            .filter((t) => (t.projectId ?? 'general') === lane.id)
-            .map((t) => ({
-              id: t.id,
-              date: t.due,
-              label: t.title,
-              kind: 'task' as const,
-            })),
-        }))}
-        onOpenRow={() => {}}
-        onOpenPoint={(_lane, id) => openTask(id)}
-        onMovePoint={(_lane, id, due) => {
-          const t = byId.get(id);
-          if (!t) return;
-          change(
-            [{ type: 'editTask', id, patch: { due } }],
-            [t],
-            `Moved “${t.title}” to ${formatDay(due, today)}`,
-          );
-        }}
-        onDropItem={(id, lane, due) => {
-          const t = byId.get(id);
-          if (!t) return;
-          const projectId = lane === 'general' ? null : lane;
-          const ops: Op[] = [{ type: 'editTask', id, patch: { due } }];
-          if (t.projectId !== projectId)
-            ops.push({ type: 'moveTask', id, projectId });
-          change(ops, [t], `“${t.title}” is due ${formatDay(due, today)}`);
-        }}
-      />
-      <section aria-labelledby="undated-title" className="flex flex-col">
-        <h3
-          id="undated-title"
-          className="pb-1 font-heading text-sm font-semibold"
-        >
-          No date
-          <span className="count ml-2 font-sans text-xs font-normal text-muted-foreground">
-            {undated.length}
-          </span>
-        </h3>
-        {undated.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Every task here has a date.
-          </p>
-        ) : (
-          <ul className="flex flex-col border-t">
-            {undated.map((t) => (
-              <li
-                key={t.id}
-                data-layout-id={t.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.dataTransfer.setData('text/plain', t.id);
-                }}
-                className="cursor-grab"
-              >
-                <TaskRow
-                  task={t}
-                  done={isDone(t)}
-                  today={today}
-                  projects={state.projects}
-                  people={state.people}
-                  onToggle={toggle}
-                  onOpen={(task) => openTask(task.id)}
-                  onEdit={(task, patch) =>
-                    change(
-                      [{ type: 'editTask', id: task.id, patch }],
-                      [task],
-                      `Edited “${task.title}”`,
-                    )
-                  }
-                  select={selectOf(selection, t)}
-                  noteCount={taskNoteCounts(state.notes).get(t.id)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

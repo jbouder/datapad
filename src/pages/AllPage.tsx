@@ -3,6 +3,7 @@ import {
   ChalkboardSimpleIcon,
   ChartBarHorizontalIcon,
   CheckSquareIcon,
+  FolderPlusIcon,
   FoldersIcon,
   type Icon,
   KanbanIcon,
@@ -76,6 +77,7 @@ import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PinButton } from '@/components/PinButton';
 import { HealthBadge } from '@/components/projects/Health';
+import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { ProjectLayouts } from '@/components/projects/ProjectLayouts';
 import { StatusPill } from '@/components/projects/StatusPill';
 import { BulkBar } from '@/components/tasks/BulkBar';
@@ -783,6 +785,7 @@ function PersonLine({ person }: { person: Person }) {
  */
 function Rooms() {
   const { state } = useDatapad();
+  const { openProjectForm } = useProjectForm();
   if (!state) return null;
   const orgs = projectRoomsByOrg(state.projects);
   const people = peopleByOwed(state);
@@ -797,9 +800,19 @@ function Rooms() {
           aria-labelledby="project-rooms"
           className="flex flex-col gap-3"
         >
-          <h3 id="project-rooms" className="text-sm font-semibold">
-            Projects
-          </h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 id="project-rooms" className="text-sm font-semibold">
+              Projects
+            </h3>
+            <Button
+              variant="ghost"
+              className="press h-11 text-muted-foreground desk:h-8"
+              onClick={() => openProjectForm()}
+            >
+              <FolderPlusIcon />
+              New project
+            </Button>
+          </div>
           {orgs.length === 0 && <p className="text-state">No projects yet.</p>}
           {orgs.map((group) => (
             <div key={group.org} className="flex flex-col gap-1">

@@ -6,11 +6,12 @@
 
 A private project tracker for one engineering leader.
 
-Projects, tasks, notes, lists, meetings, milestones, whiteboards and people
-in one place, with cross-project views, search and summaries that run on
-your own device. Only you can open it, your data stays in your own
-Cloudflare account, and nothing is ever wiped. Built for daily use on a
-laptop and a phone.
+Your day, your projects and your people, in one place: a timeline of
+the day with the open loops beside it, a room for every project and every
+person, one list of everything, and one line to capture anything into.
+Search and summaries run on your own device. Only you can open it, your
+data stays in your own Cloudflare account, and nothing is ever wiped.
+Built for daily use on a laptop and a phone.
 
 Runs entirely on Cloudflare: Cloudflare Access signs you in, one Worker
 serves the app and checks your sign-in again on every request, and one
@@ -18,85 +19,86 @@ SQLite-backed Durable Object per email holds your data, pushes live updates
 over WebSockets, and backs itself up to R2 every night.
 
 <p align="center">
-  <img src="docs/screenshots/project.png" alt="A project page on a laptop: the project's org, status, health, priority, dates, members and tags across the top, its description, then milestones, tasks and meetings beside its notes and whiteboard." width="72%" />
+  <img src="docs/screenshots/today.png" alt="Today on a laptop: the day's line, the capture line, Next up with Enter meeting, what is due and the timeline of the day, with the Unfiled card and the Mine, Waiting on and To decide lanes on the right." width="72%" />
   &nbsp;
-  <img src="docs/screenshots/focus-phone.png" alt="Focus on a phone: today's agenda with one meeting and a high priority task that is overdue, above the tab bar." width="22%" />
+  <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Unfiled and All." width="22%" />
 </p>
 
-<p align="center"><sub>A project page on a laptop and Focus on a phone, with fictional data.</sub></p>
+<p align="center">
+  <img src="docs/screenshots/project-room.png" alt="A project room on a laptop: the org, name and state line, the Next meeting card, the Stream, Plan and Whiteboard tabs, the three lanes and one stream of notes, tasks and meetings." width="48%" />
+  &nbsp;
+  <img src="docs/screenshots/all.png" alt="All on a laptop: kind chips, Save view, Find and filters over one list of projects, notes, tasks and meetings." width="48%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/meeting-mode.png" alt="Meeting mode on a laptop: the phase, title and attendees across the top, the agenda and topics on the left, the note composer and action items in the middle and the open loops on the right." width="72%" />
+</p>
+
+<p align="center"><sub>Today, a project room, All and meeting mode, with fictional data.</sub></p>
 
 ## Features
 
-- **Projects.** Name, org, status (active, paused, done), priority,
-  start and target dates, members, tags, links, a Markdown description,
-  a health flag (green, yellow, red) and an activity log. A project page
-  holds its milestones, tasks, meetings, notes, lists and whiteboard.
-  Archive when done; start a new one from a template.
-- **Tasks.** Add from the top bar's + or `n`, a circular checkbox to
-  close with Undo, priority, due date (type `fri`, `+3d`,
-  `10/31`), assignee, tags, links, Markdown details and dated running
-  notes. Mark a task blocked on someone. Select several in the table to
-  close, move or assign at once. Reorder by drag, keyboard or touch. Each
-  task has a page of its own from Tasks and a side panel everywhere else.
+- **Today.** The home page, one day at a time. A line that counts the
+  day ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), **Next
+  up** with Enter meeting, what is due, and a timeline of the day's
+  meetings, tasks and notes with a Now line. Beside it, the open loops in
+  three lanes: **Mine**, **Waiting on** (by person) and **To decide**.
+  Step back to the last working day for the recap of what happened, zoom
+  out to the week (with its digest, Copy as Markdown), and with
+  summaries on, **Brief me**.
+- **The capture line.** One input at the top of Today and every room.
+  Type a line and chips say what it becomes and where it goes: a note,
+  a task (`[ ]`, `todo` or a date), something to decide (`?`) or
+  something you are waiting on (`waiting on @Name`). `#project` files
+  it, `@Name` mentions or assigns. Enter saves, with Undo.
+- **Unfiled.** The notes with no home yet, as one running pad: write at
+  the top, then file each to a project, make a task of it or mark it to
+  decide.
+- **Rooms.** A page for each project and each person. A project room has
+  a state line (health, target, next milestone, open loops), the next
+  meeting, and three tabs: **Stream** (the lanes beside one stream of
+  everything attached), **Plan** (description, details, milestones,
+  members, links, activity) and **Whiteboard**. A person room is the
+  1:1 prep: **You owe**, **They owe you** and **To discuss** beside
+  their stream. Pin rooms to the rail, or a project seen through one
+  person.
+- **All.** Every task, note, meeting, project and person in one list.
+  Pick kinds, find, filter and sort; tasks show as a list, a table or a
+  board, meetings as a list or a calendar, projects as a list, cards or a
+  timeline. Save a view as a chip, pin it to the rail, and select tasks
+  to complete, move, assign or date them at once, with Undo.
+- **Meeting mode.** A meeting opens full screen: Prep, Live or Debrief,
+  the agenda and topics (with Carry forward from the last one in the
+  series), the note composer always open, the action items, and the open
+  loops of the person or the project.
+- **Tasks.** A circular checkbox to close with Undo, priority, due date
+  (type `fri`, `+3d`, `10/31`), assignee, tags, links, Markdown details,
+  dated running notes, blocked on someone, or to decide. Each opens in a
+  side panel.
 - **Notes.** Markdown with three heading levels, lists, clickable
   checklists, code, quotes and links; `@` mentions of people; a `/`
-  command menu and formatting keys in the composer; pinned notes; select
-  text to make a task from it; note templates for the 1:1s and status
-  updates you write the same way every time.
-- **Lists.** Titled checklists of one-line items, on a project or in
-  General: tick items off, edit them in place, reorder by drag, keyboard
-  or touch, and turn one into a task with Make task. Start one from + or
-  `⌘K`. Each list has a page of its own, and a project page
-  shows its lists with their progress.
-- **Meetings.** Date, times, project, attendees and a link. Topics are the
-  agenda: tick them off, note an outcome, reorder; a new meeting in a
-  series (same title, project and people) offers to carry the uncovered
-  ones forward. Action items are real tasks that say which meeting they
-  came from. Add as many notes as you like, before, during or after.
-- **Milestones.** Dated marks on a project, shown on the project page, the
-  Projects timeline and the Focus agenda.
-- **Focus.** A briefing of what needs you: the week's movement; Since
-  yesterday, what happened on the last working day (Friday through Sunday
-  on a Monday); today's or the week's meetings and milestones with where
-  each meeting's prep stands, blocked tasks by who they wait on, projects
-  off health or near their target, open action items, and what is overdue
-  or due today. With summaries on, **Brief me** has the on-device model
-  turn it into a few sentences about yesterday and today.
-- **Layouts.** Projects as cards, a table or a timeline; Tasks as a list,
-  a table, a board or a timeline, grouped by project, due, assignee or
-  priority; Meetings as a list, a month calendar or a timeline; Notes as
-  a list or a grid; Lists as cards or a table. Every page remembers its
-  layout, sort, filters and open sections, saved with your data so every
-  device opens it the same way. Settings → Navigation picks which sections
-  and tools the rail and the phone's tab bar show, and in what order.
-- **Tools.** Under their own heading in the rail: the Notepad, the
-  Whiteboard and the Weekly digest, each shown or hidden, ordered and put
-  on the phone's tab bar as you like (otherwise they are in the account
-  menu).
-- **Notepad.** One running note for the space, saved as you type, for
-  whatever you need to jot down before it has a home.
-- **Whiteboards.** A freeform canvas for each project and one for the
+  command menu and formatting keys in the composer; select text to make a
+  task from it; note templates for the 1:1s and status updates you write
+  the same way every time.
+- **Whiteboards.** A freeform canvas in each project room and one for the
   space: sticky notes, text, rectangles, arrows and freehand ink in five
   colors, undo and redo, zoom and pan, download as PNG or SVG. Live on
   every device like everything else.
-- **Search.** `⌘K` finds any project, task, note, meeting, list (by its
-  title or any item), org, person or whiteboard item and runs actions.
-- **People and orgs.** Everyone you assign, add to projects and mention,
-  each with their projects, open tasks and mentions for a quick check
-  before a 1:1; the clients, teams, vendors and partners your projects
-  belong to. Both are added inline from any form.
+- **Search.** `⌘K` finds any project, task, note, meeting, org, person or
+  whiteboard item, and adds a task, note, meeting or project.
+- **People and orgs.** Everyone you assign, add to projects and mention;
+  the clients, teams, vendors and partners your projects belong to. Both
+  are added inline from any form, and the capture line adds a new name.
 - **Spaces.** One or more complete, separate Datapads under one sign-in
   (work and personal, say). Switch from the rail, the account menu or
   `⌘K`; move a project between them with everything it owns.
-- **Weekly digest.** What happened in each project over a week, from the
-  tasks, notes, meetings and activity logs; copy as Markdown or keep it
-  as a note.
-- **Summaries.** Summarize a project, task, meeting, note or digest, or
-  ask Focus to Brief me, with a small language model
+- **Summaries.** Summarize a room, a meeting or a task, or ask Today to
+  Brief me, with a small language model
   ([WebLLM](https://github.com/mlc-ai/web-llm); Qwen3 1.7B by default, 4B
-  and 8B selectable) that runs in your browser on your GPU. Nothing about your data leaves the device. Opt-in: the
-  model downloads from Hugging Face only after you agree, and stays
-  cached in that browser. Needs WebGPU.
+  and 8B selectable) that runs in your browser on your GPU. Nothing about
+  your data leaves the device. Opt-in: the model downloads from Hugging
+  Face only after you agree, and stays cached in that browser. Needs
+  WebGPU.
 - **Works offline.** The last snapshot paints at once; changes made
   offline, or in a tab closed before they were saved, wait on the device
   and send when you are back, even after a reload. The status says Saved,
@@ -111,7 +113,9 @@ over WebSockets, and backs itself up to R2 every night.
 - **Themes.** System, Light and Dark; a Motion switch, with
   `prefers-reduced-motion` as a hard override; a 12-hour or 24-hour
   clock.
-- **In-app help** at `/help`: the views, the common path, every keyboard
+- **Settings** for Today, the rooms, the capture line and All, each
+  with Reset to defaults, and every default in one place.
+- **In-app help** at `/help`: how Datapad works, every keyboard
   shortcut, `/` command, formatting key and layout, generated from the
   app's own lists so they cannot drift.
 
@@ -145,7 +149,7 @@ over WebSockets, and backs itself up to R2 every night.
   fictional.
 
 Limits: 12 spaces; titles 200 characters, bodies and descriptions 20,000;
-50 milestones per project, 50 topics per meeting, 200 items per list, 100
+50 milestones per project, 50 topics per meeting, 100
 members or attendees; 2,000 items per whiteboard; 150 activity entries per
 log; 16 MiB per import; 20 ops per second per connection; 30 backups kept
 per space; 60 MCP tool calls a minute per connection.
@@ -155,9 +159,11 @@ per space; 60 MCP tool calls a minute per connection.
 Datapad is an MCP server at `/mcp`: `claude mcp add --transport http
 datapad https://<host>/mcp`, or a custom connector in claude.ai or Claude
 Desktop. You sign in through Access and approve the client on a consent
-page. Claude can then read everything the app shows: the overview, Focus,
-what happened since the last working day, projects, tasks, notes,
-meetings, lists, people, orgs, the digest and search. See
+page. Claude can then read everything the app shows: Today and its open
+loops, Unfiled, a project's or a person's room, what happened since the
+last working day, projects, tasks, notes, meetings, people, orgs, the
+week's digest and search. With write access it can capture tasks and
+notes, mark a task to decide and file a note. See
 [docs/mcp.md](docs/mcp.md).
 
 ## Run it yourself

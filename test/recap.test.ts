@@ -4,7 +4,6 @@ import {
   buildRecap,
   RECAP_ACTIVITY_CAP,
   recapCounts,
-  recapEmpty,
   recapLine,
   recapMeetingLine,
   recapTitle,
@@ -383,25 +382,5 @@ describe('recapLine', () => {
     expect(recapLine(buildRecap(s, TUE))).toBe(
       'Yesterday: 2 closed · 1 added · 1 meeting · 2 notes',
     );
-  });
-
-  it('falls back to the activity, and is empty when nothing happened', () => {
-    const quiet = buildRecap(snapshot({}), MON);
-    expect(recapEmpty(quiet)).toBe(true);
-    expect(recapLine(quiet)).toBe('');
-    const busy = buildRecap(
-      snapshot({
-        projects: byId(project('p')),
-        activity: {
-          p: log(
-            [at('2026-10-24'), 'Health set to red'],
-            [at('2026-10-23'), 'Status changed to paused'],
-          ),
-        },
-      }),
-      MON,
-    );
-    expect(recapEmpty(busy)).toBe(false);
-    expect(recapLine(busy)).toBe('Since Friday: 2 updates');
   });
 });

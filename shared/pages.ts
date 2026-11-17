@@ -127,6 +127,12 @@ export interface PageSpec {
    * not moved (meeting mode's, #336, whose layout is fixed).
    */
   fixedOrder?: true;
+  /**
+   * A classic page v2 replaced (#341). What it saved is kept, read once
+   * to carry it over (`legacyPrefs()`, `migrateSettings()`), and no page
+   * or Help shows it.
+   */
+  retired?: true;
 }
 
 /**
@@ -422,8 +428,6 @@ export const SOURCE_NOTE_OPTIONS = [
   { value: 'hidden', label: 'Hidden' },
 ] as const;
 
-export type SourceNoteShow = (typeof SOURCE_NOTE_OPTIONS)[number]['value'];
-
 const sourceNoteField: PrefField = {
   key: 'sourceNote',
   label: 'Source note',
@@ -432,13 +436,6 @@ const sourceNoteField: PrefField = {
   control: 'segmented',
   settingsOnly: true,
 };
-
-/** A saved Source note as the task page reads it; anything else is Expanded. */
-export function sourceNoteShow(value: string): SourceNoteShow {
-  return (
-    SOURCE_NOTE_OPTIONS.find((o) => o.value === value)?.value ?? 'expanded'
-  );
-}
 
 /**
  * The meeting page's sections (#313), in today's order: Topics and
@@ -477,14 +474,6 @@ export const LIST_DONE_OPTIONS = [
   { value: 'expanded', label: 'Expanded' },
   { value: 'hidden', label: 'Hidden' },
 ] as const;
-
-/** How the list page shows its done items. */
-export type ListDoneMode = (typeof LIST_DONE_OPTIONS)[number]['value'];
-
-/** A saved Done items value as a mode; anything else is the default. */
-export function listDoneMode(value: string): ListDoneMode {
-  return value === 'expanded' || value === 'hidden' ? value : 'collapsed';
-}
 
 /**
  * All's layouts (#338): the one each kind opens with when it is shown
@@ -598,6 +587,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   projects: {
+    retired: true,
     label: 'Projects',
     fields: [
       layout(PROJECT_LAYOUTS, 'cards'),
@@ -629,11 +619,13 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   archive: {
+    retired: true,
     label: 'Archived',
     fields: [layout(PROJECT_LAYOUTS, 'cards'), projectSort],
     sections: false,
   },
   tasks: {
+    retired: true,
     label: 'Tasks',
     fields: [
       // The table on desktop, the list on phones: the page passes it.
@@ -682,6 +674,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   meetings: {
+    retired: true,
     label: 'Meetings',
     fields: [
       layout(
@@ -697,6 +690,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   notes: {
+    retired: true,
     label: 'Notes',
     fields: [
       // Feed became List (#218); Notepad, a layout until it got a page of
@@ -726,6 +720,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     sections: false,
   },
   lists: {
+    retired: true,
     label: 'Lists',
     fields: [
       layout(
@@ -785,6 +780,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     collapsible: PERSON_ROOM_SECTIONS.map((s) => s.key),
   },
   task: {
+    retired: true,
     label: 'Task page',
     fields: [sourceNoteField],
     sections: true,
@@ -801,6 +797,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
     fixedOrder: true,
   },
   list: {
+    retired: true,
     label: 'List page',
     fields: [
       {
@@ -817,7 +814,7 @@ export const PAGES: Record<PageKey, PageSpec> = {
 };
 
 /**
- * Every page's layouts, for Help's Layouts table: each page's `view` and
+ * Every page's layouts (not a retired page's), for Help's Layouts table: each page's `view` and
  * each per-kind layout (All's), with its options and the one it opens as.
  */
 export function layoutTable(): {
@@ -825,29 +822,17 @@ export function layoutTable(): {
   options: readonly PrefOption[];
   def: string;
 }[] {
-  return Object.values(PAGES).flatMap((page) =>
-    page.fields
-      .filter((f) => f.options && (f.key === 'view' || f.layoutOf))
-      .map((f) => ({
-        page: f.layoutOf ?? page.label,
-        options: f.options ?? [],
-        def: f.options?.find((o) => o.value === f.def)?.label ?? '',
-      })),
-  );
-}
-
-/**
- * Whether a page has anything to set in Settings: a remembered
- * field, sections that remember open or closed, or sections to hide and
- * move.
- */
-export function hasPageSettings(page: PageKey): boolean {
-  const spec = PAGES[page];
-  return (
-    spec.fields.length > 0 ||
-    spec.sections ||
-    (spec.sectionKeys?.length ?? 0) > 0
-  );
+  return Object.values(PAGES)
+    .filter((page) => !page.retired)
+    .flatMap((page) =>
+      page.fields
+        .filter((f) => f.options && (f.key === 'view' || f.layoutOf))
+        .map((f) => ({
+          page: f.layoutOf ?? page.label,
+          options: f.options ?? [],
+          def: f.options?.find((o) => o.value === f.def)?.label ?? '',
+        })),
+    );
 }
 
 /** Defaults that depend on the device (Tasks' layout), by query key. */
@@ -1231,26 +1216,6 @@ export function applyPagePatch(
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
-/**
- * Sections a page has saved closed, and saved open; with `keys` (the
- * page's `sectionKeys`), only those.
- */
-export function sectionCounts(
-  prefs: PagePrefs,
-  keys?: readonly string[],
-): {
-  closed: number;
-  open: number;
-} {
-  const values = Object.entries(prefs.sections ?? {})
-    .filter(([key]) => !keys || keys.includes(key))
-    .map(([, value]) => value);
-  return {
-    closed: values.filter((v) => !v).length,
-    open: values.filter(Boolean).length,
-  };
-}
-
 /* ---------- hiding and ordering sections (#310) ---------- */
 
 /**
@@ -1263,11 +1228,6 @@ function keysOf(source: SectionSource): readonly string[] {
   return typeof source === 'string'
     ? (PAGES[source].sectionKeys ?? []).map((s) => s.key)
     : source;
-}
-
-/** A section's label in Settings; the key when it has none. */
-export function sectionLabel(page: PageKey, key: string): string {
-  return PAGES[page].sectionKeys?.find((s) => s.key === key)?.label ?? key;
 }
 
 /**

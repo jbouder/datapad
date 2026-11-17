@@ -6,7 +6,6 @@ import {
   carryForward,
   carryOps,
   checkTopicLines,
-  describeWhen,
   meetingPhase,
   monthLabel,
   nextMeeting,
@@ -18,7 +17,6 @@ import {
   sameSeries,
   selectMeetings,
   splitByMonth,
-  timeRange,
   topicCount,
   topicOps,
   topicsToCarry,
@@ -179,25 +177,6 @@ describe('selecting meetings', () => {
       ['2026-08', ['f', 'e']],
     ]);
     expect(byMonth([])).toEqual([]);
-  });
-});
-
-describe('describing when', () => {
-  it('shows the range, the start, or the day alone', () => {
-    expect(timeRange({ time: '14:00', end: '15:00' }, '24h')).toBe(
-      '14:00–15:00',
-    );
-    expect(timeRange({ time: '14:00', end: '15:00' }, '12h')).toBe(
-      '2:00–3:00 PM',
-    );
-    expect(timeRange({ time: '14:00', end: '' }, '24h')).toBe('14:00');
-    expect(timeRange({ time: '', end: '' }, '12h')).toBe('');
-    expect(
-      describeWhen(meeting('x', { time: '09:30' }), '2026-10-24', '12h'),
-    ).toBe('Tue 27 Oct, 9:30 AM');
-    expect(describeWhen(meeting('x', {}), '2025-01-01', '12h')).toBe(
-      'Tue 27 Oct 2026',
-    );
   });
 });
 

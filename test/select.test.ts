@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from '#shared/dates';
 import {
-  DEFAULT_PROJECT_FILTERS,
+  type ProjectFilters,
   projectMatches,
-  projectSortOf,
   selectProjects,
 } from '#shared/projects';
 import { ExportSchema } from '#shared/protocol';
@@ -11,16 +10,10 @@ import { reduce } from '#shared/reducer';
 import {
   activeProjects,
   agenda,
-  assigneeFromQuery,
-  assigneeToQuery,
-  byPriority,
   FOCUS_DAYS,
-  type FocusBuckets,
   focusBuckets,
-  focusDue,
   GENERAL_KEY,
   meId,
-  mentionsOf,
   nextMilestones,
   notesOfMeeting,
   notesOfTask,
@@ -37,8 +30,16 @@ import {
   type Snapshot,
   type Task,
 } from '#shared/types';
-import { dropIndex, moveItem } from '../src/lib/reorder';
+import { dropIndex } from '../src/lib/reorder';
 import fixture from './fixtures/export.json';
+
+/** Active projects outside the archive, recently updated first. */
+const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
+  status: 'active',
+  health: '',
+  org: '',
+  sort: 'updated',
+};
 
 const NOW = '2026-10-23T10:00:00.000Z';
 
@@ -61,56 +62,6 @@ function withTasks(...tasks: Array<Partial<Task> & { id: string }>): Snapshot {
 
 const anyone = { kind: 'anyone' } as const;
 const ids = (tasks: Task[]) => tasks.map((t) => t.id);
-
-describe('byPriority', () => {
-  it('groups High to No priority, keeping order, leaving out empty groups', () => {
-    const t = (id: string, priority: Task['priority']) =>
-      ({ id, priority }) as Task;
-    const groups = byPriority([
-      t('a', 'low'),
-      t('b', 'high'),
-      t('c', 'none'),
-      t('d', 'high'),
-    ]);
-    expect(groups.map((g) => [g.priority, ids(g.tasks)])).toEqual([
-      ['high', ['b', 'd']],
-      ['low', ['a']],
-      ['none', ['c']],
-    ]);
-    expect(byPriority([])).toEqual([]);
-  });
-});
-
-describe('focusDue', () => {
-  const t = (id: string, priority: Task['priority']) =>
-    ({ id, priority }) as Task;
-  const buckets: FocusBuckets = {
-    blocked: [t('blocked', 'high')],
-    overdue: [t('overdue', 'low')],
-    today: [t('today', 'none')],
-    upcoming: [t('soon', 'high'), t('soon-low', 'low')],
-    later: [t('later', 'high'), t('later-med', 'med')],
-    noDate: [t('undated', 'high'), t('undated-none', 'none')],
-  };
-
-  it('adds High priority whatever its date to the view’s buckets', () => {
-    expect(ids(focusDue(buckets, ['overdue', 'today']))).toEqual([
-      'overdue',
-      'today',
-      'soon',
-      'later',
-      'undated',
-    ]);
-    expect(ids(focusDue(buckets, ['overdue', 'today', 'upcoming']))).toEqual([
-      'overdue',
-      'today',
-      'soon',
-      'soon-low',
-      'later',
-      'undated',
-    ]);
-  });
-});
 
 describe('focusBuckets', () => {
   // Friday 23 October 2026: the next seven days run to Thursday the 29th.
@@ -429,15 +380,6 @@ describe('other selectors', () => {
     );
   });
 
-  it('finds every note and task that mentions a person', () => {
-    const chewie = mentionsOf(s.notes, s.tasks, 'u-chewie');
-    expect(chewie.notes.map((n) => n.id)).toEqual(['n-1', 'n-4']);
-    expect(chewie.tasks).toEqual([]);
-    expect(
-      mentionsOf(s.notes, s.tasks, 'u-han').tasks.map((t) => t.id),
-    ).toEqual(['t-1']);
-  });
-
   it('lists active projects by most recently updated', () => {
     expect(activeProjects(s.projects).map((p) => p.id)).toEqual([
       'p-echo',
@@ -525,12 +467,6 @@ describe('project filters and sorts', () => {
     expect(
       ids(selectProjects(projects, { ...filters, q: 'zeta' }, true)),
     ).toEqual(['z']);
-  });
-
-  it('reads the sort from a query, else the default', () => {
-    expect(projectSortOf(new URLSearchParams('sort=name'))).toBe('name');
-    expect(projectSortOf(new URLSearchParams('sort=nope'))).toBe('updated');
-    expect(projectSortOf(new URLSearchParams())).toBe('updated');
   });
 
   it('filters by health; unset health matches no color', () => {
@@ -650,33 +586,6 @@ describe('project filters and sorts', () => {
   });
 });
 
-describe('reorder helpers', () => {
-  it('moves an item and computes where a drop lands', () => {
-    expect(moveItem(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
-    expect(moveItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
-    // Dropping onto a row inserts before it.
-    expect(dropIndex(0, 2)).toBe(1);
-    expect(dropIndex(3, 1)).toBe(1);
-    expect(dropIndex(1, 4)).toBe(3);
-    expect(dropIndex(1, 1)).toBeNull();
-    expect(dropIndex(1, 2)).toBeNull();
-  });
-});
-
-describe('assignee filter in the URL', () => {
-  it('round-trips every kind', () => {
-    for (const value of ['anyone', 'mine', 'unassigned', 'p:u-leia']) {
-      expect(assigneeToQuery(assigneeFromQuery(value))).toBe(value);
-    }
-  });
-
-  it('reads anything else as anyone', () => {
-    expect(assigneeFromQuery(null)).toEqual({ kind: 'anyone' });
-    expect(assigneeFromQuery('p:')).toEqual({ kind: 'anyone' });
-    expect(assigneeFromQuery('someone')).toEqual({ kind: 'anyone' });
-  });
-});
-
 describe('peopleStats', () => {
   it('lists projects (archived last) and open tasks outside the archive', () => {
     const s = seeded();
@@ -705,5 +614,16 @@ describe('peopleStats', () => {
     } as typeof s.tasks;
     const stats = peopleStats(s.projects, tasks);
     expect(statsFor(stats, 'u-leia').waiting.map((t) => t.id)).toEqual(['t-2']);
+  });
+});
+
+describe('reorder helpers', () => {
+  it('computes where a drop lands', () => {
+    // Dropping onto a row inserts before it.
+    expect(dropIndex(0, 2)).toBe(1);
+    expect(dropIndex(3, 1)).toBe(1);
+    expect(dropIndex(1, 4)).toBe(3);
+    expect(dropIndex(1, 1)).toBeNull();
+    expect(dropIndex(1, 2)).toBeNull();
   });
 });
