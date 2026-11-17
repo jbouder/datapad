@@ -12,11 +12,13 @@ import {
 import {
   MeetingArg,
   meetingOut,
+  NoteArg,
   noteOut,
   PersonArg,
   ProjectArg,
   readSpace,
   resolveMeeting,
+  resolveNote,
   resolveProject,
   TodayArg,
 } from './read';
@@ -57,7 +59,7 @@ export const addNote = defineTool({
   name: 'add_note',
   title: 'Write a note',
   description:
-    'Write a Markdown note in a project or General. With `meeting` it is a note on that meeting (in its project); with `task`, a running note on that task (in its project). Not both. Mentions as @Name become links to the person. Logs "Added a note" (or "Added a note to …").',
+    'Write a Markdown note in a project. With `meeting` it is a note on that meeting (in its project); with `task`, a running note on that task (in its project). Not both. Mentions as @Name become links to the person. With no project, meeting, task or mention it lands in Unfiled (`unfiled: true`), to be filed later with file_note. A checklist is a note with a "- [ ] item" line per item. Logs "Added a note" (or "Added a note to …").',
   scope: 'write',
   input: z.object({
     space: SpaceArg,
@@ -69,7 +71,7 @@ export const addNote = defineTool({
       .max(LIMITS.bodyMax)
       .describe(MarkdownArg.description ?? ''),
     project: ProjectArg.optional().describe(
-      'A project id or name, or "general" (the default). Ignored with `meeting` or `task`.',
+      'A project id or name. Left out (or "general"), the note has no project. Ignored with `meeting` or `task`.',
     ),
     meeting: MeetingArg.optional(),
     task: TaskArg.optional(),
@@ -105,13 +107,51 @@ export const addNote = defineTool({
       ],
       args.requestId,
     );
-    const note = written.state.notes[id];
-    if (!note) throw new ToolError('That note is gone.');
-    return {
+    return noteResult(space, written, id);
+  },
+});
+
+/** A note after a write, and what the write logged. */
+function noteResult(space: string, written: Written, id: string) {
+  const note = written.state.notes[id];
+  if (!note) throw new ToolError('That note is gone.');
+  return {
+    space,
+    note: noteOut(written.state, note),
+    activity: written.activity,
+  };
+}
+
+export const fileNote = defineTool({
+  name: 'file_note',
+  title: 'File a note',
+  description:
+    'File a note to a project (or, with "general", to no project), keeping its text and when it was written: how a note leaves Unfiled. A meeting’s or a task’s note stays where it is. Filing a note where it already is changes nothing. Logs "Filed a note to …".',
+  scope: 'write',
+  input: z.object({
+    space: SpaceArg,
+    requestId: RequestIdArg,
+    note: NoteArg,
+    project: ProjectArg,
+  }),
+  annotations: WRITE_IDEMPOTENT,
+  async run(args, ctx) {
+    const { space, state } = await readSpace(ctx, args.space);
+    const note = resolveNote(state, args.note);
+    if (note.meetingId) {
+      throw new ToolError('That note belongs to a meeting; it stays there.');
+    }
+    if (note.taskId) {
+      throw new ToolError('That note belongs to a task; it stays there.');
+    }
+    const projectId = resolveProject(state, args.project);
+    const written = await write(
+      ctx,
       space,
-      note: noteOut(written.state, note),
-      activity: written.activity,
-    };
+      [{ type: 'moveNote', id: note.id, projectId }],
+      args.requestId,
+    );
+    return noteResult(space, written, note.id);
   },
 });
 

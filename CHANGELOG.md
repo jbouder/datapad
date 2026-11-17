@@ -154,8 +154,29 @@ changes the format says so here under **Export format**.
   the last working day shows the recap (Since yesterday) above its
   timeline, and today's line links to it. Brief me is back on today,
   and its brief now includes the three lanes.
+- **MCP tools for v2** (#340). `get_today` reads Today: the day's line,
+  its meetings, what is due, the next meeting, the three lanes and how
+  many notes are in Unfiled. `get_loops` reads the lanes, for a project
+  or a person too. `list_unfiled` lists Unfiled. `get_room` reads a
+  project's or a person's room: for a project, what `get_project` gives
+  plus its state line, lanes and stream. `set_decide` marks a task to
+  decide or decided, and `add_task` and `edit_task` take `decide`.
+  `file_note` files a note to a project. Tasks now carry `decide` and
+  notes `unfiled` in every tool's results.
 
 ### Changed
+
+- MCP's `get_focus` is now an alias of `get_today` and returns the same
+  thing: the old Focus shape (due buckets, follow-ups, attention,
+  agenda) is gone, and `assignee` is ignored. `add_note` with no
+  project, meeting, task or mention lands in Unfiled. `get_project` and
+  `get_overview` no longer show lists. The server's `initialize`
+  instructions describe loops, Unfiled and rooms.
+- MCP's list tools (`list_lists`, `get_list`, `add_list`,
+  `add_list_item`, `check_list_item`) are retired: each answers with an
+  error pointing to checklist notes and changes nothing. They go in the
+  next release. A connected app can no longer send the list ops; it can
+  now send `setDecide` and `moveNote`.
 
 - Every old address lands on its new home: `/focus` on Today, `/digest`
   on Today's week zoom, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,

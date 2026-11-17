@@ -511,7 +511,7 @@ export const FOLLOW_UP_CHOICES = [7, 14] as const;
 /**
  * Focus's settings (#311), as `focusOptions()` in `shared/pages.ts` reads
  * them from the page's address and saved values. One copy of the rules:
- * the page, Brief me and MCP's `get_focus` and `get_recap` all take them.
+ * Today, Brief me and MCP's `get_today` and `get_recap` all take them.
  */
 export interface FocusOptions {
   /** Tasks for: everyone's, or only mine (Due, Waiting on, Follow-ups, Since yesterday). */
