@@ -4,8 +4,10 @@ import {
   movePin,
   OWED_MAX,
   owedBy,
+  peopleByOwed,
   pinnedOf,
   pinnedRooms,
+  projectRoomsByOrg,
   railRooms,
   roomKey,
   roomOf,
@@ -221,6 +223,37 @@ describe('owedBy', () => {
       many[`t${i}`] = task(`t${i}`, { assignee: `p${i}` });
     }
     expect(owedBy(state({ people, tasks: many }))).toHaveLength(OWED_MAX);
+  });
+
+  it('lists everyone but you for All, owing or not (#337)', () => {
+    expect(
+      peopleByOwed(owed).map(({ person: p, count }) => [p.id, count]),
+    ).toEqual([
+      ['pe-han', 2],
+      ['pe-leia', 2],
+    ]);
+    expect(peopleByOwed(space).map(({ person: p }) => p.id)).toEqual([
+      'pe-han',
+      'pe-leia',
+    ]);
+  });
+});
+
+describe('projectRoomsByOrg', () => {
+  it('groups the live projects under their orgs, those with none last', () => {
+    const rooms = projectRoomsByOrg({
+      ...space.projects,
+      'p-x': project('p-x', { org: 'Rebels', name: 'X-wing' }),
+      'p-a': project('p-a', { org: 'Rebels', name: 'A-wing' }),
+      'p-b': project('p-b', { org: ' Alliance ' }),
+    });
+    expect(
+      rooms.map(({ org, projects }) => [org, projects.map((p) => p.id)]),
+    ).toEqual([
+      ['Alliance', ['p-b']],
+      ['Rebels', ['p-a', 'p-x']],
+      ['', ['p-done', 'p-echo', 'p-falcon']],
+    ]);
   });
 });
 

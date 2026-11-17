@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import {
   addTask,
-  closeFilters,
+  chooseFilter,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -9,7 +9,6 @@ import {
   isMobile,
   moreAction,
   moreActions,
-  openFilters,
   openLive,
   openPreferences,
   SEED,
@@ -19,12 +18,7 @@ import {
 
 /** Projects' Status to All (in the Filters sheet on phones). */
 async function allStatuses(page: Page) {
-  const filters = await openFilters(page);
-  await filters
-    .getByRole('group', { name: 'Status' })
-    .locator('label', { hasText: 'All' })
-    .click();
-  await closeFilters(page);
+  await chooseFilter(page, 'Status', 'All');
 }
 
 const switcher = (page: Page) => page.getByRole('button', { name: /^Space: / });
@@ -204,7 +198,7 @@ test('switching away from a project lands on Focus; sections stay', async ({
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await switchTo(page, 'Main');
   await expect(page).toHaveURL(/\/all\?kind=task$/);
-  await expect(page).toHaveTitle('Tasks · Main · Datapad');
+  await expect(page).toHaveTitle('All · Main · Datapad');
 });
 
 test('an unknown remembered space opens the first one', async ({
@@ -312,9 +306,9 @@ test.describe('Moving a project', () => {
     await expect(toast).toBeVisible();
     await expect(page).toHaveURL(/\/all\?kind=project$/);
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Projects' }),
+      page.getByRole('heading', { level: 1, name: 'All' }),
     ).toBeVisible();
-    const main = page.getByRole('main');
+    const main = page.getByRole('list', { name: 'Items' });
     await allStatuses(page);
     await expect(main.getByText('Falcon hyperdrive refit')).toBeVisible();
     await expect(main.getByText('Echo Base relocation')).toHaveCount(0);

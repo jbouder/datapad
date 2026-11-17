@@ -149,24 +149,70 @@ export function owedBy(
   state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
   settings: Pick<Settings, 'pinned'> = {},
 ): { person: Person; count: number }[] {
-  const me = meId(state.people);
   const pinned = new Set(pinnedOf(settings));
+  return peopleByOwed(state)
+    .filter(({ person, count }) => count > 0 && !pinned.has(person.id))
+    .slice(0, OWED_MAX);
+}
+
+/**
+ * How many open tasks each person owes you, by person id (as `owedBy`
+ * counts them); nobody owing anything is absent.
+ */
+function owedCounts(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+): Map<string, number> {
+  const me = meId(state.people);
   const counts = new Map<string, number>();
   for (const task of Object.values(state.tasks)) {
     if (task.status !== 'open') continue;
     if (task.projectId && state.projects[task.projectId]?.archived) continue;
     const blocked = blockedOf(task);
     const on = blocked ? blocked.on : task.assignee;
-    if (!on || on === me || pinned.has(on)) continue;
+    if (!on || on === me) continue;
     counts.set(on, (counts.get(on) ?? 0) + 1);
   }
-  return [...counts]
-    .map(([id, count]) => ({ person: state.people[id], count }))
-    .filter((p): p is { person: Person; count: number } => Boolean(p.person))
+  return counts;
+}
+
+/**
+ * Every person but you, by how much they owe you (most first), then by
+ * name: All's people rooms (#337).
+ */
+export function peopleByOwed(
+  state: Pick<Snapshot, 'tasks' | 'projects' | 'people'>,
+): { person: Person; count: number }[] {
+  const me = meId(state.people);
+  const counts = owedCounts(state);
+  return Object.values(state.people)
+    .filter((person) => person.id !== me)
+    .map((person) => ({ person, count: counts.get(person.id) ?? 0 }))
     .sort(
       (a, b) => b.count - a.count || a.person.name.localeCompare(b.person.name),
-    )
-    .slice(0, OWED_MAX);
+    );
+}
+
+/**
+ * All's project rooms (#337): every project not archived, by name, under
+ * its org (orgs A to Z, then those with none, under `''`).
+ */
+export function projectRoomsByOrg(
+  projects: Snapshot['projects'],
+): { org: string; projects: Project[] }[] {
+  const groups = new Map<string, Project[]>();
+  for (const project of Object.values(projects)) {
+    if (project.archived) continue;
+    const org = project.org.trim();
+    groups.set(org, [...(groups.get(org) ?? []), project]);
+  }
+  return [...groups]
+    .map(([org, list]) => ({
+      org,
+      projects: list.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort(
+      (a, b) => Number(!a.org) - Number(!b.org) || a.org.localeCompare(b.org),
+    );
 }
 
 /** How many notes have no home yet: Unfiled's count. */

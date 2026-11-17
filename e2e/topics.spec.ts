@@ -337,8 +337,7 @@ test('on the page: add, toggle, record an outcome, rename', async ({
 });
 
 test('a meeting without topics gets them on its page', async ({ page }) => {
-  await openLive(page, '/meetings');
-  await page.getByRole('button', { name: 'Past' }).click();
+  await openLive(page, '/all?kind=meeting&status=all');
   const medal = row(page, 'Medal ceremony');
   await expect(medal.locator('[data-topic-count]')).toHaveCount(0);
   await medal
@@ -354,7 +353,6 @@ test('a meeting without topics gets them on its page', async ({ page }) => {
   await add.press('Enter');
   await expect(page.getByRole('main')).toContainText('0 of 1 topic');
   await page.goBack();
-  await page.getByRole('button', { name: 'Past' }).click();
   await expect(medal.locator('[data-topic-count]')).toHaveText('0 of 1 topic');
 });
 
@@ -478,25 +476,6 @@ test('Make a task starts from the topic; there is no decision', async ({
   );
   // It does not write back to the topic.
   expect(data.meetings['e-1']?.topics).toEqual(TOPICS);
-});
-
-test('the Calendar counts a meeting’s topics', async ({ page }) => {
-  // Today, so it is in this week's strip on a phone too.
-  await openLive(page, SHIELD);
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit Shield review' });
-  await edit.getByLabel('Date').fill('today');
-  await edit.getByLabel('Date').press('Tab');
-  await edit.getByRole('button', { name: 'Save' }).click();
-  await expect(edit).toBeHidden();
-
-  await page.goto('/meetings?view=calendar');
-  const chip = page
-    .locator('[data-layout-id="e-1"]')
-    .filter({ visible: true })
-    .first();
-  await expect(chip).toContainText('1/3');
-  await expect(chip).toHaveAccessibleName(/1 of 3 topics/);
 });
 
 test('Summarize shows the model the topics', async ({ page }) => {

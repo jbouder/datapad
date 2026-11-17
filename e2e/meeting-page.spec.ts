@@ -96,7 +96,7 @@ test('a meeting’s page: its facts, agenda, topics and notes', async ({
   await page.goBack();
   await expect(page).toHaveURL(/\/all\?kind=meeting$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Meetings' }),
+    page.getByRole('heading', { level: 1, name: 'All' }),
   ).toBeVisible();
 });
 

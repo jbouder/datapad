@@ -34,7 +34,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `summaries.ts` (the models, prompt and per-item context Summarize
   sends, and Focus's Brief me context and prompt), `schedule.ts` (the
   nightly backup's time, DST-safe), `search.ts`
-  (the ⌘K index and ranking), `pages.ts` (saved page preferences, pure:
+  (the ⌘K index and ranking), `all.ts` (All's address, its filters
+  per kind over each kind's own selector, its rows), `pages.ts` (saved page preferences, pure:
   what each page remembers, the address over what is saved, what a change
   saves; `PAGES` is also where Help's Layouts table comes from),
   `rooms.ts` (v2's rail, #329: pinned rooms in `settings.pinned`, the
@@ -106,8 +107,8 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   and `notes/noteParts` what both share: the actions, editing in place,
   Make task, `?note=`), `pages/*` (`MeetingPage` is
   `/meetings/:id`, `ProjectPage` `/projects/:id` and `PersonPage`
-  `/people/:id`; `AllPage` is `/all`, showing the classic list pages by
-  `?kind=` until #337, and `UnfiledPage` `/unfiled`; a task opens in its
+  `/people/:id`; `AllPage` is `/all`, every kind in one list with
+  `shared/all.ts` reading its address, and `UnfiledPage` `/unfiled`; a task opens in its
   panel everywhere, and `/tasks/:id` lands on its room with the panel
   open).
 - `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.

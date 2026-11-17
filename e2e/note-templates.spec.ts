@@ -136,8 +136,8 @@ test('save a note as a template, mentions and all', async ({
   expect(template?.body).toContain('@{u-chewie} has the hangar keys.');
 
   // Only project templates in a new project's form.
-  await openLive(page, '/projects');
-  await page.getByRole('button', { name: 'Add project' }).click();
+  await openLive(page, '/all');
+  await addFromTopBar(page, 'Add project');
   await expect(
     page.getByRole('dialog').getByRole('combobox', {
       name: 'Start from template',
