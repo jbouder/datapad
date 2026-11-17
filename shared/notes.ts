@@ -1,6 +1,6 @@
 import { localDate } from './dates';
 import { type Inline, parseMarkdown } from './markdown';
-import { tokensToNames } from './mentions';
+import { mentionedIds, tokensToNames } from './mentions';
 import type { DateString, Note, Snapshot } from './types';
 
 /**
@@ -232,4 +232,20 @@ export function matchBeyondPreview(
   }
   const text = shown.join('\n');
   return words.some((w) => !text.includes(w));
+}
+
+/**
+ * Whether a note has no home yet (#328): General, on no meeting or task,
+ * and mentioning nobody. A selector, not a field: filing a note is moving
+ * it to a project (`moveNote`) or mentioning someone in it.
+ */
+export function isUnfiled(
+  note: Pick<Note, 'projectId' | 'meetingId' | 'taskId' | 'body'>,
+): boolean {
+  return (
+    note.projectId === null &&
+    note.meetingId === null &&
+    (note.taskId ?? null) === null &&
+    mentionedIds(note.body).length === 0
+  );
 }

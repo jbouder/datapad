@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
-import { isLegacy, migrate } from '#shared/migrate';
+import { isLegacy, migrate, migrateFormat3 } from '#shared/migrate';
 import { ExportSchema } from '#shared/protocol';
 import { merge } from '#shared/reducer';
-import { emptySnapshot } from '#shared/types';
+import { EXPORT_FORMAT, emptySnapshot } from '#shared/types';
 import fixture from './fixtures/export.json';
 import legacy from './fixtures/legacy-export.json';
 
@@ -258,5 +258,186 @@ describe('importing a legacy export', () => {
     expect(second.state).toEqual(first);
     expect(first.meetings['e-1']).toMatchObject({ title: 'Shield review' });
     expect(first.projects['p-echo']?.milestones).toHaveLength(1);
+  });
+});
+
+describe('migrateFormat3 (#328)', () => {
+  const later = '2026-10-05T09:00:00.000Z';
+
+  function task(id: string, patch: Record<string, unknown> = {}) {
+    return {
+      id,
+      title: id,
+      projectId: 'p1',
+      status: 'open',
+      tags: ['decide'],
+      createdAt: at,
+      updatedAt: at,
+      ...patch,
+    };
+  }
+
+  function item(id: string, text: string, done: boolean) {
+    return { id, text, done, createdAt: at, doneAt: done ? later : null };
+  }
+
+  function list(id: string, patch: Record<string, unknown> = {}) {
+    return {
+      id,
+      projectId: 'p1',
+      title: 'Offsite',
+      items: [
+        item('i1', 'Venue', true),
+        item('i2', 'Agenda', false),
+        item('i3', 'Dinner', true),
+      ],
+      createdAt: at,
+      updatedAt: later,
+      ...patch,
+    };
+  }
+
+  type Out3 = {
+    tasks: Record<string, Record<string, unknown>>;
+    notes: Record<string, Record<string, unknown>>;
+    lists: Record<string, unknown>;
+  };
+  const run3 = (input: unknown) => migrateFormat3(input) as Out3;
+
+  it('marks open decide-tagged tasks to decide, keeping the tag', () => {
+    const out = run3({
+      tasks: {
+        a: task('a'),
+        b: task('b', { tags: ['Decide', 'ops'] }),
+        c: task('c', { status: 'done' }),
+        d: task('d', { tags: ['ops'] }),
+      },
+    });
+    expect(out.tasks.a).toEqual({ ...task('a'), decide: true });
+    expect(out.tasks.b).toMatchObject({
+      decide: true,
+      tags: ['Decide', 'ops'],
+    });
+    expect(out.tasks.c).not.toHaveProperty('decide');
+    expect(out.tasks.d).not.toHaveProperty('decide');
+  });
+
+  it('turns each list into a checklist note: order, done state, project and times', () => {
+    const out = run3({
+      lists: { l1: list('l1'), l2: list('l2', { projectId: null, items: [] }) },
+    });
+    expect(out.notes.l1).toEqual({
+      id: 'l1',
+      projectId: 'p1',
+      body: '## Offsite\n- [x] Venue\n- [ ] Agenda\n- [x] Dinner',
+      pinned: false,
+      meetingId: null,
+      phase: null,
+      createdAt: at,
+      editedAt: later,
+    });
+    expect(out.notes.l2).toMatchObject({ projectId: null, body: '## Offsite' });
+    // The lists are kept.
+    expect(Object.keys(out.lists)).toEqual(['l1', 'l2']);
+  });
+
+  it('follows the order of the items as stored, and folds stray newlines', () => {
+    const out = run3({
+      lists: [
+        list('l1', {
+          title: 'Two\nlines',
+          items: [item('b', 'Second', false), item('a', 'First\nhalf', true)],
+        }),
+      ],
+      notes: [],
+    }) as unknown as { notes: Array<{ id: string; body: string }> };
+    expect(out.notes).toEqual([
+      expect.objectContaining({
+        id: 'l1',
+        body: '## Two lines\n- [ ] Second\n- [x] First half',
+      }),
+    ]);
+  });
+
+  it('splits a list too long for one note, under the same heading', () => {
+    const long = 'x'.repeat(LIMITS.titleMax);
+    const items = Array.from({ length: LIMITS.listItemsMax }, (_, i) =>
+      item(`i${i}`, long, false),
+    );
+    const out = run3({ lists: { l1: list('l1', { items }) } });
+    const parts = Object.values(out.notes);
+    expect(parts.map((n) => n.id)).toEqual(['l1', 'l1-2', 'l1-3']);
+    const bodies = parts.map((n) => String(n.body));
+    for (const body of bodies) {
+      expect(body.length).toBeLessThanOrEqual(LIMITS.bodyMax);
+      expect(body.startsWith('## Offsite\n')).toBe(true);
+    }
+    const lines = bodies.flatMap((b) => b.split('\n').slice(1));
+    expect(lines).toHaveLength(LIMITS.listItemsMax);
+    // And every part imports.
+    expect(() =>
+      ExportSchema.parse({ format: EXPORT_FORMAT, notes: out.notes }),
+    ).not.toThrow();
+  });
+
+  it('makes the Notepad an ordinary General note', () => {
+    const pad = {
+      id: 'pad',
+      projectId: null,
+      body: 'Scratch',
+      pinned: false,
+      meetingId: null,
+      phase: null,
+      scratch: true,
+      createdAt: at,
+    };
+    const out = run3({ notes: { pad } });
+    const { scratch: _, ...ordinary } = pad;
+    expect(out.notes.pad).toEqual(ordinary);
+  });
+
+  it('changes nothing the second time, or on a file already in shape', () => {
+    const input = {
+      tasks: { a: task('a') },
+      notes: {
+        pad: {
+          id: 'pad',
+          projectId: null,
+          body: 'x',
+          meetingId: null,
+          scratch: true,
+          createdAt: at,
+        },
+      },
+      lists: { l1: list('l1') },
+    };
+    const once = migrateFormat3(input);
+    expect(once).not.toBe(input);
+    expect(migrateFormat3(once)).toBe(once);
+    const plain = { tasks: { d: task('d', { tags: [] }) } };
+    expect(migrateFormat3(plain)).toBe(plain);
+  });
+
+  it('leaves a note already under a list’s id alone', () => {
+    const mine = {
+      id: 'l1',
+      projectId: null,
+      body: 'Already here',
+      createdAt: at,
+    };
+    const out = run3({ notes: { l1: mine }, lists: { l1: list('l1') } });
+    expect(out.notes.l1).toEqual(mine);
+  });
+
+  it('runs on imports of format 1, 2 and none, not 3', () => {
+    const file = { tasks: { a: task('a') }, lists: { l1: list('l1') } };
+    for (const format of [undefined, 1, 2]) {
+      const parsed = ExportSchema.parse({ ...file, format });
+      expect(parsed.tasks.a?.decide, String(format)).toBe(true);
+      expect(parsed.notes.l1, String(format)).toBeDefined();
+    }
+    const current = ExportSchema.parse({ ...file, format: EXPORT_FORMAT });
+    expect(current.tasks.a).not.toHaveProperty('decide');
+    expect(current.notes).toEqual({});
   });
 });

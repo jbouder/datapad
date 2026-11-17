@@ -420,11 +420,26 @@ describe('the export format (#240)', () => {
     expect(parsed).toEqual(ExportSchema.parse(fixture));
   });
 
-  it('is 2 since lists (#298): a format 1 file reads as it is, with no lists', () => {
-    expect(EXPORT_FORMAT).toBe(2);
+  it('is 3 since #328: a format 1 or 2 file is brought up to it, with no lists', () => {
+    expect(EXPORT_FORMAT).toBe(3);
     const parsed = ExportSchema.parse({ ...fixture, format: 1 });
     expect(parsed.lists).toEqual({});
     expect(parsed).toEqual(ExportSchema.parse(fixture));
+    expect(ExportSchema.parse({ ...fixture, format: 2 })).toEqual(parsed);
+  });
+
+  it('reads tasks[].decide (format 3), absent in older files', () => {
+    const task = { ...cases.tasks.valid, decide: true };
+    const parsed = ExportSchema.parse({
+      format: EXPORT_FORMAT,
+      tasks: { [task.id]: task },
+    });
+    expect(parsed.tasks[task.id]?.decide).toBe(true);
+    const plain = ExportSchema.parse({
+      format: EXPORT_FORMAT,
+      tasks: { [task.id]: cases.tasks.valid },
+    });
+    expect(plain.tasks[task.id]).not.toHaveProperty('decide');
   });
 
   it('reads lists, keyed by id or as an array, with defaults filled in', () => {

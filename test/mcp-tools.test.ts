@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { MCP_OP_TYPES, type ServerMessage } from '#shared/protocol';
-import { MAIN_SPACE } from '#shared/types';
+import { EXPORT_FORMAT, MAIN_SPACE } from '#shared/types';
 import { SESSION_EXPIRES_HEADER } from '../worker/datapad';
 import type { Bindings } from '../worker/env';
 import { handleMcpPost } from '../worker/mcp/protocol';
@@ -637,8 +637,10 @@ describe('the read tools', () => {
   it('list_notes: the Notepad is a General note, marked as the Notepad', async () => {
     const ctx = await seeded();
     expect(
+      // A format 3 Notepad: only an old client's writeNotepad makes one.
       (
         await ctx.datapad.import(MAIN_SPACE, {
+          format: EXPORT_FORMAT,
           exportedAt: '2026-10-27T10:00:00.000Z',
           notes: {
             'n-pad': {

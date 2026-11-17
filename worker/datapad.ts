@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { LIMITS } from '#shared/limits';
-import { migrate } from '#shared/migrate';
+import { migrate, migrateFormat3 } from '#shared/migrate';
 import {
   type BackupInfo,
   type BackupList,
@@ -171,12 +171,16 @@ export type DeleteOutcome =
 const SEQ = 'seq';
 /**
  * The storage layout: 1 before spaces, 2 with `docs` keyed by space, 3
- * with meetings (no `events` rows) and milestones on their projects.
+ * with meetings (no `events` rows) and milestones on their projects, 4
+ * with export format 3's shape (#328): tasks to decide, lists as notes,
+ * no Notepad.
  */
 const SCHEMA = 'schema_version';
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 /** The collections the meetings migration reads and may rewrite. */
 const MIGRATED = ['projects', 'notes', 'events', 'meetings'] as const;
+/** The collections schema 4's migration reads (lists only read, never written). */
+const FORMAT3_READ = ['tasks', 'notes', 'lists'] as const;
 /** Where op ids lived before the `op_ids` table; read once to migrate. */
 const RECENT = 'recent_ops';
 const ERASE_TOKEN = 'erase_token';
@@ -563,7 +567,9 @@ export class DatapadObject extends DurableObject<Bindings> {
     // next wake tries again.
     this.ctx.storage.transactionSync(() => {
       if (version < 2) this.migrateSpaces();
-      this.migrateMeetings();
+      if (version < 3) this.migrateSpaceDocs(MIGRATED, migrate);
+      this.migrateSpaceDocs(FORMAT3_READ, migrateFormat3);
+      this.bumpSpaces();
       this.setMeta(SCHEMA, String(SCHEMA_VERSION));
     });
   }
@@ -631,41 +637,46 @@ export class DatapadObject extends DurableObject<Bindings> {
   }
 
   /**
-   * Schema 3: events became meetings and milestones moved onto their
-   * project (`shared/migrate.ts` has the rules). Per space: run the
-   * migration over its projects, notes and events, drop the `events`
-   * rows, write the rows it changed, and bump the space's `seq` by one so
-   * every open or cached client takes a fresh snapshot rather than
-   * replaying ops across the change. A space that never changed (seq 0,
-   * nothing stored) keeps its 0. Runs inside `ensureTables()`'s
-   * transaction.
+   * Runs a pure migration over each space's documents in `cols`: schema
+   * 3's `migrate()` (events became meetings and milestones moved onto
+   * their project; it drops the `events` rows) and schema 4's
+   * `migrateFormat3()` (to decide, lists as notes, no Notepad).
+   * `shared/migrate.ts` has the rules. Writes only the rows that changed.
+   * Runs inside `ensureTables()`'s transaction.
    */
-  private migrateMeetings() {
+  private migrateSpaceDocs(
+    cols: readonly string[],
+    fn: (input: unknown) => unknown,
+  ) {
     const sql = this.ctx.storage.sql;
     const at = new Date().toISOString();
-    const spaces = sql
-      .exec<{ id: string; seq: number }>('SELECT id, seq FROM spaces')
-      .toArray();
+    const spaces = sql.exec<{ id: string }>('SELECT id FROM spaces').toArray();
     for (const space of spaces) {
       const before: Record<string, Record<string, unknown>> = {};
       const text = new Map<string, string>();
-      for (const col of MIGRATED) before[col] = {};
+      for (const col of cols) before[col] = {};
       for (const row of sql.exec<{ col: string; id: string; json: string }>(
-        `SELECT col, id, json FROM docs WHERE space = ? AND col IN (${MIGRATED.map(() => '?').join(', ')})`,
+        `SELECT col, id, json FROM docs WHERE space = ? AND col IN (${cols.map(() => '?').join(', ')})`,
         space.id,
-        ...MIGRATED,
+        ...cols,
       )) {
         const docs = before[row.col];
         if (!docs) continue;
         docs[row.id] = JSON.parse(row.json);
         text.set(`${row.col}\u0000${row.id}`, row.json);
       }
-      const after = migrate(before) as Record<
+      const after = fn(before) as Record<
         string,
         Record<string, unknown> | undefined
       >;
-      sql.exec("DELETE FROM docs WHERE space = ? AND col = 'events'", space.id);
-      for (const col of ['projects', 'notes', 'meetings'] as const) {
+      if (cols.includes('events')) {
+        sql.exec(
+          "DELETE FROM docs WHERE space = ? AND col = 'events'",
+          space.id,
+        );
+      }
+      for (const col of cols) {
+        if (col === 'events' || col === 'lists') continue;
         for (const [id, doc] of Object.entries(after[col] ?? {})) {
           const json = JSON.stringify(doc);
           if (text.get(`${col}\u0000${id}`) === json) continue;
@@ -679,6 +690,21 @@ export class DatapadObject extends DurableObject<Bindings> {
           );
         }
       }
+    }
+  }
+
+  /**
+   * After a migration, bump each space's `seq` by one so every open or
+   * cached client takes a fresh snapshot rather than replaying ops across
+   * the change. A space that never changed (seq 0, nothing stored) keeps
+   * its 0. Once per upgrade, however many schemas it crosses.
+   */
+  private bumpSpaces() {
+    const sql = this.ctx.storage.sql;
+    const spaces = sql
+      .exec<{ id: string; seq: number }>('SELECT id, seq FROM spaces')
+      .toArray();
+    for (const space of spaces) {
       const stored =
         sql
           .exec<{ n: number }>(

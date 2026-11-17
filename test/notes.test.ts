@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NOTE_FILTERS,
   groupByDay,
+  isUnfiled,
   matchBeyondPreview,
   notePreview,
   projectNotes,
@@ -9,7 +10,12 @@ import {
   selectNotes,
   taskTitleFrom,
 } from '#shared/notes';
-import { emptySnapshot, type Note, type Project } from '#shared/types';
+import {
+  decideOf,
+  emptySnapshot,
+  type Note,
+  type Project,
+} from '#shared/types';
 
 function note(id: string, patch: Partial<Note>): Note {
   return {
@@ -190,5 +196,33 @@ describe('matchBeyondPreview', () => {
 
   it('finds a mention by the name it shows', () => {
     expect(matchBeyondPreview('Ask @{leia}', people, ['leia'])).toBe(false);
+  });
+});
+
+describe('isUnfiled (#328)', () => {
+  const loose = {
+    projectId: null,
+    meetingId: null,
+    body: 'A thought with no home',
+  };
+
+  it('is a General note on no meeting or task that mentions nobody', () => {
+    expect(isUnfiled(loose)).toBe(true);
+    expect(isUnfiled({ ...loose, taskId: null })).toBe(true);
+  });
+
+  it('is filed once it has a project, a meeting, a task or a mention', () => {
+    expect(isUnfiled({ ...loose, projectId: 'p1' })).toBe(false);
+    expect(isUnfiled({ ...loose, meetingId: 'm1' })).toBe(false);
+    expect(isUnfiled({ ...loose, taskId: 't1' })).toBe(false);
+    expect(isUnfiled({ ...loose, body: 'Ask @{u-leia}' })).toBe(false);
+  });
+});
+
+describe('decideOf (#328)', () => {
+  it('reads an absent flag as false', () => {
+    expect(decideOf({})).toBe(false);
+    expect(decideOf({ decide: false })).toBe(false);
+    expect(decideOf({ decide: true })).toBe(true);
   });
 });

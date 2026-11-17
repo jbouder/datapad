@@ -1,4 +1,5 @@
 import { addDays, daysBetween, localDate } from '../shared/dates';
+import { EXPORT_FORMAT } from '../shared/types';
 import exported from '../test/fixtures/export.json' with { type: 'json' };
 
 /** Whole calendar days between two dates (`shared/dates.ts`). */
@@ -61,7 +62,12 @@ const SEED_LISTS = {
   },
 };
 
-const fixture = { ...exported, lists: SEED_LISTS };
+/**
+ * Written as the current format, so its lists stay lists for the classic
+ * pages rather than becoming checklist notes as an older file's would
+ * (#328).
+ */
+const fixture = { format: EXPORT_FORMAT, ...exported, lists: SEED_LISTS };
 
 /**
  * A populated tracker for specs that need one: the fictional export the
