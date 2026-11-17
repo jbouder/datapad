@@ -12,10 +12,10 @@ import { Backups } from '@/components/Backups';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 import { describeCounts, useImportExport } from '@/components/ImportExport';
 import { Segmented } from '@/components/inputs/Segmented';
-import { NavSettings } from '@/components/NavSettings';
 import { OrgsView } from '@/components/orgs/OrgsView';
 import { PagesSettings } from '@/components/PagesSettings';
 import { PeopleView } from '@/components/people/PeopleView';
+import { RoomsSettings } from '@/components/RoomsSettings';
 import { SpacesSettings } from '@/components/SpacesSettings';
 import { SummarySettings } from '@/components/summary/SummarySettings';
 import { TemplatesSettings } from '@/components/templates/TemplatesSettings';
@@ -40,7 +40,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 const LABELS: Record<SettingsSection, string> = {
   appearance: 'Appearance',
   pages: 'Pages',
-  navigation: 'Navigation',
+  rooms: 'Rooms',
   templates: 'Templates',
   summaries: 'Summaries',
   spaces: 'Spaces',
@@ -53,21 +53,17 @@ const LABELS: Record<SettingsSection, string> = {
 
 /**
  * Everything that is not day-to-day work: how Datapad looks and moves,
- * what each page remembers, which sections the navigation shows,
- * templates, summaries, your spaces, the people and orgs the rest of the
- * app refers to, your data in and out, the MCP apps you let in, and who is
- * signed in. Each section
- * has its own address (`/settings/data`, `/settings/people/:id`); the
- * account menu leads here.
+ * what each page remembers, the pinned rooms' order, templates,
+ * summaries, your spaces, the people and orgs the rest of the app refers
+ * to, your data in and out, the MCP apps you let in, and who is signed
+ * in. Each section has its own address (`/settings/data`,
+ * `/settings/orgs/:id`); the account menu leads here.
  */
 export function SettingsPage({
   section,
-  person,
   org,
 }: {
   section: SettingsSection;
-  /** The person selected in People. */
-  person?: string;
   /** The org open in Orgs. */
   org?: string;
 }) {
@@ -136,7 +132,6 @@ export function SettingsPage({
           aria-labelledby="settings-section"
           className={cn(
             'flex min-w-0 flex-col gap-6',
-            // People's detail pane sits beside the list.
             section !== 'people' && 'max-w-2xl',
           )}
         >
@@ -148,11 +143,11 @@ export function SettingsPage({
           </h2>
           {section === 'appearance' && <Appearance />}
           {section === 'pages' && <PagesSettings />}
-          {section === 'navigation' && <NavSettings />}
+          {section === 'rooms' && <RoomsSettings />}
           {section === 'templates' && <TemplatesSettings />}
           {section === 'summaries' && <SummarySettings />}
           {section === 'spaces' && <SpacesSettings />}
-          {section === 'people' && <PeopleView selected={person} />}
+          {section === 'people' && <PeopleView />}
           {section === 'orgs' && <OrgsView selected={org} />}
           {section === 'data' && <Data />}
           {section === 'connections' && <ConnectionsSettings />}

@@ -1,132 +1,40 @@
 import {
-  BuildingsIcon,
-  CalendarBlankIcon,
   CalendarPlusIcon,
-  ChalkboardSimpleIcon,
   CheckSquareIcon,
-  CrosshairIcon,
   FolderPlusIcon,
-  FoldersIcon,
   type Icon,
-  ListChecksIcon,
-  NewspaperIcon,
-  NoteIcon,
   NotePencilIcon,
-  UsersIcon,
+  SquaresFourIcon,
+  SunIcon,
+  TrayIcon,
 } from '@phosphor-icons/react';
-import { useMemo } from 'react';
-import {
-  NAV_SECTIONS,
-  NAV_TOOLS,
-  type NavExtra,
-  navExtrasOf,
-  navMenuSectionsOf,
-  navMenuToolsOf,
-  navOf,
-  navPhoneOf,
-  navPhoneToolsOf,
-  navToolsOf,
-  type QuickAddAction,
-  quickAddOf,
-  type SectionName,
-  type ToolName,
-} from '#shared/nav';
-import { DEFAULT_SETTINGS, SETTINGS_ID } from '#shared/types';
-import { useDatapad } from '@/hooks/useDatapad';
+import type { Place } from '#shared/routes';
 import type { Route } from '@/lib/router';
 
-/** A top-level section or a tool, as the rail and the tab bar show it. */
-export interface NavItem {
-  name: SectionName | ToolName;
+/** One of the three places, as the rail and the tab bar show it (#329). */
+export interface PlaceItem {
+  name: Place;
   route: Route;
   label: string;
   icon: Icon;
 }
 
-export const NAV_ITEMS: Record<SectionName, NavItem> = {
-  focus: {
-    name: 'focus',
-    route: { name: 'focus' },
-    label: 'Focus',
-    icon: CrosshairIcon,
+/** Today, Unfiled and All: the rail's top and the phone's three tabs. */
+export const PLACES: PlaceItem[] = [
+  { name: 'today', route: { name: 'today' }, label: 'Today', icon: SunIcon },
+  {
+    name: 'unfiled',
+    route: { name: 'unfiled' },
+    label: 'Unfiled',
+    icon: TrayIcon,
   },
-  projects: {
-    name: 'projects',
-    route: { name: 'projects' },
-    label: 'Projects',
-    icon: FoldersIcon,
-  },
-  tasks: {
-    name: 'tasks',
-    route: { name: 'tasks' },
-    label: 'Tasks',
-    icon: CheckSquareIcon,
-  },
-  meetings: {
-    name: 'meetings',
-    route: { name: 'meetings' },
-    label: 'Meetings',
-    icon: CalendarBlankIcon,
-  },
-  notes: {
-    name: 'notes',
-    route: { name: 'notes' },
-    label: 'Notes',
-    icon: NoteIcon,
-  },
-  lists: {
-    name: 'lists',
-    route: { name: 'lists' },
-    label: 'Lists',
-    icon: ListChecksIcon,
-  },
-  // Settings sections too (#159), at the same addresses.
-  people: {
-    name: 'people',
-    route: { name: 'people' },
-    label: 'People',
-    icon: UsersIcon,
-  },
-  orgs: {
-    name: 'orgs',
-    route: { name: 'orgs' },
-    label: 'Orgs',
-    icon: BuildingsIcon,
-  },
-};
-
-/** The tools (#261): below the sections in the rail. */
-export const TOOL_ITEMS: Record<ToolName, NavItem> = {
-  notepad: {
-    name: 'notepad',
-    route: { name: 'notepad' },
-    label: 'Notepad',
-    icon: NotePencilIcon,
-  },
-  whiteboard: {
-    name: 'whiteboard',
-    route: { name: 'whiteboard' },
-    label: 'Whiteboard',
-    icon: ChalkboardSimpleIcon,
-  },
-  digest: {
-    name: 'digest',
-    route: { name: 'digest' },
-    label: 'Weekly digest',
-    icon: NewspaperIcon,
-  },
-};
-
-/**
- * Every section, then every tool, in the default order (⌘K lists them
- * all, hidden or not).
- */
-export const NAV: NavItem[] = [
-  ...NAV_SECTIONS.map((name) => NAV_ITEMS[name]),
-  ...NAV_TOOLS.map((name) => TOOL_ITEMS[name]),
+  { name: 'all', route: { name: 'all' }, label: 'All', icon: SquaresFourIcon },
 ];
 
-/** One of the + menu's actions, as the top bar and Settings show it. */
+/** What the top bar's + offers, until the capture line (#330). */
+export type QuickAddAction = 'task' | 'note' | 'meeting' | 'project';
+
+/** One of the + menu's actions. */
 export interface QuickAddItem {
   name: QuickAddAction;
   label: string;
@@ -135,60 +43,23 @@ export interface QuickAddItem {
   shortcut?: { label: string; keys: string };
 }
 
-export const QUICK_ADD_ITEMS: Record<QuickAddAction, QuickAddItem> = {
-  task: {
+/**
+ * The + menu: Add task, Write a note, Add meeting and Add project. Fixed
+ * since Settings → Navigation retired (#329).
+ */
+export const QUICK_ADD: QuickAddItem[] = [
+  {
     name: 'task',
     label: 'Add task',
     icon: CheckSquareIcon,
   },
-  note: {
+  {
     name: 'note',
     label: 'Write a note',
     icon: NotePencilIcon,
   },
-  list: {
-    name: 'list',
-    label: 'New list',
-    icon: ListChecksIcon,
-  },
-  meeting: { name: 'meeting', label: 'Add meeting', icon: CalendarPlusIcon },
-  project: { name: 'project', label: 'Add project', icon: FolderPlusIcon },
-};
+  { name: 'meeting', label: 'Add meeting', icon: CalendarPlusIcon },
+  { name: 'project', label: 'Add project', icon: FolderPlusIcon },
+];
 
-/**
- * The sections the rail shows, in the open space's order, and the tools
- * under them; what the phone's tab bar shows (sections, then tools) and
- * the shown tools it leaves to the account menu; which of the rail's
- * extras are on, and what the top bar's + offers (Settings → Navigation).
- */
-export function useNav(): {
-  items: NavItem[];
-  tools: NavItem[];
-  phoneItems: NavItem[];
-  /** The shown sections and tools the tab bar leaves to the account menu. */
-  menuItems: NavItem[];
-  extras: Record<NavExtra, boolean>;
-  quickAdd: QuickAddItem[];
-} {
-  const { state } = useDatapad();
-  const stored = state?.settings[SETTINGS_ID] ?? DEFAULT_SETTINGS;
-  return useMemo(
-    () => ({
-      items: navOf(stored).map((name) => NAV_ITEMS[name]),
-      tools: navToolsOf(stored).map((name) => TOOL_ITEMS[name]),
-      phoneItems: [
-        ...navPhoneOf(stored).map((name) => NAV_ITEMS[name]),
-        ...navPhoneToolsOf(stored).map((name) => TOOL_ITEMS[name]),
-      ],
-      menuItems: [
-        ...navMenuSectionsOf(stored).map((name) => NAV_ITEMS[name]),
-        ...navMenuToolsOf(stored).map((name) => TOOL_ITEMS[name]),
-      ],
-      extras: navExtrasOf(stored),
-      quickAdd: quickAddOf(stored).map((name) => QUICK_ADD_ITEMS[name]),
-    }),
-    [stored],
-  );
-}
-
-export { sectionOf, titleOf } from '#shared/routes';
+export { placeOf, titleOf } from '#shared/routes';

@@ -177,7 +177,7 @@ test('the row’s composer: one per meeting, Esc and Cancel', async ({
 
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
-  await expect(page).toHaveURL(/\/meetings/);
+  await expect(page).toHaveURL(/kind=meeting/);
 
   // Esc dropped the draft.
   await action(page, 'Shield review', 'Add note');

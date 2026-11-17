@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SIGN_OUT_URL } from '@/lib/api';
-import { useNav } from '@/lib/nav';
 import { linkProps } from '@/lib/router';
 import { isThemeId, THEMES } from '@/lib/themes';
 import { useSpaces } from '@/providers/DatapadProvider';
@@ -29,16 +28,12 @@ import { useTheme } from '@/providers/ThemeProvider';
 /**
  * The account menu: who is signed in, the spaces (the phone's switcher;
  * picking one closes the menu; Settings → Spaces makes and manages them),
- * quick Motion and Theme switches, then on a phone the Pages: the shown
- * sections and tools the tab bar leaves out (Lists, People, Orgs and every
- * tool, by default; the rail has them on desktop), when there are any; then
- * Help, Settings and Sign out. Refresh is in Settings → Account and ⌘K.
+ * quick Motion and Theme switches, then Help, Settings and Sign out. Refresh is in Settings → Account and ⌘K.
  */
 export function PreferencesMenu({ email }: { email: string | null }) {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const { spaces, current, switchSpace } = useSpaces();
-  const { menuItems } = useNav();
 
   return (
     <DropdownMenu>
@@ -113,24 +108,6 @@ export function PreferencesMenu({ email }: { email: string | null }) {
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
-        {/* The rail has them on desktop; the tab bar can. */}
-        {menuItems.length > 0 && (
-          <>
-            <DropdownMenuSeparator className="desk:hidden" />
-            <DropdownMenuGroup className="desk:hidden">
-              <DropdownMenuLabel>Pages</DropdownMenuLabel>
-              {menuItems.map(({ name, route, label, icon: PageIcon }) => (
-                <DropdownMenuItem
-                  key={name}
-                  render={<a {...linkProps(route)} />}
-                >
-                  <PageIcon />
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </>
-        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem render={<a {...linkProps({ name: 'help' })} />}>

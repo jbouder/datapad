@@ -134,15 +134,16 @@ test('action items on a meeting’s page: add, close, reopen and open', async ({
   await expect(
     page.getByRole('list', { name: 'Action items from Shield review' }),
   ).toContainText(ITEM);
-  await openLive(page, '/tasks');
+  await openLive(page, '/all?kind=task');
   await expect(page.getByRole('main')).toContainText(ITEM);
   await openLive(page, '/projects/p-echo');
   await expect(page.getByRole('main')).toContainText(ITEM);
 
-  // Its page says where it came from, and links back.
+  // Its panel (its old page's address opens it, #329) says where it came
+  // from, and links back.
   await openLive(page, `/tasks/${item?.id}`);
   await page
-    .getByRole('main')
+    .getByRole('dialog', { name: 'Task' })
     .getByRole('link', { name: 'Shield review' })
     .click();
   await expect(page).toHaveURL(new RegExp(`${SHIELD}$`));
@@ -211,7 +212,7 @@ test('Make a task from a topic links it; deleting the meeting keeps it', async (
     'Its note and action item are kept.',
   );
   await page.getByRole('button', { name: 'Delete meeting' }).click();
-  await expect(page).toHaveURL(/\/meetings$/);
+  await expect(page).toHaveURL(/\/all\?kind=meeting$/);
   await expectSaved(page);
   data = await stored(request);
   expect(data.meetings['e-1']).toBeUndefined();

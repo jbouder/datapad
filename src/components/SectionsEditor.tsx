@@ -19,8 +19,8 @@ const ICON_BUTTON = 'press size-11 desk:size-8';
 const CELL = 'flex size-11 shrink-0 items-center justify-center desk:size-9';
 
 /**
- * A page's sections in Settings → Pages (#310), as Settings → Navigation
- * lists the rail's: each with a Show switch and Move up / Move down, 44px
+ * A page's sections in Settings → Pages (#310): each with a Show switch
+ * and Move up / Move down, 44px
  * on touch, in the order the page shows them. At least one stays shown.
  * Each change is a `setPagePrefs` patch (`toggleSection`, `moveSection`);
  * `label` names the page in the list's accessible name.

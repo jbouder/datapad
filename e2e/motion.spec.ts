@@ -43,9 +43,7 @@ async function animationsDuring(
           else resolve([...seen]);
         };
         if (kind === 'route') {
-          (
-            document.querySelector('a[href="/projects"]') as HTMLElement
-          ).click();
+          (document.querySelector('a[href="/all"]') as HTMLElement).click();
         } else if (kind === 'openPanel') {
           (
             document.querySelector(

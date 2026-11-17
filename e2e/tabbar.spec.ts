@@ -84,11 +84,11 @@ test.describe('with motion on', () => {
   }) => {
     await request.post('/api/spaces/create', { data: { name: 'Personal' } });
     await watchTransitions(page);
-    await openLive(page, '/');
+    await openLive(page, '/all');
 
     // A page change.
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
+    await tabs(page).getByRole('link', { name: 'Today' }).click();
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
     await expect.poll(async () => (await seen(page)).length).toBe(1);
 
     // A layout change.
@@ -116,7 +116,7 @@ test.describe('with motion on', () => {
     // The page itself did move.
     expect(all[0]?.others).toBeGreaterThan(0);
 
-    // Between transitions it is the usual translucent bar again.
+    // Between transitions it has no snapshot name of its own.
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });
 });
@@ -127,10 +127,10 @@ test.describe('with prefers-reduced-motion: reduce', () => {
   test('no transition runs, so the tab bar never changes', async ({ page }) => {
     await watchTransitions(page);
     await openLive(page, '/');
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
-    await tabs(page).getByRole('link', { name: 'Projects' }).click();
-    await expect(page).toHaveURL(/\/projects/);
+    await tabs(page).getByRole('link', { name: 'All' }).click();
+    await expect(page).toHaveURL(/\/all$/);
+    await tabs(page).getByRole('link', { name: 'Unfiled' }).click();
+    await expect(page).toHaveURL(/\/unfiled$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });
@@ -145,8 +145,8 @@ test.describe('with Motion off', () => {
     await openPreferences(page);
     await page.getByRole('menuitemcheckbox', { name: 'Motion' }).click();
     await page.keyboard.press('Escape');
-    await tabs(page).getByRole('link', { name: 'Tasks' }).click();
-    await expect(page).toHaveURL(/\/tasks/);
+    await tabs(page).getByRole('link', { name: 'All' }).click();
+    await expect(page).toHaveURL(/\/all$/);
     expect(await seen(page)).toEqual([]);
     await expect(tabs(page)).toHaveCSS('view-transition-name', 'none');
   });

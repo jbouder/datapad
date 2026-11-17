@@ -127,9 +127,13 @@ test('/date tomorrow, Esc closes the menu, ⌘Enter submits', async ({
 test('the draft survives leaving and coming back', async ({ page }) => {
   const { box } = await open(page);
   await page.keyboard.type('half a thought');
-  await page.getByRole('link', { name: 'Tasks' }).first().click();
+  await page
+    .getByRole('link', { name: 'Today', exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Tasks' }),
+    page.getByRole('heading', { level: 1, name: 'Focus' }),
   ).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('combobox', { name: 'Composer' })).toHaveValue(

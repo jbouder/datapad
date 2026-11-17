@@ -9,13 +9,22 @@ async function openLive(page: Page, path = '/') {
   await expect(status(page)).toHaveAttribute('data-status', 'live');
 }
 
-/** Go to a section from the rail or the tab bar: no reload. */
+/**
+ * Go to Focus (Today, from the rail or the tab bar) or Tasks (All, then
+ * its Tasks): no reload.
+ */
 async function goTo(page: Page, name: 'Focus' | 'Tasks') {
   await page
-    .getByRole('link', { name: new RegExp(`^${name}`) })
+    .getByRole('link', { name: name === 'Focus' ? 'Today' : 'All' })
     .filter({ visible: true })
     .first()
     .click();
+  if (name === 'Tasks') {
+    await page
+      .getByRole('navigation', { name: 'Kinds' })
+      .getByRole('link', { name: 'Tasks' })
+      .click();
+  }
   await expect(
     page.getByRole('heading', { level: 1, name, exact: true }),
   ).toBeVisible();

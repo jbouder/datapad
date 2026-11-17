@@ -45,7 +45,6 @@ import { useFlip } from '@/hooks/useFlip';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useTaskToggle } from '@/hooks/useTaskToggle';
 import { withViewTransition } from '@/lib/motion';
-import { navigate } from '@/lib/router';
 import { isTypingTarget, overlayOpen } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
@@ -85,21 +84,19 @@ function useTaskFilters(query: URLSearchParams): TaskFilters {
   }, [value]);
 }
 
-/** A task opened from Tasks is its page; anywhere else, its panel. */
-const openTask = (id: string) => navigate({ name: 'task', id });
-
 /**
  * Every task, across projects, as a List, a dense Table (the desktop
  * default), a Board or a Timeline. Status, grouping, assignee, text, sort
  * and layout live in the URL; all but the text are saved for the page
  * (#186). Add task opens the new-task panel (assigned
- * to whoever the view is filtered to); a task opens its own page. Every
+ * to whoever the view is filtered to); a task opens in its panel, as it
+ * does everywhere (#329). Every
  * layout has the filters and multi-select with the bulk bar.
  */
 export function TasksPage() {
   usePageTitle('Tasks');
   const { state, actions } = useDatapad();
-  const { newTask } = useTaskPanels();
+  const { newTask, openTask } = useTaskPanels();
   const { active } = useMotion();
   const { show } = useToast();
   const { toggle, isDone } = useTaskToggle();

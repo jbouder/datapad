@@ -108,7 +108,7 @@ export function NotesPage() {
   // A link to the Notepad's note opens the Notepad.
   useEffect(() => {
     if (target && target === padId) {
-      navigate({ name: 'notepad' }, { replace: true });
+      navigate({ name: 'unfiled' }, { replace: true });
     }
   }, [target, padId]);
   const [open, setOpen] = useState<string | null>(null);

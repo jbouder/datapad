@@ -96,7 +96,7 @@ export function MeetingPage({ id }: { id: string }) {
     return (
       <NotFoundPage
         what="meeting"
-        back={{ name: 'meetings' }}
+        back={{ name: 'all', kind: 'meeting' }}
         backLabel="Back to Meetings"
       />
     );
@@ -125,7 +125,7 @@ export function MeetingPage({ id }: { id: string }) {
       setLeaving(false);
       return;
     }
-    navigate({ name: 'meetings' }, { replace: true });
+    navigate({ name: 'all', kind: 'meeting' }, { replace: true });
     show(`Deleted “${meeting.title}”`);
   };
 

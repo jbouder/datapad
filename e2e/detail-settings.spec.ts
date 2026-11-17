@@ -134,27 +134,3 @@ test('the meeting page hides done action items and orders its sections', async (
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
 });
-
-test('the list page hides its done items, keeping the count', async ({
-  page,
-}) => {
-  await openLive(page, '/settings/pages');
-  await choose(page, 'List page', 'Done items', 'Hidden');
-
-  await page.goto('/lists/l-evac');
-  await expect(page.getByText('1 done', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Done \(/ })).toHaveCount(0);
-  await expect(page.getByText('Charge the ion cannon')).toHaveCount(0);
-  await expectAccessible(page);
-  await expectNoSidewaysScroll(page);
-
-  // Expanded: under Done (1), open.
-  await page.goto('/settings/pages');
-  await choose(page, 'List page', 'Done items', 'Expanded');
-  await page.goto('/lists/l-evac');
-  const done = page.getByRole('button', { name: /^Done \(1\)/ });
-  await expect(done).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByRole('checkbox', { name: 'Done: “Charge the ion cannon”' }),
-  ).toBeChecked();
-});

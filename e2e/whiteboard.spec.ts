@@ -6,7 +6,6 @@ import {
   expectSaved,
   isMobile,
   openLive,
-  openPreferences,
   SEED,
   test,
 } from './fixtures';
@@ -171,9 +170,7 @@ async function expectNoPageScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-test('opens from the project page, the rail or account menu, and ⌘K', async ({
-  page,
-}) => {
+test('opens from the project page, All, and ⌘K', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
   const section = page.getByRole('heading', { name: /^Whiteboard/ });
   await expect(section).toBeVisible();
@@ -200,19 +197,12 @@ test('opens from the project page, the rail or account menu, and ⌘K', async ({
     .click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
 
-  // The space's board: the rail on desktop, the account menu on a phone.
-  if (isMobile(page)) {
-    await expect(
-      page.getByRole('complementary').getByRole('link', { name: 'Whiteboard' }),
-    ).toBeHidden();
-    await openPreferences(page);
-    await page.getByRole('menuitem', { name: 'Whiteboard' }).click();
-  } else {
-    await page
-      .getByRole('complementary', { name: 'Datapad' })
-      .getByRole('link', { name: 'Whiteboard' })
-      .click();
-  }
+  // The space's board: linked from All (#329).
+  await page.goto('/all');
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: 'Whiteboard' })
+    .click();
   await expect(page).toHaveURL(/\/whiteboard$/);
   await expect(
     page.getByRole('application', { name: 'Space whiteboard' }),

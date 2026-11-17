@@ -2,7 +2,6 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectSaved,
-  isMobile,
   openLive,
   openPreferences,
   SEED,
@@ -19,8 +18,8 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   await openLive(page, '/');
   await openPreferences(page);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  // The spaces (the phone's switcher), Motion and Theme, then (on a
-  // phone) the Pages, then Help, Settings and Sign out. No Refresh
+  // The spaces (the phone's switcher), Motion and Theme, then Help,
+  // Settings and Sign out. No Refresh
   // (Settings → Account has it), and no New space… or Manage spaces
   // (Settings → Spaces does that).
   await expect(
@@ -35,11 +34,6 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     'System',
     'Light',
     'Dark',
-    // Lists (#299), off the tab bar, the tools (#261), People and Orgs:
-    // the rail has them on desktop.
-    ...(isMobile(page)
-      ? ['Lists', 'People', 'Orgs', 'Notepad', 'Whiteboard', 'Weekly digest']
-      : []),
     'Help',
     'Settings',
     'Sign out',
@@ -55,7 +49,7 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
   await expect(settingsNav(page).getByRole('link')).toHaveText([
     'Appearance',
     'Pages',
-    'Navigation',
+    'Rooms',
     'Templates',
     'Summaries',
     'Spaces',
@@ -92,10 +86,12 @@ test('the account menu leads to Settings, which has People and Orgs', async ({
     settingsNav(page).getByRole('link', { name: 'Account' }),
   ).toBeInViewport({ ratio: 1 });
 
-  // The addresses from #93 land on the Settings ones.
+  // The addresses from #93 land on the Settings ones; a person is their
+  // room (#329).
   for (const [from, to] of [
     ['/people', '/settings/people'],
-    ['/people/u-x', '/settings/people/u-x'],
+    ['/people/u-x', '/people/u-x'],
+    ['/settings/people/u-x', '/people/u-x'],
     ['/orgs', '/settings/orgs'],
     ['/orgs/o-x', '/settings/orgs/o-x'],
   ]) {
@@ -165,11 +161,13 @@ test('People: add, mark yourself, edit and remove', async ({
     /Leia Organa\s*General/,
   ]);
 
+  // Each opens their room, where Edit and Remove are.
   await list.getByRole('link', { name: /Leia Organa/ }).click();
   await page.getByRole('button', { name: 'Edit Leia Organa' }).click();
   await panel.getByRole('checkbox', { name: 'This is me' }).click();
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel).toBeHidden();
+  await page.goto('/settings/people');
   await expect(list.getByRole('listitem').last()).toContainText('you');
 
   await list.getByRole('link', { name: /Han Solo/ }).click();
@@ -182,6 +180,7 @@ test('People: add, mark yourself, edit and remove', async ({
     .getByRole('alertdialog')
     .getByRole('button', { name: 'Remove' })
     .click();
+  await expect(page).toHaveURL(/\/settings\/people$/);
   await expect(list.getByRole('listitem')).toHaveText([/Leia Organa/]);
 
   await expectSaved(page);

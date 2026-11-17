@@ -1,20 +1,29 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { isListDone, previewItems, projectLists } from '#shared/lists';
+import {
+  isListDone,
+  listProgress,
+  previewItems,
+  projectLists,
+} from '#shared/lists';
 import type { List } from '#shared/types';
-import { progressText } from '@/components/lists/ListLayouts';
 import { useListPanel } from '@/components/lists/ListPanelProvider';
 import { type RememberSection, Section } from '@/components/Section';
 import { Button } from '@/components/ui/button';
-import { linkProps } from '@/lib/router';
 import { cn } from '@/lib/utils';
+
+/** "3 of 8", "Done" once every item is, or "No items". */
+function progressText(list: List): string {
+  if (list.items.length === 0) return 'No items';
+  return isListDone(list) ? 'Done' : listProgress(list);
+}
 
 /**
  * A project's lists on its page (#301), in the right column under Notes: a
- * row per list (its title opening its page, its progress and its first
- * open item), the ones in progress first and the done ones last and
- * muted. Add list opens the list panel preset to the project. Rows only:
- * the items stay on the list's page.
+ * row per list (its title opening the list panel, its progress and its
+ * first open item), the ones in progress first and the done ones last and
+ * muted. Add list opens the list panel preset to the project. Lists'
+ * pages went with v2 (#329): #328 made each list a checklist note.
  */
 export function ProjectLists({
   projectId,
@@ -67,12 +76,13 @@ export function ProjectLists({
                   )}
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <a
-                      {...linkProps({ name: 'list', id: list.id })}
-                      className="flex min-h-11 min-w-0 items-center break-words outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7"
+                    <button
+                      type="button"
+                      onClick={() => openPanel({ kind: 'edit', list })}
+                      className="flex min-h-11 min-w-0 items-center text-left break-words outline-ring/50 hover:underline focus-visible:outline-2 desk:min-h-7"
                     >
                       {list.title}
-                    </a>
+                    </button>
                     {next && (
                       <span className="truncate text-xs text-muted-foreground">
                         {next.text}

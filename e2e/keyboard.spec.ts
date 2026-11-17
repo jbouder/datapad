@@ -93,7 +93,7 @@ test('add, move, complete, edit and reorder without the mouse', async ({
   expect(task.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('the Tasks table: j focuses a row, x completes, e opens its page', async ({
+test('the Tasks table: j focuses a row, x completes, e opens its panel', async ({
   page,
 }) => {
   await openLive(page, '/tasks?view=table&group=none&sort=title');
@@ -105,12 +105,17 @@ test('the Tasks table: j focuses a row, x completes, e opens its page', async ({
   await page.keyboard.press('x');
   await expect(page.getByText(/^Closed “/)).toBeVisible();
   const opened = page.locator('tr[data-row-id]').first();
-  const id = await opened.getAttribute('data-row-id');
+  const title = (await opened.locator('[data-task-title]').textContent()) ?? '';
   await opened.focus();
   await page.keyboard.press('e');
-  await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
-  await page.goBack();
-  await expect(page.locator('tr[data-row-id]').first()).toBeVisible();
+  // A task opens in its panel everywhere (#329).
+  const panel = page.getByRole('dialog', { name: 'Task' });
+  await expect(panel.getByRole('textbox', { name: 'Title' })).toHaveValue(
+    title.trim(),
+  );
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(page).toHaveURL(/\/all\?kind=task&/);
 });
 
 test.describe('the shortcut sheet', () => {

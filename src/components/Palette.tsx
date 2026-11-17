@@ -18,6 +18,7 @@ import {
 } from '@phosphor-icons/react';
 import { Command } from 'cmdk';
 import { useMemo, useRef, useState } from 'react';
+import type { AllKind } from '#shared/routes';
 import {
   type SearchHit,
   type SearchKind,
@@ -31,7 +32,7 @@ import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useNewSpace } from '@/components/SpaceSwitcher';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
-import { NAV } from '@/lib/nav';
+import { PLACES } from '@/lib/nav';
 import { boardItemLink, navigate, type Route } from '@/lib/router';
 import { useSpaces } from '@/providers/DatapadProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -45,6 +46,14 @@ const SECTIONS: { kind: SearchKind; heading: string; icon: Icon }[] = [
   { kind: 'org', heading: 'Orgs', icon: BuildingsIcon },
   { kind: 'person', heading: 'People', icon: UserIcon },
   { kind: 'whiteboard', heading: 'Whiteboard', icon: ChalkboardSimpleIcon },
+];
+
+/** ⌘K's Go to for each of All's kinds (#329). */
+const ALL_KINDS_GO: { kind: AllKind; label: string; icon: Icon }[] = [
+  { kind: 'project', label: 'Projects', icon: FolderIcon },
+  { kind: 'task', label: 'Tasks', icon: CheckSquareIcon },
+  { kind: 'note', label: 'Notes', icon: NoteIcon },
+  { kind: 'meeting', label: 'Meetings', icon: CalendarBlankIcon },
 ];
 
 interface Action {
@@ -69,14 +78,11 @@ export function Palette({
   open,
   onOpenChange,
   currentProject,
-  onNewList,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** New task and New note start here. */
   currentProject: string | null;
-  /** New list, offered while the Lists section is shown. */
-  onNewList?: () => void;
 }) {
   const { state } = useDatapad();
   const { openTask, newTask } = useTaskPanels();
@@ -124,16 +130,6 @@ export function Palette({
         icon: PlusIcon,
         run: () => newNote(currentProject),
       },
-      ...(onNewList
-        ? [
-            {
-              id: 'new-list',
-              label: 'New list',
-              icon: PlusIcon,
-              run: onNewList,
-            },
-          ]
-        : []),
       {
         id: 'new-meeting',
         label: 'New meeting',
@@ -146,12 +142,30 @@ export function Palette({
         icon: PlusIcon,
         run: () => openProjectForm(),
       },
-      ...NAV.map((n) => ({
-        id: `go-${n.route.name}`,
+      ...PLACES.map((n) => ({
+        id: `go-${n.name}`,
         label: `Go to ${n.label}`,
         icon: n.icon,
         run: go(n.route),
       })),
+      ...ALL_KINDS_GO.map((n) => ({
+        id: `go-${n.kind}`,
+        label: `Go to ${n.label}`,
+        icon: n.icon,
+        run: go({ name: 'all', kind: n.kind }),
+      })),
+      {
+        id: 'go-people',
+        label: 'Go to People',
+        icon: UserIcon,
+        run: go({ name: 'people' }),
+      },
+      {
+        id: 'go-orgs',
+        label: 'Go to Orgs',
+        icon: BuildingsIcon,
+        run: go({ name: 'orgs' }),
+      },
       {
         // On a project (or its board), its board; anywhere else the space's.
         id: 'whiteboard',
@@ -204,7 +218,6 @@ export function Palette({
     openNewSpace,
     newTask,
     newNote,
-    onNewList,
     currentProject,
     newMeeting,
     openProjectForm,
@@ -231,18 +244,17 @@ export function Palette({
         return choose(() => openTask(id));
       case 'note':
         return choose(() =>
-          state?.notes[id]?.scratch
-            ? navigate({ name: 'notepad' })
-            : navigate({ name: 'notes' }, { query: `note=${id}` }),
+          navigate({ name: 'all', kind: 'note' }, { query: `note=${id}` }),
         );
       case 'meeting':
         return choose(() => navigate({ name: 'meeting', id }));
       case 'list':
-        return choose(() => navigate({ name: 'list', id }));
+        // Lists became notes (#328): All's notes.
+        return choose(() => navigate({ name: 'all', kind: 'note' }));
       case 'org':
         return choose(() => navigate({ name: 'orgs', org: id }));
       case 'person':
-        return choose(() => navigate({ name: 'people', person: id }));
+        return choose(() => navigate({ name: 'person', id }));
       case 'whiteboard': {
         // Its board, with the item selected and centred.
         const item = state?.boardItems[id];

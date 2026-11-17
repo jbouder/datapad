@@ -70,13 +70,11 @@ test('a word from a note body lands on the note', async ({ page }) => {
   await input(page).fill(word);
   const notes = palette(page).getByRole('group', { name: 'Notes' });
   await notes.getByRole('option').first().click();
-  await expect(page).toHaveURL(/\/notes\?note=/);
+  await expect(page).toHaveURL(/\/all\?kind=note&note=/);
   await expect(page.locator('[data-highlighted]')).toContainText(word);
 });
 
-test('archived items are marked; people open their detail', async ({
-  page,
-}) => {
+test('archived items are marked; people open their room', async ({ page }) => {
   await openLive(page);
   await openPalette(page);
   await input(page).fill('yavin');
@@ -92,13 +90,8 @@ test('archived items are marked; people open their detail', async ({
     .getByRole('option')
     .first()
     .click();
-  // A person opens in Settings → People.
-  await expect(page).toHaveURL(/\/settings\/people\/u-chewie$/);
-  await expect(
-    page
-      .getByRole('navigation', { name: 'Settings' })
-      .getByRole('link', { name: 'People' }),
-  ).toHaveAttribute('aria-current', 'page');
+  // A person opens their room.
+  await expect(page).toHaveURL(/\/people\/u-chewie$/);
   await expect(page.locator('[data-person-id="u-chewie"]')).toBeVisible();
 });
 

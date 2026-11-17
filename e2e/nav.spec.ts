@@ -2,13 +2,20 @@ import {
   addFromTopBar,
   addTask,
   expect,
+  expectAccessible,
   isMobile,
   openLive,
   SEED,
   test,
 } from './fixtures';
 
-test('the rail shows live counts, active projects and Archived', async ({
+/**
+ * The v2 shell (#329): the rail (Today, Unfiled, All, then Rooms and the
+ * people who owe you something), the phone's three tabs, and every old
+ * address landing on its new home.
+ */
+
+test('the rail has Today, Unfiled and All, the active projects as rooms, and who owes you', async ({
   page,
   request,
 }) => {
@@ -16,88 +23,166 @@ test('the rail shows live counts, active projects and Archived', async ({
   await request.post('/api/import', { data: SEED });
   await openLive(page, '/');
   const rail = page.getByRole('complementary', { name: 'Datapad' });
+  const places = rail.getByRole('navigation', { name: 'Sections' });
 
-  // Seed: 5 open tasks, none in the archived project. Meetings in the next
-  // week depend on today, so only task counts are asserted.
-  await expect(
-    rail.getByRole('link', { name: /^Focus 5 open$/ }),
-  ).toBeVisible();
-  await expect(
-    rail.getByRole('link', { name: /^Tasks 5 open$/ }),
-  ).toBeVisible();
-  const projects = rail.getByRole('region', { name: 'Active projects' });
-  // Done and archived projects are left out; most recently updated first.
-  await expect(projects.getByRole('link')).toHaveText([
+  // The seed's Ideas note is General and mentions nobody: one unfiled.
+  await expect(places.getByRole('list').first().getByRole('link')).toHaveText([
+    /^Today$/,
+    /^Unfiled\s*1 unfiled$/,
+    /^All$/,
+  ]);
+  await expect(rail.getByRole('link', { name: 'Today' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  // Nothing pinned: the active projects, most recently changed first.
+  const rooms = rail.getByRole('region', { name: 'Rooms' });
+  await expect(rooms.getByRole('link')).toHaveText([
     /Echo Base relocation\s*3 open/,
     /Falcon hyperdrive refit\s*1 open/,
   ]);
-  await expect(rail.getByRole('link', { name: /Archived/ })).toBeVisible();
+  // Leia is you: Chewie's and Han's open tasks are what they owe you.
+  const owed = rail.getByRole('region', { name: 'Waiting on' });
+  await expect(owed.getByRole('link')).toHaveText([
+    /Chewbacca\s*1 waiting/,
+    /Han Solo\s*1 waiting/,
+  ]);
 
-  await projects.getByRole('link', { name: /Echo Base/ }).click();
+  await rooms.getByRole('link', { name: /Echo Base/ }).click();
   await expect(page).toHaveURL(/\/projects\/p-echo$/);
-  await expect(
-    projects.getByRole('link', { name: /Echo Base/ }),
-  ).toHaveAttribute('aria-current', 'page');
-  // A project page belongs to Projects.
-  await expect(rail.getByRole('link', { name: 'Projects' })).toHaveAttribute(
+  await expect(rooms.getByRole('link', { name: /Echo Base/ })).toHaveAttribute(
     'aria-current',
     'page',
   );
   await expect(page).toHaveTitle('Echo Base relocation · Datapad');
 
-  // Counts follow the data.
-  await openLive(page, '/');
-  await addTask(page, 'Count me');
+  await owed.getByRole('link', { name: /Han Solo/ }).click();
+  await expect(page).toHaveURL(/\/people\/u-han$/);
   await expect(
-    rail.getByRole('link', { name: /^Focus 6 open$/ }),
+    page.getByRole('heading', { level: 1, name: 'Han Solo' }),
   ).toBeVisible();
+
+  await places.getByRole('link', { name: 'All' }).click();
+  await expect(page).toHaveURL(/\/all$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'All' }),
+  ).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Kinds' })
+    .getByRole('link', { name: 'Tasks' })
+    .click();
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
+  await expect(places.getByRole('link', { name: 'All' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  // The Unfiled count follows the data.
+  await places.getByRole('link', { name: /Unfiled/ }).click();
+  await expect(page).toHaveURL(/\/unfiled$/);
+  await expect(
+    page.getByRole('list', { name: 'Unfiled notes' }).getByRole('listitem'),
+  ).toHaveCount(1);
+  await expectAccessible(page);
 });
 
-test('the tab bar navigates on a phone and marks the current section', async ({
+test('a phone has three tabs, Today, Unfiled and All, each a 44px target', async ({
   page,
 }) => {
   test.skip(!isMobile(page), 'The tab bar is for phones.');
   await page.goto('/');
   const tabs = page.getByRole('navigation', { name: 'Sections' }).last();
   await expect(tabs).toBeVisible();
-  await expect(tabs.getByRole('link', { name: 'Focus' })).toHaveAttribute(
+  await expect(tabs.getByRole('link')).toHaveText(['Today', 'Unfiled', 'All']);
+  await expect(tabs.getByRole('link', { name: 'Today' })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await tabs.getByRole('link', { name: 'Tasks' }).click();
-  await expect(page).toHaveURL(/\/tasks$/);
+  for (const link of await tabs.getByRole('link').all()) {
+    const box = await link.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+  await tabs.getByRole('link', { name: 'All' }).click();
+  await expect(page).toHaveURL(/\/all$/);
+  await expect(tabs.getByRole('link', { name: 'All' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await tabs.getByRole('link', { name: 'Unfiled' }).click();
+  await expect(page).toHaveURL(/\/unfiled$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Tasks' }),
+    page.getByRole('heading', { level: 1, name: 'Unfiled' }),
   ).toBeVisible();
-  await expect(tabs.getByRole('link', { name: 'Tasks' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expectAccessible(page);
 });
 
-test('/ is Focus, and every section has its route', async ({ page }) => {
-  // The old /focus address lands on /.
-  await page.goto('/focus');
-  await expect(page).toHaveURL(/localhost:\d+\/$/);
+test('old addresses land on their new homes', async ({ page, request }) => {
+  await request.post('/api/import', { data: SEED });
+  // Focus and the digest are Today.
+  for (const path of ['/focus', '/digest']) {
+    await openLive(page, path);
+    await expect(page).toHaveURL(/localhost:\d+\/$/);
+  }
+  // The Notepad is Unfiled.
+  await page.goto('/notepad');
+  await expect(page).toHaveURL(/\/unfiled$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Focus' }),
+    page.getByRole('heading', { level: 1, name: 'Unfiled' }),
   ).toBeVisible();
-  for (const [path, heading] of [
-    ['/projects', 'Projects'],
-    ['/archive', 'Archived'],
-    ['/tasks', 'Tasks'],
-    ['/notes', 'Notes'],
-    ['/meetings', 'Meetings'],
-  ]) {
+  // The list pages are All, by kind, their filters kept.
+  for (const [path, url, heading] of [
+    ['/projects', /\/all\?kind=project$/, 'Projects'],
+    ['/archive', /\/all\?kind=project&archived=1$/, 'Archived'],
+    ['/tasks?who=mine', /\/all\?kind=task&who=mine$/, 'Tasks'],
+    ['/notes', /\/all\?kind=note$/, 'Notes'],
+    ['/meetings', /\/all\?kind=meeting$/, 'Meetings'],
+    ['/lists/l-evac', /\/all\?kind=note$/, 'Notes'],
+  ] as const) {
     await page.goto(path);
+    await expect(page).toHaveURL(url);
     await expect(
       page.getByRole('heading', { level: 1, name: heading }),
     ).toBeVisible();
     await expect(page).toHaveTitle(`${heading} · Datapad`);
   }
+  // A person under Settings is their room.
+  await page.goto('/settings/people/u-chewie');
+  await expect(page).toHaveURL(/\/people\/u-chewie$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Chewbacca' }),
+  ).toBeVisible();
 });
 
-test('Decisions are retired: their address is Focus and kept ones show nowhere', async ({
+test('a task’s old page is its project’s room, with the task’s panel open', async ({
+  page,
+  request,
+}) => {
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/tasks/t-2');
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  const panel = page.getByRole('dialog', { name: 'Task' });
+  await expect(panel.getByRole('textbox', { name: 'Title' })).toHaveValue(
+    'Insulate the hangar doors',
+  );
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Echo Base relocation' }),
+  ).toBeVisible();
+
+  // A General task's room is Today; a task that is gone is Not found.
+  await page.goto('/tasks/t-6');
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
+  await expect(page.getByRole('dialog', { name: 'Task' })).toBeVisible();
+  await page.goto('/tasks/nope');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Not found' }),
+  ).toBeVisible();
+});
+
+test('Decisions are retired: their address is Today and kept ones show nowhere', async ({
   page,
   request,
 }) => {
@@ -120,9 +205,6 @@ test('Decisions are retired: their address is Focus and kept ones show nowhere',
   for (const path of ['/decisions', '/decisions/d-1?project=p-echo']) {
     await openLive(page, path);
     await expect(page).toHaveURL(/localhost:\d+\/$/);
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Focus' }),
-    ).toBeVisible();
   }
   await expect(page.getByRole('link', { name: /Decisions/ })).toHaveCount(0);
 
@@ -136,10 +218,6 @@ test('Decisions are retired: their address is Focus and kept ones show nowhere',
   const palette = page.getByRole('dialog', { name: 'Search' });
   await palette.getByRole('combobox').fill('Zebra');
   await expect(palette).toContainText('Nothing matches');
-  await palette.getByRole('combobox').fill('Decisions');
-  await expect(
-    palette.getByRole('option', { name: /Go to Decisions/ }),
-  ).toHaveCount(0);
 
   // The data is kept.
   const data = await (await request.get('/api/export.json')).json();
@@ -153,13 +231,15 @@ test('an unknown project or path says Not found, with a way back', async ({
   await expect(
     page.getByRole('heading', { level: 1, name: 'Not found' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Back to Projects' }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await page.getByRole('link', { name: 'Go to All' }).click();
+  await expect(page).toHaveURL(/\/all\?kind=project$/);
 
   await page.goto('/no/such/page');
   await expect(
     page.getByRole('heading', { level: 1, name: 'Not found' }),
   ).toBeVisible();
+  await page.getByRole('link', { name: 'Go to Today' }).click();
+  await expect(page).toHaveURL(/localhost:\d+\/$/);
 });
 
 test('tab order is rail, then top bar, then main', async ({ page }) => {
@@ -185,52 +265,39 @@ test('tab order is rail, then top bar, then main', async ({ page }) => {
   expect(first('top')).toBeLessThan(first('main'));
 });
 
-test('the + button is “Add task” and opens the new-task panel', async ({
+test('+ offers Add task, Write a note, Add meeting and Add project', async ({
   page,
 }) => {
   await page.goto('/help');
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Add', exact: true })
+    .click();
+  await expect(page.getByRole('menuitem')).toHaveText([
+    /Add task/,
+    /Write a note/,
+    /Add meeting/,
+    /Add project/,
+  ]);
+  await page.keyboard.press('Escape');
   await addFromTopBar(page, 'Add task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('textbox', { name: 'Title' })).toBeFocused();
 });
 
-test('sections run Focus, Projects, Tasks, Meetings, Notes, Lists (off the phone), People and Orgs, then the Tools (all off the phone)', async ({
-  page,
-}) => {
-  await page.goto('/');
-  const nav = page
-    .getByRole('navigation', { name: 'Sections' })
-    .filter({ visible: true })
-    .first();
-  await expect(nav.getByRole('link')).toHaveText([
-    /Focus/,
-    /Projects/,
-    /Tasks/,
-    /Meetings/,
-    /Notes/,
-    // Lists (#299), People and Orgs (Settings sections, #159) and the
-    // tools (#261) follow in the rail, off the phone's tab bar (the
-    // account menu has them there).
-    ...(isMobile(page)
-      ? []
-      : [/Lists/, /People/, /Orgs/, /Notepad/, /Whiteboard/, /Weekly digest/]),
-  ]);
-  if (!isMobile(page)) {
-    // People leads to Settings → People, current in the rail.
-    await nav.getByRole('link', { name: 'People' }).click();
-    await expect(page).toHaveURL(/\/settings\/people$/);
-    await expect(nav.getByRole('link', { name: 'People' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-  }
-  if (isMobile(page)) {
-    // Five tabs, each at least 44px square.
-    for (const link of await nav.getByRole('link').all()) {
-      const box = await link.boundingBox();
-      expect(box?.width).toBeGreaterThanOrEqual(44);
-      expect(box?.height).toBeGreaterThanOrEqual(44);
-    }
-  }
+test('the rail’s counts follow the data', async ({ page, request }) => {
+  test.skip(isMobile(page), 'The rail is desktop only.');
+  await request.post('/api/import', { data: SEED });
+  await openLive(page, '/projects/p-falcon');
+  const rooms = page
+    .getByRole('complementary', { name: 'Datapad' })
+    .getByRole('region', { name: 'Rooms' });
+  await expect(rooms.getByRole('link', { name: /Falcon/ })).toHaveText(
+    /1 open/,
+  );
+  await addTask(page, 'Count me');
+  await expect(rooms.getByRole('link', { name: /Falcon/ })).toHaveText(
+    /2 open/,
+  );
 });

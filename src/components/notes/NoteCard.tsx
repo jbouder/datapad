@@ -123,7 +123,7 @@ export function NoteCard({
         if (target.closest('a, button, input, textarea, label')) return;
         if (!document.getSelection()?.isCollapsed) return;
         // The Notepad's card opens the Notepad (#261).
-        if (note.scratch) navigate({ name: 'notepad' });
+        if (note.scratch) navigate({ name: 'unfiled' });
         else expand.toggle();
       }}
     >
@@ -153,7 +153,7 @@ export function NoteCard({
           )}
           {expand && note.scratch ? (
             <a
-              {...linkProps({ name: 'notepad' })}
+              {...linkProps({ name: 'unfiled' })}
               title="Open the Notepad"
               className={cn(
                 buttonVariants({ variant: 'ghost', size: 'icon-sm' }),

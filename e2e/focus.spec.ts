@@ -121,7 +121,7 @@ test('group headers link to the person, the project and the meeting', async ({
     .locator('[data-waiting="u-leia"]')
     .getByRole('link', { name: 'Leia Organa' })
     .click();
-  await expect(page).toHaveURL(/\/settings\/people\/u-leia$/);
+  await expect(page).toHaveURL(/\/people\/u-leia$/);
   await openLive(page);
   await page
     .locator('[data-attention="p-endor"]')

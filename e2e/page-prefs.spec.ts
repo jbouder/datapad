@@ -102,7 +102,7 @@ test('a change saves itself and comes back on reload and another device', async 
   await expect(
     layout(page).getByRole('radio', { name: 'Board' }),
   ).toBeChecked();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
   await page.reload();
   await expectGroupBy(page, 'Due date');
 
@@ -145,7 +145,7 @@ test('the address wins; the search text is never saved', async ({
   await expectGroupBy(page, 'Due date');
   await chooseFilter(page, 'Group by', 'Project');
   await expectGroupBy(page, 'Project');
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/all\?kind=task$/);
   // Back: the grouping the page opened with.
   await page.goBack();
   await expectGroupBy(page, 'Due date');
@@ -177,7 +177,7 @@ test('Back returns to what the page showed before a change', async ({
   await expect(show.getByRole('radio', { name: 'Pinned' })).toBeChecked();
   await show.locator('label', { hasText: 'All' }).click();
   await expect(show.getByRole('radio', { name: 'All' })).toBeChecked();
-  await expect(page).toHaveURL(/\/notes$/);
+  await expect(page).toHaveURL(/\/all\?kind=note$/);
   await closeFilters(page);
   await page.goBack();
   show = (await openFilters(page)).getByRole('group', { name: 'Show' });

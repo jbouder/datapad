@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
 import { migrate, migrateFormat3 } from './migrate';
-import { NAV_SECTION_NAMES, NAV_TOOLS, QUICK_ADD_ACTIONS } from './nav';
 import {
   type Activity,
   BOARD_COLORS,
@@ -360,9 +359,33 @@ export const ActivitySchema = z.object({
 }) satisfies z.ZodType<Activity, unknown>;
 
 /**
- * A `setNav` op's names: the sections, and the Whiteboard, a section until
- * #261, so an older client's change still applies (the readers ignore it).
+ * Navigation preferences from before v2 (#187), retired in #329: an older
+ * client's `setNav` still reduces, and an older export still imports, but
+ * nothing reads them. These are the names those clients could send: the
+ * sections (the Whiteboard was one until #261), the tools (#261) and the
+ * + menu's actions (#201).
  */
+const NAV_SECTION_NAMES = [
+  'focus',
+  'projects',
+  'tasks',
+  'meetings',
+  'notes',
+  'lists',
+  'people',
+  'orgs',
+  'whiteboard',
+] as const;
+const NAV_TOOLS = ['notepad', 'whiteboard', 'digest'] as const;
+const QUICK_ADD_ACTIONS = [
+  'task',
+  'note',
+  'list',
+  'meeting',
+  'project',
+] as const;
+
+/** A `setNav` op's names. */
 const sectionNames = z
   .array(z.enum(NAV_SECTION_NAMES))
   .max(NAV_SECTION_NAMES.length);
@@ -394,6 +417,21 @@ const NavPrefsSchema = z.object({
     .optional(),
   quickAdd: QuickAddPrefsSchema.optional(),
 });
+
+/**
+ * The pinned rooms (#329): each a project id, a person id, or the two
+ * joined by `+` (`shared/rooms.ts`), each once. One that names nothing
+ * (a deleted project) is skipped when read, not refused.
+ */
+const pinnedRooms = z
+  .array(
+    z
+      .string()
+      .min(1)
+      .max(LIMITS.idMax * 2 + 1),
+  )
+  .max(LIMITS.pinnedMax)
+  .refine((keys) => new Set(keys).size === keys.length, 'Each room once');
 
 /* ---------- page preferences (#186) ---------- */
 
@@ -486,6 +524,7 @@ export const SettingsSchema = z.object({
   assignToMe: z.boolean().optional(),
   defaultPriority: priority.optional(),
   nav: NavPrefsSchema.optional(),
+  pinned: pinnedRooms.optional(),
   pages: PagesSchema.optional(),
 }) satisfies z.ZodType<Settings, unknown>;
 
@@ -1374,6 +1413,8 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       defaultOrg: z.string().trim().max(LIMITS.nameMax),
       assignToMe: z.boolean(),
       defaultPriority: priority,
+      /** The pinned rooms, whole, in order (#329). */
+      pinned: pinnedRooms,
     }),
   }),
   /** Navigation preferences; `null` clears a key (all six: the default). */

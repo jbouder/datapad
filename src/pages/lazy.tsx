@@ -47,17 +47,8 @@ function lazyPage<P extends object>(
   return Object.assign(Page, { preload });
 }
 
-export const DigestPage = lazyPage(() =>
-  import('@/pages/DigestPage').then((m) => m.DigestPage),
-);
 export const HelpPage = lazyPage(() =>
   import('@/pages/HelpPage').then((m) => m.HelpPage),
-);
-export const ListPage = lazyPage(() =>
-  import('@/pages/ListPage').then((m) => m.ListPage),
-);
-export const ListsPage = lazyPage(() =>
-  import('@/pages/ListsPage').then((m) => m.ListsPage),
 );
 /**
  * Not a page: the project page's Lists section (#301), kept out of the
@@ -72,9 +63,6 @@ export const MeetingPage = lazyPage(() =>
 export const SettingsPage = lazyPage(() =>
   import('@/pages/SettingsPage').then((m) => m.SettingsPage),
 );
-export const TaskPage = lazyPage(() =>
-  import('@/pages/TaskPage').then((m) => m.TaskPage),
-);
 export const WhiteboardPage = lazyPage(() =>
   import('@/pages/WhiteboardPage').then((m) => m.WhiteboardPage),
 );
@@ -82,16 +70,12 @@ export const WhiteboardPage = lazyPage(() =>
 const LAZY: Partial<
   Record<Route['name'], { preload: () => Promise<unknown> }>
 > = {
-  digest: DigestPage,
   help: HelpPage,
-  list: ListPage,
-  lists: ListsPage,
   meeting: MeetingPage,
   project: ProjectLists,
   settings: SettingsPage,
   people: SettingsPage,
   orgs: SettingsPage,
-  task: TaskPage,
   whiteboard: WhiteboardPage,
 };
 

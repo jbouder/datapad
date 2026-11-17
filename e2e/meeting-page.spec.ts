@@ -60,13 +60,11 @@ test('a meeting’s page: its facts, agenda, topics and notes', async ({
   await expect(
     main.getByRole('heading', { level: 1, name: 'Shield review' }),
   ).toBeVisible();
-  // Under Meetings in the nav.
+  // In none of the places (Today, Unfiled, All) in the nav (#329).
   const nav = isMobile(page)
     ? page.getByRole('navigation', { name: 'Sections' })
     : page.getByRole('complementary', { name: 'Datapad' });
-  await expect(
-    nav.getByRole('link', { name: /^Meetings/ }).first(),
-  ).toHaveAttribute('aria-current', 'page');
+  await expect(nav.locator('[aria-current="page"]')).toHaveCount(0);
 
   await expect(
     main.getByRole('link', { name: 'Echo Base relocation' }),
@@ -96,7 +94,7 @@ test('a meeting’s page: its facts, agenda, topics and notes', async ({
 
   // Back returns to the list.
   await page.goBack();
-  await expect(page).toHaveURL(/\/meetings$/);
+  await expect(page).toHaveURL(/\/all\?kind=meeting$/);
   await expect(
     page.getByRole('heading', { level: 1, name: 'Meetings' }),
   ).toBeVisible();
@@ -167,7 +165,7 @@ test('Edit opens the panel; Delete asks, keeps the notes, goes to Meetings', asy
   await expect(ask).toContainText('Its note is kept.');
   await expect(ask.getByRole('button', { name: 'Keep it' })).toBeFocused();
   await ask.getByRole('button', { name: 'Delete meeting' }).click();
-  await expect(page).toHaveURL(/\/meetings$/);
+  await expect(page).toHaveURL(/\/all\?kind=meeting$/);
   await expect(
     page.getByText('Deleted “Shield and ridge review”'),
   ).toBeVisible();
@@ -185,7 +183,7 @@ test('a meeting that is not there says so', async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText('There is no meeting here.')).toBeVisible();
   await page.getByRole('link', { name: 'Back to Meetings' }).click();
-  await expect(page).toHaveURL(/\/meetings$/);
+  await expect(page).toHaveURL(/\/all\?kind=meeting$/);
 });
 
 test('search opens a meeting’s page', async ({ page }) => {

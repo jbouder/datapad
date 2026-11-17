@@ -261,10 +261,6 @@ test('Settings picks the model and removes the download', async ({ page }) => {
  */
 async function summarizeOffers(page: Page): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
-  const summarize = page.getByRole('button', {
-    name: 'Summarize',
-    exact: true,
-  });
 
   const inMore = async () =>
     (await moreActions(page)).filter((n) => n === 'Summarize').length;
@@ -278,9 +274,6 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
     .getByRole('button', { name: 'Summarize', exact: true })
     .count();
   await page.keyboard.press('Escape');
-
-  await openLive(page, '/tasks/t-2');
-  counts.taskPage = await inMore();
 
   await openLive(page, '/meetings/e-1');
   counts.meetingPage = await inMore();
@@ -309,9 +302,6 @@ async function summarizeOffers(page: Page): Promise<Record<string, number>> {
     .getByRole('menuitem', { name: 'Summarize' })
     .count();
   await page.keyboard.press('Escape');
-
-  await openLive(page, '/digest');
-  counts.digest = await summarize.count();
   return counts;
 }
 

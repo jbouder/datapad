@@ -199,12 +199,11 @@ test('a thousand tasks render promptly', async ({ page, request }) => {
   await request.post('/api/import', {
     data: { ...SEED, tasks: { ...SEED.tasks, ...tasks } },
   });
-  await openLive(page, '/settings');
+  await openLive(page, '/all');
   const started = Date.now();
   await page
-    .getByRole('link', { name: /^Tasks/ })
-    .filter({ visible: true })
-    .first()
+    .getByRole('navigation', { name: 'Kinds' })
+    .getByRole('link', { name: 'Tasks' })
     .click();
   await expect(
     page.locator('[data-task-title]').filter({ visible: true }).first(),

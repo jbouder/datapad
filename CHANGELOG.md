@@ -46,19 +46,45 @@ changes the format says so here under **Export format**.
   can be added to People. Enter saves with Undo, Esc clears, Tab or the
   kind chip changes the kind, and Shift+Enter or the expand button opens
   the full note composer. `n` goes to it.
+- **The v2 shell** (#329): the rail has Today, Unfiled (with its count)
+  and All, then Rooms: the rooms you pin, or the active projects until
+  you pin one, then the people who owe you something. A phone's tab bar
+  has Today, Unfiled and All. **Pin** in a project's or a person's
+  header puts it in the rail; Settings → Rooms orders and unpins them.
+  A person has a room of their own at `/people/:id`. Until the pages
+  that follow arrive, Today shows Focus, Unfiled lists the notes with no
+  home, and All shows Projects, Tasks, Notes and Meetings by kind.
 
 ### Changed
 
+- Every old address lands on its new home: `/focus` and `/digest` on
+  Today, `/notepad` on Unfiled, `/projects`, `/tasks`, `/notes`,
+  `/meetings` and `/archive` on All with that kind (filters kept),
+  `/lists` on All's notes, `/tasks/:id` on the task's project with its
+  panel open, and `/settings/people/:id` on the person's room. A task
+  opens in its panel everywhere.
+- The top bar's + offers Add task, Write a note, Add meeting and Add
+  project. New list is gone from +, ⌘K and Shift+L, and the Lists,
+  Notepad, Weekly digest and task pages are gone, as lists and the
+  Notepad became notes.
+- The phone's tab bar is opaque, so its labels keep their contrast over
+  whatever scrolls under it.
 - New tasks start at Medium priority instead of none.
 - `n` goes to the capture line where there is one (elsewhere it still
   opens the new-task panel). Shift+N and Shift+L are gone: write a note
-  or start a list from + or ⌘K. The + menu no longer shows shortcuts.
+  from + or ⌘K. The + menu no longer shows shortcuts.
 
 - The components in `src/components/ui` now come from the
   [Beskar](https://github.com/jbouder/beskar) registry in place of stock
   shadcn. Nothing looks different. Combobox buttons gain accessible names,
   and calendar days are named with the full date ("Sunday, November 1,
   2026").
+
+### Removed
+
+- Settings → Navigation. Pinned rooms are the only navigation setting.
+  Saved navigation preferences are kept and ignored, and an export that
+  has them still imports.
 
 ### Export format
 
@@ -73,6 +99,10 @@ changes the format says so here under **Export format**.
   `scratch` is cleared. `lists` is still written and read; a format 3
   file's lists are not migrated again. A Datapad that reads up to 2
   refuses a format 3 file.
+- `settings.user` may carry `pinned` (#329): the pinned rooms in order,
+  each a project id, a person id or `<projectId>+<personId>`, each once,
+  at most 50. Absent until something is pinned. `settings.user.nav` is
+  kept as it was and no longer read.
 
 ## [1.0.0] — 2026-11-06
 

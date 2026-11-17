@@ -6,13 +6,14 @@ import { expect, expectNoSidewaysScroll, test } from './fixtures';
  */
 const ROUTES = [
   '/',
-  '/projects',
-  '/tasks',
-  '/notes',
-  '/notepad',
-  '/meetings',
-  '/digest',
+  '/unfiled',
+  '/all',
+  '/all?kind=project',
+  '/all?kind=task',
+  '/all?kind=note',
+  '/all?kind=meeting',
   '/settings/people',
+  '/settings/rooms',
   '/settings/data',
   '/help',
 ];
@@ -33,7 +34,7 @@ for (const width of [320, 1280]) {
         const rail = page.getByRole('complementary', { name: 'Datapad' });
         const tabs = page
           .getByRole('navigation', { name: 'Sections' })
-          .filter({ has: page.getByRole('link', { name: 'Meetings' }) })
+          .filter({ has: page.getByRole('link', { name: 'Unfiled' }) })
           .last();
         if (width >= 820) {
           await expect(rail).toBeVisible();
@@ -60,7 +61,7 @@ test.describe('on a phone', () => {
     const controls = [
       banner.getByRole('button', { name: 'Account and settings' }),
       banner.getByRole('button', { name: 'Add', exact: true }),
-      ...['Focus', 'Projects', 'Tasks', 'Meetings', 'Notes'].map((name) =>
+      ...['Today', 'Unfiled', 'All'].map((name) =>
         page
           .getByRole('navigation', { name: 'Sections' })
           .last()

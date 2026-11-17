@@ -88,7 +88,7 @@ export function NoteChips({
             {...linkProps(
               project && !note.scratch
                 ? { name: 'project', id: project.id }
-                : { name: 'notepad' },
+                : { name: 'unfiled' },
             )}
             className="border px-1.5 py-0.5 text-foreground hover:bg-accent"
           >
