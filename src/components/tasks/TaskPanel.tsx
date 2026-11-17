@@ -186,9 +186,9 @@ export function TaskPanel({
     const deleted = task;
     if (!actions.deleteTask({ id: task.id })) return;
     onClose();
-    // Undo puts the very same document back: same id, same order.
+    // Undo puts it back, checked: same id, same order, nothing dangling.
     show(`Deleted “${deleted.title}”`, () => {
-      actions.put({ col: 'tasks', doc: deleted });
+      actions.restoreTask({ task: deleted });
     });
   };
 

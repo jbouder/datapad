@@ -1,4 +1,4 @@
-import { expect, expectNoSidewaysScroll, test } from './fixtures';
+import { expect, expectNoSidewaysScroll, SEED, test } from './fixtures';
 
 /**
  * WCAG 1.4.10 Reflow and the phone layout. 320px is a 1280px window at
@@ -75,6 +75,14 @@ test.describe('on a phone', () => {
       expect(box?.height ?? 0, String(control)).toBeGreaterThanOrEqual(44);
       expect(box?.width ?? 0, String(control)).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  test('open loops are 44px tall', async ({ page, request }) => {
+    await request.post('/api/import', { data: SEED });
+    await page.goto('/');
+    const loop = page.locator('[data-loop] [data-task-title]').first();
+    await expect(loop).toBeVisible();
+    expect((await loop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   });
 
   test('the preferences menu fits on screen', async ({ page }) => {
