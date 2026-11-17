@@ -202,7 +202,10 @@ export function RecapSection({
             {grouped(recap.notes, 'Notes written', (n) => (
               <li key={n.id} data-recap-note={n.id} className={ROW}>
                 <a
-                  {...linkProps({ name: 'all', kind: 'note' }, `note=${n.id}`)}
+                  {...linkProps(
+                    { name: 'all', kinds: ['note'] },
+                    `note=${n.id}`,
+                  )}
                   className={`${LINK} flex min-h-11 min-w-0 flex-1 items-center desk:min-h-0`}
                 >
                   <span className="truncate">
