@@ -110,12 +110,12 @@ for (const theme of CHECKED) {
       await expectAccessible(page);
     });
 
-    test('People with a person selected', async ({ page, request }) => {
+    test('A person’s room', async ({ page, request }) => {
       const seed = structuredClone(SEED);
       seed.notes['n-1'].body = 'Ask @{u-han} about the hyperdrive';
       await request.post('/api/import', { data: seed });
       await page.goto('/people/u-han');
-      await expect(page.locator('[data-person-id="u-han"]')).toBeVisible();
+      await expect(page.getByRole('list', { name: 'You owe' })).toBeVisible();
       await expectAccessible(page);
     });
 

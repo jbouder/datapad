@@ -4,6 +4,13 @@ import {
   buildStream,
   meetingTouches,
   noteTouches,
+  personKeep,
+  personLanes,
+  personOrgs,
+  personProjects,
+  personStateLine,
+  personStream,
+  personTopics,
   projectKeep,
   projectStateLine,
   projectStream,
@@ -254,5 +261,137 @@ describe('a project room’s state line', () => {
     expect(projectStateLine(project('p'), 0, '2026-11-17', day)).toEqual([
       'Nothing open',
     ]);
+  });
+});
+
+/** The seed with a person room's worth: Han across two projects. */
+function hanSeed(): Snapshot {
+  const s = seed();
+  s.projects.q = project('q', { name: 'Falcon', org: 'Corellia' });
+  s.projects.p = { ...(s.projects.p as Project), org: 'Rebels' };
+  s.projects.z = project('z', { name: 'Yavin', archived: true });
+  Object.assign(s.tasks, {
+    // You owe: yours, and it mentions Han.
+    't-mine': task('t-mine', { assignee: 'me', desc: 'ask @{han}' }),
+    // They owe you: blocked on Han, though assigned to you.
+    't-blocked': task('t-blocked', {
+      assignee: 'me',
+      blocked: { on: 'han', note: '' },
+    }),
+    // To discuss.
+    't-decide': task('t-decide', { decide: true, desc: '@{han}' }),
+    // Another person's, mentioning Han: it waits on Chewie.
+    't-chewie-han': task('t-chewie-han', {
+      assignee: 'chewie',
+      desc: '@{han}',
+    }),
+    // Not Han's at all.
+    't-plain': task('t-plain', { assignee: 'me' }),
+    // In an archived project: not open.
+    't-yavin': task('t-yavin', { projectId: 'z', assignee: 'han' }),
+  });
+  s.notes['n-q'] = note('n-q', { projectId: 'q', body: '@{han} refit' });
+  s.meetings['m-ahead'] = meeting('m-ahead', {
+    projectId: 'q',
+    attendees: ['me', 'han'],
+    date: '2026-11-20',
+    time: '10:00',
+    topics: [
+      { id: 'a', title: 'Motivator', done: false, outcome: '' },
+      { id: 'b', title: 'Old', done: true, outcome: 'Fine' },
+    ],
+  });
+  s.meetings['m-soon'] = meeting('m-soon', {
+    projectId: null,
+    attendees: ['han'],
+    date: '2026-11-18',
+    topics: [{ id: 'c', title: 'Career', done: false, outcome: '' }],
+  });
+  s.meetings['m-gone'] = meeting('m-gone', {
+    attendees: ['han'],
+    date: '2026-11-17',
+    time: '08:00',
+    end: '08:30',
+    topics: [{ id: 'd', title: 'Held', done: false, outcome: '' }],
+  });
+  return s;
+}
+
+describe('a person’s room', () => {
+  const ids = (tasks: Task[]) => tasks.map((t) => t.id).sort();
+
+  it('splits their loops into You owe, They owe you and To discuss', () => {
+    const lanes = personLanes(hanSeed(), 'me', 'han');
+    expect(ids(lanes.mine)).toEqual(['t-mine']);
+    expect(lanes.waiting.map((g) => g.personId)).toEqual(['han', 'chewie']);
+    expect(ids(lanes.waiting[0]?.tasks ?? [])).toEqual([
+      't-blocked',
+      't-han',
+      't-other',
+    ]);
+    expect(ids(lanes.decide)).toEqual(['t-decide']);
+  });
+
+  it('narrowed to a project, keeps what the project room narrowed to them keeps', () => {
+    const state = hanSeed();
+    for (const project of ['p', 'q']) {
+      const person = lanesOf(state, 'me', personKeep('han', project));
+      const room = lanesOf(state, 'me', projectKeep(project, 'han'));
+      expect(person).toEqual(room);
+      expect(personStream(state, 'han', project)).toEqual(
+        projectStream(state, project, 'han'),
+      );
+    }
+    const q = personLanes(state, 'me', 'han', 'q');
+    expect(ids(q.waiting[0]?.tasks ?? [])).toEqual(['t-other']);
+  });
+
+  it('streams notes that mention them, tasks that touch them, meetings they attend', () => {
+    const keys = personStream(hanSeed(), 'han', null, new Set(['n-q'])).map(
+      (i) => i.key,
+    );
+    expect(keys).toContain('note:n-han');
+    expect(keys).not.toContain('note:n-q');
+    expect(keys).not.toContain('note:n-plain');
+    expect(keys).toContain('added:t-other');
+    expect(keys).toContain('added:t-blocked');
+    expect(keys).not.toContain('added:t-plain');
+    expect(keys).toContain('meeting:m-ahead');
+    expect(keys).not.toContain('meeting:m-leia');
+    expect(keys.some((k) => k.startsWith('milestone:'))).toBe(false);
+  });
+
+  it('lists the open topics of meetings ahead with them, soonest first', () => {
+    const topics = (project?: string) =>
+      personTopics(hanSeed(), 'han', '2026-11-17', '09:00', project).map(
+        (t) => t.topic.title,
+      );
+    expect(topics()).toEqual(['Career', 'Motivator']);
+    expect(topics('q')).toEqual(['Motivator']);
+  });
+
+  it('offers their projects: members first, then the rest they touch, never archived', () => {
+    expect(personProjects(hanSeed(), 'han').map((p) => p.id)).toEqual([
+      'p',
+      'q',
+    ]);
+    expect(personProjects(hanSeed(), 'mon').map((p) => p.id)).toEqual(['p']);
+    expect(personOrgs(personProjects(hanSeed(), 'han'))).toEqual([
+      'Corellia',
+      'Rebels',
+    ]);
+  });
+
+  it('says role, projects and what is open', () => {
+    expect(personStateLine({ role: 'Captain' }, 2, 3)).toEqual([
+      'Captain',
+      '2 projects',
+      '3 open',
+    ]);
+    expect(personStateLine({ role: ' ' }, 1, 0)).toEqual([
+      '1 project',
+      'Nothing open',
+    ]);
+    expect(personStateLine({ role: '' }, 0, 1)[0]).toBe('No projects');
   });
 });

@@ -12,7 +12,7 @@ import {
 /** A task's row in the room's Open loops lanes. */
 const row = (page: Page, title: string) =>
   page.locator('[data-loop]').filter({ hasText: title });
-/** A task's full row (a person's page), which has the inline popovers. */
+/** A task's full row (All's List), which has the inline popovers. */
 const listRow = (page: Page, title: string) =>
   page.locator('[data-task-id]').filter({ hasText: title });
 const lanes = (page: Page) =>
@@ -173,7 +173,7 @@ test('the panel keeps your typing when the task changes elsewhere', async ({
   await title.fill('Typed here');
 
   const other = await context.newPage();
-  await openLive(other, '/people/u-chewie');
+  await openLive(other, '/all?kind=task&view=list&person=u-chewie');
   await listRow(other, 'Insulate the hangar doors')
     .getByRole('button', { name: /^Priority/ })
     .click();

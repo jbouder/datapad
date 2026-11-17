@@ -1,7 +1,12 @@
 import { XIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { addDays, formatTimeRange, longDay } from '#shared/dates';
-import { type Meeting, type Person, topicsOf } from '#shared/types';
+import {
+  type Meeting,
+  type Person,
+  type Project,
+  topicsOf,
+} from '#shared/types';
 import { buttonVariants } from '@/components/ui/button';
 import type { useClock } from '@/hooks/useClock';
 import { linkProps, type Route } from '@/lib/router';
@@ -57,6 +62,7 @@ export function RoomHeader({
   titleId,
   kicker,
   title,
+  titleEnd,
   stateLine,
   summary,
   actions,
@@ -64,6 +70,8 @@ export function RoomHeader({
   titleId: string;
   kicker: ReactNode;
   title: string;
+  /** After the name, inside the `<h1>` (the person's "you" tag). */
+  titleEnd?: ReactNode;
   stateLine: readonly string[];
   summary?: ReactNode;
   actions?: ReactNode;
@@ -73,8 +81,15 @@ export function RoomHeader({
       <div className="flex flex-col gap-3 desk:flex-row desk:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm text-muted-foreground">{kicker}</p>
-          <h1 id={titleId} className="text-page-title">
+          <h1
+            id={titleId}
+            className={cn(
+              'text-page-title',
+              titleEnd && 'flex flex-wrap items-center gap-2',
+            )}
+          >
             {title}
+            {titleEnd}
           </h1>
           <p data-state-line className="text-sm text-muted-foreground">
             {stateLine.join(' · ')}
@@ -87,46 +102,55 @@ export function RoomHeader({
   );
 }
 
+/** One chip in a room's filter. */
+interface FilterChip {
+  id: string;
+  name: string;
+  /** Read after the name by screen readers only (" (you)"). */
+  srSuffix?: string;
+}
+
 /**
- * The people a room can be narrowed to, as chips: picking one narrows it
- * to what touches them (the address holds it), picking it again or
- * Clear shows everyone. Each chip is a link, so a narrowed room can be
- * opened in a new tab and its address kept.
+ * Chips that narrow a room (the address holds the pick): picking one
+ * narrows it, picking it again or Clear shows everything. Each chip is
+ * a link, so a narrowed room can be opened in a new tab and its address
+ * kept. `chipAttr` names the data attribute each chip carries.
  */
-export function PersonFilter({
-  people,
+function ChipFilter({
+  chips,
   selected,
   hrefFor,
-  label = 'Narrow to a person',
+  label,
+  chipAttr,
 }: {
-  people: readonly Person[];
+  chips: readonly FilterChip[];
   selected: string | null;
-  /** The address with `person` picked, or with no one for null. */
-  hrefFor: (person: string | null) => { route: Route; query: string };
-  label?: string;
+  hrefFor: (id: string | null) => { route: Route; query: string };
+  label: string;
+  chipAttr: 'data-person-chip' | 'data-project-chip';
 }) {
-  if (people.length === 0) return null;
-  const link = (person: string | null) => {
-    const { route, query } = hrefFor(person);
+  if (chips.length === 0) return null;
+  const link = (id: string | null) => {
+    const { route, query } = hrefFor(id);
     return linkProps(route, query);
   };
   return (
     <nav aria-label={label} className="flex flex-wrap items-center gap-1.5">
-      {people.map((p) => {
-        const on = p.id === selected;
+      {chips.map((c) => {
+        const on = c.id === selected;
         return (
           <a
-            key={p.id}
-            {...link(on ? null : p.id)}
+            key={c.id}
+            {...link(on ? null : c.id)}
             aria-current={on ? 'true' : undefined}
-            data-person-chip={p.id}
+            {...{ [chipAttr]: c.id }}
             className={cn(
               'press inline-flex h-11 items-center rounded-full border px-3 text-sm outline-ring/50 hover:bg-accent focus-visible:outline-2 desk:h-7 desk:px-2.5 desk:text-xs',
               on && 'border-primary bg-primary/10 font-medium text-foreground',
             )}
           >
-            {p.name}
-            {p.me && <span className="sr-only"> (you)</span>}
+            {c.name}
+            {c.srSuffix && <span className="sr-only">{c.srSuffix}</span>}
           </a>
         );
       })}
@@ -143,6 +167,64 @@ export function PersonFilter({
         </a>
       )}
     </nav>
+  );
+}
+
+/**
+ * The people a project's room can be narrowed to (#334), as chips
+ * (`?person=`).
+ */
+export function PersonFilter({
+  people,
+  selected,
+  hrefFor,
+  label = 'Narrow to a person',
+}: {
+  people: readonly Person[];
+  selected: string | null;
+  /** The address with `person` picked, or with no one for null. */
+  hrefFor: (person: string | null) => { route: Route; query: string };
+  label?: string;
+}) {
+  return (
+    <ChipFilter
+      chips={people.map((p) => ({
+        id: p.id,
+        name: p.name,
+        srSuffix: p.me ? ' (you)' : undefined,
+      }))}
+      selected={selected}
+      hrefFor={hrefFor}
+      label={label}
+      chipAttr="data-person-chip"
+    />
+  );
+}
+
+/**
+ * The projects a person's room can be narrowed to (#335), as chips
+ * (`?project=`): the project room's person filter from the other side.
+ */
+export function ProjectFilter({
+  projects,
+  selected,
+  hrefFor,
+  label = 'Narrow to a project',
+}: {
+  projects: readonly Project[];
+  selected: string | null;
+  /** The address with `project` picked, or with none for null. */
+  hrefFor: (project: string | null) => { route: Route; query: string };
+  label?: string;
+}) {
+  return (
+    <ChipFilter
+      chips={projects.map((p) => ({ id: p.id, name: p.name }))}
+      selected={selected}
+      hrefFor={hrefFor}
+      label={label}
+      chipAttr="data-project-chip"
+    />
   );
 }
 

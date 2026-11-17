@@ -92,9 +92,22 @@ export function roomOf(entry: string, state: RoomState): Room | null {
 /** The query key that narrows a project's room to one person (#334). */
 export const PERSON_PARAM = 'person';
 
+/** The query key that narrows a person's room to one project (#335). */
+export const PROJECT_PARAM = 'project';
+
+/**
+ * What a room page is narrowed to: on a person's room the project
+ * (`?project=`), on a project's room the person (`?person=`).
+ */
+export function narrowedOf(route: Route, query: URLSearchParams) {
+  return query.get(route.name === 'person' ? PROJECT_PARAM : PERSON_PARAM);
+}
+
 /**
  * Where a room is: a project's room, a person's, a pair as the project's
- * room narrowed to the person (`?person=`), or a saved view's All.
+ * room narrowed to the person (`?person=`), or a saved view's All. A pair
+ * pinned from the person's room (`?project=`) is the same pin: both show
+ * the same items.
  */
 export function roomLink(
   room: Room,
@@ -115,8 +128,9 @@ export function roomLink(
 
 /**
  * Whether a page is `room`: a project's room (any tab) with no one, or
- * with the pair's person, picked; a person's room; a saved view's All
- * when `hereView` (the view All shows now) is it.
+ * with the pair's person, picked; a person's room with no project, or
+ * with the pair's project, picked; a saved view's All when `hereView`
+ * (the view All shows now) is it. `narrowedTo` is `narrowedOf`.
  */
 export function isRoomPage(
   room: Room,
@@ -125,9 +139,15 @@ export function isRoomPage(
   hereView?: string,
 ): boolean {
   if (room.kind === 'view') return route.name === 'all' && hereView === room.id;
-  if (room.kind === 'person') {
-    return route.name === 'person' && route.id === room.id;
+  if (route.name === 'person') {
+    if (room.kind === 'person') return route.id === room.id && !narrowedTo;
+    return (
+      room.kind === 'pair' &&
+      room.person === route.id &&
+      room.project === narrowedTo
+    );
   }
+  if (room.kind === 'person') return false;
   const project = projectRoomOf(route)?.id;
   if (room.kind === 'project') return project === room.id && !narrowedTo;
   return project === room.project && narrowedTo === room.person;

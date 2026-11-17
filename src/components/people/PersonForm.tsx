@@ -10,6 +10,18 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
 
 /**
+ * What Remove asks: their mentions read @unknown, and how many tasks
+ * lose their assignee. The person form and a person's room ask the same.
+ */
+export function removeQuestion(name: string, assigned: number): string {
+  const tasks =
+    assigned > 0
+      ? ` and ${assigned === 1 ? '1 task becomes' : `${assigned} tasks become`} unassigned.`
+      : '.';
+  return `Remove ${name}? Mentions of them show as @unknown${tasks}`;
+}
+
+/**
  * Add a person, or edit one: name, role, "This is me" (at most one person;
  * ticking it here moves it). Remove confirms and says what happens to
  * their mentions and assignments.
@@ -96,10 +108,7 @@ export function PersonForm({
             className="flex w-full flex-wrap items-center gap-2"
           >
             <p id="remove-question" className="flex-1 text-sm">
-              Remove {person.name}? Mentions of them show as @unknown
-              {assigned > 0
-                ? ` and ${assigned === 1 ? '1 task becomes' : `${assigned} tasks become`} unassigned.`
-                : '.'}
+              {removeQuestion(person.name, assigned)}
             </p>
             <Button
               type="button"

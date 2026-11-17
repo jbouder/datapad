@@ -1,7 +1,8 @@
 import { useId, useMemo } from 'react';
-import { lanesOf, taskTouches } from '#shared/loops';
+import { lanesOf } from '#shared/loops';
 import { oneOnOneWith } from '#shared/meetings';
 import { meId } from '#shared/select';
+import { personLanes } from '#shared/stream';
 import type { Meeting, Snapshot } from '#shared/types';
 import { LoopLanes } from '@/components/today/LoopLanes';
 import { linkProps } from '@/lib/router';
@@ -9,7 +10,7 @@ import { linkProps } from '@/lib/router';
 /**
  * Meeting mode's right column (#336): what is open with the people in
  * the room. For a 1:1 (one attendee besides you), that person's open
- * loops (`taskTouches`); otherwise the meeting's project's; with
+ * loops, as their room has them (`personLanes`); otherwise the meeting's project's; with
  * neither, a line that says so. The lanes are Today's (`LoopLanes`), in
  * the order Today keeps them.
  */
@@ -32,7 +33,7 @@ export function MeetingLoops({
   const { tasks, projects, people } = state;
   const lanes = useMemo(() => {
     const scope = { tasks, projects, people };
-    if (personId) return lanesOf(scope, me, (t) => taskTouches(t, personId));
+    if (personId) return personLanes(scope, me, personId);
     if (project) return lanesOf(scope, me, (t) => t.projectId === project.id);
     return null;
   }, [tasks, projects, people, me, personId, project]);
