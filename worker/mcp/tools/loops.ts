@@ -1,12 +1,15 @@
 import { z } from 'zod';
-import { lanesOf, taskTouches, todayLanes, waitingCount } from '#shared/loops';
+import { lanesOf, todayLanes, waitingCount } from '#shared/loops';
 import { unfiledNotes } from '#shared/notes';
 import { savedFocusOptions } from '#shared/pages';
 import { meId } from '#shared/select';
 import {
-  buildStream,
-  meetingTouches,
-  noteTouches,
+  personKeep,
+  personLanes,
+  personProjects,
+  personStateLine,
+  personStream,
+  personTopics,
   projectKeep,
   projectStateLine,
   projectStream,
@@ -130,9 +133,13 @@ export const getLoops = defineTool({
     const person =
       args.person === undefined ? undefined : resolvePerson(state, args.person);
     const lanes =
-      project === undefined && person === undefined
-        ? todayLanes(state, me, savedFocusOptions(state).who)
-        : lanesOf(state, me, loopKeep(project, person));
+      project === null
+        ? lanesOf(state, me, generalKeep(person))
+        : person !== undefined
+          ? personLanes(state, me, person, project)
+          : project === undefined
+            ? todayLanes(state, me, savedFocusOptions(state).who)
+            : lanesOf(state, me, projectKeep(project));
     return {
       space,
       ...(project === undefined
@@ -149,15 +156,14 @@ export const getLoops = defineTool({
   },
 });
 
-/** The tasks a project (null for General) and a person narrow loops to. */
-function loopKeep(
-  project: string | null | undefined,
-  person: string | undefined,
-): (task: Task) => boolean {
-  if (typeof project === 'string') return projectKeep(project, person);
-  return (task) =>
-    (project === undefined || task.projectId === null) &&
-    (person === undefined || taskTouches(task, person));
+/**
+ * General's tasks (no project), and with a person only those that touch
+ * them (`personKeep`). `projectKeep` and `personLanes` take a project id,
+ * and General has none.
+ */
+function generalKeep(person: string | undefined): (task: Task) => boolean {
+  const touches = person === undefined ? null : personKeep(person);
+  return (task) => task.projectId === null && (!touches || touches(task));
 }
 
 export const listUnfiled = defineTool({
@@ -204,13 +210,16 @@ export const getRoom = defineTool({
   name: 'get_room',
   title: 'Get a room',
   description:
-    'One room: a project or a person, by id or name. A project’s room is get_project plus its state line, the people it can be narrowed to, its open loops in three lanes and its stream (notes, tasks added and done, meetings and milestones), with `upcoming` (meetings and milestones still ahead, soonest first) split from `stream` (newest first). With `person`, a project’s room keeps only what touches them. A person’s room is the person, the open loops that touch them (assigned, blocked on them, mentioning them) and the stream of notes that mention them, their tasks and the meetings they attend.',
+    'One room: a project or a person, by id or name. A project’s room is get_project plus its state line, the people it can be narrowed to, its open loops in three lanes and its stream (notes, tasks added and done, meetings and milestones), with `upcoming` (meetings and milestones still ahead, soonest first) split from `stream` (newest first). With `person`, a project’s room keeps only what touches them. A person’s room is the person with their state line and projects, the open loops that touch them (assigned, blocked on them, mentioning them; Mine is what you owe them, Waiting on what they owe you), the open topics of meetings ahead they attend (`toDiscuss`), and the stream of notes that mention them, their tasks and the meetings they attend. With `project`, a person’s room keeps only that project’s.',
   scope: 'read',
   input: z.object({
     space: SpaceArg,
     room: RoomArg,
     person: PersonArg.optional().describe(
       'In a project’s room: only what touches this person.',
+    ),
+    project: ProjectArg.optional().describe(
+      'In a person’s room: only this project (a project id or name).',
     ),
     limit: LimitArg.describe(
       `At most this many items in upcoming and in stream (default ${STREAM_ITEMS}).`,
@@ -224,6 +233,11 @@ export const getRoom = defineTool({
     const room = resolveRoom(state, args.room);
     const me = meId(state.people);
     if (room.kind === 'project') {
+      if (args.project) {
+        throw new ToolError(
+          '`project` narrows a person’s room; this room is a project’s (narrow it with `person`).',
+        );
+      }
       const project = state.projects[room.id] as Project;
       const person = args.person ? resolvePerson(state, args.person) : null;
       const lanes = lanesOf(state, me, projectKeep(project.id, person));
@@ -251,22 +265,16 @@ export const getRoom = defineTool({
     }
     if (args.person) {
       throw new ToolError(
-        '`person` narrows a project’s room; this room is a person’s.',
+        '`person` narrows a project’s room; this room is a person’s (narrow it with `project`).',
       );
     }
     const person = state.people[room.id];
     if (!person) throw new ToolError('That person is gone.');
-    const items = buildStream({
-      notes: Object.values(state.notes).filter((n) =>
-        noteTouches(n, person.id),
-      ),
-      tasks: Object.values(state.tasks).filter((t) =>
-        taskTouches(t, person.id),
-      ),
-      meetings: Object.values(state.meetings).filter((m) =>
-        meetingTouches(m, person.id),
-      ),
-    });
+    const project =
+      args.project === undefined ? null : resolveProject(state, args.project);
+    const lanes = personLanes(state, me, person.id, project);
+    const open = lanes.mine.length + waitingCount(lanes) + lanes.decide.length;
+    const projects = personProjects(state, person.id);
     return {
       space,
       today,
@@ -277,11 +285,28 @@ export const getRoom = defineTool({
         role: person.role,
         me: person.me,
       },
-      lanes: lanesOut(
-        state,
-        lanesOf(state, me, (t) => taskTouches(t, person.id)),
+      stateLine: personStateLine(person, projects.length, open).join(' · '),
+      narrowedTo: projectRef(state, project),
+      projects: projects.map((p) => ({ id: p.id, name: p.name })),
+      lanes: lanesOut(state, lanes),
+      toDiscuss: cap(
+        personTopics(state, person.id, today, read.now, project).map(
+          ({ meeting, topic }) => ({
+            meeting: {
+              id: meeting.id,
+              title: meeting.title,
+              date: meeting.date,
+            },
+            topic: { id: topic.id, title: topic.title },
+          }),
+        ),
       ),
-      ...streamOut(state, items, read, args.limit),
+      ...streamOut(
+        state,
+        personStream(state, person.id, project),
+        read,
+        args.limit,
+      ),
     };
   },
 });

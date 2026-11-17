@@ -480,9 +480,37 @@ describe('the read tools', () => {
           .filter((i: Json) => i.kind === 'meeting')
           .map((i: Json) => i.meeting.id),
       ).toEqual(['e-3']);
+      // From shared/stream.ts's person selectors (#335).
+      expect(ids(han.projects)).toEqual(['p-echo', 'p-falcon']);
+      expect(han.stateLine).toMatch(/2 projects · 3 open$/);
+      expect(han.narrowedTo).toBeNull();
+      expect(han.toDiscuss.items).toEqual([
+        {
+          meeting: { id: 'e-1', title: 'Shield review', date: TODAY },
+          topic: { id: 'tp-2', title: 'North ridge' },
+        },
+      ]);
+      const falcon = await call(ctx, 'get_room', {
+        room: 'han',
+        project: 'falcon',
+        today: TODAY,
+      });
+      expect(falcon.narrowedTo).toEqual({
+        id: 'p-falcon',
+        name: 'Falcon hyperdrive refit',
+      });
+      expect(lane(falcon.lanes)).toEqual({
+        mine: [],
+        waiting: [['u-han', ['t-5']]],
+        decide: [],
+      });
+      expect(falcon.toDiscuss.items).toEqual([]);
       expect(
         await fails(ctx, 'get_room', { room: 'han', person: 'leia' }),
       ).toMatch(/narrows a project’s room/);
+      expect(
+        await fails(ctx, 'get_room', { room: 'p-echo', project: 'falcon' }),
+      ).toMatch(/narrows a person’s room/);
       expect(await fails(ctx, 'get_room', { room: 'echo' })).toBe(
         '"echo" matches 2 rooms; pass one of these ids: p-echo (Echo Base relocation, a project); p-station (Echo Station upkeep, a project).',
       );
