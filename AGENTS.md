@@ -34,11 +34,12 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   import and the DO's schema migrations run it),
   `today.ts` (Today: a day's timeline, what is due, Next up, the day's
   line, the week zoom's days), `loops.ts` (the open loops: Mine, Waiting
-  on, To decide; `lanesOf()`, `owedBy()`), `recap.ts` (Since yesterday,
+  on, To decide; `lanesOf()`), `recap.ts` (Since yesterday,
   `buildRecap()`), `digest.ts` (the week's digest and its Markdown, under
   the week zoom and `get_digest`), `capture.ts` (the capture line, pure:
   what a line means, its chips, the ops that save and undo it),
-  `rooms.ts` (rooms, pins and the rail), `stream.ts` (a room's stream and
+  `rooms.ts` (rooms, pins and the rail; `owedBy()`, the people who owe
+  you), `stream.ts` (a room's stream and
   its person or project filter), `all.ts` (All: kinds, filters, sorts,
   layouts, saved views), `settings.ts` (Settings' sections, defaults and
   Reset), `pages.ts` (saved page preferences, pure: what each page
@@ -136,7 +137,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   is the compact note row the rooms, meeting mode and All use, and
   `notes/noteParts` what they share: the actions, editing in place,
   Make task, `?note=`.
-- `scripts/` — `licenses.ts` (CI's check, above), `icons.ts`.
+- `scripts/` — `licenses.ts` (CI's license check, above),
+  `check-deploy.ts` (the deploy workflow's refusal of a config without
+  Access or with the dev bypass) over `deploy-config.ts` (its pure rules,
+  which `test/workflows.test.ts` runs), `icons.ts` (draws the PWA icons,
+  favicon and og image).
 - `test/` — Vitest inside workerd (`@cloudflare/vitest-plugin`): Access,
   the DO, routes, headers/CSP, theme tokens, MCP (`mcp.test.ts`: OAuth
   and the SDK client over `SELF`; `mcp-tools.test.ts`: each tool over a
@@ -286,6 +291,13 @@ npm run knip         # unused files, exports, dependencies (knip.jsonc)
 npm run licenses     # every installed package's license against the allowlist
 npm run test:coverage  # vitest with the coverage floors on shared/ and worker/
 ```
+
+**Branches and deploys.** `main` deploys production and `staging`
+deploys the staging Worker (`env.staging` in `wrangler.jsonc`), each
+after CI passes on a push (`.github/workflows/deploy.yml`). The usual
+flow is a feature branch into `staging` to try it, then `staging` into
+`main`; a small fix can go straight to `main`. Open PRs against `main`
+unless asked otherwise.
 
 **Biome checks the code, not the docs.** CI runs `bunx biome ci .`, which
 fails on any file Biome would format differently; Markdown is excluded in

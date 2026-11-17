@@ -17,6 +17,12 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Changed
+
+- Staging is now a lasting environment. The `staging` branch deploys it
+  after CI passes, so a change can be tried there before it reaches
+  production from `main` ([docs/self-hosting.md](docs/self-hosting.md#staging)).
+
 ## [2.0.0] — 2026-11-17
 
 Datapad v2 (M24) rebuilds the app around four places and one input.

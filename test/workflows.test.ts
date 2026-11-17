@@ -263,18 +263,21 @@ describe('staging (#327)', () => {
     );
   });
 
-  it('deploys from v2, and main still to production', () => {
-    expect(deploy).toMatch(/branches: \[main, v2\]/);
+  it('deploys staging from staging, and main to production', () => {
+    expect(deploy).toMatch(/branches: \[main, staging\]/);
     expect(deploy).toMatch(/main\)\s+echo "environment=production"/);
     expect(deploy).toMatch(
-      /v2\)\s+echo "environment=staging"[^;]*cloudflare_env=staging/,
+      /staging\)\s+echo "environment=staging"[^;]*cloudflare_env=staging/,
     );
+    expect(deploy).toContain("github.ref == 'refs/heads/staging'");
+    expect(deploy).toContain("head_branch == 'staging'");
+    expect(deploy).not.toMatch(/refs\/heads\/v2|head_branch == 'v2'/);
     expect(deploy).toContain(
       'CLOUDFLARE_ENV: ${{ needs.gate.outputs.cloudflare_env }}',
     );
     for (const file of ['ci.yml', 'codeql.yml']) {
       expect(WORKFLOWS[`../.github/workflows/${file}`]).toMatch(
-        /push:\s+branches: \[main, v2\]/,
+        /push:\s+branches: \[main, staging\]/,
       );
     }
   });

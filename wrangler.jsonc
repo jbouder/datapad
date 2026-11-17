@@ -62,13 +62,17 @@
 
   "observability": { "enabled": true },
 
-  // Staging (#327): the v2 trunk, deployed by .github/workflows/deploy.yml
-  // after CI passes on a push to `v2`. Built with `CLOUDFLARE_ENV=staging`,
+  // Staging (#327): where changes are tried before production, deployed by
+  // .github/workflows/deploy.yml after CI passes on a push to the `staging`
+  // branch. Built with `CLOUDFLARE_ENV=staging`,
   // so the Vite plugin writes this environment's config for `wrangler
   // deploy`. Nothing is shared with production: its own Worker (and so its
   // own DATAPAD namespace), backups bucket, OAUTH_KV, rate limiter and
   // Access application. Bindings and vars are not inherited, so each one is
   // restated here. See docs/self-hosting.md § Staging.
+  // The `datapad-v2` names date from when staging was the v2 trunk. Keep
+  // them: renaming the Worker or the bucket would leave staging's data
+  // behind in the old ones.
   "env": {
     "staging": {
       "name": "datapad-v2",

@@ -1,14 +1,15 @@
 name: Deploy
 
 on:
-  # After CI finishes on `main` (production) or `v2` (staging, #327). The
+  # After CI finishes on `main` (production) or `staging` (the staging Worker,
+  # #327). The
   # `gate` job below only lets a successful run of a commit pushed to one of
   # those branches in this repository through.
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main, v2]
-  # Re-deploy the current `main` or `v2` (new Cloudflare token, a
+    branches: [main, staging]
+  # Re-deploy the current `main` or `staging` (new Cloudflare token, a
   # `wrangler.jsonc` var change) without re-running CI.
   workflow_dispatch:
 
@@ -19,20 +20,22 @@ jobs:
   # Jobs cannot be skipped on a secret directly, so this one reads the secret
   # once and hands the answer to `deploy`. Without CLOUDFLARE_API_TOKEN
   # (forks, fresh clones) `deploy` is skipped and the run stays green. It
-  # also picks the target from the branch: `main` is production, `v2` is
-  # staging (`env.staging` in wrangler.jsonc, the `datapad-v2` Worker).
+  # also picks the target from the branch: `main` is production, `staging`
+  # is staging (`env.staging` in wrangler.jsonc). The staging Worker keeps
+  # its name from v2, `datapad-v2`, as do its DO, bucket, KV and Access app:
+  # renaming them would lose staging's data.
   gate:
     runs-on: ubuntu-latest
-    # `branches: [main, v2]` above matches a fork PR whose branch has the
+    # `branches: [main, staging]` above matches a fork PR whose branch has the
     # same name, so check the event and the head repository as well.
     if: >-
       (github.event_name == 'workflow_dispatch' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v2')) ||
+       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')) ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event != 'pull_request' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        (github.event.workflow_run.head_branch == 'main' ||
-        github.event.workflow_run.head_branch == 'v2'))
+        github.event.workflow_run.head_branch == 'staging'))
     outputs:
       enabled: ${{ steps.secret.outputs.enabled }}
       environment: ${{ steps.target.outputs.environment }}
@@ -48,7 +51,7 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
           fi
-      # `main` ships the top-level config to production; `v2` ships
+      # `main` ships the top-level config to production; `staging` ships
       # `env.staging` to staging. Any other branch is an error, never a
       # guess.
       - id: target
@@ -60,7 +63,7 @@ jobs:
               echo "environment=production" >> "$GITHUB_OUTPUT"
               echo "cloudflare_env=" >> "$GITHUB_OUTPUT"
               ;;
-            v2)
+            staging)
               echo "environment=staging" >> "$GITHUB_OUTPUT"
               echo "cloudflare_env=staging" >> "$GITHUB_OUTPUT"
               ;;

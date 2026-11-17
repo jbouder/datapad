@@ -316,11 +316,11 @@ Worker and before these headers.
   `pull_request_target`, so a fork's PR runs with a read-only token and no
   secrets.
 - **Code scanning.** CodeQL (security-extended) over the TypeScript and the
-  workflows, on every PR, on `main` and weekly. An alert is fixed, or
+  workflows, on every PR, on `main` and `staging`, and weekly. An alert is fixed, or
   dismissed with the reason it cannot happen (the review below lists them).
 - **Branch protection.** `main` requires the `check` and `e2e` checks
   (Biome, types, build, Vitest, `bun audit`, Playwright + axe) and refuses
-  force pushes and deletion. CodeQL's two checks are not required yet, and
+  force pushes and deletion. `staging` is protected the same way. CodeQL's two checks are not required yet, and
   neither is a pull request; both are recommended
   ([self-hosting.md](self-hosting.md#deploy-from-github-actions)).
 - **Secrets.** GitHub secret scanning and push protection are on. `.dev.vars`
