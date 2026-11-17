@@ -73,7 +73,7 @@ test('a new meeting in the series carries the uncovered topics', async ({
 }) => {
   await seed(request);
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   // Any case, any spacing; the attendees make it the same series.
   await form.getByLabel('Title').fill('  shield REVIEW ');
@@ -127,9 +127,11 @@ test('a new meeting in the series carries the uncovered topics', async ({
     'Carried topic "North ridge" forward to "shield REVIEW"',
   ]);
 
-  // The carried ones say where they came from, on its page.
-  await meetingRow(page, added?.id ?? '')
-    .getByRole('link', { name: 'shield REVIEW', exact: true })
+  // The carried ones say where they came from, on its page (from the
+  // room's Coming up).
+  await page
+    .locator(`[data-stream="meeting:${added?.id}"]`)
+    .getByRole('link', { name: 'Meeting: shield REVIEW', exact: true })
     .click();
   const list = page.getByRole('list', { name: 'Topics for “shield REVIEW”' });
   await expect(list.locator('[data-topic-carried]')).toHaveText([
@@ -145,7 +147,7 @@ test('unchecked, a new meeting starts without them', async ({
 }) => {
   await seed(request);
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   await form.getByLabel('Title').fill('Shield review');
   await form.getByLabel('Date').fill('+7d');

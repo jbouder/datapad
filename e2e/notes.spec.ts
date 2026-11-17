@@ -124,22 +124,25 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-echo');
-  const notes = page.locator('li[data-note-id]');
-  // Pinned first.
-  await expect(notes.first()).toContainText('Standup');
+  // Echo Base's notes on Notes' List (pinned first is the Grid's order).
+  const echo = '/notes?view=list&project=p-echo';
+  await openLive(page, echo);
+  const prep = row(page, 'Bring the power budget');
+  await expect(row(page, 'Standup')).toContainText('Pinned');
+  await expect(prep).not.toContainText('Pinned');
 
   // Pin and Unpin are in each row's ⋯ menu (#273).
-  await noteAction(noteRow(page, 'Bring the power budget'), 'Pin');
-  await noteAction(noteRow(page, 'Standup'), 'Unpin');
-  await expect(notes.first()).toContainText('Bring the power budget');
+  await noteAction(prep, 'Pin');
+  await noteAction(row(page, 'Standup'), 'Unpin');
+  await expect(prep).toContainText('Pinned');
+  await expect(row(page, 'Standup')).not.toContainText('Pinned');
 
   await page.goto('/notes?view=list&pinned=1');
   await expect(rows(page)).toHaveCount(1);
-  await page.goto('/projects/p-echo');
+  await page.goto(echo);
 
   // Edit: mentions come back as names, and are tokens again on save.
-  const standup = noteRow(page, 'Standup');
+  const standup = row(page, 'Standup');
   await noteAction(standup, 'Edit');
   const editor = standup.getByRole('combobox', { name: 'Edit note' });
   await expect(editor).toHaveValue(/@Chewbacca has the hangar keys/);
@@ -228,36 +231,6 @@ test('Find opens a row whose match is past its two lines, and closes it after', 
   await find.fill('');
   await expect(page).not.toHaveURL(/q=/);
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-});
-
-test('Add note on a project page opens the panel, preset to it', async ({
-  page,
-}) => {
-  await openLive(page, '/projects/p-falcon');
-  // No composer on the page: Add note in the Notes section opens the panel.
-  await expect(page.getByRole('combobox', { name: 'New note' })).toHaveCount(0);
-  // Exact: a meeting row's own is "Add note to “…”".
-  const add = page
-    .getByRole('main')
-    .getByRole('button', { name: 'Add note', exact: true });
-  await expectAccessible(page);
-  const box = await add.boundingBox();
-  const touch = await page.evaluate(
-    () => matchMedia('(pointer: coarse)').matches,
-  );
-  if (touch) expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
-
-  await add.click();
-  const panel = page.getByRole('dialog', { name: 'New note' });
-  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
-  await expect(
-    panel.getByRole('combobox', { name: 'Project', exact: true }),
-  ).toHaveValue('Falcon hyperdrive refit');
-  await page.keyboard.type('Swap the motivator');
-  await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(panel).toBeHidden();
-  await expect(noteRow(page, 'Swap the motivator')).toBeVisible();
-  await expect(add).toBeFocused();
 });
 
 test('Add note on Notes opens the panel, at any width', async ({ page }) => {

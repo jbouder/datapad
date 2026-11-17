@@ -48,6 +48,11 @@ async function expectGroupBy(page: Page, text: string) {
   await closeFilters(page);
 }
 
+/** A project room's lanes. */
+function lanes(page: Page) {
+  return page.getByRole('complementary', { name: 'Open loops' });
+}
+
 function layout(page: Page) {
   return page.getByRole('group', { name: 'Layout (press v to cycle)' });
 }
@@ -190,22 +195,25 @@ test('sections remember open or closed, one set for every project', async ({
   browser,
   email,
 }) => {
+  // A room's lanes, and its Plan's Activity.
   await openLive(page, '/projects/p-echo');
+  await lanes(page).getByRole('button', { name: /^Mine/ }).click();
+  await page.goto('/projects/p-echo/plan');
   const activity = page.getByRole('button', { name: /^Activity/ });
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
   await activity.click();
-  await page.getByRole('button', { name: /^Meetings/ }).click();
   await expectStored(request, 'project', {
-    sections: { activity: true, meetings: false },
+    sections: { activity: true, mine: false },
   });
 
   const other = await otherDevice(browser, page, email);
-  await other.goto('/projects/p-falcon');
+  await other.goto('/projects/p-falcon/plan');
   await expect(
     other.getByRole('button', { name: /^Activity/ }),
   ).toHaveAttribute('aria-expanded', 'true');
+  await other.goto('/projects/p-falcon');
   await expect(
-    other.getByRole('button', { name: /^Meetings/ }),
+    lanes(other).getByRole('button', { name: /^Mine/ }),
   ).toHaveAttribute('aria-expanded', 'false');
   await other.context().close();
 });
@@ -218,8 +226,8 @@ test('Settings → Pages edits and resets, with Undo', async ({
   await chooseFilter(page, 'Group by', 'Assignee');
   await expectStored(request, 'tasks', { group: 'assignee' });
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: /^Notes/ }).click();
-  await expectStored(request, 'project', { sections: { notes: false } });
+  await lanes(page).getByRole('button', { name: /^Mine/ }).click();
+  await expectStored(request, 'project', { sections: { mine: false } });
 
   await openLive(page, '/settings/pages');
   await expect(page).toHaveTitle('Pages · Settings · Datapad');
@@ -228,7 +236,7 @@ test('Settings → Pages edits and resets, with Undo', async ({
   await expect(tasks.getByRole('combobox', { name: 'Group by' })).toContainText(
     'Assignee',
   );
-  const project = page.getByRole('region', { name: 'Project page' });
+  const project = page.getByRole('region', { name: 'Project room' });
   await expect(project).toContainText('1 section closed as you left it.');
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
@@ -254,7 +262,7 @@ test('Settings → Pages edits and resets, with Undo', async ({
     .poll(() => pages(request))
     .toEqual({
       tasks: { group: 'assignee', sort: 'title' },
-      project: { sections: { notes: false } },
+      project: { sections: { mine: false } },
     });
 
   await page.goto('/tasks');
@@ -280,9 +288,9 @@ test('hidden and ordered sections reset and come back with Undo (#310)', async (
   request,
 }) => {
   const saved = {
-    sections: { notes: false },
-    hidden: ['activity'],
-    order: ['tasks', 'milestones'],
+    sections: { mine: false },
+    hidden: ['decide'],
+    order: ['waiting', 'mine'],
   };
   await request.post('/api/import', {
     data: {
@@ -290,14 +298,23 @@ test('hidden and ordered sections reset and come back with Undo (#310)', async (
     },
   });
   await expectStored(request, 'project', saved);
-  await openLive(page, '/settings/pages');
+
+  // A room's lanes follow: To decide hidden, Waiting on first.
+  await openLive(page, '/projects/p-echo');
+  const sections = lanes(page).getByRole('button', {
+    name: /^(Mine|Waiting on|To decide)/,
+  });
+  await expect(sections).toHaveCount(2);
+  await expect(sections.first()).toHaveText(/^Waiting on/);
+
+  await page.goto('/settings/pages');
   // The detail pages each have something to set, so all are listed.
   for (const name of ['Task page', 'Meeting page', 'List page']) {
     await expect(page.getByRole('region', { name })).toHaveCount(1);
   }
-  const project = page.getByRole('region', { name: 'Project page' });
+  const project = page.getByRole('region', { name: 'Project room' });
   await expect(project.getByText('Saved', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Reset Project page' }).click();
+  await page.getByRole('button', { name: 'Reset Project room' }).click();
   await expectStored(request, 'project', null);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expectStored(request, 'project', saved);

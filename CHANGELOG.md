@@ -130,7 +130,8 @@ changes the format says so here under **Export format**.
 
 - The project page and its sections, with Show done, Show past, the
   tasks board and the Lists section; Settings → Pages no longer lists
-  them. Their saved settings are kept and ignored.
+  them. Their saved settings are kept and ignored. Dragging tasks into
+  order went with it: the room's lanes sort by due date, as Today's do.
 - Settings → Navigation. Pinned rooms are the only navigation setting.
   Saved navigation preferences are kept and ignored, and an export that
   has them still imports.

@@ -48,11 +48,11 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: seeded() });
 });
 
-test('add, edit and delete milestones on the project page, with Undo', async ({
+test('add, edit and delete milestones on the project’s Plan, with Undo', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   // By date; the past one is muted.
   await expect(list(page).getByRole('listitem')).toHaveCount(3);
   await expect(list(page).getByRole('listitem').first()).toContainText(
@@ -141,13 +141,13 @@ test('add, edit and delete milestones on the project page, with Undo', async ({
 });
 
 test('a project without milestones says how to add one', async ({ page }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, '/projects/p-falcon/plan');
   await expect(page.getByText('No milestones. Add one above.')).toBeVisible();
 });
 
 test('touch targets are 44px on a phone', async ({ page }) => {
   test.skip(!isMobile(page), 'The phone sizes.');
-  await openLive(page, '/projects/p-echo');
+  await openLive(page, '/projects/p-echo/plan');
   for (const name of [
     'Edit “Hangar doors hung”',
     'Delete “Hangar doors hung”',
@@ -211,8 +211,9 @@ test('the Timeline labels a milestone and opens the project at it', async ({
     await entry.blur();
     await expect(label).not.toHaveAttribute('data-shown');
   }
+  // The room opens its Plan, where the milestones are.
   await point.click();
-  await expect(page).toHaveURL(/\/projects\/p-echo\?milestone=m-soon$/);
+  await expect(page).toHaveURL(/\/projects\/p-echo\/plan\?milestone=m-soon$/);
   await expect(row(page, 'm-soon')).toHaveAttribute('data-highlighted');
   await expect(row(page, 'm-soon')).toBeInViewport();
 });

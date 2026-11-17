@@ -135,19 +135,6 @@ test('Timeline: drag a point to a later day, and date an undated task', async ({
   await expect(tray).not.toContainText('Insulate the hangar doors');
 });
 
-test('the project page has List and Board', async ({ page }) => {
-  await openLive(page, '/projects/p-echo');
-  const group = page.getByRole('group', { name: 'Layout (press v to cycle)' });
-  await group
-    .locator('label')
-    .filter({ has: page.getByRole('radio', { name: 'Board' }) })
-    .click();
-  await expect(column(page, 'This week')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Tasks board' })).toContainText(
-    'Book the tauntaun vet',
-  );
-});
-
 for (const view of ['list', 'table', 'board', 'timeline']) {
   test.describe(`${view} layout`, () => {
     test.use({ reducedMotion: 'reduce' });

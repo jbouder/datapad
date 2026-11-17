@@ -105,7 +105,7 @@ test('adds topics in the new meeting panel, in one batch with it', async ({
   request,
 }) => {
   await openLive(page, '/projects/p-echo');
-  await page.getByRole('button', { name: 'Add meeting' }).click();
+  await page.getByRole('button', { name: 'Schedule meeting' }).click();
   const form = page.getByRole('dialog', { name: 'New meeting' });
   await form.getByLabel('Title').fill('Hangar walkthrough');
   await form.getByLabel('Date').fill('+2d');
@@ -146,14 +146,18 @@ test('adds topics in the new meeting panel, in one batch with it', async ({
   await form.getByRole('button', { name: 'Add meeting' }).click();
   await expect(form).toBeHidden();
 
-  const added = row(page, 'Hangar walkthrough');
-  await expect(added.locator('[data-topic-count]')).toHaveText('0 of 3 topics');
-  await added
-    .getByRole('link', { name: 'Hangar walkthrough', exact: true })
+  // The room's Coming up has it; its page has the topics.
+  await page
+    .getByRole('list', { name: 'Coming up' })
+    .getByRole('link', { name: /Hangar walkthrough/ })
     .click();
+  await expect(page).toHaveURL(/\/meetings\/[^/]+$/);
   await expect(
     topicList(page, 'Hangar walkthrough').locator('[data-topic-title]'),
   ).toHaveText(['Door insulation', 'Tauntaun stalls', 'Snowspeeder bays']);
+  await expect(
+    page.getByRole('region', { name: 'Topics for “Hangar walkthrough”' }),
+  ).toContainText('0 of 3 topics');
 
   await expectSaved(page);
   const data = await stored(request);

@@ -23,6 +23,9 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 
 const TITLE = 'Find a replacement motivator';
 
+/** Tasks in its List, where each row has its ⋯ menu and blocked chip. */
+const TASKS = '/all?kind=task&view=list';
+
 function row(page: Page, title = TITLE) {
   return page.locator('[data-task-id]').filter({ hasText: title }).first();
 }
@@ -35,7 +38,7 @@ test('mark a task blocked on someone; Today, People and Tasks show it', async ({
   page,
   request,
 }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await row(page)
     .getByRole('button', { name: `More for “${TITLE}”` })
     .click();
@@ -90,7 +93,7 @@ test('b unblocks the focused task, with Undo', async ({ page, request }) => {
   const seed = structuredClone(SEED);
   Object.assign(seed.tasks['t-5'], { blocked: { on: null, note: 'Parts' } });
   await request.post('/api/import', { data: seed });
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await page.getByRole('button', { name: TITLE, exact: true }).focus();
   await page.keyboard.press('b');
   await expect(page.getByText(`Unblocked “${TITLE}”`)).toBeVisible();
@@ -111,7 +114,7 @@ test('b unblocks the focused task, with Undo', async ({ page, request }) => {
 });
 
 test('the task panel sets and clears it', async ({ page, request }) => {
-  await openLive(page, '/projects/p-falcon');
+  await openLive(page, TASKS);
   await page.getByRole('button', { name: TITLE, exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Task' });
   await panel.getByRole('switch', { name: /^Blocked/ }).click();
