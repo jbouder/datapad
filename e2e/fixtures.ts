@@ -192,11 +192,11 @@ export async function addFromTopBar(
 }
 
 /**
- * Add a task with `n` and the new-task panel (no page has a quick-add
- * since #218): the title, Enter, and the panel closes.
+ * Add a task with the top bar's + and the new-task panel: the title,
+ * Enter, and the panel closes.
  */
 export async function addTask(page: Page, title: string) {
-  await page.locator('body').press('n');
+  await addFromTopBar(page, 'Add task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   const input = panel.getByRole('textbox', { name: 'Title' });
   await expect(input).toBeFocused();

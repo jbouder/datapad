@@ -51,8 +51,18 @@ describe('the shortcut suppression rule', () => {
     }
   });
 
-  it('has no New list key since lists became notes (#328, #329)', () => {
-    expect(SHORTCUTS.some((s) => s.keys.includes('Shift+L'))).toBe(false);
+  it('lists n for the capture line, and no per-type add keys', () => {
+    const n = SHORTCUTS.filter((s) => s.keys.includes('n'));
+    expect(n).toHaveLength(1);
+    expect(n[0]?.scope).toBe('Anywhere');
+    expect(n[0]?.action).toContain('capture line');
+    for (const key of ['Shift+N', 'Shift+L']) {
+      expect(
+        SHORTCUTS.some((s) => s.keys.includes(key)),
+        key,
+      ).toBe(false);
+    }
+    expect(SHORTCUTS.some((s) => s.scope === 'Capture line')).toBe(true);
   });
 
   it('lists the whiteboard’s resize keys and their steps', () => {

@@ -22,13 +22,17 @@ interface Notes {
   hidden: ReadonlySet<string>;
   /** Hide the note, toast with Undo, and delete it for real afterwards. */
   removeNote: (note: Note) => void;
-  /** Open the new-note panel, preset to `projectId` (null: General). */
-  newNote: (projectId: string | null) => void;
+  /**
+   * Open the new-note panel, preset to `projectId` (null: General), with
+   * `body` written in (the capture line's expand).
+   */
+  newNote: (projectId: string | null, body?: string) => void;
 }
 
 interface Session {
   key: number;
   projectId: string | null;
+  body: string;
   open: boolean;
 }
 
@@ -50,8 +54,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const timers = useRef(new Map<string, number>());
   const [session, setSession] = useState<Session | null>(null);
-  const newNote = useCallback((projectId: string | null) => {
-    setSession({ key: Date.now(), projectId, open: true });
+  const newNote = useCallback((projectId: string | null, body = '') => {
+    setSession({ key: Date.now(), projectId, body, open: true });
   }, []);
 
   const commit = useCallback(
@@ -116,6 +120,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         <NewNotePanel
           key={session.key}
           projectId={session.projectId}
+          initialText={session.body}
           open={session.open}
           onClose={() => setSession((s) => (s ? { ...s, open: false } : s))}
           onExited={() => setSession((s) => (s?.open ? s : null))}

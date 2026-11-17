@@ -52,13 +52,11 @@ export const QUICK_ADD: QuickAddItem[] = [
     name: 'task',
     label: 'Add task',
     icon: CheckSquareIcon,
-    shortcut: { label: 'N', keys: 'N' },
   },
   {
     name: 'note',
     label: 'Write a note',
     icon: NotePencilIcon,
-    shortcut: { label: '⇧N', keys: 'Shift+N' },
   },
   { name: 'meeting', label: 'Add meeting', icon: CalendarPlusIcon },
   { name: 'project', label: 'Add project', icon: FolderPlusIcon },

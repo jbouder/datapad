@@ -23,6 +23,7 @@ import {
   weekMovement,
 } from '#shared/select';
 import { healthOf, type Task } from '#shared/types';
+import { CaptureLine } from '@/components/capture/CaptureLine';
 import { BriefCard, BriefMeButton } from '@/components/focus/BriefMe';
 import { SinceYesterday } from '@/components/focus/SinceYesterday';
 import { Segmented } from '@/components/inputs/Segmented';
@@ -462,6 +463,8 @@ export function FocusPage() {
         </div>
       </div>
 
+      <CaptureLine />
+
       <BriefCard today={today} options={options} />
 
       <section
@@ -471,7 +474,7 @@ export function FocusPage() {
       >
         {empty && (
           <p className="text-state">
-            Nothing needs you. Add a task with + or n, or open a project.
+            Nothing needs you. Capture something above, or open a project.
           </p>
         )}
         <OrderedSections page="focus" sections={sections} />

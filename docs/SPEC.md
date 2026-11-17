@@ -231,7 +231,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 **New task panel** (Add task in the top bar's + menu, **Add task** on Tasks and on a project page, or `n` when no quick-add is visible): title, project, priority (Medium, or Settings → Pages → New task priority; the quick adds and MCP's `add_task` use it too), due, assignee (the default assignee: you when Settings → People → Assign new tasks to me is on, else nobody), details.
 
-**New note panel** (Write a note in the top bar's + menu, Shift+N, New note in ⌘K, or Add note on Notes and on a project page): a **Template** picker (only when the space has note templates; choosing one fills the composer, replacing what is there while it is empty or untouched since the last template, otherwise adding below it), the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
+**New note panel** (Write a note in the top bar's + menu, New note in ⌘K, the capture line's expand, or Add note on Notes and on a project page): a **Template** picker (only when the space has note templates; choosing one fills the composer, replacing what is there while it is empty or untouched since the last template, otherwise adding below it), the note composer and its project, preset to the current project or General. Adding closes it with a toast; closing with text asks first.
 
 **Project form panel**: name, org (datalist of existing orgs), status, priority, target date, tags, team members (chip checkboxes from People), description, links. Create navigates to the new project. Delete confirms (naming its milestones when it has any) and removes tasks, notes, milestones, and activity, moving its meetings to General; Archive is the non-destructive alternative in the header's More menu.
 
@@ -254,9 +254,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 | Key               | Action                                                        |
 | ----------------- | ------------------------------------------------------------- |
 | ⌘K or Ctrl+K, `/` | Open search                                                   |
-| `n`               | Open the new-task panel (#218: no page has a quick-add now)   |
-| Shift+N           | Open the new-note panel                                       |
-| Shift+L           | Open the new-list panel; on a list's page, Add an item (#300) |
+| `n`               | Go to the capture line (#330); else the new-task panel        |
 | `f`               | Go to Find on a list page; Esc in Find clears it, then leaves |
 | Esc               | Close search, then panel                                      |
 | ↑ ↓ Enter         | Navigate search results and mention popup                     |
@@ -265,7 +263,7 @@ The common path never opens a modal: Enter adds, a checkbox closes, click drills
 
 Single-letter shortcuts are suppressed while an input, textarea, or select has focus, or while a panel or the palette is open.
 
-Shift+L (#300) opens the new-list panel, preset to the project you are on, anywhere but a list's page. On a list's page it opens that list's **Add an item** field instead: there you are far more likely adding to the list in front of you than starting another, and ⌘K → New list or + still starts one. While the Lists section is hidden it does nothing.
+**The capture line** (#330, `shared/capture.ts`): one input at the top of Focus and of a project's page (preset to that project). A plain line is a note; `[ ]`, `todo` or a date makes a task; a leading `?`, `decide:` or a closing `?` something to decide; `waiting on @Name` a task blocked on that person. `#word` files it under the one open project whose name, letters and digits only, starts with the word (an ambiguous or unknown one stays as typed); `@Name` mentions someone and, on a task or a decision, assigns it to them. Dates are `parseDate()`'s; sat, sun, mon, wed, tod and tom count only after due, by or on. Chips under the line show the kind (a button: it or Tab cycles note, task, to decide, waiting on), the project, the people with their role ("for Han", "waiting on Chewbacca"), the due date and Unfiled. `@` and `#` open a menu of people or projects (↑ ↓, Enter or Tab, a tap); a name nobody has offers "Add “…” to People". Enter saves through one `batch`, and the toast says where it went with Undo (which deletes it). Esc closes the menu, then clears the line. Shift+Enter or the expand button opens the new-note panel with the text and its project.
 
 Panels and palette share a scrim; clicking it closes the panel. Toasts are bottom-center, 2.4 s, used for saves, copies, errors, and quota messages.
 
@@ -381,7 +379,7 @@ Added in the rebuild (#298 data, #299 pages): a list is a titled checklist of sh
 - **Items**: open ones first, in their order, then the done ones struck through under **Done (n)**, collapsed. Each row has a checkbox (44px on touch), the text (click or Enter opens a field in place: Enter saves, Escape cancels) and a ⋯ menu: Edit, Make task, Move up, Move down, Move to top (open items) and Delete, with Undo in the toast. **Add an item** opens a one-line field at the end: Enter adds and keeps it open for the next, Escape closes it and returns focus to the button. A list holds at most 200 items.
 - **Reordering** moves an open item among the open ones; the done items keep their places in the stored order (`moveOpenItem()`), so unticking one puts it back where it was. Drag the handle on desktop; Alt+↑ / Alt+↓ on the focused row and the menu are the keyboard and touch ways (see `docs/accessibility.md`).
 - **Phone**: the list page is one column; the table collapses to rows; nothing scrolls sideways.
-- **Adding from anywhere** (#300): New list in the top bar's + (hidden until shown in Settings → Navigation), ⌘K → New list and Shift+L open the same panel, preset to the project you are on. ⌘K finds a list by its title or any item's text and opens its page; a hit on an item shows that item's text under the title. The MCP `search` tool finds them the same way.
+- **Adding from anywhere** (#300): New list in the top bar's + (hidden until shown in Settings → Navigation), and ⌘K → New list open the same panel, preset to the project you are on. ⌘K finds a list by its title or any item's text and opens its page; a hit on an item shows that item's text under the title. The MCP `search` tool finds them the same way.
 - **On the project page** (#301): a **Lists** section in the right column under Notes, collapsible and remembered with the page's sections (`lists`). See the project detail row under [Views](#views).
 - **Make task** (#301): an item's ⋯ menu has **Make task**, which opens the new-task panel with the item's text as the title and the list's project (General stays General). Saving adds the task as any new task is added, and its toast offers **Open**. The item is left as it is and keeps no link to the task.
 
@@ -531,10 +529,8 @@ v2 (#329) replaced the type-by-type navigation with three places and the rooms. 
 | Redirects | `/focus`, `/digest` and `/decisions…` go to `/`; `/notepad` (and `/notes?view=notepad`) to `/unfiled`; `/projects`, `/tasks`, `/notes`, `/meetings` and `/events` to All with that kind, filters kept; `/archive` to `/all?kind=project&archived=1`; `/lists` and `/lists/:id` to `/all?kind=note`; `/meetings?meeting=<id>` and `/events?event=<id>` to that meeting; `/tasks/:id` to the task's room (its project's, or Today for a General task) with its panel open; `/settings/people/:id` to `/people/:id`; `/settings/navigation` to `/settings/rooms`. `landRoute()` in `shared/routes.ts` holds them all. |
 | Pin       | **Pin** in a project's or a person's room header pins it (at the end) or unpins it; the rail follows at once. |
 | Settings  | Settings → Rooms (`/settings/rooms`) lists the pinned rooms in the rail's order, each with **Move up**, **Move down** and **Unpin**. The only navigation setting. |
-| + menu    | Add task, Write a note, Add meeting, Add project, until the capture line (#330). New list left + and ⌘K, and Shift+L its key, with lists (#328). |
+| + menu    | Add task, Write a note, Add meeting and Add project, beside the capture line (#330). New list left + and ⌘K with lists (#328). |
 | Stored    | `settings.user.pinned`: an array of entries, each once, at most 50, absent until something is pinned, written whole by `setSettings { patch: { pinned } }` (not logged). An entry is a project id, a person id, or `<projectId>+<personId>` for a project seen through one person (#334, #335). One that names nothing in the space is skipped when read and kept until unpinned. `shared/rooms.ts` reads them. |
-
-
 
 
 One log per project plus one for General. Entries are `{t, text}`, prepended, capped at 150; the project page shows the latest 40 in a collapsed Activity section, and project summaries read the latest 25.

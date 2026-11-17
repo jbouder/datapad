@@ -23,6 +23,7 @@ import { projectNotes } from '#shared/notes';
 import { projectColumns } from '#shared/pages';
 import { GENERAL, healthOf, type Person, type SpaceInfo } from '#shared/types';
 import { BoardPreview } from '@/components/board/BoardPreview';
+import { CaptureLine } from '@/components/capture/CaptureLine';
 import { DetailActions } from '@/components/DetailActions';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Initials } from '@/components/Initials';
@@ -534,6 +535,8 @@ export function ProjectPage({ id }: { id: string }) {
           />
         )}
       </header>
+
+      {!project.archived && <CaptureLine context={{ projectId: project.id }} />}
 
       {desk ? (
         <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6">

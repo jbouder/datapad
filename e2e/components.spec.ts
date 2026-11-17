@@ -184,23 +184,6 @@ test('links: add a row, fill it, remove it', async ({ page }) => {
   await expect(page.getByText('No links yet.')).toBeVisible();
 });
 
-test('quick-add: Enter adds and stays, Esc clears, empty does nothing', async ({
-  page,
-}) => {
-  await open(page);
-  const input = page.getByRole('textbox', { name: 'Add a task' });
-  await input.press('Enter');
-  await expect(page.getByRole('status')).not.toContainText('Would add');
-  await input.fill('Polish the medals');
-  await input.press('Enter');
-  await expect(page.getByText('Would add “Polish the medals”')).toBeVisible();
-  await expect(input).toHaveValue('');
-  await expect(input).toBeFocused();
-  await input.fill('Half typed');
-  await input.press('Escape');
-  await expect(input).toHaveValue('');
-});
-
 test('the side panel: focus in, focus back, Esc, and asking when dirty', async ({
   page,
 }) => {

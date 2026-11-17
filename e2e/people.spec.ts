@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  addFromTopBar,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
@@ -45,7 +46,7 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
 
   // A task assigned to Han, and a note that mentions him.
   await openLive(page, '/');
-  await page.locator('body').press('n');
+  await addFromTopBar(page, 'Add task');
   const panel = page.getByRole('dialog', { name: 'New task' });
   const title = panel.getByRole('textbox', { name: 'Title' });
   await title.fill('Fix the compressor');

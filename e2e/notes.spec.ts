@@ -290,9 +290,11 @@ test('Add note on Notes opens the panel, at any width', async ({ page }) => {
   await expect(add).toBeFocused();
 });
 
-test('Shift+N on Notes starts in the filtered project', async ({ page }) => {
+test('Write a note on Notes starts in the filtered project', async ({
+  page,
+}) => {
   await openLive(page, '/notes?project=p-falcon');
-  await page.locator('body').press('Shift+N');
+  await addFromTopBar(page, 'Write a note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
@@ -302,7 +304,7 @@ test('Shift+N on Notes starts in the filtered project', async ({ page }) => {
 
   // General, filtered or not, starts in General.
   await page.goto('/notes?project=general');
-  await page.locator('body').press('Shift+N');
+  await addFromTopBar(page, 'Write a note');
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
   ).toHaveValue('General');
@@ -341,11 +343,11 @@ test('writes a note from anywhere, into the project you are on', async ({
   expect(added?.projectId).toBe('p-falcon');
 });
 
-test('Shift+N writes a General note from a page with no project', async ({
+test('Write a note writes a General note from a page with no project', async ({
   page,
 }) => {
   await openLive(page, '/tasks');
-  await page.locator('body').press('Shift+N');
+  await addFromTopBar(page, 'Write a note');
   const panel = page.getByRole('dialog', { name: 'New note' });
   await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
   await expect(
