@@ -33,6 +33,19 @@ import {
   topicsOf,
 } from './types';
 
+/** The settings `setSettings` clears with `null` (#343). */
+const CLEARABLE = [
+  'assignToMe',
+  'defaultPriority',
+  'pinned',
+  'captureAs',
+  'mentionAssigns',
+  'roomNotes',
+  'railOwed',
+  'roomTab',
+  'laneLabels',
+] as const satisfies readonly (keyof Settings)[];
+
 /**
  * The one place state changes, on the client and in the Durable Object.
  * Pure: no clock, no randomness (ids come in the op, the time as `now`).
@@ -1273,11 +1286,14 @@ function apply(d: Draft, op: Op, now: string) {
     /* settings (not logged) */
     case 'setSettings': {
       const current = d.get('settings', SETTINGS_ID) ?? STORED_SETTINGS;
-      // A `null` clears the option back to its default (#343).
-      const next: Record<string, unknown> = { ...current };
-      for (const [key, value] of Object.entries(op.patch)) {
-        if (value === null) delete next[key];
-        else next[key] = value;
+      // A `null` clears the option back to its default (#343): the
+      // patch goes over what is stored, then each option it cleared goes.
+      const next = { ...current, ...op.patch } as Record<
+        keyof Settings,
+        unknown
+      >;
+      for (const key of CLEARABLE) {
+        if (next[key] === null) delete next[key];
       }
       d.set('settings', SETTINGS_ID, next as unknown as Settings);
       return;
