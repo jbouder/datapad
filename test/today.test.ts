@@ -3,6 +3,7 @@ import {
   dayEntries,
   dayLine,
   dueOn,
+  highPriority,
   localTime,
   meetingPast,
   nextMeeting,
@@ -178,6 +179,31 @@ describe('dayEntries', () => {
 
   it('is empty for a day with nothing', () => {
     expect(dayEntries(s, '2026-12-25')).toEqual([]);
+  });
+});
+
+describe('highPriority', () => {
+  const s = state({
+    tasks: {
+      high: task('high', { priority: 'high' }),
+      dueHigh: task('dueHigh', { priority: 'high', due: DAY }),
+      med: task('med', { priority: 'med' }),
+      done: task('done', {
+        priority: 'high',
+        status: 'done',
+        completedAt: AT,
+      }),
+      archived: task('archived', { priority: 'high', projectId: 'p-old' }),
+    },
+  });
+
+  it('is the open high-priority tasks in live projects', () => {
+    expect(highPriority(s).map((t) => t.id)).toEqual(['dueHigh', 'high']);
+  });
+
+  it('leaves out what is already shown under Due', () => {
+    const due = dueOn(s, DAY, DAY);
+    expect(highPriority(s, due).map((t) => t.id)).toEqual(['high']);
   });
 });
 

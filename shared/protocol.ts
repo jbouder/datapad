@@ -549,10 +549,14 @@ const laneLabels = z
   .object({ youOwe: laneLabel, theyOwe: laneLabel, discuss: laneLabel })
   .partial() satisfies z.ZodType<LaneLabels, unknown>;
 
+/** How many days out a new task is due (0: no date), up to a year. */
+const dueDays = z.number().int().min(0).max(LIMITS.dueDaysMax);
+
 export const SettingsSchema = z.object({
   defaultOrg: text(LIMITS.nameMax).default(DEFAULT_SETTINGS.defaultOrg),
   assignToMe: z.boolean().optional(),
   defaultPriority: priority.optional(),
+  defaultDueDays: dueDays.optional(),
   nav: NavPrefsSchema.optional(),
   pinned: pinnedRooms.optional(),
   pages: PagesSchema.optional(),
@@ -1452,6 +1456,7 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       defaultOrg: z.string().trim().max(LIMITS.nameMax),
       assignToMe: z.boolean().nullable(),
       defaultPriority: priority.nullable(),
+      defaultDueDays: dueDays.nullable(),
       /** The pinned rooms, whole, in order (#329). */
       pinned: pinnedRooms.nullable(),
       captureAs: z.enum(CAPTURE_AS).nullable(),

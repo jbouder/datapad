@@ -17,11 +17,29 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Added
+
+- Today lists your open high-priority tasks under **High priority**,
+  below Due. A task that is already due or late shows once, under Due.
+  MCP's `get_today` returns the same list.
+- Settings → Capture → **New tasks are due** sets the due date a new
+  task gets when you give none: No date, Tomorrow, In 3 days, In a week
+  or In 2 weeks. Every way of adding a task uses it, MCP's `add_task`
+  included (`due: "none"` still adds one with no date).
+
 ### Changed
+
+- New tasks are due a week from today by default. Pick No date in
+  Settings → Capture to go back to undated tasks.
 
 - Staging is now a lasting environment. The `staging` branch deploys it
   after CI passes, so a change can be tried there before it reaches
   production from `main` ([docs/self-hosting.md](docs/self-hosting.md#staging)).
+
+### Export format
+
+- Settings may carry `defaultDueDays` (0 to 365). Absent reads as 7, so
+  older files import unchanged.
 
 ## [2.0.0] — 2026-11-17
 

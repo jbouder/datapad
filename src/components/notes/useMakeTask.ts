@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { defaultAssignee, defaultPriority } from '#shared/tasks';
+import { defaultAssignee, defaultDue, defaultPriority } from '#shared/tasks';
 import type { Note, Snapshot } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import type { Route } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -21,6 +22,7 @@ export function useMakeTask(): (
   const { state, actions } = useDatapad();
   const { openTask } = useTaskPanels();
   const { show } = useToast();
+  const today = useToday();
   return useCallback(
     (note, title, options) => {
       const clean = title.trim().slice(0, 200);
@@ -34,6 +36,7 @@ export function useMakeTask(): (
         sourceNoteId: note.id,
         assignee: state ? defaultAssignee(state) : '',
         priority: state ? defaultPriority(state) : 'med',
+        due: state ? defaultDue(state, today) : '',
         ...(decide ? { decide: true } : {}),
       });
       if (id === null) return false;
@@ -47,7 +50,7 @@ export function useMakeTask(): (
       );
       return true;
     },
-    [state, actions, openTask, show],
+    [state, actions, openTask, show, today],
   );
 }
 

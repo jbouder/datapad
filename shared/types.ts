@@ -447,6 +447,12 @@ export interface Settings {
    */
   defaultPriority?: Priority;
   /**
+   * How many days from today a new task is due when no date is given;
+   * 0 for no due date. Absent: 7, a week. `defaultDue()` in
+   * `shared/tasks.ts` reads it.
+   */
+  defaultDueDays?: number;
+  /**
    * Navigation preferences from before v2 (#187). Retired in #329: kept
    * as stored, so an old export round-trips, and read by nothing.
    */
@@ -608,7 +614,8 @@ export type EffectiveSettings = Required<Omit<Settings, 'nav' | 'pages'>> &
 
 /**
  * Every space-wide option's default, in one place (#343): a fresh space
- * works with no setup. No default org, new tasks unassigned at Medium, a
+ * works with no setup. No default org, new tasks unassigned at Medium and
+ * due in a week, a
  * plain captured line a note, `@Name` assigning a task, room notes in the
  * room, nothing pinned (the rail lists the active projects) with the
  * people who owe you under it, rooms opening on Stream, the person room's
@@ -619,6 +626,7 @@ export const DEFAULT_SETTINGS: EffectiveSettings = {
   defaultOrg: '',
   assignToMe: false,
   defaultPriority: 'med',
+  defaultDueDays: 7,
   pinned: [],
   captureAs: 'note',
   mentionAssigns: true,

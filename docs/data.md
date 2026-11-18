@@ -131,6 +131,9 @@ as it is (migrated on the way in, below):
   tasks go to the person marked as you, from Settings → People; absent
   is off), optionally `defaultPriority` (`none`, `low`, `med` or `high`:
   what a new task starts with, from Settings → Capture; absent is `med`),
+  optionally `defaultDueDays` (0 to 365: how many days from today a new
+  task is due when no date is given, 0 for none, from Settings → Capture;
+  absent is 7),
   optionally `pinned` (#329), the rooms pinned to the rail, in order:
   `["p-echo", "pe-leia", "p-echo+pe-leia", "view:v-1"]`, each a project
   id, a person id, a project and a person joined by `+`, or `view:` and

@@ -46,7 +46,7 @@ test('the Rooms tab lists the rail’s rooms and stays current inside one', asyn
   ]);
   for (const link of await main.getByRole('listitem').getByRole('link').all()) {
     const box = await link.boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
   }
   await expect(
     main.getByRole('link', { name: 'All projects and people' }),

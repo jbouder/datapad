@@ -5,7 +5,7 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
 } from '@phosphor-icons/react';
-import { useMemo, useRef, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 import {
   addDays,
   daysBetween,
@@ -22,13 +22,19 @@ import {
   dayEntries,
   dayLine,
   dueOn,
+  highPriority,
   localTime,
   nextMeeting,
   weekAround,
   weekDays,
   weekLine,
 } from '#shared/today';
-import { type Meeting, type Snapshot, topicsOf } from '#shared/types';
+import {
+  type Meeting,
+  type Snapshot,
+  type Task,
+  topicsOf,
+} from '#shared/types';
 import { CaptureLine } from '@/components/capture/CaptureLine';
 import {
   useView,
@@ -70,7 +76,8 @@ const HEADING =
  * the long day, one line that counts it, and Previous, Today and Next.
  * Then the capture line; on today, the Next up card while a meeting is
  * ahead (within the days Settings → Today says); what is due (and late,
- * on today); and the timeline, with meetings as anchors and the Now line
+ * on today); on today, the open high-priority tasks not already due;
+ * and the timeline, with meetings as anchors and the Now line
  * at the current minute. Beside it on desktop, below it on phones: the
  * Scratch card and the three lanes of open loops (`lanesOf`), each a
  * section that collapses, hides and moves (Settings → Today, saved under
@@ -151,6 +158,20 @@ export function TodayPage() {
   const now = localTime(nowMs);
   const entries = dayEntries(state, day);
   const due = dueOn(state, day, today);
+  // On today, the open high-priority tasks not already under Due.
+  const high = isToday ? highPriority(state, due) : [];
+  const rows = (task: Task) => (
+    <TaskRow
+      task={task}
+      done={isDone(task)}
+      today={today}
+      projects={state.projects}
+      people={state.people}
+      onToggle={toggle}
+      onOpen={(t) => openTask(t.id)}
+      onEdit={(t, patch) => actions.editTask({ id: t.id, patch })}
+    />
+  );
   const next = isToday ? nextMeeting(state, today, now, days) : null;
   const scratch = scratchCount(state.notes);
   const line = dayLine({
@@ -272,33 +293,22 @@ export function TodayPage() {
               />
             )}
 
-            {due.length > 0 && (
-              <section aria-labelledby="due-title" className="flex flex-col">
-                <h2 id="due-title" className={HEADING}>
-                  <span>{isToday ? 'Due today or late' : 'Due'}</span>
-                  <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
-                    {due.length}
-                  </span>
-                </h2>
-                <ul aria-label="Due" className="flex flex-col border-t">
-                  {due.map((task) => (
-                    <li key={task.id}>
-                      <TaskRow
-                        task={task}
-                        done={isDone(task)}
-                        today={today}
-                        projects={state.projects}
-                        people={state.people}
-                        onToggle={toggle}
-                        onOpen={(t) => openTask(t.id)}
-                        onEdit={(t, patch) =>
-                          actions.editTask({ id: t.id, patch })
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
+            <TaskSection
+              id="due"
+              title={isToday ? 'Due today or late' : 'Due'}
+              label="Due"
+              tasks={due}
+              rows={rows}
+            />
+
+            {isToday && (
+              <TaskSection
+                id="high"
+                title="High priority"
+                label="High priority"
+                tasks={high}
+                rows={rows}
+              />
             )}
 
             {inRecap && (
@@ -363,6 +373,41 @@ export function TodayPage() {
           </aside>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * A titled list of task rows on Today (Due, High priority), with its
+ * count; nothing when it is empty.
+ */
+function TaskSection({
+  id,
+  title,
+  label,
+  tasks,
+  rows,
+}: {
+  id: string;
+  title: string;
+  label: string;
+  tasks: Task[];
+  rows: (task: Task) => ReactNode;
+}) {
+  if (tasks.length === 0) return null;
+  return (
+    <section aria-labelledby={`${id}-title`} className="flex flex-col">
+      <h2 id={`${id}-title`} className={HEADING}>
+        <span>{title}</span>
+        <span className="count font-sans text-xs font-normal text-muted-foreground tabular-nums">
+          {tasks.length}
+        </span>
+      </h2>
+      <ul aria-label={label} className="flex flex-col border-t">
+        {tasks.map((task) => (
+          <li key={task.id}>{rows(task)}</li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -282,6 +282,8 @@ describe('the read tools', () => {
       );
       expect(ids(out.meetings.items)).toEqual(['e-1']);
       expect(ids(out.due.items)).toEqual(['t-1']);
+      // t-1 is high but already due: it shows once, under due.
+      expect(out.highPriority.items).toEqual([]);
       // A day other than the owner's today counts from its start.
       expect(out.nextMeeting.id).toBe('e-1');
       expect(lane(out.lanes)).toEqual({
@@ -1198,6 +1200,30 @@ describe('the write tools', () => {
       assignee: 'unassigned',
     });
     expect(nobody.task.assignee).toBeNull();
+  });
+
+  it('add_task with no due date takes the owner’s default, a week out unless changed', async () => {
+    const ctx = await writer();
+    const week = await call(ctx, 'add_task', {
+      title: 'Sweep the hangar',
+      today: TODAY,
+    });
+    expect(week.task.due).toBe('2026-11-03');
+    const none = await call(ctx, 'add_task', {
+      title: 'Restock rations',
+      due: 'none',
+      today: TODAY,
+    });
+    expect(none.task.due).toBe('');
+    const off = await ctx.datapad.import(MAIN_SPACE, {
+      settings: { user: { defaultOrg: '', defaultDueDays: 0 } },
+    });
+    expect(off.ok).toBe(true);
+    const undated = await call(ctx, 'add_task', {
+      title: 'Check the shields',
+      today: TODAY,
+    });
+    expect(undated.task.due).toBe('');
   });
 
   it('add_task with no priority takes the owner’s default, Medium unless changed', async () => {

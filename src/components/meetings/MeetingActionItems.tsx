@@ -3,7 +3,7 @@ import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { allDoneActionsText } from '#shared/meetings';
 import { taskNoteCounts, tasksOfMeeting } from '#shared/select';
-import { defaultAssignee, defaultPriority } from '#shared/tasks';
+import { defaultAssignee, defaultDue, defaultPriority } from '#shared/tasks';
 import type { Meeting } from '#shared/types';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { TaskRow, type TaskRowProps } from '@/components/tasks/TaskRow';
@@ -94,6 +94,7 @@ export function MeetingActionItems({
       title,
       assignee: state ? defaultAssignee(state) : '',
       priority: state ? defaultPriority(state) : 'med',
+      due: state ? defaultDue(state, today) : '',
     });
     if (id === null) return;
     setDraft('');

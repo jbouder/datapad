@@ -21,7 +21,7 @@ import { LIMITS } from './limits';
 import { mentionedIds, namesToTokens } from './mentions';
 import type { BaseOp } from './protocol';
 import { meId } from './select';
-import { defaultAssignee, defaultPriority } from './tasks';
+import { defaultAssignee, defaultDue, defaultPriority } from './tasks';
 import {
   type DateString,
   type Project,
@@ -187,7 +187,9 @@ export function parseCapture(
   }
   text = squash(text);
   if (force) kind = force;
+  // A task with no date in the line is due when Settings → Capture says.
   if (kind === 'note') due = '';
+  else if (!due) due = defaultDue(state, today);
 
   const people = mentionedIds(text);
   const roomPerson =

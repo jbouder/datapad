@@ -4,7 +4,7 @@ import { formatDay, formatTimestamp } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { notesOfTask } from '#shared/select';
-import { defaultAssignee, defaultPriority } from '#shared/tasks';
+import { defaultAssignee, defaultDue, defaultPriority } from '#shared/tasks';
 import {
   blockedOf,
   type Link,
@@ -446,12 +446,14 @@ export function NewTaskPanel({
   const meeting = meetingId ? state?.meetings[meetingId] : undefined;
   const { show } = useToast();
   const people = state?.people ?? {};
+  const today = useToday();
   const [initial] = useState(() => ({
     title,
     projectId,
     // Medium, or what Settings → Capture says.
     priority: (state ? defaultPriority(state) : 'med') as Priority,
-    due: '',
+    // A week out, or what Settings → Capture says.
+    due: state ? defaultDue(state, today) : '',
     // Every new task starts with the default assignee: you, when
     // Settings → People says so.
     assignee: state ? defaultAssignee(state) : '',

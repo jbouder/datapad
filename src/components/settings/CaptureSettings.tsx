@@ -13,13 +13,24 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useToast } from '@/providers/ToastProvider';
 import { Hint, ResetToDefaults, SwitchRow } from './parts';
 
+/** The choices for "New tasks are due", in days from today (0: none). */
+const DUE_DAYS = [0, 1, 3, 7, 14] as const;
+
+function dueLabel(days: number): string {
+  if (days === 0) return 'No date';
+  if (days === 1) return 'Tomorrow';
+  if (days === 7) return 'In a week';
+  if (days === 14) return 'In 2 weeks';
+  return `In ${days} days`;
+}
+
 type CaptureKey = 'captureAs' | 'mentionAssigns' | 'roomNotes';
 type SetSettings = Extract<BaseOp, { type: 'setSettings' }>;
 
 /**
  * Settings → Capture (#343): what a plain line on the capture line
  * becomes, whether `@Name` assigns a task, the priority new tasks start
- * at (everywhere tasks are added), and where a note typed in a room goes.
+ * at and when they are due (everywhere tasks are added), and where a note typed in a room goes.
  * Each is a space-wide setting with its default in `DEFAULT_SETTINGS`;
  * the default is saved as nothing.
  */
@@ -88,6 +99,37 @@ export function CaptureSettings() {
         <Hint>
           What a new task starts with when you do not pick one, everywhere you
           add tasks.
+        </Hint>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Segmented<string>
+          legend="New tasks are due"
+          value={String(settings.defaultDueDays)}
+          onChange={(value) => {
+            const days = Number(value);
+            const before = settings.defaultDueDays;
+            if (days === before) return;
+            const patch = (n: number) => ({
+              defaultDueDays: n === DEFAULT_SETTINGS.defaultDueDays ? null : n,
+            });
+            if (!actions.setSettings({ patch: patch(days) })) return;
+            show(
+              days === 0
+                ? 'New tasks start with no due date'
+                : `New tasks are due ${dueLabel(days).toLowerCase()}`,
+              () => actions.setSettings({ patch: patch(before) }),
+            );
+          }}
+          options={DUE_DAYS.map((days) => ({
+            value: String(days),
+            label: dueLabel(days),
+          }))}
+          wrap
+          className="max-w-md"
+        />
+        <Hint>
+          When you do not give a date, everywhere you add tasks. A date in the
+          line or the form wins.
         </Hint>
       </div>
       <div className="flex flex-col gap-1.5">

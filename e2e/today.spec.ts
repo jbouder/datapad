@@ -273,3 +273,34 @@ test('Settings → Today starts the week on Sunday; Reset puts Monday back, with
   await expectStored(request, { filters: { weekStart: 'sun' } });
   await expectAccessible(page);
 });
+
+test('Today lists the open high-priority tasks not already due', async ({
+  page,
+  request,
+}) => {
+  const s = structuredClone(SEED);
+  const tasks = s.tasks as Record<string, Record<string, unknown>>;
+  tasks['t-high'] = {
+    ...tasks['t-1'],
+    id: 't-high',
+    title: 'Reroute power to the deflector',
+    due: '',
+    links: [],
+  };
+  await request.post('/api/import', { data: s });
+  await openLive(page);
+
+  const high = page.getByRole('list', { name: 'High priority' });
+  await expect(high.getByRole('listitem')).toHaveCount(1);
+  await expect(high).toContainText('Reroute power to the deflector');
+  // The late shield generator is high too, but shows once, under Due.
+  await expect(high).not.toContainText('Confirm shield generator delivery');
+  await expect(
+    page.getByRole('list', { name: 'Due', exact: true }),
+  ).toContainText('Confirm shield generator delivery');
+
+  // Only on today.
+  await page.getByRole('button', { name: 'Next day' }).click();
+  await expect(high).toBeHidden();
+  await expectAccessible(page);
+});

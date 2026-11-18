@@ -360,7 +360,13 @@ test('move with the keyboard and the pointer, select with a marquee', async ({
   if (isMobile(page)) {
     // One finger on empty board pans: the view moves, the items do not.
     const before = await centreOf(power);
-    const start = await emptyPoint(page, 0.2, 0.12);
+    // Just below the Undo bar: a fixed fraction of the board can land on
+    // it when the room's header wraps and the board is shorter.
+    const bar = await page.getByRole('button', { name: 'Undo' }).boundingBox();
+    const start = {
+      ...(await emptyPoint(page, 0.2, 0)),
+      y: (bar?.y ?? 0) + (bar?.height ?? 0) + 24,
+    };
     await drag(page, start, { x: start.x - 50, y: start.y - 80 });
     const after = await centreOf(power);
     expect(Math.round(after.x - before.x)).toBe(-50);

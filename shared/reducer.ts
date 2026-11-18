@@ -37,6 +37,7 @@ import {
 const CLEARABLE = [
   'assignToMe',
   'defaultPriority',
+  'defaultDueDays',
   'pinned',
   'captureAs',
   'mentionAssigns',
