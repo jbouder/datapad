@@ -15,6 +15,8 @@ export const LIMITS = {
   titleMax: 200,
   /** Note bodies and markdown descriptions. */
   bodyMax: 20_000,
+  /** The most days out Settings → Capture can make a new task due. */
+  dueDaysMax: 365,
   /** Tasks in one template. */
   templateTasksMax: 100,
   /** A blocked task's one-line reason. */

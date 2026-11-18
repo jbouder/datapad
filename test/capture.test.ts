@@ -385,11 +385,17 @@ describe('chips and the toast', () => {
       'for Han Solo',
       'Due Fri 20 Nov',
     ]);
+    // No date in the line: due a week out, the default.
     expect(chips('waiting on @Chewbacca parts')).toEqual([
       'Waiting on',
       'waiting on Chewbacca',
+      'Due Mon 23 Nov',
     ]);
-    expect(chips('[ ] Fix it @Leia')).toEqual(['Task', 'for you']);
+    expect(chips('[ ] Fix it @Leia')).toEqual([
+      'Task',
+      'for you',
+      'Due Mon 23 Nov',
+    ]);
     expect(chips('Saw @Han Solo and @Leia')).toEqual([
       'Note',
       '@Han Solo',

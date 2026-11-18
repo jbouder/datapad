@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { TemplateChoice } from '#shared/composer';
 import { tokensToNames } from '#shared/mentions';
-import { defaultAssignee, defaultPriority } from '#shared/tasks';
+import { defaultAssignee, defaultDue, defaultPriority } from '#shared/tasks';
 import { templatesOf } from '#shared/templates';
 import { useDatapad } from '@/hooks/useDatapad';
+import { useToday } from '@/hooks/useNow';
 import { useToast } from '@/providers/ToastProvider';
 
 /** The space's note templates for a composer, mentions as names. */
@@ -37,6 +38,7 @@ export function useNoteCommands(
   const { state, actions } = useDatapad();
   const { show } = useToast();
   const templates = useNoteTemplates();
+  const today = useToday();
   return {
     onTask: (title) => {
       const assignee = state ? defaultAssignee(state) : '';
@@ -47,6 +49,7 @@ export function useNoteCommands(
         title,
         assignee,
         priority,
+        due: state ? defaultDue(state, today) : '',
       });
       if (added === null) return false;
       show(`Added “${title}”`);

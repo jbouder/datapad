@@ -105,6 +105,22 @@ export function dueOn(
 }
 
 /**
+ * The open high-priority tasks in live projects: what Today shows
+ * under High priority, by `byLoop`. Those in `except` (what is already
+ * under Due) are left out, so a task shows once.
+ */
+export function highPriority(
+  state: Pick<Snapshot, 'tasks' | 'projects'>,
+  except: readonly Task[] = [],
+): Task[] {
+  const shown = new Set(except.map((t) => t.id));
+  return Object.values(state.tasks)
+    .filter((t) => t.priority === 'high' && !shown.has(t.id))
+    .filter((t) => isOpenLoop(t, state.projects))
+    .sort(byLoop);
+}
+
+/**
  * Whether a meeting is over at `now` on `today`: an earlier day, or
  * today with its end (or its start, without one) before now. An untimed
  * meeting today is never over.

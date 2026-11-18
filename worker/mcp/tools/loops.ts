@@ -17,7 +17,13 @@ import {
   type StreamItem,
   splitStream,
 } from '#shared/stream';
-import { dayEntries, dayLine, dueOn, nextMeeting } from '#shared/today';
+import {
+  dayEntries,
+  dayLine,
+  dueOn,
+  highPriority,
+  nextMeeting,
+} from '#shared/today';
 import { GENERAL, type Project, type Snapshot, type Task } from '#shared/types';
 import { defineTool, READ_ONLY, SpaceArg, ToolError } from '../tool';
 import { projectPage } from './projects';
@@ -64,6 +70,7 @@ function todayOut({ space, state, today, now }: SpaceRead) {
     e.kind === 'meeting' ? [e.meeting] : [],
   );
   const due = dueOn(state, today, today);
+  const high = highPriority(state, due);
   const next = nextMeeting(state, today, now, options.days);
   return {
     space,
@@ -76,6 +83,7 @@ function todayOut({ space, state, today, now }: SpaceRead) {
     }),
     meetings: cap(meetings.map((m) => meetingOut(state, m))),
     due: cap(due.map((t) => taskOut(state, t))),
+    highPriority: cap(high.map((t) => taskOut(state, t))),
     nextMeeting: next ? meetingOut(state, next) : null,
     lanes: lanesOut(state, lanes),
     scratch: scratchNotes(state.notes).length,
@@ -86,7 +94,7 @@ function todayOut({ space, state, today, now }: SpaceRead) {
 }
 
 const TODAY_DESCRIPTION =
-  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the next meeting (within the days Settings → Today sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Mine shows is set to Only assigned to me) and how many notes sit in Scratch. Projects in the archive are left out.';
+  'Today, as its page shows it: the day’s one line ("2 meetings, 3 due, 4 waiting on others, 1 to decide"), its meetings in time order, the open tasks due (overdue ones too), the open high-priority tasks not already due, the next meeting (within the days Settings → Today sets, seven unless set), the three lanes of open loops (Mine, Waiting on by person, To decide; Mine holds only the owner’s tasks when Mine shows is set to Only assigned to me) and how many notes sit in Scratch. Projects in the archive are left out.';
 
 export const getToday = defineTool({
   name: 'get_today',

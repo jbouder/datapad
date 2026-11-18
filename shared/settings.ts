@@ -25,7 +25,13 @@ export type ResetSection = 'today' | 'rooms' | 'capture' | 'all';
 const OWN_SETTINGS: Record<ResetSection, readonly (keyof Settings)[]> = {
   today: [],
   rooms: ['pinned', 'railOwed', 'roomTab', 'laneLabels'],
-  capture: ['captureAs', 'mentionAssigns', 'defaultPriority', 'roomNotes'],
+  capture: [
+    'captureAs',
+    'mentionAssigns',
+    'defaultPriority',
+    'defaultDueDays',
+    'roomNotes',
+  ],
   all: [],
 };
 

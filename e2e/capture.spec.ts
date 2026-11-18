@@ -131,13 +131,19 @@ test('capture something to decide and a waiting-on', async ({
 }) => {
   await openLive(page);
   const line = capture(page);
+  // No date in the line: due a week out, the default.
+  const week = `Due ${formatDay(addDays(today(), 7), today())}`;
   await line.fill('? Refit or replace the motivator');
-  await expect(chips(page)).toHaveText(['To decide']);
+  await expect(chips(page)).toHaveText(['To decide', week]);
   await line.press('Enter');
   await expect(toast(page)).toContainText('Added to decide in General');
 
   await line.fill('waiting on @Han Solo the hydrospanners');
-  await expect(chips(page)).toHaveText(['Waiting on', 'waiting on Han Solo']);
+  await expect(chips(page)).toHaveText([
+    'Waiting on',
+    'waiting on Han Solo',
+    week,
+  ]);
   await line.press('Enter');
   await expect(toast(page)).toContainText('Waiting on Han Solo, in General');
   await expectSaved(page);
@@ -250,7 +256,11 @@ test('Settings → Capture changes what a plain line saves (#343)', async ({
   await openLive(page);
   await capture(page).fill('Ask @Han Solo about the motivator');
   // A task, mentioning Han rather than assigned to him.
-  await expect(chips(page)).toHaveText(['Task', '@Han Solo']);
+  await expect(chips(page)).toHaveText([
+    'Task',
+    '@Han Solo',
+    `Due ${formatDay(addDays(today(), 7), today())}`,
+  ]);
   await capture(page).press('Enter');
   await expect(toast(page)).toContainText('Added a task to General');
   await expectSaved(page);

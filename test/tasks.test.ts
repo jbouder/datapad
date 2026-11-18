@@ -3,6 +3,7 @@ import { ExportSchema } from '#shared/protocol';
 import {
   DEFAULT_TASK_FILTERS,
   defaultAssignee,
+  defaultDue,
   defaultPriority,
   dueBucket,
   dueForBucket,
@@ -34,6 +35,24 @@ describe('defaultPriority', () => {
         settings: { user: { defaultOrg: '', defaultPriority: 'high' } },
       }),
     ).toBe('high');
+  });
+});
+
+describe('defaultDue', () => {
+  const at = (defaultDueDays?: number) => ({
+    settings: {
+      user: {
+        defaultOrg: '',
+        ...(defaultDueDays === undefined ? {} : { defaultDueDays }),
+      },
+    },
+  });
+  it('is a week out until the setting says otherwise', () => {
+    expect(defaultDue({ settings: {} }, '2026-11-16')).toBe('2026-11-23');
+    expect(defaultDue(at(), '2026-11-28')).toBe('2026-12-05');
+    expect(defaultDue(at(1), '2026-11-16')).toBe('2026-11-17');
+    expect(defaultDue(at(14), '2026-11-16')).toBe('2026-11-30');
+    expect(defaultDue(at(0), '2026-11-16')).toBe('');
   });
 });
 

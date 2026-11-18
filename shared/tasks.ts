@@ -39,6 +39,20 @@ export function defaultPriority(state: Pick<Snapshot, 'settings'>): Priority {
   return settingsOf(state).defaultPriority;
 }
 
+/**
+ * The day a new task is due when none is given: Settings → Capture's
+ * "New tasks are due", a week from `today` until it is changed; '' when
+ * set to no date. Every way of adding a task reads it, as
+ * `defaultPriority()`.
+ */
+export function defaultDue(
+  state: Pick<Snapshot, 'settings'>,
+  today: DateString,
+): DateString | '' {
+  const days = settingsOf(state).defaultDueDays;
+  return days > 0 ? addDays(today, days) : '';
+}
+
 /** The Tasks view's controls, as kept in the URL. */
 export interface TaskFilters {
   status: 'open' | 'done' | 'all';

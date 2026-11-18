@@ -2816,6 +2816,30 @@ describe('settings', () => {
     expect(low.activity).toBe(state.activity);
   });
 
+  it('stores and clears the default due days, unlogged', () => {
+    const state = run(base(), {
+      type: 'setSettings',
+      patch: { defaultOrg: 'Rebel Alliance' },
+    });
+    const none = run(state, {
+      type: 'setSettings',
+      patch: { defaultDueDays: 0 },
+    });
+    expect(stored(none)).toEqual({
+      defaultOrg: 'Rebel Alliance',
+      defaultDueDays: 0,
+    });
+    expect(none.activity).toBe(state.activity);
+    const back = run(none, {
+      type: 'setSettings',
+      patch: { defaultDueDays: null },
+    });
+    expect(stored(back)).toEqual({ defaultOrg: 'Rebel Alliance' });
+    expect(() =>
+      OpSchema.parse({ type: 'setSettings', patch: { defaultDueDays: 400 } }),
+    ).toThrow();
+  });
+
   it('stores the pinned rooms whole, in order, unlogged (#329)', () => {
     const state = run(base(), {
       type: 'setSettings',

@@ -62,6 +62,7 @@ describe('a fresh space (#343)', () => {
       defaultOrg: '',
       assignToMe: false,
       defaultPriority: 'med',
+      defaultDueDays: 7,
       pinned: [],
       captureAs: 'note',
       mentionAssigns: true,
@@ -225,6 +226,16 @@ describe('capture defaults (#343)', () => {
     expect(
       parseCapture('Check the hyperdrive', state, MONDAY, {}, 'note').kind,
     ).toBe('note');
+  });
+
+  it('makes a task due a week out unless the line or the setting says', () => {
+    const due = (text: string, state = withPeople()) =>
+      parseCapture(text, state, MONDAY).due;
+    expect(due('todo check the hyperdrive')).toBe('2026-11-23');
+    expect(due('todo check the hyperdrive fri')).toBe('2026-11-20');
+    expect(due('A thought')).toBe('');
+    expect(due('todo check it', set({ defaultDueDays: 3 }))).toBe('2026-11-19');
+    expect(due('todo check it', set({ defaultDueDays: 0 }))).toBe('');
   });
 
   it('leaves a task unassigned by @Name when set to', () => {
