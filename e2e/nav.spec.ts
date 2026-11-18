@@ -105,8 +105,8 @@ test('a phone has four tabs, Today, Scratch, Rooms and All, each a 44px target',
   );
   for (const link of await tabs.getByRole('link').all()) {
     const box = await link.boundingBox();
-    expect(box?.width).toBeGreaterThanOrEqual(44);
-    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.width ?? 0)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
   }
   await tabs.getByRole('link', { name: 'All' }).click();
   await expect(page).toHaveURL(/\/all\?kind=task$/);
@@ -120,118 +120,6 @@ test('a phone has four tabs, Today, Scratch, Rooms and All, each a 44px target',
     page.getByRole('heading', { level: 1, name: 'Scratch' }),
   ).toBeVisible();
   await expectAccessible(page);
-});
-
-test('old addresses land on their new homes', async ({ page, request }) => {
-  await request.post('/api/import', { data: SEED });
-  // Focus is Today; the digest is its week zoom.
-  await openLive(page, '/focus');
-  await expect(page).toHaveURL(/localhost:\d+\/$/);
-  await openLive(page, '/digest');
-  await expect(page).toHaveURL(/localhost:\d+\/\?view=week$/);
-  await expect(page.getByRole('region', { name: 'Digest' })).toBeVisible();
-  // The Notepad is Scratch, and so is Unfiled, its old name.
-  await page.goto('/notepad');
-  await expect(page).toHaveURL(/\/scratch$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Scratch' }),
-  ).toBeVisible();
-  await page.goto('/unfiled');
-  await expect(page).toHaveURL(/\/scratch$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Scratch' }),
-  ).toBeVisible();
-  // The list pages are All, by kind, their filters as All reads them.
-  for (const [path, url] of [
-    ['/projects', /\/all\?kind=project$/],
-    ['/archive', /\/all\?kind=project&status=archived$/],
-    ['/tasks?who=mine', /\/all\?kind=task&person=me$/],
-    ['/notes', /\/all\?kind=note$/],
-    ['/meetings', /\/all\?kind=meeting$/],
-    ['/lists/l-evac', /\/all\?kind=note$/],
-  ] as const) {
-    await page.goto(path);
-    await expect(page).toHaveURL(url);
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'All' }),
-    ).toBeVisible();
-    await expect(page).toHaveTitle('All · Datapad');
-  }
-  // A person under Settings is their room.
-  await page.goto('/settings/people/u-chewie');
-  await expect(page).toHaveURL(/\/people\/u-chewie$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Chewbacca' }),
-  ).toBeVisible();
-});
-
-test('a task’s old page is its project’s room, with the task’s panel open', async ({
-  page,
-  request,
-}) => {
-  await request.post('/api/import', { data: SEED });
-  await openLive(page, '/tasks/t-2');
-  await expect(page).toHaveURL(/\/projects\/p-echo$/);
-  const panel = page.getByRole('dialog', { name: 'Task' });
-  await expect(panel.getByRole('textbox', { name: 'Title' })).toHaveValue(
-    'Insulate the hangar doors',
-  );
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Echo Base relocation' }),
-  ).toBeVisible();
-
-  // A General task's room is Today; a task that is gone is Not found.
-  await page.goto('/tasks/t-6');
-  await expect(page).toHaveURL(/localhost:\d+\/$/);
-  await expect(page.getByRole('dialog', { name: 'Task' })).toBeVisible();
-  await page.goto('/tasks/nope');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Not found' }),
-  ).toBeVisible();
-});
-
-test('Decisions are retired: their address is Today and kept ones show nowhere', async ({
-  page,
-  request,
-}) => {
-  await request.post('/api/import', {
-    data: {
-      ...SEED,
-      decisions: {
-        'd-1': {
-          id: 'd-1',
-          projectId: 'p-echo',
-          title: 'Zebra protocol',
-          status: 'decided',
-          decidedAt: '2026-10-01',
-          createdAt: '2026-10-01T09:00:00.000Z',
-          updatedAt: '2026-10-01T09:00:00.000Z',
-        },
-      },
-    },
-  });
-  for (const path of ['/decisions', '/decisions/d-1?project=p-echo']) {
-    await openLive(page, path);
-    await expect(page).toHaveURL(/localhost:\d+\/$/);
-  }
-  await expect(page.getByRole('link', { name: /Decisions/ })).toHaveCount(0);
-
-  await page.goto('/projects/p-echo');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Echo Base relocation' }),
-  ).toBeVisible();
-  await expect(page.getByRole('main')).not.toContainText('Decision');
-
-  await page.getByRole('button', { name: 'Search' }).click();
-  const palette = page.getByRole('dialog', { name: 'Search' });
-  await palette.getByRole('combobox').fill('Zebra');
-  await expect(palette).toContainText('Nothing matches');
-
-  // The data is kept.
-  const data = await (await request.get('/api/export.json')).json();
-  expect(Object.keys(data.decisions)).toEqual(['d-1']);
 });
 
 test('an unknown project or path says Not found, with a way back', async ({

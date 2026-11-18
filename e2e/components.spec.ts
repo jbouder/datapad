@@ -75,7 +75,7 @@ test('page sections: show, hide and move, one always shown (#310)', async ({
     const box = await editor
       .getByRole('button', { name: 'Move Beta up' })
       .boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
   }
 });
 

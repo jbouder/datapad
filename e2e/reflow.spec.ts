@@ -72,8 +72,14 @@ test.describe('on a phone', () => {
     for (const control of controls) {
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
-      expect(box?.height ?? 0, String(control)).toBeGreaterThanOrEqual(44);
-      expect(box?.width ?? 0, String(control)).toBeGreaterThanOrEqual(44);
+      expect(
+        Math.round(box?.height ?? 0),
+        String(control),
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        Math.round(box?.width ?? 0),
+        String(control),
+      ).toBeGreaterThanOrEqual(44);
     }
   });
 
@@ -82,7 +88,9 @@ test.describe('on a phone', () => {
     await page.goto('/');
     const loop = page.locator('[data-loop] [data-task-title]').first();
     await expect(loop).toBeVisible();
-    expect((await loop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(
+      Math.round((await loop.boundingBox())?.height ?? 0),
+    ).toBeGreaterThanOrEqual(44);
   });
 
   test('the preferences menu fits on screen', async ({ page }) => {

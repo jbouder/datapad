@@ -135,14 +135,14 @@ test('a deleted source note leaves the task, which says so', async ({
   await openLive(page, '/projects/p-echo');
   // t-4 was made from the Standup note.
   await noteAction(noteRow(page, 'Standup'), 'Delete');
+  // The delete goes out when its Undo ends (5 seconds), not before; the
+  // toast holds while the pointer is over it, so wait it out first.
+  await expect(page.locator('output.toast')).toBeHidden({ timeout: 15_000 });
   await page
     .getByRole('button', { name: 'Book the tauntaun vet' })
     .first()
     .click();
   const panel = page.getByRole('dialog');
   await expect(panel.getByRole('heading', { name: 'From note' })).toBeVisible();
-  // The delete goes out when its Undo ends (5 seconds), not before.
-  await expect(panel.getByText('Note deleted')).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(panel.getByText('Note deleted')).toBeVisible();
 });

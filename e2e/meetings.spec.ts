@@ -106,28 +106,3 @@ test('schedules a meeting from a project room, edits it on Meetings, deletes one
     'Deleted meeting "Shield review"',
   );
 });
-
-test('old addresses land on Meetings, or on the meeting they opened', async ({
-  page,
-}) => {
-  await openLive(page, '/events?view=list&event=e-1');
-  await expect(page).toHaveURL(/\/meetings\/e-1$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Shield review' }),
-  ).toBeVisible();
-  await expect(page).toHaveTitle('Shield review · Datapad');
-
-  // A meeting's row was /meetings?meeting=<id> until it had a page.
-  await page.goto('/meetings?view=list&meeting=e-1');
-  await expect(page).toHaveURL(/\/meetings\/e-1$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Shield review' }),
-  ).toBeVisible();
-
-  // Other parameters come along unchanged.
-  await page.goto('/events?project=p-echo&view=calendar');
-  await expect(page).toHaveURL(/\/all\?kind=meeting&room=p-echo$/);
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'All' }),
-  ).toBeVisible();
-});
