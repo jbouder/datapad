@@ -139,7 +139,9 @@ as it is (migrated on the way in, below):
   id, a person id, a project and a person joined by `+`, or `view:` and
   the id of a view saved on All (#338), each once, 50 at most,
   absent until something is pinned; an entry that names nothing in the
-  space is kept and skipped when read. Settings for v2 (#343) add, each
+  space is kept and skipped when read, optionally `hiddenRooms`, the ids
+  of the projects the rail leaves off its list of active projects, each
+  once, 500 at most, absent until one is hidden. Settings for v2 (#343) add, each
   optional and absent at its default: `captureAs` (`note` or `task`: what
   a plain line on the capture line becomes; absent is `note`),
   `mentionAssigns` (`false` when `@Name` on a captured task only mentions

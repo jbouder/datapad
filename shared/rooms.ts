@@ -210,6 +210,47 @@ export function movePin(
   return pins.map((k) => (k === key ? other : k === other ? key : k));
 }
 
+/** The projects hidden from the rail, each once. */
+export function hiddenOf(settings: Pick<Settings, 'hiddenRooms'>): string[] {
+  return [...new Set(settings.hiddenRooms ?? [])];
+}
+
+export function isHidden(
+  settings: Pick<Settings, 'hiddenRooms'>,
+  projectId: string,
+): boolean {
+  return hiddenOf(settings).includes(projectId);
+}
+
+/**
+ * The settings patch that hides a project from the rail, or shows it
+ * again. Hiding also unpins the project's own room, so it leaves the
+ * rail whichever list it is on; a pair with a person stays pinned.
+ */
+export function hidePatch(
+  settings: Pick<Settings, 'hiddenRooms' | 'pinned'>,
+  projectId: string,
+  hidden: boolean,
+): Pick<Settings, 'hiddenRooms' | 'pinned'> {
+  const rest = hiddenOf(settings).filter((id) => id !== projectId);
+  if (!hidden) return { hiddenRooms: rest };
+  return {
+    hiddenRooms: [...rest, projectId],
+    pinned: withPin(settings, { kind: 'project', id: projectId }, false),
+  };
+}
+
+/** The hidden projects that still exist, by name. */
+export function hiddenProjects(
+  settings: Pick<Settings, 'hiddenRooms'>,
+  projects: Snapshot['projects'],
+): Project[] {
+  return hiddenOf(settings)
+    .map((id) => (Object.hasOwn(projects, id) ? projects[id] : undefined))
+    .filter((p): p is Project => p !== undefined)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** The pinned rooms that exist, in order. */
 export function pinnedRooms(
   settings: Pick<Settings, 'pinned'>,
@@ -220,29 +261,38 @@ export function pinnedRooms(
     .filter((room): room is Room => room !== null);
 }
 
-/** Not archived and not done: what the rail shows before any pin. */
-function liveProjects(projects: Snapshot['projects']): Project[] {
+/**
+ * Not archived, not done and not hidden: what the rail shows before any
+ * pin.
+ */
+function liveProjects(
+  projects: Snapshot['projects'],
+  hidden: Set<string>,
+): Project[] {
   return Object.values(projects)
-    .filter((p) => !p.archived && p.status !== 'done')
+    .filter((p) => !p.archived && p.status !== 'done' && !hidden.has(p.id))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 /**
  * The rail's rooms: the pinned ones in order, or with none pinned the
- * active projects, most recently changed first. `pinned` says which.
+ * active projects not hidden, most recently changed first. `pinned` says
+ * which.
  */
 export function railRooms(
-  settings: Pick<Settings, 'pinned'>,
+  settings: Pick<Settings, 'pinned' | 'hiddenRooms'>,
   state: RoomState,
 ): { pinned: boolean; rooms: Room[] } {
   const pinned = pinnedRooms(settings, state);
   if (pinned.length > 0) return { pinned: true, rooms: pinned };
   return {
     pinned: false,
-    rooms: liveProjects(state.projects).map((p) => ({
-      kind: 'project',
-      id: p.id,
-    })),
+    rooms: liveProjects(state.projects, new Set(hiddenOf(settings))).map(
+      (p) => ({
+        kind: 'project',
+        id: p.id,
+      }),
+    ),
   };
 }
 

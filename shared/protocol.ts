@@ -437,6 +437,12 @@ const pinnedRooms = z
   .max(LIMITS.pinnedMax)
   .refine((keys) => new Set(keys).size === keys.length, 'Each room once');
 
+/** The projects hidden from the rail, by id, each once. */
+const hiddenRooms = z
+  .array(z.string().min(1).max(LIMITS.idMax))
+  .max(LIMITS.hiddenMax)
+  .refine((ids) => new Set(ids).size === ids.length, 'Each project once');
+
 /* ---------- page preferences (#186) ---------- */
 
 /** A saved filter's or section's name (`status`, `day:later`). */
@@ -559,6 +565,7 @@ export const SettingsSchema = z.object({
   defaultDueDays: dueDays.optional(),
   nav: NavPrefsSchema.optional(),
   pinned: pinnedRooms.optional(),
+  hiddenRooms: hiddenRooms.optional(),
   pages: PagesSchema.optional(),
   captureAs: z.enum(CAPTURE_AS).optional(),
   mentionAssigns: z.boolean().optional(),
@@ -1459,6 +1466,8 @@ const BaseOpSchema = z.discriminatedUnion('type', [
       defaultDueDays: dueDays.nullable(),
       /** The pinned rooms, whole, in order (#329). */
       pinned: pinnedRooms.nullable(),
+      /** The projects hidden from the rail, whole. */
+      hiddenRooms: hiddenRooms.nullable(),
       captureAs: z.enum(CAPTURE_AS).nullable(),
       mentionAssigns: z.boolean().nullable(),
       roomNotes: z.enum(ROOM_NOTES).nullable(),

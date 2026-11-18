@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hiddenProjects,
+  hidePatch,
+  isHidden,
   isPinned,
   isRoomPage,
   movePin,
@@ -214,6 +217,39 @@ describe('railRooms', () => {
         { kind: 'project', id: 'p-old' },
       ],
     });
+  });
+
+  it('leaves the hidden projects off the active list', () => {
+    expect(railRooms({ hiddenRooms: ['p-falcon'] }, space).rooms).toEqual([
+      { kind: 'project', id: 'p-echo' },
+    ]);
+  });
+});
+
+describe('hidden projects', () => {
+  it('hides once and unpins the project, keeping its pairs', () => {
+    expect(
+      hidePatch({ pinned: ['p-echo', 'p-echo+pe-leia'] }, 'p-echo', true),
+    ).toEqual({ hiddenRooms: ['p-echo'], pinned: ['p-echo+pe-leia'] });
+    expect(
+      hidePatch({ hiddenRooms: ['p-echo'] }, 'p-echo', true).hiddenRooms,
+    ).toEqual(['p-echo']);
+  });
+
+  it('shows again without touching the pins', () => {
+    expect(
+      hidePatch({ hiddenRooms: ['p-echo', 'p-falcon'] }, 'p-echo', false),
+    ).toEqual({ hiddenRooms: ['p-falcon'] });
+  });
+
+  it('reads which are hidden, skipping projects that are gone', () => {
+    const settings = { hiddenRooms: ['p-gone', 'p-falcon', 'p-echo'] };
+    expect(isHidden(settings, 'p-echo')).toBe(true);
+    expect(isHidden({}, 'p-echo')).toBe(false);
+    expect(hiddenProjects(settings, space.projects).map((p) => p.id)).toEqual([
+      'p-echo',
+      'p-falcon',
+    ]);
   });
 });
 

@@ -39,6 +39,7 @@ const CLEARABLE = [
   'defaultPriority',
   'defaultDueDays',
   'pinned',
+  'hiddenRooms',
   'captureAs',
   'mentionAssigns',
   'roomNotes',

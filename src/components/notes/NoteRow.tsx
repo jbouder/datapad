@@ -3,6 +3,7 @@ import {
   CheckSquareOffsetIcon,
   CopySimpleIcon,
   DotsThreeIcon,
+  FolderSimpleIcon,
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
@@ -16,6 +17,8 @@ import type { Note, Snapshot } from '#shared/types';
 import { Markdown, marked } from '@/components/Markdown';
 import {
   AskTaskForm,
+  canMoveNote,
+  MoveNoteForm,
   NoteChips,
   NoteEditor,
   SelectionTaskButton,
@@ -50,7 +53,8 @@ export type NoteRowChips = Omit<
  * on the preview) opens it in place to the rendered note, where
  * checkboxes save and selected text offers Make task. Open or closed is
  * this row's own, not saved. The ⋯ menu holds Edit (in place), Pin,
- * Make task, Save as template and Delete (with
+ * Make task, Move to… (another project, or none;
+ * not a meeting's or a task's note), Save as template and Delete (with
  * Undo). `?note=<id>` scrolls to the row, opens and highlights it.
  *
  * It is an `<li>`: put it in a `<ul>`.
@@ -91,6 +95,7 @@ export function NoteRow({
   }
   const [editing, setEditing] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
   const row = useRef<HTMLLIElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -185,6 +190,7 @@ export function NoteRow({
             <DropdownMenuItem
               onClick={() => {
                 setAsking(null);
+                setMoving(false);
                 setEditing(act.editText());
               }}
             >
@@ -198,12 +204,25 @@ export function NoteRow({
             <DropdownMenuItem
               onClick={() => {
                 setEditing(null);
+                setMoving(false);
                 setAsking(act.taskTitle());
               }}
             >
               <CheckSquareOffsetIcon />
               Make task
             </DropdownMenuItem>
+            {canMoveNote(note) && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditing(null);
+                  setAsking(null);
+                  setMoving(true);
+                }}
+              >
+                <FolderSimpleIcon />
+                Move to…
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={act.saveAsTemplate}>
               <CopySimpleIcon />
               Save as template
@@ -263,6 +282,19 @@ export function NoteRow({
             initial={asking}
             onDone={() => {
               setAsking(null);
+              settle();
+            }}
+          />
+        </div>
+      )}
+
+      {editing === null && asking === null && moving && (
+        <div className="px-3 pb-3">
+          <MoveNoteForm
+            note={note}
+            projects={state.projects}
+            onDone={() => {
+              setMoving(false);
               settle();
             }}
           />

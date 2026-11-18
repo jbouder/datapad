@@ -87,6 +87,57 @@ function here(): string {
 }
 
 /**
+ * Where this tab is in its history, for the top bar's Back and Forward:
+ * each entry the app pushes carries its place (`{ i }`), and `last` is
+ * the furthest entry Forward can reach. Kept in session storage, so a
+ * reload still knows; entries from before the app loaded count as none.
+ */
+const LAST_KEY = 'datapad:history-last';
+let place = indexOf(window.history.state);
+// A fresh entry (a typed address, a new tab) has nothing ahead of it.
+let last = hasPlace(window.history.state) ? Math.max(place, readLast()) : 0;
+writeLast();
+
+function hasPlace(state: unknown): boolean {
+  return typeof (state as { i?: unknown } | null)?.i === 'number';
+}
+
+function indexOf(state: unknown): number {
+  const i = (state as { i?: unknown } | null)?.i;
+  return typeof i === 'number' && Number.isInteger(i) && i >= 0 ? i : 0;
+}
+
+function readLast(): number {
+  try {
+    const n = Number(window.sessionStorage.getItem(LAST_KEY));
+    return Number.isInteger(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeLast() {
+  try {
+    window.sessionStorage.setItem(LAST_KEY, String(last));
+  } catch {
+    // Storage blocked: Forward forgets on reload, nothing else.
+  }
+}
+
+/** A new entry: one place on, and nothing ahead of it any more. */
+function push(path: string) {
+  place += 1;
+  last = place;
+  writeLast();
+  window.history.pushState({ i: place }, '', path);
+}
+
+/** The same entry at another address, keeping its place. */
+function replace(path: string) {
+  window.history.replaceState({ i: place }, '', path);
+}
+
+/**
  * Where an address lands: the route and its query. Old addresses settle on
  * their new homes (`landRoute`): /focus is /, /tasks is /all?kind=task,
  * /notepad and /unfiled are /scratch, /settings/people/<id> is
@@ -101,7 +152,7 @@ function settle(route: Route, query: string) {
   if (route.name === 'notFound' || route.name === 'help') return;
   const { pathname, search: was, hash } = window.location;
   if (pathFor(route) !== pathname || query !== was) {
-    window.history.replaceState(null, '', pathFor(route) + query + hash);
+    replace(pathFor(route) + query + hash);
   }
 }
 
@@ -186,14 +237,16 @@ export function navigate(
   if (!samePage(route, current) && holdLeave(() => navigate(route, options)))
     return;
   if (options.replace) {
-    window.history.replaceState(null, '', path);
+    replace(path);
   } else if (path !== here()) {
-    window.history.pushState(null, '', path);
+    push(path);
   }
   commit(route, query, options.instant);
 }
 
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (event) => {
+  place = indexOf(event.state);
+  last = Math.max(last, place);
   const { pathname, search: query, hash } = window.location;
   const [route, nextSearch] = land(pathname, query, hash);
   // Back or Forward over unsaved work: stay on this page and ask; going on
@@ -203,11 +256,12 @@ window.addEventListener('popstate', () => {
     const stay = pathFor(current) + search;
     if (
       holdLeave(() => {
-        window.history.pushState(null, '', target);
+        push(target);
         commit(route, nextSearch);
       })
     ) {
-      window.history.pushState(null, '', stay);
+      push(stay);
+      notify();
       return;
     }
   }
@@ -221,6 +275,16 @@ function subscribe(listener: () => void) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+/**
+ * Whether the top bar's Back and Forward have somewhere to go in this
+ * tab's history (entries the app made, not pages before it loaded).
+ */
+export function useHistoryNav(): { back: boolean; forward: boolean } {
+  const at = useSyncExternalStore(subscribe, () => `${place}:${last}`);
+  const [i, end] = at.split(':').map(Number) as [number, number];
+  return { back: i > 0, forward: i < end };
 }
 
 export function useRoute(): Route {
@@ -252,8 +316,8 @@ export function setQuery(
   const next = text ? `?${text}` : '';
   if (next === search) return;
   const path = window.location.pathname + next + window.location.hash;
-  if (options.replace) window.history.replaceState(null, '', path);
-  else window.history.pushState(null, '', path);
+  if (options.replace) replace(path);
+  else push(path);
   const update = () => {
     search = next;
     notify();
@@ -277,11 +341,7 @@ export function pinQuery(values: Record<string, string>) {
   }
   if (!changed) return;
   search = `?${params.toString()}`;
-  window.history.replaceState(
-    null,
-    '',
-    window.location.pathname + search + window.location.hash,
-  );
+  replace(window.location.pathname + search + window.location.hash);
 }
 
 /** For real anchors: middle-click and "open in new tab" keep working. */

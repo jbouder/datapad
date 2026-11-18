@@ -3,7 +3,7 @@ import {
   CheckSquareIcon,
   CheckSquareOffsetIcon,
 } from '@phosphor-icons/react';
-import { type RefObject, useEffect, useId, useState } from 'react';
+import { type RefObject, useEffect, useId, useMemo, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { inScratch, taskTitleFrom } from '#shared/notes';
@@ -12,12 +12,14 @@ import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
 import { useNoteTemplates } from '@/components/notes/useNoteCommands';
+import { Picker } from '@/components/pickers/Picker';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
-import { linkProps, useQuery } from '@/lib/router';
+import { linkProps, navigate, useQuery } from '@/lib/router';
+import { useToast } from '@/providers/ToastProvider';
 
 /*
  * What a note card (`NoteCard`) and a note row (`NoteRow`) share: the
@@ -391,5 +393,107 @@ export function AskTaskForm({
         Make task
       </Button>
     </form>
+  );
+}
+
+/**
+ * Whether a note can move to another project (`moveNote`): not a
+ * meeting's, a task's or the Notepad.
+ */
+export function canMoveNote(note: Note): boolean {
+  return (
+    note.meetingId === null && (note.taskId ?? null) === null && !note.scratch
+  );
+}
+
+/** The picker's pick for "no project": Scratch, or its mentions' rooms. */
+const NO_PROJECT = '-';
+
+/**
+ * Move a note to another project, or to none: a project picker with
+ * Cancel, Esc too. Moving toasts with Undo and Open. `onDone` runs once
+ * it is moved or dropped.
+ */
+export function MoveNoteForm({
+  note,
+  projects,
+  onDone,
+}: {
+  note: Note;
+  projects: Snapshot['projects'];
+  onDone: () => void;
+}) {
+  const { actions } = useDatapad();
+  const { show } = useToast();
+  const id = useId();
+  const options = useMemo(
+    () => [
+      ...Object.values(projects)
+        .filter((p) => !p.archived && p.id !== note.projectId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((p) => ({ id: p.id, label: p.name, hint: p.org || undefined })),
+      ...(note.projectId ? [{ id: NO_PROJECT, label: 'No project' }] : []),
+    ],
+    [projects, note.projectId],
+  );
+
+  // The picker takes focus as it opens.
+  useEffect(() => {
+    document.getElementById(id)?.focus();
+  }, [id]);
+
+  const move = (picked: string) => {
+    const to = picked === NO_PROJECT ? null : picked;
+    const from = note.projectId;
+    const project = to ? projects[to] : null;
+    if (to && !project) return;
+    if (!actions.moveNote({ id: note.id, projectId: to })) return;
+    onDone();
+    show(
+      project ? `Moved to “${project.name}”` : 'Moved out of the project',
+      () => actions.moveNote({ id: note.id, projectId: from }),
+      project
+        ? {
+            label: 'Open',
+            run: () =>
+              navigate(
+                { name: 'project', id: project.id },
+                { query: `note=${encodeURIComponent(note.id)}` },
+              ),
+          }
+        : undefined,
+    );
+  };
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: Esc leaves the picker; the controls inside are the interactive part
+    <div
+      className="flex flex-wrap items-center gap-2"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && !e.defaultPrevented) {
+          e.preventDefault();
+          e.stopPropagation();
+          onDone();
+        }
+      }}
+    >
+      <Picker
+        id={id}
+        aria-label="Move to project"
+        placeholder="Move to…"
+        options={options}
+        value=""
+        onChange={move}
+        className="min-w-48 flex-1"
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        className="press h-11 desk:h-8"
+        onClick={onDone}
+      >
+        Cancel
+      </Button>
+    </div>
   );
 }

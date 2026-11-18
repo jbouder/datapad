@@ -1,15 +1,21 @@
-import { MagnifyingGlassIcon } from '@phosphor-icons/react';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  MagnifyingGlassIcon,
+} from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { paletteHint } from '@/components/Palette';
 import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
 import { Button } from '@/components/ui/button';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
-import { linkProps } from '@/lib/router';
+import { linkProps, useHistoryNav } from '@/lib/router';
 
 /**
- * The current title on the left once the page's own h1 has scrolled away
- * (with the brand on phones, where there is no rail), then the sync status
+ * Back and Forward on desktop (through this tab's history, each disabled
+ * with nowhere to go; phones have the system's own gestures), the current
+ * title once the page's own h1 has scrolled away (with the brand on
+ * phones, where there is no rail), then the sync status
  * (a colored dot, with its word on desktop), Search (with its shortcut on
  * desktop; ⌘K also adds a task, note, meeting or project) and the account
  * menu (Help is there). New things come from the capture line.
@@ -29,6 +35,7 @@ export function TopBar({
   const hint = paletteHint();
   const bar = useRef<HTMLElement>(null);
   const showTitle = useHeadingScrolledPast(bar, pageKey);
+  const steps = useHistoryNav();
   return (
     <header
       ref={bar}
@@ -42,6 +49,30 @@ export function TopBar({
           <DatapadMark className="size-6" />
           <span className="sr-only">Datapad, Today</span>
         </a>
+        <nav aria-label="History" className="-ml-1.5 hidden shrink-0 desk:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="press size-9 text-muted-foreground"
+            title="Back"
+            disabled={!steps.back}
+            onClick={() => window.history.back()}
+          >
+            <ArrowLeftIcon weight="bold" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="press size-9 text-muted-foreground"
+            title="Forward"
+            disabled={!steps.forward}
+            onClick={() => window.history.forward()}
+          >
+            <ArrowRightIcon weight="bold" />
+            <span className="sr-only">Forward</span>
+          </Button>
+        </nav>
         {/* The page's h1 names it for assistive tech; this is the visual echo,
             shown only once that h1 has scrolled under the bar. */}
         <p

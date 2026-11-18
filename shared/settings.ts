@@ -24,7 +24,7 @@ export type ResetSection = 'today' | 'rooms' | 'capture' | 'all';
 /** The space-wide options each section owns (`DEFAULT_SETTINGS`). */
 const OWN_SETTINGS: Record<ResetSection, readonly (keyof Settings)[]> = {
   today: [],
-  rooms: ['pinned', 'railOwed', 'roomTab', 'laneLabels'],
+  rooms: ['pinned', 'hiddenRooms', 'railOwed', 'roomTab', 'laneLabels'],
   capture: [
     'captureAs',
     'mentionAssigns',

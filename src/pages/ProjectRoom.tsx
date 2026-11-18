@@ -4,6 +4,8 @@ import {
   CalendarPlusIcon,
   CheckCircleIcon,
   CopySimpleIcon,
+  EyeIcon,
+  EyeSlashIcon,
   PauseCircleIcon,
   PlayCircleIcon,
   TrashIcon,
@@ -28,6 +30,7 @@ import {
   GENERAL,
   milestonesOf,
   type ProjectStatus,
+  SETTINGS_ID,
   type SpaceInfo,
 } from '#shared/types';
 import { CaptureLine } from '@/components/capture/CaptureLine';
@@ -58,6 +61,7 @@ import { useDatapad } from '@/hooks/useDatapad';
 import { useFlip } from '@/hooks/useFlip';
 import { useNow, useToday } from '@/hooks/useNow';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { usePins } from '@/hooks/usePins';
 import { moveProject } from '@/lib/api';
 import { navigate, useQuery } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -105,6 +109,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
   const { newTemplate } = useTemplateForm();
   const { newMeeting } = useMeetingForm();
   const { hidden } = useNotes();
+  const rail = usePins();
   const { show } = useToast();
   const { active } = useMotion();
   const clock = useClock();
@@ -219,6 +224,25 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
     );
   };
 
+  /** Off the rail's list (and unpinned), or back on it, with Undo. */
+  const offRail = rail.hidden(project.id);
+  const toggleRail = () => {
+    const before = state.settings[SETTINGS_ID];
+    if (!rail.setHidden(project.id, !offRail)) return;
+    show(
+      offRail
+        ? `${project.name} is back on the rail`
+        : `Hid ${project.name} from the rail`,
+      () =>
+        actions.setSettings({
+          patch: {
+            hiddenRooms: before?.hiddenRooms ?? null,
+            pinned: before?.pinned ?? null,
+          },
+        }),
+    );
+  };
+
   /** A kickoff template from the open tasks, in the template panel. */
   const saveAsTemplate = () =>
     newTemplate({
@@ -282,6 +306,11 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
       icon: <ArrowsLeftRightIcon />,
       onSelect: () => setMoveOpen(true),
       hidden: elsewhere.length === 0,
+    },
+    {
+      label: offRail ? 'Show on rail' : 'Hide from rail',
+      icon: offRail ? <EyeIcon /> : <EyeSlashIcon />,
+      onSelect: toggleRail,
     },
     {
       label: 'Save as template',

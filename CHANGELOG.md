@@ -31,6 +31,15 @@ changes the format says so here under **Export format**.
   task gets when you give none: No date, Tomorrow, In 3 days, In a week
   or In 2 weeks. Every way of adding a task uses it, MCP's `add_task`
   included (`due: "none"` still adds one with no date).
+- **Hide from rail** in a project room's menu keeps an active project
+  off the rail's list. Hiding also unpins it. Settings → Rooms lists the
+  hidden projects, each with **Show**; pinning one shows it again.
+- **Move to…** in a note's menu moves a project note to another project,
+  or out of any project, with Undo. A meeting's or a task's note stays
+  where it is.
+- On desktop, **Back** and **Forward** arrows sit at the left of the top
+  bar. They walk this tab's history in Datapad, and each is disabled
+  when there is nowhere to go. Phones keep their own gestures.
 
 ### Changed
 
@@ -45,6 +54,8 @@ changes the format says so here under **Export format**.
 
 - Settings may carry `defaultDueDays` (0 to 365). Absent reads as 7, so
   older files import unchanged.
+- Settings may carry `hiddenRooms`, the ids of the projects hidden from
+  the rail. Absent hides none, so older files import unchanged.
 
 ## [2.0.0] — 2026-11-17
 

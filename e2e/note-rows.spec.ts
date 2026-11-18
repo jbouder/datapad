@@ -167,3 +167,41 @@ test('the menu works at any width, with touch-sized targets', async ({
     .click();
   await expect(prep).toHaveCount(1);
 });
+
+test('move a note from one project to another, and undo it', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/projects/p-echo');
+  const standup = noteRow(page.getByRole('main'), 'Standup');
+  await noteAction(standup, 'Move to…');
+  const picker = standup.getByRole('combobox', { name: 'Move to project' });
+  await expect(picker).toBeFocused();
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+  await picker.fill('Falcon');
+  await page.getByRole('option', { name: /^Falcon hyperdrive refit/ }).click();
+
+  // It leaves Echo Base's stream and lands in the Falcon's room.
+  await expect(
+    page.getByText('Moved to “Falcon hyperdrive refit”'),
+  ).toBeVisible();
+  await expect(noteRow(page.getByRole('main'), 'Standup')).toHaveCount(0);
+  await expectSaved(page);
+  const moved = (await (await request.get('/api/export.json')).json()) as {
+    notes: Record<string, { projectId: string | null }>;
+  };
+  expect(moved.notes['n-1']?.projectId).toBe('p-falcon');
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(noteRow(page.getByRole('main'), 'Standup')).toHaveCount(1);
+});
+
+test('a meeting’s note has no Move to…', async ({ page }) => {
+  await openLive(page, '/meetings/e-1');
+  const prep = noteRow(meetingNotes(page), 'Prep: Shield review');
+  await more(prep).click();
+  await expect(page.getByRole('menuitem', { name: 'Edit' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Move to…' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+});

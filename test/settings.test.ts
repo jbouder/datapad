@@ -64,6 +64,7 @@ describe('a fresh space (#343)', () => {
       defaultPriority: 'med',
       defaultDueDays: 7,
       pinned: [],
+      hiddenRooms: [],
       captureAs: 'note',
       mentionAssigns: true,
       roomNotes: 'room',
@@ -339,6 +340,7 @@ describe('Reset to defaults (#343)', () => {
         type: 'setSettings',
         patch: {
           pinned: ['falcon'],
+          hiddenRooms: ['echo'],
           roomTab: 'plan',
           laneLabels: { theyOwe: 'Owed' },
         },

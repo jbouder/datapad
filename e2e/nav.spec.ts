@@ -206,3 +206,46 @@ test('the rail’s counts follow the data', async ({ page, request }) => {
     /2 open/,
   );
 });
+
+test('Back and Forward in the top bar walk the history, on desktop only', async ({
+  page,
+}) => {
+  await openLive(page, '/');
+  const history = page.getByRole('navigation', { name: 'History' });
+  if (isMobile(page)) {
+    await expect(history).toBeHidden();
+    return;
+  }
+  const back = history.getByRole('button', { name: 'Back' });
+  const forward = history.getByRole('button', { name: 'Forward' });
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
+
+  await page
+    .getByRole('complementary', { name: 'Datapad' })
+    .getByRole('link', { name: /^Scratch/ })
+    .click();
+  await expect(page).toHaveURL(/\/scratch$/);
+  await expect(back).toBeEnabled();
+  await expect(forward).toBeDisabled();
+  await expectAccessible(page);
+
+  await back.click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeEnabled();
+
+  await forward.click();
+  await expect(page).toHaveURL(/\/scratch$/);
+  await expect(forward).toBeDisabled();
+
+  // Somewhere new from an earlier page drops what was ahead.
+  await back.click();
+  await expect(page).toHaveURL(/\/$/);
+  await page
+    .getByRole('complementary', { name: 'Datapad' })
+    .getByRole('link', { name: /^All$/ })
+    .click();
+  await expect(page).toHaveURL(/\/all/);
+  await expect(forward).toBeDisabled();
+});
