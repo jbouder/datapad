@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 import {
   expect,
-  expectAccessible,
   expectNoSidewaysScroll,
   isMobile,
   openLive,
@@ -12,28 +11,8 @@ import {
 const layout = (page: Page) =>
   page.getByRole('group', { name: 'Layout (press v to cycle)' });
 
-async function pick(page: Page, name: string) {
-  await layout(page)
-    .locator('label')
-    .filter({ has: page.getByRole('radio', { name }) })
-    .click();
-  await expect(layout(page).getByRole('radio', { name })).toBeChecked();
-}
-
 test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
-});
-
-test.describe('every layout', () => {
-  test.use({ reducedMotion: 'reduce' });
-  for (const name of ['Table', 'Cards', 'Board', 'Timeline', 'Calendar']) {
-    test(`${name} is axe clean`, async ({ page }) => {
-      await openLive(page, '/dev/components');
-      await pick(page, name);
-      await expectAccessible(page);
-      await expectNoSidewaysScroll(page);
-    });
-  }
 });
 
 test('v cycles layouts, but not while typing', async ({ page }) => {

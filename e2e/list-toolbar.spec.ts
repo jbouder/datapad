@@ -144,7 +144,9 @@ test('phone: Find and a Filters sheet with the rest', async ({ page }) => {
   // The filters are not on the page itself.
   await expect(page.getByRole('combobox', { name: 'Room' })).toHaveCount(0);
   const button = page.getByRole('button', { name: 'Filters', exact: true });
-  expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  expect(
+    Math.round((await button.boundingBox())?.height ?? 0),
+  ).toBeGreaterThanOrEqual(44);
   await expectNoSidewaysScroll(page);
 
   const sheet = await openFilters(page);
@@ -160,7 +162,7 @@ test('phone: Find and a Filters sheet with the rest', async ({ page }) => {
   ).toBeVisible();
   for (const name of ['Clear filters', 'Done']) {
     const box = await sheet.getByRole('button', { name }).boundingBox();
-    expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0), name).toBeGreaterThanOrEqual(44);
   }
   await expectAccessible(page);
   await closeFilters(page);

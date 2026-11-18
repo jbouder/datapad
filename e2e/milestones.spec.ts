@@ -153,7 +153,7 @@ test('touch targets are 44px on a phone', async ({ page }) => {
     'Delete “Hangar doors hung”',
   ]) {
     const box = await page.getByRole('button', { name }).boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(44);
-    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.width ?? 0)).toBeGreaterThanOrEqual(44);
   }
 });

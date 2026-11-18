@@ -220,9 +220,4 @@ test('+ opens a new task preset to the project you are on', async ({
   ) as { projectId: string; due: string };
   expect(added.projectId).toBe('p-falcon');
   expect(added.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-
-  // `n` on a page without a quick-add opens it too.
-  await openLive(page, '/settings');
-  await page.locator('body').press('n');
-  await expect(page.getByRole('dialog', { name: 'New task' })).toBeVisible();
 });

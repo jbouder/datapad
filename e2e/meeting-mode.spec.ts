@@ -209,8 +209,15 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
   await expect(composer).toBeFocused();
 
   // A line becomes an action item from the composer.
-  await composer.pressSequentially('Order the sensors /task');
-  await expect(page.getByRole('option', { name: /^Task/ })).toBeVisible();
+  // The composer can still be settling after Save note: type again
+  // until the / menu opens.
+  await expect(async () => {
+    await composer.fill('Order the sensors ');
+    await composer.pressSequentially('/task');
+    await expect(page.getByRole('option', { name: /^Task/ })).toBeVisible({
+      timeout: 2_000,
+    });
+  }).toPass();
   await composer.press('Enter');
   await expect(composer).toHaveValue('- [ ] Order the sensors');
   await expect(page.getByText('Added “Order the sensors”')).toBeVisible();

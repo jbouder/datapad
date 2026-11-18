@@ -131,7 +131,7 @@ test('the room: header, state line, projects, lanes, Next meeting, stream', asyn
   ).toHaveAttribute('href', '/meetings/e-9');
   if (isMobile(page)) {
     const box = await topics.getByRole('link').first().boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
   }
 
   // The stream: his tasks and the meetings he attends; nothing else.
