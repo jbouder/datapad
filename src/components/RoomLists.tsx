@@ -1,6 +1,6 @@
 import { AddRoomMenu } from '@/components/AddRoomMenu';
 import type { RoomRow, RoomsList } from '@/hooks/useRooms';
-import { linkProps } from '@/lib/router';
+import { linkProps, useRoute } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /** How each list draws its rows: the rail's compact look or the page's. */
@@ -9,6 +9,9 @@ const LOOKS = {
     section: '',
     header: 'flex items-center justify-between gap-2 pr-1 pb-1 pl-2',
     heading: 'text-xs font-medium text-muted-foreground',
+    // Rooms' heading opens the Rooms page, and looks just like the heading.
+    headingLink:
+      'rounded-sm outline-ring/50 focus-visible:outline-2 focus-visible:outline-offset-2',
     add: '',
     list: 'flex flex-col',
     row: 'press flex h-8 items-center gap-2.5 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
@@ -18,6 +21,8 @@ const LOOKS = {
     section: 'flex flex-col gap-2',
     header: 'flex items-center justify-between gap-2',
     heading: 'text-sm font-semibold',
+    // The page is the Rooms page: no link to itself.
+    headingLink: '',
     // 44px on touch, like the rows.
     add: 'size-11 desk:size-8',
     list: 'flex flex-col border-t',
@@ -34,7 +39,8 @@ type Look = keyof typeof LOOKS;
  * the rail's Rooms and Waiting on, and the phone's Rooms page. `look`
  * picks the rail's compact rows or the page's 44px ones; `id` keeps the
  * headings' ids apart. Rooms always shows, empty or not, for its `+`
- * (`AddRoomMenu`).
+ * (`AddRoomMenu`). In the rail, the Rooms heading is a link to the Rooms
+ * page (`/rooms`).
  */
 export function RoomLists({
   list,
@@ -55,6 +61,7 @@ export function RoomLists({
         unit="open"
         pinned={list.pinned}
         add
+        link={look === 'rail'}
       />
       {list.owed.length > 0 && (
         <Section
@@ -77,6 +84,7 @@ function Section({
   unit,
   pinned,
   add,
+  link,
 }: {
   id: string;
   title: string;
@@ -86,13 +94,26 @@ function Section({
   pinned?: boolean;
   /** Show the `+` that adds a room. */
   add?: boolean;
+  /** The heading links to the Rooms page. */
+  link?: boolean;
 }) {
   const s = LOOKS[look];
+  const onRooms = useRoute().name === 'rooms';
   return (
     <section aria-labelledby={id} className={s.section || undefined}>
       <div className={s.header}>
         <h2 id={id} className={s.heading}>
-          {title}
+          {link ? (
+            <a
+              {...linkProps({ name: 'rooms' })}
+              aria-current={onRooms ? 'page' : undefined}
+              className={s.headingLink}
+            >
+              {title}
+            </a>
+          ) : (
+            title
+          )}
         </h2>
         {add && <AddRoomMenu className={s.add || undefined} />}
       </div>

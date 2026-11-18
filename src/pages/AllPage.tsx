@@ -13,6 +13,7 @@ import {
   SquaresFourIcon,
   TableIcon,
   UserIcon,
+  UserPlusIcon,
 } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -80,6 +81,7 @@ import { MeetingRow } from '@/components/meetings/MeetingRow';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { PinButton } from '@/components/PinButton';
+import { useNewPerson } from '@/components/people/useNewPerson';
 import { HealthBadge } from '@/components/projects/Health';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { ProjectLayouts } from '@/components/projects/ProjectLayouts';
@@ -820,13 +822,14 @@ function PersonLine({ person }: { person: Person }) {
 /**
  * The rooms, in place of the items while the Rooms chip is on: every
  * project room under its org, with New project, and every person by how
- * much they owe you, each with Pin. Not `RoomLists`: that lists only the
+ * much they owe you, with New person, each with Pin. Not `RoomLists`: that lists only the
  * pinned rooms (or the active projects) and the people owed, with no Pin
  * and no orgs; this is where the rest are found and pinned.
  */
 function Rooms() {
   const { state } = useDatapad();
   const { openProjectForm } = useProjectForm();
+  const newPerson = useNewPerson();
   if (!state) return null;
   const orgs = projectRoomsByOrg(state.projects);
   const people = peopleByOwed(state);
@@ -876,9 +879,19 @@ function Rooms() {
           ))}
         </section>
         <section aria-labelledby="people-rooms" className="flex flex-col gap-3">
-          <h3 id="people-rooms" className="text-sm font-semibold">
-            People
-          </h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 id="people-rooms" className="text-sm font-semibold">
+              People
+            </h3>
+            <Button
+              variant="ghost"
+              className="press h-11 text-muted-foreground desk:h-8"
+              onClick={newPerson.open}
+            >
+              <UserPlusIcon />
+              New person
+            </Button>
+          </div>
           {people.length === 0 ? (
             <p className="text-state">No people yet.</p>
           ) : (
@@ -895,6 +908,7 @@ function Rooms() {
           )}
         </section>
       </div>
+      {newPerson.form}
     </section>
   );
 }

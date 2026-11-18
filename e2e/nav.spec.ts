@@ -38,7 +38,7 @@ test('the rail has Today, Scratch and All, the active projects as rooms, and who
 
   // Nothing pinned: the active projects, most recently changed first.
   const rooms = rail.getByRole('region', { name: 'Rooms' });
-  await expect(rooms.getByRole('link')).toHaveText([
+  await expect(rooms.getByRole('list').getByRole('link')).toHaveText([
     /Echo Base relocation\s*3 open/,
     /Falcon hyperdrive refit\s*1 open/,
   ]);
