@@ -1,8 +1,10 @@
 import {
+  addFromSearch,
   chooseFilter,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectSaved,
   isMobile,
   noteRow,
   openLive,
@@ -143,6 +145,32 @@ test('the Rooms chip: on, off, the address and the kinds', async ({ page }) => {
   await page.goBack();
   await expect(page).toHaveURL(/\/all\?show=rooms$/);
   await expect(rooms).toBeVisible();
+});
+
+test('New person, from the rooms and from search, opens the new room', async ({
+  page,
+}) => {
+  const addPerson = async (name: string) => {
+    const form = page.getByRole('dialog', { name: 'Add person' });
+    await form.getByRole('textbox', { name: 'Name' }).fill(name);
+    await form.getByRole('button', { name: 'Add person' }).click();
+    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  };
+
+  await openLive(page, '/all?show=rooms');
+  const people = page.getByRole('main').getByRole('region', { name: 'People' });
+  const button = people.getByRole('button', { name: 'New person' });
+  if (isMobile(page)) {
+    const box = await button.boundingBox();
+    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
+  }
+  await button.click();
+  await addPerson('Lando');
+
+  await addFromSearch(page, 'New person');
+  await addPerson('Wedge');
+  await expectSaved(page);
 });
 
 test('the rooms: open a project room, pin a person', async ({ page }) => {

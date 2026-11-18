@@ -28,6 +28,7 @@ import {
 import { useImportExport } from '@/components/ImportExport';
 import { useMeetingForm } from '@/components/meetings/MeetingFormProvider';
 import { useNotes } from '@/components/notes/NotesProvider';
+import { useNewPerson } from '@/components/people/useNewPerson';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { useNewSpace } from '@/components/SpaceSwitcher';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
@@ -89,6 +90,7 @@ export function Palette({
   const { openTask, newTask } = useTaskPanels();
   const { newNote } = useNotes();
   const { openProjectForm } = useProjectForm();
+  const newPerson = useNewPerson();
   const { newMeeting } = useMeetingForm();
   const { exportNow } = useImportExport();
   const { mode, setTheme } = useTheme();
@@ -144,6 +146,12 @@ export function Palette({
         label: 'New project',
         icon: PlusIcon,
         run: () => openProjectForm(),
+      },
+      {
+        id: 'new-person',
+        label: 'New person',
+        icon: PlusIcon,
+        run: newPerson.open,
       },
       ...places.map((n) => ({
         id: `go-${n.name}`,
@@ -225,6 +233,7 @@ export function Palette({
     currentProject,
     newMeeting,
     openProjectForm,
+    newPerson.open,
     mode,
     setTheme,
     exportNow,
@@ -274,130 +283,136 @@ export function Palette({
   };
 
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (next) {
-          setOverPanel(document.querySelector('.side-panel') !== null);
-        }
-        onOpenChange(next);
-      }}
-      onOpenChangeComplete={(isOpen) => {
-        if (isOpen) return;
-        setQuery('');
-        const run = pending.current;
-        pending.current = null;
-        run?.();
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Backdrop
-          className="scrim palette-scrim"
-          data-over-panel={overPanel || undefined}
-        />
-        <Dialog.Popup
-          className="palette"
-          finalFocus={() => pending.current === null}
-        >
-          <Dialog.Title className="sr-only">Search</Dialog.Title>
-          <Dialog.Description className="sr-only">
-            Projects, tasks, notes, meetings, orgs, people, whiteboards and
-            actions. Arrow keys move, Enter opens, Esc closes.
-          </Dialog.Description>
-          <Command label="Search" shouldFilter={false} loop>
-            <div className="flex items-center gap-2 border-b px-3">
-              <MagnifyingGlassIcon
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              <Command.Input
-                value={query}
-                onValueChange={setQuery}
-                placeholder="Search projects, tasks, notes, meetings, people…"
-                className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground desk:text-sm"
-              />
-            </div>
-            <Command.List className="scrollbar-thin max-h-[min(60dvh,28rem)] overflow-y-auto py-1">
-              <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
-                Nothing matches “{query.trim()}”.
-              </Command.Empty>
-              {results &&
-                SECTIONS.map(({ kind, heading, icon: KindIcon }) =>
-                  results[kind].length === 0 ? null : (
-                    <Command.Group
-                      key={kind}
-                      heading={
-                        kind === 'project' && words.length === 0
-                          ? 'Recent projects'
-                          : heading
-                      }
-                      className="**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
-                    >
-                      {results[kind].map((hit) => {
-                        const where = projectName(hit);
-                        return (
-                          <Command.Item
-                            key={hit.entry.id}
-                            value={`${kind}:${hit.entry.id}`}
-                            onSelect={() => openHit(kind, hit.entry.id)}
-                            className={ITEM}
-                          >
-                            <KindIcon
-                              aria-hidden
-                              className="size-4 shrink-0 text-muted-foreground"
-                            />
-                            <span className="flex min-w-0 flex-1 flex-col">
-                              <span className="truncate">
-                                {hit.entry.title || 'Untitled'}
+    <>
+      <Dialog.Root
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            setOverPanel(document.querySelector('.side-panel') !== null);
+          }
+          onOpenChange(next);
+        }}
+        onOpenChangeComplete={(isOpen) => {
+          if (isOpen) return;
+          setQuery('');
+          const run = pending.current;
+          pending.current = null;
+          run?.();
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop
+            className="scrim palette-scrim"
+            data-over-panel={overPanel || undefined}
+          />
+          <Dialog.Popup
+            className="palette"
+            finalFocus={() => pending.current === null}
+          >
+            <Dialog.Title className="sr-only">Search</Dialog.Title>
+            <Dialog.Description className="sr-only">
+              Projects, tasks, notes, meetings, orgs, people, whiteboards and
+              actions. Arrow keys move, Enter opens, Esc closes.
+            </Dialog.Description>
+            <Command label="Search" shouldFilter={false} loop>
+              <div className="flex items-center gap-2 border-b px-3">
+                <MagnifyingGlassIcon
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <Command.Input
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder="Search projects, tasks, notes, meetings, people…"
+                  className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground desk:text-sm"
+                />
+              </div>
+              <Command.List className="scrollbar-thin max-h-[min(60dvh,28rem)] overflow-y-auto py-1">
+                <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  Nothing matches “{query.trim()}”.
+                </Command.Empty>
+                {results &&
+                  SECTIONS.map(({ kind, heading, icon: KindIcon }) =>
+                    results[kind].length === 0 ? null : (
+                      <Command.Group
+                        key={kind}
+                        heading={
+                          kind === 'project' && words.length === 0
+                            ? 'Recent projects'
+                            : heading
+                        }
+                        className="**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
+                      >
+                        {results[kind].map((hit) => {
+                          const where = projectName(hit);
+                          return (
+                            <Command.Item
+                              key={hit.entry.id}
+                              value={`${kind}:${hit.entry.id}`}
+                              onSelect={() => openHit(kind, hit.entry.id)}
+                              className={ITEM}
+                            >
+                              <KindIcon
+                                aria-hidden
+                                className="size-4 shrink-0 text-muted-foreground"
+                              />
+                              <span className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate">
+                                  {hit.entry.title || 'Untitled'}
+                                </span>
+                                {hit.snippet && (
+                                  <span className="truncate text-xs text-muted-foreground">
+                                    {hit.snippet}
+                                  </span>
+                                )}
                               </span>
-                              {hit.snippet && (
-                                <span className="truncate text-xs text-muted-foreground">
-                                  {hit.snippet}
+                              {where && (
+                                <span className="max-w-32 shrink-0 truncate text-xs text-muted-foreground max-sm:hidden">
+                                  {where}
                                 </span>
                               )}
-                            </span>
-                            {where && (
-                              <span className="max-w-32 shrink-0 truncate text-xs text-muted-foreground max-sm:hidden">
-                                {where}
-                              </span>
-                            )}
-                            {hit.entry.archived && (
-                              <span className="shrink-0 border px-1 text-[11px] text-muted-foreground">
-                                Archived
-                              </span>
-                            )}
-                          </Command.Item>
-                        );
-                      })}
-                    </Command.Group>
-                  ),
+                              {hit.entry.archived && (
+                                <span className="shrink-0 border px-1 text-[11px] text-muted-foreground">
+                                  Archived
+                                </span>
+                              )}
+                            </Command.Item>
+                          );
+                        })}
+                      </Command.Group>
+                    ),
+                  )}
+                {shownActions.length > 0 && (
+                  <Command.Group
+                    heading="Actions"
+                    className="**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
+                  >
+                    {shownActions.map(
+                      ({ id, label, icon: ActionIcon, run }) => (
+                        <Command.Item
+                          key={id}
+                          value={`action:${id}`}
+                          onSelect={() => choose(run)}
+                          className={ITEM}
+                        >
+                          <ActionIcon
+                            aria-hidden
+                            className="size-4 shrink-0 text-muted-foreground"
+                          />
+                          <span className="flex-1 truncate">{label}</span>
+                        </Command.Item>
+                      ),
+                    )}
+                  </Command.Group>
                 )}
-              {shownActions.length > 0 && (
-                <Command.Group
-                  heading="Actions"
-                  className="**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground"
-                >
-                  {shownActions.map(({ id, label, icon: ActionIcon, run }) => (
-                    <Command.Item
-                      key={id}
-                      value={`action:${id}`}
-                      onSelect={() => choose(run)}
-                      className={ITEM}
-                    >
-                      <ActionIcon
-                        aria-hidden
-                        className="size-4 shrink-0 text-muted-foreground"
-                      />
-                      <span className="flex-1 truncate">{label}</span>
-                    </Command.Item>
-                  ))}
-                </Command.Group>
-              )}
-            </Command.List>
-          </Command>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+              </Command.List>
+            </Command>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+      {/* New person opens once the palette has closed. */}
+      {newPerson.form}
+    </>
   );
 }
 

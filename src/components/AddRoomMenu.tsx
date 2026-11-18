@@ -1,6 +1,5 @@
 import { FolderPlusIcon, PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
-import { PersonForm } from '@/components/people/PersonForm';
+import { useNewPerson } from '@/components/people/useNewPerson';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 /** A menu row: 44px to a finger. */
@@ -22,10 +20,7 @@ const ROW = 'min-h-11 desk:min-h-0';
  */
 export function AddRoomMenu({ className }: { className?: string }) {
   const { openProjectForm } = useProjectForm();
-  // A new session each time, so the form starts empty.
-  const [person, setPerson] = useState<{ key: number; open: boolean } | null>(
-    null,
-  );
+  const newPerson = useNewPerson();
 
   return (
     <>
@@ -48,25 +43,14 @@ export function AddRoomMenu({ className }: { className?: string }) {
             <FolderPlusIcon />
             New project
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className={ROW}
-            onClick={() => setPerson({ key: Date.now(), open: true })}
-          >
+          <DropdownMenuItem className={ROW} onClick={newPerson.open}>
             <UserPlusIcon />
             New person
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {person && (
-        <PersonForm
-          key={person.key}
-          open={person.open}
-          onClose={() => setPerson((p) => (p ? { ...p, open: false } : p))}
-          onExited={() => setPerson((p) => (p?.open ? p : null))}
-          onAdded={(id) => navigate({ name: 'person', id })}
-        />
-      )}
+      {newPerson.form}
     </>
   );
 }

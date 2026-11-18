@@ -175,12 +175,12 @@ export async function chooseFilter(page: Page, label: string, option: string) {
 }
 
 /**
- * ⌘K's New task, New note, New meeting or New project, from the top
+ * ⌘K's New task, New note, New meeting, New project or New person, from the top
  * bar's Search (the top bar's + went with #341).
  */
 export async function addFromSearch(
   page: Page,
-  item: 'New task' | 'New note' | 'New meeting' | 'New project',
+  item: 'New task' | 'New note' | 'New meeting' | 'New project' | 'New person',
 ) {
   await page
     .getByRole('banner')
