@@ -1,6 +1,12 @@
-import { ArrowDownIcon, ArrowUpIcon, XIcon } from '@phosphor-icons/react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  EyeIcon,
+  XIcon,
+} from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
 import {
+  hiddenProjects,
   pinnedRooms,
   type Room,
   roomKey,
@@ -8,7 +14,7 @@ import {
   viewOf,
 } from '#shared/rooms';
 import { settingsOf } from '#shared/types';
-import { ResetToDefaults } from '@/components/settings/parts';
+import { Group, Hint, ResetToDefaults } from '@/components/settings/parts';
 import { RoomOptions } from '@/components/settings/RoomOptions';
 import { Button } from '@/components/ui/button';
 import { useDatapad } from '@/hooks/useDatapad';
@@ -22,14 +28,15 @@ const ICON_BUTTON = 'press size-11 desk:size-8';
 /**
  * Settings → Rooms (#329, #343): the pinned rooms in the rail's order,
  * each with Move up, Move down and Unpin, 44px on touch (pin and unpin
- * from a room's header too), then the rooms' options (`RoomOptions`).
+ * from a room's header too), the projects hidden from the rail (each
+ * with Show), then the rooms' options (`RoomOptions`).
  * Per space; Reset to defaults unpins everything and puts the options
  * back, with Undo.
  */
 export function RoomsSettings() {
   const { state } = useDatapad();
   const { active } = useMotion();
-  const { move, setPinned } = usePins();
+  const { move, setPinned, setHidden } = usePins();
   const list = useRef<HTMLUListElement>(null);
   useFlip(list, active);
 
@@ -50,6 +57,7 @@ export function RoomsSettings() {
 
   if (!state) return <p className="text-sm text-muted-foreground">Loading…</p>;
   const rooms = pinnedRooms(settingsOf(state), state);
+  const hidden = hiddenProjects(settingsOf(state), state.projects);
 
   const nameOf = (room: Room): string => {
     if (room.kind === 'view') return viewOf(room, state)?.name ?? '';
@@ -154,6 +162,48 @@ export function RoomsSettings() {
           })}
         </ul>
       )}
+      <Group title="Hidden from the rail">
+        <Hint>
+          Active projects the rail leaves out. Hide one from its room’s menu; it
+          stays on All and in search.
+        </Hint>
+        {hidden.length === 0 ? (
+          <p className="text-state">Nothing hidden.</p>
+        ) : (
+          <ul aria-label="Hidden projects" className="flex flex-col border-t">
+            {hidden.map((project) => (
+              <li
+                key={project.id}
+                data-hidden-room={project.id}
+                className="row flex items-center gap-1 border-b bg-background text-sm"
+              >
+                <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center desk:min-h-9">
+                  <a
+                    {...linkProps({ name: 'project', id: project.id })}
+                    className="truncate font-medium hover:underline"
+                  >
+                    {project.name}
+                  </a>
+                  {project.org && (
+                    <span className="text-xs text-muted-foreground">
+                      {project.org}
+                    </span>
+                  )}
+                </span>
+                <Button
+                  variant="ghost"
+                  className="press h-11 desk:h-8"
+                  onClick={() => setHidden(project.id, false)}
+                >
+                  <EyeIcon />
+                  Show
+                  <span className="sr-only"> {project.name} on the rail</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Group>
       <RoomOptions />
     </>
   );

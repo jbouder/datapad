@@ -464,6 +464,12 @@ export interface Settings {
    */
   pinned?: string[];
   /**
+   * Projects kept off the rail's list of active projects: still active,
+   * nothing to track here. Hiding unpins; pinning shows again. Absent
+   * until one is hidden.
+   */
+  hiddenRooms?: string[];
+  /**
    * Each page's remembered layout, sort, grouping, filters and sections
    * (#186). Absent until something is saved, so older exports round-trip
    * unchanged; `shared/pages.ts` reads it. Today's options live under
@@ -628,6 +634,7 @@ export const DEFAULT_SETTINGS: EffectiveSettings = {
   defaultPriority: 'med',
   defaultDueDays: 7,
   pinned: [],
+  hiddenRooms: [],
   captureAs: 'note',
   mentionAssigns: true,
   roomNotes: 'room',

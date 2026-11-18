@@ -2780,6 +2780,21 @@ describe('settings', () => {
     expect(settingsOf(cleared.state).defaultOrg).toBe('');
   });
 
+  it('stores and clears the projects hidden from the rail', () => {
+    const on = run(base(), {
+      type: 'setSettings',
+      patch: { hiddenRooms: ['p1'] },
+    });
+    expect(settingsOf(on).hiddenRooms).toEqual(['p1']);
+    expect(on.activity).toEqual(base().activity);
+    const off = run(on, {
+      type: 'setSettings',
+      patch: { hiddenRooms: null },
+    });
+    expect(stored(off)?.hiddenRooms).toBeUndefined();
+    expect(settingsOf(off).hiddenRooms).toEqual([]);
+  });
+
   it('stores "Assign new tasks to me" and keeps the default org', () => {
     const state = run(base(), {
       type: 'setSettings',

@@ -113,7 +113,10 @@ export function HelpPage({ section }: { section?: string }) {
             your 1:1 prep: what you owe them, what they owe you, and what to
             discuss. <strong>Pin</strong> puts a room in the rail; Settings →
             Rooms orders them. Before anything is pinned, the rail lists the
-            active projects. On a phone the Rooms tab lists the same.
+            active projects; <strong>Hide from rail</strong> in a project’s menu
+            leaves one out, and Settings → Rooms shows it again. On a phone the
+            Rooms tab lists the same. <strong>Move to…</strong> in a note’s menu
+            moves it to another project.
           </Term>
           <Term name="All" to={{ name: 'all' }}>
             Every task, note, meeting, project and person in one list. Pick

@@ -123,3 +123,43 @@ test('add a project or a person from Rooms and land in the new room', async ({
   ).toBeVisible();
   await expectSaved(page);
 });
+
+test('hide a project from the rail, then show it again from Settings', async ({
+  page,
+}) => {
+  const mobile = isMobile(page);
+  const rooms = mobile
+    ? page.getByRole('main').getByRole('region', { name: 'Rooms' })
+    : page
+        .getByRole('complementary', { name: 'Datapad' })
+        .getByRole('region', { name: 'Rooms' });
+  const roomList = async () => {
+    if (mobile) await page.goto('/rooms');
+    return rooms.getByRole('link');
+  };
+
+  await openLive(page, '/projects/p-falcon');
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Hide from rail' }).click();
+  await expect(
+    page.getByText('Hid Falcon hyperdrive refit from the rail'),
+  ).toBeVisible();
+  await expectSaved(page);
+  await expect(await roomList()).not.toContainText([/Falcon/]);
+  await expect(await roomList()).toContainText([/Echo Base/]);
+
+  // Settings → Rooms lists it, and Show puts it back.
+  await page.goto('/settings/rooms');
+  const hidden = page.getByRole('list', { name: 'Hidden projects' });
+  await expect(hidden.getByRole('listitem')).toHaveText([
+    /Falcon hyperdrive refit/,
+  ]);
+  await expectAccessible(page);
+  await expectNoSidewaysScroll(page);
+  await page
+    .getByRole('button', { name: 'Show Falcon hyperdrive refit on the rail' })
+    .click();
+  await expect(page.getByText('Nothing hidden.')).toBeVisible();
+  await expectSaved(page);
+  await expect(await roomList()).toContainText([/Falcon/]);
+});
