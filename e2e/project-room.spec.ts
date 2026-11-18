@@ -323,6 +323,7 @@ test('every action the classic page had is in the header', async ({ page }) => {
   expect(await moreActions(page)).toEqual([
     'Pause',
     'Mark done',
+    'Hide from rail',
     'Save as template',
     'Archive',
     'Delete',
