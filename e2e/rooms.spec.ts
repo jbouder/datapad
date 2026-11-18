@@ -87,3 +87,39 @@ test('pin and unpin from a room; the rail follows, in the order Settings keeps',
   await page.goto('/settings/rooms');
   await expect(page.getByText('Nothing pinned yet.')).toBeVisible();
 });
+
+test('add a project or a person from Rooms and land in the new room', async ({
+  page,
+}) => {
+  // Desktop: the + beside Rooms in the rail. Phone: the same + on /rooms.
+  const mobile = isMobile(page);
+  await openLive(page, mobile ? '/rooms' : '/');
+  const rooms = mobile
+    ? page.getByRole('main').getByRole('region', { name: 'Rooms' })
+    : page
+        .getByRole('complementary', { name: 'Datapad' })
+        .getByRole('region', { name: 'Rooms' });
+  const add = rooms.getByRole('button', { name: 'Add a room' });
+
+  await add.click();
+  await page.getByRole('menuitem', { name: 'New project' }).click();
+  const projectForm = page.getByRole('dialog', { name: 'New project' });
+  await projectForm.getByRole('textbox', { name: 'Name' }).fill('Hoth outpost');
+  await projectForm.getByRole('button', { name: 'Create project' }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Hoth outpost' }),
+  ).toBeVisible();
+
+  if (mobile) await openLive(page, '/rooms');
+  await add.click();
+  await page.getByRole('menuitem', { name: 'New person' }).click();
+  const personForm = page.getByRole('dialog', { name: 'Add person' });
+  await personForm.getByRole('textbox', { name: 'Name' }).fill('Lando');
+  await personForm.getByRole('button', { name: 'Add person' }).click();
+  await expect(page).toHaveURL(/\/people\/[^/]+$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Lando' }),
+  ).toBeVisible();
+  await expectSaved(page);
+});

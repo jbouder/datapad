@@ -19,6 +19,11 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- A **+** beside Rooms, in the rail and on the phone's Rooms page, adds a
+  project or a person and opens the new room.
+- In the capture line, a `#word` no project is called offers
+  **Create project “…”**. It creates the project in your default org and
+  files the line under it.
 - Today lists your open high-priority tasks under **High priority**,
   below Due. A task that is already due or late shows once, under Due.
   MCP's `get_today` returns the same list.

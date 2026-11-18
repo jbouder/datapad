@@ -1,3 +1,4 @@
+import { AddRoomMenu } from '@/components/AddRoomMenu';
 import type { RoomRow, RoomsList } from '@/hooks/useRooms';
 import { linkProps } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -6,14 +7,19 @@ import { cn } from '@/lib/utils';
 const LOOKS = {
   rail: {
     section: '',
-    heading: 'px-2 pb-1 text-xs font-medium text-muted-foreground',
+    header: 'flex items-center justify-between gap-2 pr-1 pb-1 pl-2',
+    heading: 'text-xs font-medium text-muted-foreground',
+    add: '',
     list: 'flex flex-col',
     row: 'press flex h-8 items-center gap-2.5 px-2 text-sm outline-ring/50 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:-outline-offset-2',
     current: 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground',
   },
   page: {
     section: 'flex flex-col gap-2',
+    header: 'flex items-center justify-between gap-2',
     heading: 'text-sm font-semibold',
+    // 44px on touch, like the rows.
+    add: 'size-11 desk:size-8',
     list: 'flex flex-col border-t',
     // 44px on touch: these are the phone's way into a room.
     row: 'press flex min-h-11 items-center gap-3 border-b px-1 text-sm outline-ring/50 hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2',
@@ -27,7 +33,8 @@ type Look = keyof typeof LOOKS;
  * The rooms and the people waiting on, as rows of links (`useRooms`):
  * the rail's Rooms and Waiting on, and the phone's Rooms page. `look`
  * picks the rail's compact rows or the page's 44px ones; `id` keeps the
- * headings' ids apart.
+ * headings' ids apart. Rooms always shows, empty or not, for its `+`
+ * (`AddRoomMenu`).
  */
 export function RoomLists({
   list,
@@ -40,16 +47,15 @@ export function RoomLists({
 }) {
   return (
     <>
-      {list.rooms.length > 0 && (
-        <Section
-          id={`${id}-rooms`}
-          title="Rooms"
-          rows={list.rooms}
-          look={look}
-          unit="open"
-          pinned={list.pinned}
-        />
-      )}
+      <Section
+        id={`${id}-rooms`}
+        title="Rooms"
+        rows={list.rooms}
+        look={look}
+        unit="open"
+        pinned={list.pinned}
+        add
+      />
       {list.owed.length > 0 && (
         <Section
           id={`${id}-owed`}
@@ -70,6 +76,7 @@ function Section({
   look,
   unit,
   pinned,
+  add,
 }: {
   id: string;
   title: string;
@@ -77,32 +84,39 @@ function Section({
   look: Look;
   unit: string;
   pinned?: boolean;
+  /** Show the `+` that adds a room. */
+  add?: boolean;
 }) {
   const s = LOOKS[look];
   return (
     <section aria-labelledby={id} className={s.section || undefined}>
-      <h2 id={id} className={s.heading}>
-        {title}
-      </h2>
-      <ul className={s.list} data-pinned={pinned}>
-        {rows.map((row) => (
-          <li key={row.key}>
-            <a
-              {...linkProps(row.route, row.query)}
-              aria-current={row.current ? 'page' : undefined}
-              className={cn(s.row, row.current && s.current)}
-            >
-              <span className="min-w-0 flex-1 truncate">{row.label}</span>
-              {row.count > 0 && (
-                <span className="count text-xs text-muted-foreground tabular-nums">
-                  {row.count}
-                  <span className="sr-only"> {unit}</span>
-                </span>
-              )}
-            </a>
-          </li>
-        ))}
-      </ul>
+      <div className={s.header}>
+        <h2 id={id} className={s.heading}>
+          {title}
+        </h2>
+        {add && <AddRoomMenu className={s.add || undefined} />}
+      </div>
+      {rows.length > 0 && (
+        <ul className={s.list} data-pinned={pinned}>
+          {rows.map((row) => (
+            <li key={row.key}>
+              <a
+                {...linkProps(row.route, row.query)}
+                aria-current={row.current ? 'page' : undefined}
+                className={cn(s.row, row.current && s.current)}
+              >
+                <span className="min-w-0 flex-1 truncate">{row.label}</span>
+                {row.count > 0 && (
+                  <span className="count text-xs text-muted-foreground tabular-nums">
+                    {row.count}
+                    <span className="sr-only"> {unit}</span>
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

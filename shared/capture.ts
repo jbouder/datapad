@@ -19,6 +19,7 @@
 import { formatDay, parseDate } from './dates';
 import { LIMITS } from './limits';
 import { mentionedIds, namesToTokens } from './mentions';
+import { orgByName } from './orgs';
 import type { BaseOp } from './protocol';
 import { meId } from './select';
 import { defaultAssignee, defaultDue, defaultPriority } from './tasks';
@@ -99,6 +100,26 @@ export function projectsFor(word: string, state: Snapshot): Project[] {
   return open
     .filter((p) => projectSlug(p.name).startsWith(want))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * The project a `#word` no project is called would create: the word as its
+ * name, in the default org (Settings → Orgs). Null when the word is too
+ * short or a project, archived or not, already has that name.
+ */
+export function newProjectFor(
+  word: string,
+  state: Snapshot,
+): { name: string; org: string; orgId?: string } | null {
+  const want = projectSlug(word);
+  if (want.length < 2 || want !== word.toLowerCase()) return null;
+  const taken = Object.values(state.projects).some(
+    (p) => projectSlug(p.name) === want,
+  );
+  if (taken) return null;
+  const org = settingsOf(state).defaultOrg;
+  const orgId = org ? orgByName(state.orgs, org)?.id : undefined;
+  return { name: word, org, ...(orgId ? { orgId } : {}) };
 }
 
 /** The one project a `#word` names, or null for none or several. */
