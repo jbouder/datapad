@@ -148,8 +148,10 @@ export function HelpPage({ section }: { section?: string }) {
           you something. A phone has Today, Scratch, Rooms and All along the
           bottom; Rooms lists what the rail does, and stays lit inside a room.
           Add meeting is beside Today’s timeline and Schedule meeting in each
-          room; New project is beside the project rooms on All’s Rooms chip.
-          People and Orgs are in Settings, and each person opens their room.
+          room. The + beside Rooms, in the rail or on the phone’s Rooms page,
+          adds a project or a person and opens their room; New project is also
+          beside the project rooms on All’s Rooms chip. People and Orgs are in
+          Settings, and each person opens their room.
         </p>
       </Section>
 

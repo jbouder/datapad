@@ -16,6 +16,7 @@ import {
   captureToast,
   hashQuery,
   KIND_LABELS,
+  newProjectFor,
   nextKind,
   parseCapture,
   projectsFor,
@@ -44,6 +45,8 @@ interface Option {
   insert: string;
   /** "Add “…” to People": the name to add first. */
   add?: string;
+  /** "Create project “…”": the project to create first. */
+  create?: { name: string; org: string; orgId?: string };
 }
 
 interface Menu {
@@ -57,8 +60,9 @@ const MENU_MAX = 8;
 /**
  * The `@` or `#` menu at `caret`: people whose names start with what is
  * typed (and "Add “…” to People" for a name nobody has), or the open
- * projects it could mean. Null when there is nothing to offer, or once a
- * known name is followed by more words.
+ * projects it could mean (and "Create project “…”" for a word no project
+ * is called). Null when there is nothing to offer, or once a known name
+ * is followed by more words.
  */
 function menuAt(state: Snapshot, text: string, caret: number): Menu | null {
   const hash = hashQuery(text, caret);
@@ -68,12 +72,21 @@ function menuAt(state: Snapshot, text: string, caret: number): Menu | null {
       : Object.values(state.projects)
           .filter((p) => !p.archived)
           .sort((a, b) => a.name.localeCompare(b.name));
-    const options = projects.slice(0, MENU_MAX).map((p) => ({
+    const options: Option[] = projects.slice(0, MENU_MAX).map((p) => ({
       key: p.id,
       label: p.name,
       hint: p.org || undefined,
       insert: `${projectWord(p.name)} `,
     }));
+    const create = newProjectFor(hash.query, state);
+    if (create) {
+      options.push({
+        key: '\u0000create',
+        label: `Create project “${create.name}”`,
+        insert: `#${create.name} `,
+        create,
+      });
+    }
     return options.length > 0
       ? { kind: 'projects', start: hash.start, options }
       : null;
@@ -116,7 +129,8 @@ function menuAt(state: Snapshot, text: string, caret: number): Menu | null {
 /**
  * The capture line (#330): one input that works out what a line is and
  * where it goes, with chips that say so. `@` and `#` open a menu of
- * people and projects (an unknown name can be added to People), Enter
+ * people and projects (an unknown name can be added to People, an
+ * unknown `#word` created as a project), Enter
  * saves and the toast offers Undo, Esc clears, Tab or the kind chip
  * changes what it becomes, and Shift+Enter or the expand button carries
  * it to the full note composer, filed the same way. `n` focuses it.
@@ -196,6 +210,10 @@ export function CaptureLine({
     const option = menu?.options[index];
     if (!menu || !option || caret === null) return;
     if (option.add && actions.addPerson({ name: option.add }) === null) return;
+    if (option.create) {
+      if (actions.createProject(option.create) === null) return;
+      show(`Created ${option.create.name}`);
+    }
     const next = text.slice(0, menu.start) + option.insert + text.slice(caret);
     pendingCaret.current = menu.start + option.insert.length;
     change(next);

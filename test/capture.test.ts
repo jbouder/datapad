@@ -5,6 +5,7 @@ import {
   captureOps,
   captureToast,
   hashQuery,
+  newProjectFor,
   nextKind,
   parseCapture,
   projectWord,
@@ -428,5 +429,49 @@ describe('the # menu', () => {
   it('writes a picked project as one word', () => {
     expect(projectWord('Falcon Refit')).toBe('#FalconRefit');
     expect(parse(`Check ${projectWord('Echo Base')}`).projectId).toBe('echo');
+  });
+
+  it('offers a new project for a #word no project is called', () => {
+    const s = snapshot();
+    expect(newProjectFor('Hoth', s)).toEqual({ name: 'Hoth', org: '' });
+    // A prefix of a name is still new; the exact name is not.
+    expect(newProjectFor('Falcon', s)).toEqual({ name: 'Falcon', org: '' });
+    expect(newProjectFor('falconrefit', s)).toBeNull();
+    expect(newProjectFor('H', s)).toBeNull();
+    expect(newProjectFor('', s)).toBeNull();
+  });
+
+  it('never offers the name of an archived project', () => {
+    const s = snapshot();
+    s.projects.old = project('old', 'Old Base', true);
+    expect(newProjectFor('OldBase', s)).toBeNull();
+  });
+
+  it('starts a new project in the default org', () => {
+    const s = snapshot();
+    s.orgs = {
+      reb: { id: 'reb', name: 'Rebellion', kind: 'team', notes: '' },
+    } as unknown as Snapshot['orgs'];
+    s.settings[SETTINGS_ID] = {
+      ...s.settings[SETTINGS_ID],
+      defaultOrg: 'rebellion',
+    } as Snapshot['settings'][string];
+    expect(newProjectFor('Hoth', s)).toEqual({
+      name: 'Hoth',
+      org: 'rebellion',
+      orgId: 'reb',
+    });
+  });
+
+  it('files the line under the new project once it exists', () => {
+    const s = snapshot();
+    const fields = newProjectFor('Hoth', s);
+    if (!fields) throw new Error('expected a new project');
+    const next = reduce(
+      s,
+      { type: 'createProject', id: 'hoth', ...fields },
+      NOW,
+    ).state;
+    expect(parseCapture('Scout #Hoth', next, TODAY).projectId).toBe('hoth');
   });
 });

@@ -195,6 +195,31 @@ test('an unknown name can be added to People', async ({ page, request }) => {
   );
 });
 
+test('an unknown #word can be created as a project', async ({
+  page,
+  request,
+}) => {
+  await openLive(page);
+  const line = capture(page);
+  await line.click();
+  await line.pressSequentially('Scout the ridge #Hoth');
+  await page.getByRole('option', { name: 'Create project “Hoth”' }).click();
+  await expect(toast(page)).toContainText('Created Hoth');
+  await expect(line).toHaveValue('Scout the ridge #Hoth ');
+  await expect(chips(page)).toHaveText(['Note', 'Hoth']);
+  await line.press('Enter');
+  await expect(toast(page)).toContainText('Added a note to Hoth');
+  await expectSaved(page);
+  const data = (await stored(request)) as Stored & {
+    projects: Record<string, { name: string }>;
+  };
+  const hoth = Object.entries(data.projects).find(([, p]) => p.name === 'Hoth');
+  expect(hoth).toBeDefined();
+  expect(
+    Object.values(data.notes).find((n) => n.body === 'Scout the ridge'),
+  ).toMatchObject({ projectId: hoth?.[0] });
+});
+
 test('on a project page it files there; expand opens the composer', async ({
   page,
 }) => {

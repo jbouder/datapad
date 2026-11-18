@@ -10,7 +10,8 @@ const allRooms = () => linkProps({ name: 'all' }, ALL_ROOMS_QUERY);
 /**
  * Rooms (`/rooms`): the phone's Rooms tab, the rail's rooms as a page
  * (`useRooms`, `RoomLists`): the same rows in the same order, with the
- * same counts, in 44px rows. All finds every other project and person.
+ * same counts, in 44px rows, and the same `+` to add a project or a
+ * person. All finds every other project and person.
  * Desktop has the rail, but the page works there too.
  */
 export function RoomsPage() {
@@ -31,16 +32,19 @@ export function RoomsPage() {
 
       {!list ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : empty ? (
-        <p className="text-state">
-          No rooms yet. Find a project or person in{' '}
-          <a {...allRooms()} className="underline underline-offset-4">
-            All
-          </a>{' '}
-          and pin it.
-        </p>
       ) : (
-        <RoomLists list={list} look="page" id="rooms-page" />
+        <>
+          <RoomLists list={list} look="page" id="rooms-page" />
+          {empty && (
+            <p className="text-state">
+              No rooms yet. Add one with +, or find a project or person in{' '}
+              <a {...allRooms()} className="underline underline-offset-4">
+                All
+              </a>{' '}
+              and pin it.
+            </p>
+          )}
+        </>
       )}
 
       <p>
