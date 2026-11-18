@@ -38,7 +38,9 @@ test('pin and unpin from a room; the rail follows, in the order Settings keeps',
   await pin(page).click();
   await expect(pin(page)).toHaveAttribute('aria-pressed', 'true');
   if (desktop) {
-    await expect(rooms.getByRole('link')).toHaveText([/Falcon/]);
+    await expect(rooms.getByRole('list').getByRole('link')).toHaveText([
+      /Falcon/,
+    ]);
   }
 
   // A person's room too; they leave Waiting on once pinned.
@@ -49,7 +51,10 @@ test('pin and unpin from a room; the rail follows, in the order Settings keeps',
   await pin(page).click();
   await expect(pin(page)).toHaveAttribute('aria-pressed', 'true');
   if (desktop) {
-    await expect(rooms.getByRole('link')).toHaveText([/Falcon/, /Han Solo/]);
+    await expect(rooms.getByRole('list').getByRole('link')).toHaveText([
+      /Falcon/,
+      /Han Solo/,
+    ]);
     await expect(owed.getByRole('link')).toHaveText([/Chewbacca/]);
   }
   await expectAccessible(page);
@@ -72,7 +77,10 @@ test('pin and unpin from a room; the rail follows, in the order Settings keeps',
   await page.reload();
   await expect(list.getByRole('listitem')).toHaveText([/Han Solo/, /Falcon/]);
   if (desktop) {
-    await expect(rooms.getByRole('link')).toHaveText([/Han Solo/, /Falcon/]);
+    await expect(rooms.getByRole('list').getByRole('link')).toHaveText([
+      /Han Solo/,
+      /Falcon/,
+    ]);
   }
 
   // Unpin from Settings, then from the room: back to the active projects.
@@ -82,10 +90,29 @@ test('pin and unpin from a room; the rail follows, in the order Settings keeps',
   await pin(page).click();
   await expect(pin(page)).toHaveAttribute('aria-pressed', 'false');
   if (desktop) {
-    await expect(rooms.getByRole('link')).toHaveText([/Echo Base/, /Falcon/]);
+    await expect(rooms.getByRole('list').getByRole('link')).toHaveText([
+      /Echo Base/,
+      /Falcon/,
+    ]);
   }
   await page.goto('/settings/rooms');
   await expect(page.getByText('Nothing pinned yet.')).toBeVisible();
+});
+
+test('the Rooms heading in the rail opens the Rooms page', async ({ page }) => {
+  test.skip(isMobile(page), 'The phone has no rail; Rooms is a tab.');
+  await openLive(page, '/');
+  const heading = page
+    .getByRole('complementary', { name: 'Datapad' })
+    .getByRole('heading', { name: 'Rooms' });
+  const link = heading.getByRole('link', { name: 'Rooms' });
+  await link.click();
+  await expect(page).toHaveURL(/\/rooms$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Rooms' }),
+  ).toBeVisible();
+  await expect(link).toHaveAttribute('aria-current', 'page');
+  await expectAccessible(page);
 });
 
 test('add a project or a person from Rooms and land in the new room', async ({
@@ -135,7 +162,7 @@ test('hide a project from the rail, then show it again from Settings', async ({
         .getByRole('region', { name: 'Rooms' });
   const roomList = async () => {
     if (mobile) await page.goto('/rooms');
-    return rooms.getByRole('link');
+    return rooms.getByRole('list').getByRole('link');
   };
 
   await openLive(page, '/projects/p-falcon');

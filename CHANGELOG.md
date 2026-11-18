@@ -23,6 +23,7 @@ changes the format says so here under **Export format**.
   project or a person and opens the new room.
 - All's rooms (the **Rooms** chip) has **New person** beside People, and
   search (⌘K) has **New person**. Each opens the new person's room.
+- The **Rooms** heading in the rail opens the Rooms page.
 - In the capture line, a `#word` no project is called offers
   **Create project “…”**. It creates the project in your default org and
   files the line under it.
