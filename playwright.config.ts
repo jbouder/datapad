@@ -24,7 +24,8 @@ process.env.TZ = TZ;
  * test then signs in as its own address (e2e/fixtures.ts), so each gets an
  * empty Durable Object.
  *
- * Every spec runs twice: desktop Chromium and a phone (Pixel 7, touch).
+ * Every spec runs twice: desktop Chromium and a phone (Pixel 7, touch),
+ * except reflow, which sets its own widths and runs once.
  * Datapad is used on phones a lot; a view is not done until both pass.
  *
  * Locally a server already listening on the port is reused, so
@@ -51,7 +52,13 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    {
+      name: 'mobile',
+      use: { ...devices['Pixel 7'] },
+      // Reflow sets its own viewport (and touch) on every test, so it
+      // would only run the same checks twice.
+      testIgnore: /reflow\.spec\.ts/,
+    },
   ],
   webServer: {
     // VITE_DEV_COMPONENTS adds /dev/components (the shared inputs) for the

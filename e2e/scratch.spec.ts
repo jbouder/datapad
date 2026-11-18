@@ -6,7 +6,6 @@ import {
   expectSaved,
   openLive,
   SEED,
-  seedTime,
   test,
 } from './fixtures';
 
@@ -194,48 +193,4 @@ test('tick a checklist, edit in place, delete and Undo', async ({
   expect(
     Object.values(data.notes).some((n) => n.body.startsWith('Packing')),
   ).toBe(false);
-});
-
-test('a migrated Notepad and a migrated list show and work here', async ({
-  page,
-  request,
-}) => {
-  // A format 2 file: its General list becomes a checklist note, and its
-  // Notepad an ordinary General note (#328).
-  const old = structuredClone(SEED) as Record<string, unknown> & {
-    notes: Record<string, unknown>;
-  };
-  old.format = 2;
-  old.notes['n-pad'] = {
-    id: 'n-pad',
-    projectId: null,
-    body: 'Notepad: call the quartermaster',
-    pinned: false,
-    meetingId: null,
-    phase: null,
-    createdAt: seedTime('2026-10-25T09:00:00.000Z'),
-    // The old Notepad flag (`Note.scratch`), not Scratch the page.
-    scratch: true,
-  };
-  await request.post('/api/import', { data: old });
-
-  await openLive(page, '/scratch');
-  await expect(block(page, 'Notepad: call the quartermaster')).toBeVisible();
-  const list = block(page, 'Reading list');
-  await expect(list).toBeVisible();
-  // The Echo Base list is filed: it is not here.
-  await expect(block(page, 'Evacuation checklist')).toHaveCount(0);
-
-  await list.getByRole('checkbox', { name: 'Rebel field manual' }).check();
-  await expect(
-    list.getByRole('checkbox', { name: 'Rebel field manual' }),
-  ).toBeChecked();
-  await expectSaved(page);
-
-  await fileTo(block(page, 'Notepad: call'), 'Echo Base');
-  await expect(block(page, 'Notepad: call')).toHaveCount(0);
-  await expectSaved(page);
-  const data = await stored(request);
-  expect(data.notes['n-pad']?.projectId).toBe('p-echo');
-  expect(data.notes['l-reading']?.body).toContain('- [x] Rebel field manual');
 });

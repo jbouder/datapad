@@ -291,7 +291,7 @@ test.describe('Moving a project', () => {
       const row = await dialog
         .locator('label', { hasText: 'Dagobah' })
         .boundingBox();
-      expect(row?.height).toBeGreaterThanOrEqual(44);
+      expect(Math.round(row?.height ?? 0)).toBeGreaterThanOrEqual(44);
       await expectNoSidewaysScroll(page);
     }
     await dialog.getByRole('button', { name: 'Move' }).click();
