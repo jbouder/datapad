@@ -42,7 +42,10 @@ jobs:
       # Known advisories in the installed packages, moderate and up. One
       # with no fixed release yet is skipped by id with `--ignore=GHSA-…`
       # and a comment saying why (see docs/self-hosting.md).
-      - run: bun audit --audit-level=moderate
+      # GHSA-fc5q-39xc-vjpf: picomatch <=4.0.7 ReDoS, no fixed release
+      # yet (4.0.7 is the latest). Build and test tooling only (knip, vite,
+      # vitest, shadcn); not in the Worker bundle. Drop once a fix ships.
+      - run: bun audit --audit-level=moderate --ignore=GHSA-fc5q-39xc-vjpf
       # No .dev.vars here: the generated Env must not depend on one.
       - run: bunx wrangler types
       - run: bunx biome ci .
