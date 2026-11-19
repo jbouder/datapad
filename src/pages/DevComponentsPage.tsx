@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CREATE_COMMANDS } from '#shared/composer';
 import { toggleCheck } from '#shared/markdown';
 import { namesToTokens } from '#shared/mentions';
 import {
@@ -125,10 +126,11 @@ export default function DevComponentsPage() {
           label="Composer"
           placeholder="Type / for styles, @ to mention"
           draftKey="datapad:draft:dev"
-          onTask={(title) => {
-            show(`Would add task “${title}”`);
+          onCreate={(id, line) => {
+            show(`Would add ${id} “${line}”`);
             return true;
           }}
+          creates={CREATE_COMMANDS}
           onSubmit={() => {
             show('Would add the note');
             setDraft('');

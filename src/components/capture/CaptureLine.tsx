@@ -21,8 +21,10 @@ import {
   parseCapture,
   projectsFor,
   projectWord,
+  slashKind,
   undoCaptureOp,
 } from '#shared/capture';
+import { COMMANDS, isCreateCommand } from '#shared/composer';
 import { mentionMatches, mentionQuery, tokensToNames } from '#shared/mentions';
 import { planInlineAdd } from '#shared/people';
 import type { Snapshot } from '#shared/types';
@@ -50,12 +52,41 @@ interface Option {
 }
 
 interface Menu {
-  kind: 'people' | 'projects';
+  kind: 'people' | 'projects' | 'commands';
   start: number;
   options: Option[];
 }
 
 const MENU_MAX = 8;
+
+const MENU_LABELS: Record<Menu['kind'], string> = {
+  people: 'People',
+  projects: 'Projects',
+  commands: 'Commands',
+};
+
+/** The create commands (#375), as the capture line's `/` menu lists them. */
+const CREATE = COMMANDS.filter((c) => isCreateCommand(c.id));
+
+/**
+ * The `/word` being typed at the start of the line, for the command
+ * menu: what each command makes, matched by the start of its word or
+ * label.
+ */
+function commandMenu(text: string, caret: number): Menu | null {
+  const m = /^\/([a-z]*)$/i.exec(text.slice(0, caret));
+  if (!m) return null;
+  const query = (m[1] ?? '').toLowerCase();
+  const options: Option[] = CREATE.filter(
+    (c) => c.id.startsWith(query) || c.label.toLowerCase().startsWith(query),
+  ).map((c) => ({
+    key: c.id,
+    label: `/${c.id}`,
+    hint: c.label,
+    insert: `/${c.id} `,
+  }));
+  return options.length > 0 ? { kind: 'commands', start: 0, options } : null;
+}
 
 /**
  * The `@` or `#` menu at `caret`: people whose names start with what is
@@ -65,6 +96,8 @@ const MENU_MAX = 8;
  * is followed by more words.
  */
 function menuAt(state: Snapshot, text: string, caret: number): Menu | null {
+  const command = commandMenu(text, caret);
+  if (command) return command;
   const hash = hashQuery(text, caret);
   if (hash) {
     const projects = hash.query
@@ -130,7 +163,8 @@ function menuAt(state: Snapshot, text: string, caret: number): Menu | null {
  * The capture line (#330): one input that works out what a line is and
  * where it goes, with chips that say so. `@` and `#` open a menu of
  * people and projects (an unknown name can be added to People, an
- * unknown `#word` created as a project), Enter
+ * unknown `#word` created as a project), `/` at the start a menu of what
+ * it can make (#375: `/meeting`, `/person` and the rest), Enter
  * saves and the toast offers Undo, Esc clears, Tab or the kind chip
  * changes what it becomes, and Shift+Enter or the expand button carries
  * it to the full note composer, filed the same way. `n` focuses it.
@@ -224,7 +258,7 @@ export function CaptureLine({
     if (!state || !capture || !canSave(capture, state)) return;
     const id = newId();
     if (!actions.batch({ ops: captureOps(capture, state, id) })) return;
-    const undo = undoCaptureOp(capture.kind, id);
+    const undo = undoCaptureOp(capture.kind, id, capture.projectId);
     show(captureToast(capture, state), () => {
       actions.batch({ ops: [undo] });
     });
@@ -267,7 +301,7 @@ export function CaptureLine({
       return;
     }
     // With something typed, Tab changes what it becomes; empty, it moves on.
-    if (e.key === 'Tab' && !e.shiftKey && text.trim() && capture) {
+    if (e.key === 'Tab' && !e.shiftKey && text.trim() && capture && !slashed) {
       e.preventDefault();
       setForce(nextKind(capture.kind));
       return;
@@ -284,6 +318,8 @@ export function CaptureLine({
   };
 
   const kind = capture?.kind ?? 'note';
+  /** A `/word` sets the kind; the chip and Tab leave it alone. */
+  const slashed = slashKind(text.trim()) !== null;
 
   return (
     <div data-capture className={cn('flex flex-col gap-2', className)}>
@@ -309,7 +345,7 @@ export function CaptureLine({
               open ? `${listId}-${highlighted}` : undefined
             }
             aria-describedby={chips.length > 0 ? chipsId : undefined}
-            placeholder="Capture: a note, [ ] a task, ? to decide, #project, @person"
+            placeholder="Capture: a note, [ ] a task, ? to decide, #project, @person, / to make more"
             autoComplete="off"
             enterKeyHint="done"
             className="h-11 pr-11 pl-8 text-base desk:h-9 desk:pr-9 desk:text-sm"
@@ -335,7 +371,7 @@ export function CaptureLine({
           <div
             id={listId}
             role="listbox"
-            aria-label={menu?.kind === 'projects' ? 'Projects' : 'People'}
+            aria-label={MENU_LABELS[menu?.kind ?? 'people']}
             hidden={!open}
             className="absolute top-full left-0 z-50 mt-1 max-h-72 w-72 max-w-full overflow-y-auto border bg-popover p-1 text-popover-foreground shadow-md"
           >
@@ -374,7 +410,7 @@ export function CaptureLine({
           className="flex flex-wrap items-center gap-1.5 text-xs"
         >
           {chips.map((chip) =>
-            chip.kind === 'kind' ? (
+            chip.kind === 'kind' && !slashed ? (
               <li key="kind">
                 <button
                   type="button"
@@ -393,7 +429,11 @@ export function CaptureLine({
                   'inline-flex h-6 items-center border px-2',
                   chip.kind === 'scratch'
                     ? 'border-dashed text-muted-foreground'
-                    : 'bg-muted text-foreground',
+                    : chip.kind === 'problem'
+                      ? 'border-warn text-warn'
+                      : chip.kind === 'kind'
+                        ? 'border-primary bg-primary/10 font-medium text-foreground'
+                        : 'bg-muted text-foreground',
                 )}
               >
                 {chip.label}

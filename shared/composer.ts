@@ -1,3 +1,4 @@
+import { type CaptureKind, SLASH_KINDS } from './capture';
 import { addDays } from './dates';
 
 /**
@@ -31,7 +32,47 @@ export type CommandId =
   | 'date'
   | 'time'
   | 'mention'
-  | 'task';
+  | 'task'
+  | 'decide'
+  | 'waiting'
+  | 'note'
+  | 'meeting'
+  | 'milestone'
+  | 'project'
+  | 'person';
+
+/** The commands that make something from the line (#375). */
+export type CreateCommandId = Extract<
+  CommandId,
+  | 'task'
+  | 'decide'
+  | 'waiting'
+  | 'note'
+  | 'meeting'
+  | 'milestone'
+  | 'project'
+  | 'person'
+>;
+
+export const CREATE_COMMANDS: readonly CreateCommandId[] = [
+  'task',
+  'decide',
+  'waiting',
+  'note',
+  'meeting',
+  'milestone',
+  'project',
+  'person',
+];
+
+export function isCreateCommand(id: CommandId): id is CreateCommandId {
+  return (CREATE_COMMANDS as readonly CommandId[]).includes(id);
+}
+
+/** What a create command makes, as the capture line names it. */
+export function captureKindOf(id: CreateCommandId): CaptureKind {
+  return SLASH_KINDS[id] ?? 'note';
+}
 
 export interface Command {
   id: CommandId;
@@ -120,6 +161,48 @@ export const COMMANDS: readonly Command[] = [
     label: 'Task',
     description: 'Make this line a task',
     markdown: '- [ ] ',
+  },
+  {
+    id: 'decide',
+    label: 'To decide',
+    description: 'Make this line something to decide',
+    markdown: '- [ ] ',
+  },
+  {
+    id: 'waiting',
+    label: 'Waiting on',
+    description: 'A task waiting on the @Name in the line',
+    markdown: '- [ ] ',
+  },
+  {
+    id: 'note',
+    label: 'Note',
+    description: 'Move this line into a note of its own',
+    markdown: 'new note',
+  },
+  {
+    id: 'meeting',
+    label: 'Meeting',
+    description: 'A meeting named by the line: fri 10am',
+    markdown: 'meeting',
+  },
+  {
+    id: 'milestone',
+    label: 'Milestone',
+    description: 'A milestone on the project: by fri',
+    markdown: 'milestone',
+  },
+  {
+    id: 'project',
+    label: 'Project',
+    description: 'A new project named by the line',
+    markdown: 'project',
+  },
+  {
+    id: 'person',
+    label: 'Person',
+    description: 'Add the line’s name to People',
+    markdown: '@Name',
   },
 ];
 
@@ -428,8 +511,52 @@ function codeBlock(text: string, sel: Selection): Edit {
 }
 
 export interface CommandResult extends Edit {
-  /** `/task`: the title of the task to make from the line. */
-  task?: string;
+  /**
+   * A create command (#375): what to make, from the line's text (its block
+   * marker taken off). Absent when the line is empty.
+   */
+  create?: { id: CreateCommandId; line: string };
+}
+
+/** The line at the caret: where it is and its text without the marker. */
+function caretLine(text: string, sel: Selection) {
+  const from = lineStart(text, sel.start);
+  const to = lineEnd(text, sel.start);
+  const { prefix, content } = split(text.slice(from, to));
+  return { from, to, prefix, content: content.trim() };
+}
+
+/** A create command at the selection: the line's edit and what to make. */
+function createFromLine(
+  text: string,
+  sel: Selection,
+  id: CreateCommandId,
+): CommandResult {
+  const { from, to, prefix, content } = caretLine(text, sel);
+  const create = content ? { create: { id, line: content } } : {};
+  const put = (line: string): CommandResult => ({
+    text: text.slice(0, from) + line + text.slice(to),
+    sel: { start: from + line.length, end: from + line.length },
+    ...create,
+  });
+  switch (id) {
+    case 'task':
+    case 'decide':
+    case 'waiting':
+      return put(`- [ ] ${content}`);
+    case 'person':
+      return put(content ? `${prefix}@${content.replace(/^@/, '')}` : prefix);
+    case 'note': {
+      if (!content) return { text, sel, ...create };
+      // The line goes, with one of the line breaks around it.
+      const cut = to < text.length ? to + 1 : from > 0 ? from - 1 : from;
+      const start = Math.min(from, cut);
+      const out = text.slice(0, start) + text.slice(Math.max(to, cut));
+      return { text: out, sel: { start, end: start }, ...create };
+    }
+    default:
+      return { text, sel: { start: to, end: to }, ...create };
+  }
 }
 
 /**
@@ -470,18 +597,15 @@ export function applyCommand(
       return insert(text, sel, ctx.time);
     case 'mention':
       return insert(text, sel, '@');
-    case 'task': {
-      const from = lineStart(text, sel.start);
-      const to = lineEnd(text, sel.start);
-      const { content } = split(text.slice(from, to));
-      const title = content.trim().slice(0, 200);
-      const line = `- [ ] ${content.trim()}`;
-      return {
-        text: text.slice(0, from) + line + text.slice(to),
-        sel: { start: from + line.length, end: from + line.length },
-        ...(title ? { task: title } : {}),
-      };
-    }
+    case 'task':
+    case 'decide':
+    case 'waiting':
+    case 'note':
+    case 'meeting':
+    case 'milestone':
+    case 'project':
+    case 'person':
+      return createFromLine(text, sel, id);
   }
 }
 
