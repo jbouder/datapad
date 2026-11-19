@@ -131,18 +131,20 @@ export function NoteChips({
  * Arriving from a link to the note (`?note=<id>`: a task's "From note",
  * the agenda, search): bring `box` into view, focus it, and say for a
  * moment that it is the one (`data-highlighted`). `onArrive` runs first,
- * e.g. to open a row.
+ * e.g. to open a row. Off (`enabled` false) where the note opens
+ * elsewhere: a room's pinned note opens at the top of the room (#377).
  */
 export function useNoteTarget(
   box: RefObject<HTMLElement | null>,
   noteId: string,
   onArrive?: () => void,
+  enabled = true,
 ): boolean {
   const target = useQuery().get('note');
   const [flash, setFlash] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target changes, not when the callback does
   useEffect(() => {
-    if (target !== noteId || !box.current) return;
+    if (!enabled || target !== noteId || !box.current) return;
     onArrive?.();
     box.current.scrollIntoView({ block: 'center' });
     box.current.focus({ preventScroll: true });

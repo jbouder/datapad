@@ -9,7 +9,10 @@ import {
   narrowedOf,
   OWED_MAX,
   owedBy,
+  PINNED_LABEL_MAX,
   peopleByOwed,
+  pinnedFit,
+  pinnedLabel,
   pinnedOf,
   pinnedRooms,
   projectRoomsByOrg,
@@ -17,8 +20,10 @@ import {
   roomKey,
   roomLink,
   roomOf,
+  roomPinnedNotes,
   scratchCount,
   viewOf,
+  withNoteQuery,
   withPin,
 } from '#shared/rooms';
 import {
@@ -401,5 +406,81 @@ describe('a room’s address (#334)', () => {
     const q = new URLSearchParams('person=u&project=p');
     expect(narrowedOf({ name: 'person', id: 'u' }, q)).toBe('p');
     expect(narrowedOf({ name: 'project', id: 'p' }, q)).toBe('u');
+  });
+});
+
+describe('pinned notes at the top of a room (#377)', () => {
+  const note = (id: string, patch: Partial<Note> = {}): Note =>
+    ({
+      id,
+      projectId: null,
+      meetingId: null,
+      body: id,
+      pinned: true,
+      createdAt: AT,
+      editedAt: null,
+      ...patch,
+    }) as Note;
+  const notes = {
+    b: note('b', { projectId: 'p-echo', body: '## Runbook\nStep one' }),
+    a: note('a', { projectId: 'p-echo', body: 'Contacts for @{pe-leia}' }),
+    c: note('c', {
+      projectId: 'p-echo',
+      body: 'Old',
+      createdAt: '2026-11-01T09:00:00.000Z',
+    }),
+    off: note('off', { projectId: 'p-echo', pinned: false }),
+    other: note('other', { projectId: 'p-falcon' }),
+    loose: note('loose', { body: 'Ask @{pe-leia} about it' }),
+  };
+  const s = { notes, people: space.people };
+
+  it('lists a project’s pinned notes, oldest first, labeled by the first line', () => {
+    expect(roomPinnedNotes(s, { kind: 'project', id: 'p-echo' })).toEqual([
+      { id: 'c', label: 'Old' },
+      { id: 'a', label: 'Contacts for @Leia' },
+      { id: 'b', label: 'Runbook' },
+    ]);
+  });
+
+  it('lists a person’s pinned notes that mention them, any project', () => {
+    expect(
+      roomPinnedNotes(s, { kind: 'person', id: 'pe-leia' }).map((n) => n.id),
+    ).toEqual(['a', 'loose']);
+    expect(roomPinnedNotes(s, { kind: 'person', id: 'pe-han' })).toEqual([]);
+  });
+
+  it('leaves out notes on their way out', () => {
+    expect(
+      roomPinnedNotes(s, { kind: 'project', id: 'p-echo' }, new Set(['a'])).map(
+        (n) => n.id,
+      ),
+    ).toEqual(['c', 'b']);
+  });
+
+  it('labels an empty note, and shortens a long first line', () => {
+    expect(pinnedLabel('   \n\n', {})).toBe('Empty note');
+    expect(pinnedLabel('- [ ] Feed the tauntauns', {})).toBe(
+      '☐ Feed the tauntauns',
+    );
+    const long = pinnedLabel('x'.repeat(80), {});
+    expect(long).toHaveLength(PINNED_LABEL_MAX);
+    expect(long.endsWith('…')).toBe(true);
+  });
+
+  it('fits every pin, or as many as fit beside the Pinned menu', () => {
+    expect(pinnedFit([], 0, 80)).toBe(0);
+    expect(pinnedFit([100, 100], 200, 80)).toBe(2);
+    expect(pinnedFit([100, 100, 100], 290, 80)).toBe(2);
+    expect(pinnedFit([100, 100, 100], 279, 80)).toBe(1);
+    expect(pinnedFit([100, 100], 150, 80)).toBe(0);
+  });
+
+  it('opens and closes a note in the query, keeping the rest', () => {
+    expect(withNoteQuery('person=pe-han', 'n-1')).toBe(
+      'person=pe-han&note=n-1',
+    );
+    expect(withNoteQuery('person=pe-han&note=n-1', null)).toBe('person=pe-han');
+    expect(withNoteQuery('', null)).toBe('');
   });
 });

@@ -14,10 +14,12 @@
 
 import { viewRoute } from './all';
 import { lanesOf, waitingPeople } from './loops';
-import { inScratch } from './notes';
+import { mentionedIds } from './mentions';
+import { inScratch, notePreview } from './notes';
 import { projectRoomOf, type Route, roomTabRoute } from './routes';
 import { meId } from './select';
 import {
+  type Note,
   type Person,
   type Project,
   type SavedView,
@@ -371,4 +373,86 @@ export function scratchCount(notes: Snapshot['notes']): number {
   let count = 0;
   for (const note of Object.values(notes)) if (inScratch(note)) count++;
   return count;
+}
+
+/** The address's key for the note open at the top of a room (#377). */
+export const NOTE_PARAM = 'note';
+
+/** A pinned note at the top of a room (#377): its id and its label. */
+export interface PinnedNote {
+  id: string;
+  /** The note's first line, plain (`notePreview`), or `Empty note`. */
+  label: string;
+}
+
+/** The longest a pinned note's label gets before it ends in `…`. */
+export const PINNED_LABEL_MAX = 40;
+
+/** A pinned note's label: its first line, plain, at most `PINNED_LABEL_MAX`. */
+export function pinnedLabel(body: string, people: Snapshot['people']): string {
+  const line = notePreview(body, people).split('\n')[0]?.trim() ?? '';
+  if (!line) return 'Empty note';
+  return line.length > PINNED_LABEL_MAX
+    ? `${line.slice(0, PINNED_LABEL_MAX - 1).trimEnd()}…`
+    : line;
+}
+
+/**
+ * The pinned notes a room shows beside its tabs (#377): a project's
+ * pinned notes, or for a person the pinned notes that mention them.
+ * Narrowing the room (`?person=`, `?project=`) does not change them:
+ * they are the room's reference notes. Oldest first, ties by id, so a
+ * pin keeps its place; `hidden` are notes on their way out (a delete
+ * waiting on Undo).
+ */
+export function roomPinnedNotes(
+  state: Pick<Snapshot, 'notes' | 'people'>,
+  room: { kind: 'project' | 'person'; id: string },
+  hidden: ReadonlySet<string> = new Set(),
+): PinnedNote[] {
+  const belongs = (n: Note) =>
+    room.kind === 'project'
+      ? n.projectId === room.id
+      : mentionedIds(n.body).includes(room.id);
+  return Object.values(state.notes)
+    .filter((n) => n.pinned && !hidden.has(n.id) && belongs(n))
+    .sort(
+      (a, b) =>
+        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    )
+    .map((n) => ({ id: n.id, label: pinnedLabel(n.body, state.people) }));
+}
+
+/**
+ * How many pinned notes fit in a room's tab row (#377), in order: every
+ * one when their `widths` fit in `room`, else as many as fit beside the
+ * Pinned menu (`menu` wide), which holds the rest. Widths include the
+ * gap after each one.
+ */
+export function pinnedFit(
+  widths: readonly number[],
+  room: number,
+  menu: number,
+): number {
+  const total = widths.reduce((sum, w) => sum + w, 0);
+  if (total <= room) return widths.length;
+  let used = menu;
+  let count = 0;
+  for (const w of widths) {
+    if (used + w > room) break;
+    used += w;
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * The room's query with a pinned note open (`note`) or none (null), the
+ * rest kept (`?person=`, `?project=`).
+ */
+export function withNoteQuery(query: string, note: string | null): string {
+  const params = new URLSearchParams(query);
+  if (note) params.set(NOTE_PARAM, note);
+  else params.delete(NOTE_PARAM);
+  return params.toString();
 }

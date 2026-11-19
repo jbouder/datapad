@@ -13,7 +13,12 @@ import {
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { lanesOf, waitingCount } from '#shared/loops';
-import { PERSON_PARAM, type Room } from '#shared/rooms';
+import {
+  NOTE_PARAM,
+  PERSON_PARAM,
+  type Room,
+  roomPinnedNotes,
+} from '#shared/rooms';
 import { type RoomTab, roomTabRoute } from '#shared/routes';
 import { meId } from '#shared/select';
 import {
@@ -42,6 +47,7 @@ import { DeleteProjectDialog } from '@/components/projects/DeleteProjectDialog';
 import { MoveProjectDialog } from '@/components/projects/MoveProjectDialog';
 import { useProjectForm } from '@/components/projects/ProjectFormProvider';
 import { ProjectPlan } from '@/components/projects/ProjectPlan';
+import { PinnedNotesNav, PinnedNoteView } from '@/components/rooms/PinnedNotes';
 import {
   NextMeeting,
   PersonFilter,
@@ -146,6 +152,13 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
     () => (state ? roomPeople(state, id) : []),
     [state, id],
   );
+  const pinned = useMemo(
+    () =>
+      state ? roomPinnedNotes(state, { kind: 'project', id }, hidden) : [],
+    [state, id, hidden],
+  );
+  const asking = query.get(NOTE_PARAM);
+  const openPin = pinned.find((n) => n.id === asking) ?? null;
 
   // A link to a milestone (`?milestone=`) opens the Plan, where it is.
   const milestoneLink = query.get('milestone');
@@ -344,6 +357,8 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
   const board = tab === 'whiteboard';
   /** On the board, the page has no padding of its own: the room adds it. */
   const pad = board ? 'px-4 sm:px-6' : '';
+  const here = roomTabRoute(id, tab);
+  const openNote = openPin ? state.notes[openPin.id] : undefined;
 
   const header = (
     <div className={cn(pad, board && 'pt-4')}>
@@ -443,6 +458,16 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
             tabs={tabs}
             current={tab}
             label={`${project.name} room`}
+            pinned={
+              pinned.length > 0 && (
+                <PinnedNotesNav
+                  notes={pinned}
+                  open={openPin?.id ?? null}
+                  route={here}
+                  query={query.toString()}
+                />
+              )
+            }
             end={
               board && (
                 <Suspense fallback={null}>
@@ -454,6 +479,19 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
         </div>
       }
     >
+      {openPin && openNote && (
+        <div
+          className={cn(pad, board && 'max-h-[45svh] shrink-0 overflow-y-auto')}
+        >
+          <PinnedNoteView
+            note={openNote}
+            label={openPin.label}
+            people={state.people}
+            route={here}
+            query={query.toString()}
+          />
+        </div>
+      )}
       {tab === 'stream' && (
         <RoomColumns
           lanes={
@@ -486,6 +524,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
                     ? `Nothing in ${project.name} touches ${personName} yet.`
                     : 'Nothing here yet. Capture a note or a task above.'
                 }
+                openAtTop={openPin?.id ?? null}
                 milestoneRoute={(projectId, milestone) => ({
                   route: roomTabRoute(projectId, 'plan'),
                   query: `milestone=${encodeURIComponent(milestone)}`,

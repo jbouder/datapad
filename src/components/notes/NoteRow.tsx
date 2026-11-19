@@ -66,6 +66,7 @@ export function NoteRow({
   when = 'relative',
   highlight,
   reveal = false,
+  arrive = true,
   className,
   style,
 }: {
@@ -81,6 +82,11 @@ export function NoteRow({
    * preview), and closes it again when it turns false.
    */
   reveal?: boolean;
+  /**
+   * Whether `?note=<id>` scrolls to this row and opens it. Off in a room
+   * while the note is open at the top as a pinned note (#377).
+   */
+  arrive?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -99,7 +105,7 @@ export function NoteRow({
   const row = useRef<HTMLLIElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
-  const flash = useNoteTarget(row, note.id, () => setOpen(true));
+  const flash = useNoteTarget(row, note.id, () => setOpen(true), arrive);
   const { picked, make } = useSelectionTask(note, body, row);
   const bodyId = useId();
   const preview = useMemo(
