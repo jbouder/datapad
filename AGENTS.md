@@ -95,8 +95,9 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   rail, the tab bar and ⌘K; `ROOMS_TAB`, the phone's fourth tab),
   `hooks/useRooms.ts` + `components/RoomLists.tsx` (the rail's rooms
   and Waiting on, shared with the phone's Rooms page, `/rooms`), `lib/capture.ts` (focusing the capture
-  line), `lib/leave.ts` (holding a link, Back or a panel close while an
-  inline note asks "Save this note?"),
+  line), `lib/leave.ts` (holding a link, Back or a panel close while a
+  new inline note asks "Save this note?" or an edited one "Save changes
+  to this note?"),
   `lib/motion.ts` + `hooks/useFlip.ts` (motion helpers;
   `lib/motion-tokens.ts` is the durations and easings script uses, equal
   to the CSS tokens), `hooks/useNow.ts` (a shared minute clock;

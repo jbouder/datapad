@@ -27,6 +27,13 @@ changes the format says so here under **Export format**.
 - Double-click a note's text to edit it, in a room, in meeting mode,
   in Scratch and in a pinned note.
 
+### Fixed
+
+- Editing a saved note now guards against leaving with unsaved changes.
+  A link, Back, Forward, Leave or closing a panel asks "Save changes to
+  this note?" (Discard or Save note), then goes on. Before, only a new
+  note asked.
+
 ## [2.1.0] — 2026-11-18
 
 This release builds on v2's rooms. Every project has a pinned
