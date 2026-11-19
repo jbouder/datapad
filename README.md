@@ -24,7 +24,7 @@ over WebSockets, and backs itself up to R2 every night.
   <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Scratch, Rooms and All." width="22%" />
 </p>
 
-<p align="center"><sub>Today, a project room, All and meeting mode, with fictional data.</sub></p>
+<p align="center"><sub>Today with fictional data.</sub></p>
 
 ## Features
 
