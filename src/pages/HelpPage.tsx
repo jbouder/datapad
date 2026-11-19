@@ -225,10 +225,12 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="writing">
         <p className="text-sm">
-          Notes, descriptions and task details are Markdown. Type <Key>/</Key>{' '}
-          at the start of a line for a menu of blocks, or use the keys below.
-          Lists carry on when you press Enter; Enter on an empty item ends the
-          list.
+          Notes, descriptions and task details show formatted as you write them,
+          and are kept as Markdown. Type <Key>/</Key> at the start of a line for
+          a menu of blocks, use the keys below, or type the Markdown (
+          <code>#</code>, <code>-</code>, <code>- [ ]</code>,{' '}
+          <code>**bold**</code>) and it turns into formatting. Lists carry on
+          when you press Enter; Enter on an empty item ends the list.
         </p>
         <p className="text-sm">
           The same menu makes things from the line you are on, read the way the
