@@ -300,11 +300,18 @@ export function RoomTabs<T extends string>({
   current,
   label = 'Room',
   pinned,
+  pinnedOpen = false,
   end,
 }: {
   tabs: readonly RoomTabLink<T>[];
   current?: T;
   label?: string;
+  /**
+   * A pinned note is open at the top: its link is the one marked, so the
+   * current tab keeps `aria-current` (it is still the page) but not the
+   * underline.
+   */
+  pinnedOpen?: boolean;
   /** After the tabs: the pinned notes (`PinnedNotesNav`). */
   pinned?: ReactNode;
   /** After the tabs, at the right (the board's menu). */
@@ -325,7 +332,10 @@ export function RoomTabs<T extends string>({
                 data-room-tab={tab.key}
                 className={cn(
                   'inline-flex h-11 shrink-0 items-center border-b-2 border-transparent px-3 text-sm text-muted-foreground outline-ring/50 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 desk:h-9',
-                  on && 'border-primary font-medium text-foreground',
+                  on &&
+                    (pinnedOpen
+                      ? 'text-foreground'
+                      : 'border-primary font-medium text-foreground'),
                 )}
               >
                 {tab.label}

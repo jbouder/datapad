@@ -245,3 +245,26 @@ test('a new project starts with a pinned Notepad to write in', async ({
   await expect(note.getByRole('textbox')).toBeVisible();
   await expectAccessible(page);
 });
+
+test('an open pinned note is the only tab underlined', async ({ page }) => {
+  await openLive(page, '/projects/p-echo');
+  const stream = page
+    .getByRole('navigation', { name: 'Echo Base relocation room' })
+    .getByRole('link', { name: 'Stream' });
+  const underline = (el: Element) => getComputedStyle(el).borderBottomColor;
+  const transparent = 'rgba(0, 0, 0, 0)';
+  expect(await stream.evaluate(underline)).not.toBe(transparent);
+
+  await openPinned(page, 'Standup');
+  await expect(opened(page, 'Standup')).toBeVisible();
+  // Still the page it is on, but the open note is the one marked.
+  await expect(stream).toHaveAttribute('aria-current', 'page');
+  await expect.poll(() => stream.evaluate(underline)).toBe(transparent);
+  const standup = pinnedNav(page).getByRole('link', { name: 'Standup' });
+  expect(await standup.evaluate(underline)).not.toBe(transparent);
+
+  // Closed again, the tab takes the underline back.
+  await page.keyboard.press('Escape');
+  await expect(opened(page, 'Standup')).toHaveCount(0);
+  await expect.poll(() => stream.evaluate(underline)).not.toBe(transparent);
+});

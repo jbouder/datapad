@@ -457,6 +457,7 @@ export function ProjectRoom({ id, tab }: { id: string; tab: RoomTab }) {
           <RoomTabs
             tabs={tabs}
             current={tab}
+            pinnedOpen={openPin !== null}
             label={`${project.name} room`}
             pinned={
               pinned.length > 0 && (
