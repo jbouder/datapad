@@ -116,7 +116,11 @@ export function HelpPage({ section }: { section?: string }) {
             active projects; <strong>Hide from rail</strong> in a project’s menu
             leaves one out, and Settings → Rooms shows it again. On a phone the
             Rooms tab lists the same. <strong>Move to…</strong> in a note’s menu
-            moves it to another project.
+            moves it to another project. <strong>Pin</strong> in a note’s menu
+            puts it in its room’s tab row, after the tabs, by its first line (a
+            person’s room shows the pinned notes that mention them). Choose one
+            to open it at the top of the room, on any tab; Esc, Close or Back
+            closes it. Pins that do not fit go under <strong>Pinned</strong>.
           </Term>
           <Term name="All" to={{ name: 'all' }}>
             Every task, note, meeting, project and person in one list. Pick

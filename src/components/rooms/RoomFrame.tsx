@@ -291,41 +291,50 @@ export interface RoomTabLink<T extends string> {
 
 /**
  * A room's tabs, as links (each tab is its own address): the current
- * one carries `aria-current="page"`.
+ * one carries `aria-current="page"`. `pinned` follows them: the room's
+ * pinned notes (#377), which take the rest of the row. A room with no
+ * tabs of its own (a person's) shows only those.
  */
 export function RoomTabs<T extends string>({
   tabs,
   current,
   label = 'Room',
+  pinned,
   end,
 }: {
   tabs: readonly RoomTabLink<T>[];
-  current: T;
+  current?: T;
   label?: string;
+  /** After the tabs: the pinned notes (`PinnedNotesNav`). */
+  pinned?: ReactNode;
   /** After the tabs, at the right (the board's menu). */
   end?: ReactNode;
 }) {
+  if (tabs.length === 0 && !pinned && !end) return null;
   return (
     <div className="flex items-end gap-1 border-b">
-      <nav aria-label={label} className="flex min-w-0 gap-1 overflow-x-auto">
-        {tabs.map((tab) => {
-          const on = tab.key === current;
-          return (
-            <a
-              key={tab.key}
-              {...linkProps(tab.route, tab.query)}
-              aria-current={on ? 'page' : undefined}
-              data-room-tab={tab.key}
-              className={cn(
-                'inline-flex h-11 shrink-0 items-center border-b-2 border-transparent px-3 text-sm text-muted-foreground outline-ring/50 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 desk:h-9',
-                on && 'border-primary font-medium text-foreground',
-              )}
-            >
-              {tab.label}
-            </a>
-          );
-        })}
-      </nav>
+      {tabs.length > 0 && (
+        <nav aria-label={label} className="flex min-w-0 gap-1 overflow-x-auto">
+          {tabs.map((tab) => {
+            const on = tab.key === current;
+            return (
+              <a
+                key={tab.key}
+                {...linkProps(tab.route, tab.query)}
+                aria-current={on ? 'page' : undefined}
+                data-room-tab={tab.key}
+                className={cn(
+                  'inline-flex h-11 shrink-0 items-center border-b-2 border-transparent px-3 text-sm text-muted-foreground outline-ring/50 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 desk:h-9',
+                  on && 'border-primary font-medium text-foreground',
+                )}
+              >
+                {tab.label}
+              </a>
+            );
+          })}
+        </nav>
+      )}
+      {pinned}
       {end}
     </div>
   );

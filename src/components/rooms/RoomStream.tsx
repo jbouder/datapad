@@ -42,6 +42,7 @@ export function RoomStream({
   today,
   empty,
   milestoneRoute,
+  openAtTop = null,
 }: {
   upcoming: readonly StreamItem[];
   items: readonly StreamItem[];
@@ -55,6 +56,11 @@ export function RoomStream({
     route: Route;
     query: string;
   };
+  /**
+   * The note open at the top of the room as a pinned note (#377): its
+   * row here does not answer `?note=`.
+   */
+  openAtTop?: string | null;
 }) {
   const [shown, setShown] = useState(STREAM_PAGE);
   const { active } = useMotion();
@@ -84,6 +90,7 @@ export function RoomStream({
                 state={state}
                 today={today}
                 milestoneRoute={milestoneRoute}
+                openAtTop={openAtTop}
               />
             ))}
           </ul>
@@ -105,6 +112,7 @@ export function RoomStream({
             state={state}
             today={today}
             milestoneRoute={milestoneRoute}
+            openAtTop={openAtTop}
           />
         ))}
       </ul>
@@ -129,6 +137,7 @@ function StreamEntry({
   state,
   today,
   milestoneRoute,
+  openAtTop,
 }: {
   item: StreamItem;
   state: Snapshot;
@@ -140,6 +149,7 @@ function StreamEntry({
     route: Route;
     query: string;
   };
+  openAtTop: string | null;
 }) {
   const clock = useClock();
   switch (item.kind) {
@@ -150,6 +160,7 @@ function StreamEntry({
           state={state}
           chips={{ meeting: true, task: true }}
           reveal
+          arrive={item.note.id !== openAtTop}
         />
       );
     case 'task':

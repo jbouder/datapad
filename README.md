@@ -25,7 +25,7 @@ over WebSockets, and backs itself up to R2 every night.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/project-room.png" alt="A project room on a laptop: the org, name and state line, the Next meeting card, the Stream, Plan and Whiteboard tabs, the three lanes and one stream of notes, tasks and meetings." width="48%" />
+  <img src="docs/screenshots/project-room.png" alt="A project room on a laptop: the org, name and state line, the Next meeting card, the Stream, Plan and Whiteboard tabs with a pinned Standup note after them, the three lanes and one stream of notes, tasks and meetings." width="48%" />
   &nbsp;
   <img src="docs/screenshots/all.png" alt="All on a laptop: the Tasks, Notes, Meetings, Projects, People and Rooms chips, Save view, Find and filters over one list of projects, notes, tasks and meetings." width="48%" />
 </p>
@@ -63,7 +63,9 @@ over WebSockets, and backs itself up to R2 every night.
   members, links, activity) and **Whiteboard**. A person room is the
   1:1 prep: **You owe**, **They owe you** and **To discuss** beside
   their stream. Pin rooms to the rail, or a project seen through one
-  person. On a phone the Rooms tab lists the same rooms.
+  person. Pin a note and it sits in its room's tab row, one click from
+  any tab; a person room shows the pinned notes that mention them. On a
+  phone the Rooms tab lists the same rooms.
 - **All.** Every task, note, meeting, project and person in one list.
   Pick kinds, find, filter and sort; tasks show as a list, a table or a
   board, meetings as a list or a calendar, projects as a list, cards or a

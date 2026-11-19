@@ -205,7 +205,10 @@ Beyond the spec:
   notes support distinct text styles: three heading levels, body, inline
   code, fenced mono blocks, block quotes, dividers, bold, italic, strike,
   links, mention chips, and checklists that are _clickable_ (fixes the
-  spec's known gap). Pinned notes; full-text Find on All and in
+  spec's known gap). Pinned notes, in their room's tab row after the
+  tabs and opened in place at the top of the room on any tab (`?note=`,
+  so Back closes them), the extras under a Pinned menu (#377); a person
+  room lists the pinned notes that mention them. Full-text Find on All and in
   ⌘K; select-text → Make task; notes linked to meetings and to the task they
   produced; edit in place with the same editor.
 

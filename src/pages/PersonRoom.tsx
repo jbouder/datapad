@@ -2,7 +2,12 @@ import { CalendarPlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useId, useMemo, useRef, useState } from 'react';
 import { formatDay } from '#shared/dates';
 import { waitingCount } from '#shared/loops';
-import { PROJECT_PARAM, type Room } from '#shared/rooms';
+import {
+  NOTE_PARAM,
+  PROJECT_PARAM,
+  type Room,
+  roomPinnedNotes,
+} from '#shared/rooms';
 import { meId } from '#shared/select';
 import {
   personLanes,
@@ -25,12 +30,14 @@ import { PinButton } from '@/components/PinButton';
 import { PersonForm } from '@/components/people/PersonForm';
 import { RemovePersonDialog } from '@/components/people/RemovePersonDialog';
 import { YouTag } from '@/components/people/YouTag';
+import { PinnedNotesNav, PinnedNoteView } from '@/components/rooms/PinnedNotes';
 import {
   NextMeeting,
   ProjectFilter,
   RoomColumns,
   RoomFrame,
   RoomHeader,
+  RoomTabs,
 } from '@/components/rooms/RoomFrame';
 import { RoomStream } from '@/components/rooms/RoomStream';
 import { SummarizeButton, SummaryCard } from '@/components/summary/SummaryCard';
@@ -111,6 +118,12 @@ export function PersonRoom({ id }: { id: string }) {
     () => (state ? personProjects(state, id) : []),
     [state, id],
   );
+  const pinned = useMemo(
+    () => (state ? roomPinnedNotes(state, { kind: 'person', id }, hidden) : []),
+    [state, id, hidden],
+  );
+  const asking = query.get(NOTE_PARAM);
+  const openPin = pinned.find((n) => n.id === asking) ?? null;
 
   if (!state || !lanes) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -276,10 +289,28 @@ export function PersonRoom({ id }: { id: string }) {
     </>
   );
 
+  const here = { name: 'person', id: person.id } as const;
+  const openNote = openPin ? state.notes[openPin.id] : undefined;
+
   return (
     <RoomFrame
       titleId="person-title"
       header={header}
+      tabs={
+        pinned.length > 0 && (
+          <RoomTabs
+            tabs={[]}
+            pinned={
+              <PinnedNotesNav
+                notes={pinned}
+                open={openPin?.id ?? null}
+                route={here}
+                query={query.toString()}
+              />
+            }
+          />
+        )
+      }
       filter={
         <ProjectFilter
           projects={projects}
@@ -301,6 +332,15 @@ export function PersonRoom({ id }: { id: string }) {
         )
       }
     >
+      {openPin && openNote && (
+        <PinnedNoteView
+          note={openNote}
+          label={openPin.label}
+          people={state.people}
+          route={here}
+          query={query.toString()}
+        />
+      )}
       <RoomColumns
         lanes={
           <div ref={lanesRoot} className="flex flex-col gap-4">
@@ -323,6 +363,7 @@ export function PersonRoom({ id }: { id: string }) {
             />
             <RoomStream
               key={project ?? ''}
+              openAtTop={openPin?.id ?? null}
               upcoming={split.upcoming}
               items={split.past}
               state={state}
