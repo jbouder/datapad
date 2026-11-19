@@ -212,12 +212,15 @@ export function CaptureLine({
         : null,
     [text, state, today, context, force],
   );
+  // No chips while a `/word` is still being typed: the menu says what it
+  // makes, and the chips row appearing would push the page down.
+  const typingCommand = /^\/[a-z]*$/i.test(text);
   const chips = useMemo(
     () =>
-      state && capture && text.trim()
+      state && capture && text.trim() && !typingCommand
         ? captureChips(capture, state, today)
         : [],
-    [state, capture, text, today],
+    [state, capture, text, today, typingCommand],
   );
   const menu = useMemo(() => {
     if (!state || caret === null) return null;
