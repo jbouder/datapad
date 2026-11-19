@@ -24,16 +24,6 @@ over WebSockets, and backs itself up to R2 every night.
   <img src="docs/screenshots/today-phone.png" alt="Today on a phone: the day's header and the capture line above Next up and the timeline, with the tab bar for Today, Scratch, Rooms and All." width="22%" />
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/project-room.png" alt="A project room on a laptop: the org, name and state line, the Next meeting card, the Stream, Plan and Whiteboard tabs with a pinned Standup note after them, the three lanes and one stream of notes, tasks and meetings." width="48%" />
-  &nbsp;
-  <img src="docs/screenshots/all.png" alt="All on a laptop: the Tasks, Notes, Meetings, Projects, People and Rooms chips, Save view, Find and filters over one list of projects, notes, tasks and meetings." width="48%" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/meeting-mode.png" alt="Meeting mode on a laptop: the phase, title and attendees across the top, the agenda and topics on the left, the note composer and action items in the middle and the open loops on the right." width="72%" />
-</p>
-
 <p align="center"><sub>Today, a project room, All and meeting mode, with fictional data.</sub></p>
 
 ## Features
