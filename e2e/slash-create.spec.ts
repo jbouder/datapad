@@ -40,7 +40,12 @@ test('the capture line makes a meeting from /meeting, with Undo', async ({
 }) => {
   await openLive(page);
   await capture(page).click();
+  // Typing the command word moves nothing below the line.
+  const below = page.getByRole('heading', { name: 'Timeline' });
+  const before = (await below.boundingBox())?.y;
   await page.keyboard.type('/mee');
+  await expect(chips(page)).toHaveCount(0);
+  expect((await below.boundingBox())?.y).toBe(before);
   const menu = page.getByRole('listbox', { name: 'Commands' });
   await expect(menu.getByRole('option')).toHaveText([/^\/meeting/]);
   await expectAccessible(page);

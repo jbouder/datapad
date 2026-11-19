@@ -67,6 +67,11 @@ changes the format says so here under **Export format**.
   after CI passes, so a change can be tried there before it reaches
   production from `main` ([docs/self-hosting.md](docs/self-hosting.md#staging)).
 
+### Fixed
+
+- Typing `/` in the capture line no longer pushes the page down. The
+  chips wait until the command word is chosen.
+
 ### Export format
 
 - Settings may carry `defaultDueDays` (0 to 365). Absent reads as 7, so
