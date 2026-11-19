@@ -5,9 +5,14 @@ import {
   PushPinSlashIcon,
   XIcon,
 } from '@phosphor-icons/react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toggleCheck } from '#shared/markdown';
-import { type PinnedNote, pinnedFit, withNoteQuery } from '#shared/rooms';
+import {
+  type PinnedNote,
+  pinnedBody,
+  pinnedFit,
+  withNoteQuery,
+} from '#shared/rooms';
 import type { Note, Person } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
 import { NoteEditor, useNoteActions } from '@/components/notes/noteParts';
@@ -184,6 +189,10 @@ export function PinnedNoteView({
   const { show } = useToast();
   const act = useNoteActions(note, people);
   const [editing, setEditing] = useState<string | null>(null);
+  const shown = useMemo(
+    () => pinnedBody(note.body, people),
+    [note.body, people],
+  );
   const box = useRef<HTMLElement>(null);
   const headingId = `pinned-note-${note.id}`;
 
@@ -277,12 +286,12 @@ export function PinnedNoteView({
         ) : (
           <div className="note-row-body">
             <Markdown
-              text={note.body}
+              text={shown.text}
               people={people}
               onToggle={(line) =>
                 actions.editNote({
                   id: note.id,
-                  body: toggleCheck(note.body, line),
+                  body: toggleCheck(note.body, line + shown.offset),
                 })
               }
             />

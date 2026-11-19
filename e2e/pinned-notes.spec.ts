@@ -88,7 +88,10 @@ test('pin a note, open it from the Whiteboard tab, close it and unpin it', async
   const note = opened(page, 'Standup');
   await expect(note).toBeVisible();
   await expect(note).toBeFocused();
-  await expect(note.getByRole('heading', { level: 4 })).toHaveText('Standup');
+  // The title shows once, in the bar: the note's own heading is left out.
+  await expect(note.getByRole('heading', { level: 4 })).toHaveCount(0);
+  await expect(note.getByText('Standup', { exact: true })).toHaveCount(1);
+  await expect(note.getByText('Tauntauns fed')).toBeVisible();
   await expect(note.getByRole('button', { name: 'Edit' })).toBeVisible();
   await expect(note.getByRole('button', { name: 'Unpin' })).toBeVisible();
   await expect(

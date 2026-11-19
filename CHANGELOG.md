@@ -75,6 +75,8 @@ changes the format says so here under **Export format**.
 
 ### Fixed
 
+- A pinned note that starts with a heading no longer shows its title
+  twice when it opens at the top of a room.
 - Typing `/` in the capture line no longer pushes the page down. The
   chips wait until the command word is chosen.
 - On a meeting's page, the `/` and `@` menus in the notes no longer
