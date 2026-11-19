@@ -12,14 +12,16 @@ import { Button } from '@/components/ui/button';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
 import { RAIL_ID, useRailShown } from '@/hooks/useRail';
 import { linkProps, useHistoryNav } from '@/lib/router';
+import { cn } from '@/lib/utils';
 
 /**
  * The sidebar button on desktop (shows or hides the rail, as ⌘\ does),
  * Back and Forward on desktop (through this tab's history, each disabled
  * with nowhere to go; phones have the system's own gestures), the current
  * title once the page's own h1 has scrolled away (with the brand on
- * phones, where there is no rail), then the sync status
- * (a colored dot, with its word on desktop), Search (with its shortcut on
+ * phones, where there is no rail), then the sync status (a colored
+ * dot, with its word on desktop, where it shows here only while the
+ * rail, which has it at its foot, is hidden), Search (with its shortcut on
  * desktop; ⌘K also adds a task, note, meeting or project) and the account
  * menu (Help is there). New things come from the capture line.
  */
@@ -106,7 +108,12 @@ export function TopBar({
         <div className="flex shrink-0 items-center gap-1">
           {/* A touch target's width, so the dot sits as far from Search as
               the icons do from each other. */}
-          <SyncStatus className="min-w-11 justify-center desk:hidden" />
+          <SyncStatus
+            className={cn(
+              'min-w-11 justify-center',
+              railShown && 'desk:hidden',
+            )}
+          />
           <Button
             variant="outline"
             className="press size-11 p-0 text-muted-foreground sm:size-9 desk:mr-1 desk:h-9 desk:w-auto desk:gap-2 desk:px-2.5"

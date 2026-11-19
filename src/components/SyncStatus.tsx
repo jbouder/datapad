@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * Whether changes are reaching the server, at the foot of the rail on
- * desktop and in the top bar on phones: a dot colored by state (ok when saved, warn while connecting or with
+ * desktop (in the top bar while the rail is hidden) and in the top bar
+ * on phones: a dot colored by state (ok when saved, warn while connecting or with
  * changes waiting, destructive offline) and always a word beside it, so
  * color never carries it alone. Never a spinner, never blocking.
  *
