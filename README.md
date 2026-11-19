@@ -63,7 +63,7 @@ over WebSockets, and backs itself up to R2 every night.
   and every person, to open or pin. Save a view as a chip, pin it to
   the rail, and select tasks to complete, move, assign or date them at
   once, with Undo.
-- **Meeting mode.** A meeting opens full screen: Prep, Live or Debrief,
+- **Meeting mode.** A meeting opens in meeting mode: Prep, Live or Debrief,
   the agenda and topics (with Carry forward from the last one in the
   series), the note composer always open, the action items, and the open
   loops of the person or the project.

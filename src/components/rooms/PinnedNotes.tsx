@@ -15,7 +15,11 @@ import {
 } from '#shared/rooms';
 import type { Note, Person } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
-import { NoteEditor, useNoteActions } from '@/components/notes/noteParts';
+import {
+  editOnDoubleClick,
+  NoteEditor,
+  useNoteActions,
+} from '@/components/notes/noteParts';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -284,7 +288,11 @@ export function PinnedNoteView({
             }}
           />
         ) : (
-          <div className="note-row-body">
+          // biome-ignore lint/a11y/noStaticElementInteractions: a shortcut for the mouse; Edit in the menu is the keyboard way
+          <div
+            className="note-row-body"
+            onDoubleClick={editOnDoubleClick(() => setEditing(act.editText()))}
+          >
             {shown.text.trim() === '' && (
               <button
                 type="button"

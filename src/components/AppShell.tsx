@@ -159,39 +159,6 @@ export function AppShell() {
   // A whiteboard takes the whole viewport below the top bar (and above
   // the tab bar): the page itself never scrolls.
   const fullBleed = route.name === 'whiteboard';
-  // Meeting mode (#336) is the whole screen: no rail, top bar or tab bar.
-  // Leave (or Esc) goes back; search and the shortcut sheet still open.
-  const fullScreen = route.name === 'meeting';
-
-  if (fullScreen) {
-    return (
-      <div className="flex min-h-dvh">
-        <main
-          id="main"
-          key={key}
-          tabIndex={-1}
-          data-full-screen
-          className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none sm:px-6"
-        >
-          <ErrorBoundary
-            where="page"
-            fallback={(reset) => <PageError reset={reset} />}
-          >
-            <Suspense fallback={<PageLoading />}>
-              <Page route={route} />
-            </Suspense>
-          </ErrorBoundary>
-        </main>
-        <ShortcutSheet open={sheet} onOpenChange={setSheet} />
-        <Palette
-          open={palette}
-          onOpenChange={setPalette}
-          currentProject={currentProject}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       className={cn('flex', fullBleed ? 'h-dvh overflow-hidden' : 'min-h-dvh')}

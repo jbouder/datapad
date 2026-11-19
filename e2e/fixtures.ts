@@ -278,8 +278,13 @@ export async function expectAccessible(page: Page) {
   // the top: a target scrolled under the sticky header reads as obscured.
   await settle(page);
   await page.evaluate(() => window.scrollTo(0, 0));
+  // Base UI's focus guards (hidden, tabbable spans around an open menu)
+  // pass only when axe sees the menu as modal, which it guesses by
+  // sampling five points for a full-screen backdrop. A trigger that lands
+  // on one of them hides the backdrop there, so leave the guards out.
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .exclude('[data-base-ui-focus-guard]')
     .analyze();
   const summary = violations.map((v) => ({
     id: v.id,

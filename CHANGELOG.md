@@ -17,6 +17,16 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+### Changed
+
+- Meeting mode is no longer full screen. A meeting opens in the app's
+  frame like any other page, with the rail, top bar and tab bar.
+
+### Added
+
+- Double-click a note's text to edit it, in a room, in meeting mode,
+  in Scratch and in a pinned note.
+
 ## [2.1.0] — 2026-11-18
 
 This release builds on v2's rooms. Every project has a pinned
