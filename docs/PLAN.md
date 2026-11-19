@@ -106,7 +106,7 @@ pages; every old address redirects to its new home (`landRoute()` in
 | Lists, a collection with pages | Retired, data kept: each list became a checklist note (format 3, #328) |
 | The project page | The project room: Stream, Plan and Whiteboard tabs (#334) |
 | A person's page under Settings | The person room at `/people/:id`, the 1:1 prep (#335) |
-| The meeting page | Meeting mode, full screen (#336) |
+| The meeting page | Meeting mode (#336) |
 | The task page from Tasks | The task panel everywhere (#329) |
 | Quick add, the top bar's + menu and New list | The **capture line** on Today and in every room: notes, tasks, things to decide and waiting-ons (#330); ⌘K adds a task, note, meeting or project; a room's Schedule meeting, Today's Add meeting and All's New project (#341) |
 | Tasks dragged into order on the project page | No manual order: lanes sort by due date. `reorderTasks` still reduces for old clients |

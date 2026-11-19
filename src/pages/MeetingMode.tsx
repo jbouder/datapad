@@ -38,7 +38,6 @@ import { MeetingTopics } from '@/components/meetings/MeetingTopics';
 import { InlineNoteComposer } from '@/components/notes/InlineNoteComposer';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { useNotes } from '@/components/notes/NotesProvider';
-import { SyncStatus } from '@/components/SyncStatus';
 import { SummaryCard } from '@/components/summary/SummaryCard';
 import { useSummaries } from '@/components/summary/SummaryProvider';
 import { Button } from '@/components/ui/button';
@@ -69,8 +68,9 @@ function clockTime(ms: number): string {
 }
 
 /**
- * Meeting mode (`/meetings/:id`, #336): one meeting, full screen, the
- * same before it (Prep), while it runs (Live) and after it (Debrief).
+ * Meeting mode (`/meetings/:id`, #336): one meeting, in the app's frame
+ * like any other page, the same before it (Prep), while it runs (Live)
+ * and after it (Debrief).
  *
  * The header has the phase, the title, the day and time, its room and
  * attendees (each a link to their room), Join, Previous and Next in the
@@ -170,13 +170,9 @@ export function MeetingMode({ id }: { id: string }) {
       className="enter flex flex-col gap-6"
     >
       <header className="flex flex-col gap-2 border-b pb-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium tracking-wider text-primary uppercase">
-            {PHASE_LABEL[phase]}
-          </p>
-          {/* No rail or top bar here: whether changes are saved shows here. */}
-          <SyncStatus className="min-h-11 desk:min-h-6" />
-        </div>
+        <p className="text-xs font-medium tracking-wider text-primary uppercase">
+          {PHASE_LABEL[phase]}
+        </p>
         <div className="flex flex-wrap items-start gap-3">
           <h1
             id="meeting-page-title"

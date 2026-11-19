@@ -262,6 +262,20 @@ export function SelectionTaskButton({
 }
 
 /**
+ * A double-click on a note's text starts editing it, as Edit in its menu
+ * does. Not on a link, a checkbox or a button inside it, and the word the
+ * double-click selected is let go.
+ */
+export function editOnDoubleClick(start: () => void) {
+  return (event: React.MouseEvent) => {
+    const target = event.target as Element;
+    if (target.closest('a, button, input, label, [role="checkbox"]')) return;
+    document.getSelection()?.removeAllRanges();
+    start();
+  };
+}
+
+/**
  * Editing a note in place: the composer with mentions as names, Cancel
  * and Save note. Esc cancels. `onDone` runs once it is saved or dropped.
  */

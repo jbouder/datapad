@@ -9,7 +9,7 @@ around three places and one input: **Today** (the day as a timeline,
 the open loops beside it), the **rooms** (one per project and per
 person), **All** (every item of every kind in one list) and the
 **capture line**. Lines with no home go to **Scratch**; a meeting opens
-in full-screen **meeting mode**. Search and summaries run on the device. Built the way [holocron](https://github.com/jbouder/holocron) is
+in **meeting mode**. Search and summaries run on the device. Built the way [holocron](https://github.com/jbouder/holocron) is
 built. Runs entirely on Cloudflare: Cloudflare Access sits in front of the
 hostname, a Worker verifies the Access JWT on every request and serves the
 SPA and API, and one SQLite-backed Durable Object per signed-in email holds
@@ -108,7 +108,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   PagePrefs), `pages/*` (`TodayPage` is `/`, `ScratchPage` `/scratch`,
   `AllPage` `/all`, `ProjectRoom` `/projects/:id` (Stream, `/plan` and
   `/whiteboard` tabs), `PersonRoom` `/people/:id`, `MeetingMode`
-  `/meetings/:id` (full screen: no rail, top bar or tab bar),
+  `/meetings/:id`,
   `WhiteboardPage` `/whiteboard`, `SettingsPage`, `HelpPage`; a task opens
   in its panel everywhere), `components/*`: `capture/CaptureLine` (the
   capture line on Today and in each room), `today/` (the day timeline,

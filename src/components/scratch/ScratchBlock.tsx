@@ -12,6 +12,7 @@ import { taskTitleFrom } from '#shared/notes';
 import type { Note, Snapshot } from '#shared/types';
 import { Markdown } from '@/components/Markdown';
 import {
+  editOnDoubleClick,
   NoteEditor,
   SelectionTaskButton,
   useNoteActions,
@@ -134,7 +135,11 @@ export function ScratchBlock({
             onDone={() => setEditing(null)}
           />
         ) : (
-          <div ref={body}>
+          // biome-ignore lint/a11y/noStaticElementInteractions: a shortcut for the mouse; Edit in the menu is the keyboard way
+          <div
+            ref={body}
+            onDoubleClick={editOnDoubleClick(() => setEditing(act.editText()))}
+          >
             <Markdown
               text={note.body}
               people={state.people}

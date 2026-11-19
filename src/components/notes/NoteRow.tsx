@@ -18,6 +18,7 @@ import { Markdown, marked } from '@/components/Markdown';
 import {
   AskTaskForm,
   canMoveNote,
+  editOnDoubleClick,
   MoveNoteForm,
   NoteChips,
   NoteEditor,
@@ -123,6 +124,11 @@ export function NoteRow({
 
   /** Back to the toggle once an edit or a Make task is done with. */
   const settle = () => toggle.current?.focus({ preventScroll: true });
+  const startEditing = () => {
+    setAsking(null);
+    setMoving(false);
+    setEditing(act.editText());
+  };
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: the toggle is the keyboard way to open the row
@@ -193,13 +199,7 @@ export function NoteRow({
             <DotsThreeIcon weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() => {
-                setAsking(null);
-                setMoving(false);
-                setEditing(act.editText());
-              }}
-            >
+            <DropdownMenuItem onClick={startEditing}>
               <PencilSimpleIcon />
               Edit
             </DropdownMenuItem>
@@ -254,7 +254,12 @@ export function NoteRow({
             }}
           />
         ) : open ? (
-          <div ref={body} className="note-row-body">
+          // biome-ignore lint/a11y/noStaticElementInteractions: a shortcut for the mouse; Edit in the menu is the keyboard way
+          <div
+            ref={body}
+            className="note-row-body"
+            onDoubleClick={editOnDoubleClick(startEditing)}
+          >
             <Markdown
               text={note.body}
               people={state.people}
@@ -270,6 +275,7 @@ export function NoteRow({
         ) : (
           <p
             data-note-preview
+            onDoubleClick={editOnDoubleClick(startEditing)}
             className="line-clamp-2 cursor-pointer text-sm whitespace-pre-line break-words"
           >
             {preview ? marked(preview, words) : <em>Empty note</em>}

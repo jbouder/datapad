@@ -55,7 +55,7 @@ async function seed(
   await request.post('/api/import', { data });
 }
 
-/** The nav (rail or tab bar), which meeting mode leaves out. */
+/** The nav (rail or tab bar), which meeting mode keeps. */
 function nav(page: Page) {
   return isMobile(page)
     ? page.getByRole('navigation', { name: 'Sections' })
@@ -84,9 +84,9 @@ test('meeting mode: the header, agenda, notes and the 1:1’s loops', async ({
   await expect(
     main.getByRole('heading', { level: 1, name: 'Shield review' }),
   ).toBeVisible();
-  // The whole screen: no rail, top bar or tab bar.
-  await expect(nav(page)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Search' })).toHaveCount(0);
+  // In the app's frame like any page: the rail or tab bar, and Search.
+  await expect(nav(page)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Search' })).toBeVisible();
 
   const details = main.getByRole('list', { name: 'Details' });
   await expect(details).toContainText(
@@ -209,6 +209,16 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
   );
   // Save note hands focus back to the composer once it settles.
   await expect(composer).toBeFocused();
+
+  // A double-click on a saved note's text opens it for editing.
+  const saved = notes.getByRole('listitem').filter({
+    hasText: 'The ridge needs two more sensors.',
+  });
+  await saved.getByText('The ridge needs two more sensors.').dblclick();
+  const editor = saved.getByRole('textbox', { name: 'Edit note' });
+  await expect(editor).toBeVisible();
+  await saved.getByRole('button', { name: 'Cancel' }).click();
+  await expect(editor).toHaveCount(0);
 
   // A line becomes an action item from the composer.
   // The composer can still be settling after Save note: type again

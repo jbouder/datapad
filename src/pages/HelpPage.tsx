@@ -237,6 +237,7 @@ export function HelpPage({ section }: { section?: string }) {
           <code>#</code>, <code>-</code>, <code>- [ ]</code>,{' '}
           <code>**bold**</code>) and it turns into formatting. Lists carry on
           when you press Enter; Enter on an empty item ends the list.
+          Double-click a saved note’s text to edit it, or use Edit in its menu.
         </p>
         <p className="text-sm">
           The same menu makes things from the line you are on, read the way the
@@ -301,13 +302,13 @@ export function HelpPage({ section }: { section?: string }) {
 
       <Section id="meetings">
         <p className="text-sm">
-          A meeting opens in <strong>meeting mode</strong>, full screen: its
-          phase (Prep, Live or Debrief), day, time and attendees, Join, and the
-          previous and next meeting of its series. The topics are on the left,
-          the note composer is always open in the middle with the saved notes
-          and action items under it, and the open loops are on the right: the
-          other person’s for a 1:1, otherwise the project’s. Leave, or{' '}
-          <Key>Esc</Key>, goes back to where you came from.
+          A meeting opens in <strong>meeting mode</strong>: its phase (Prep,
+          Live or Debrief), day, time and attendees, Join, and the previous and
+          next meeting of its series. The topics are on the left, the note
+          composer is always open in the middle with the saved notes and action
+          items under it, and the open loops are on the right: the other
+          person’s for a 1:1, otherwise the project’s. Leave, or <Key>Esc</Key>,
+          goes back to where you came from.
         </p>
         <p className="text-sm">
           <strong>Topics</strong> are a meeting’s agenda, one line each. Add
