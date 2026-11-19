@@ -19,6 +19,12 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- Every project has a pinned **Notepad**, a note headed "Notepad" in
+  its room's tab row. New projects start with one, and every project you
+  already have gets one once, on the first load after this update. It is
+  an ordinary note: write in it, unpin it or delete it. The Durable
+  Object's schema goes to 6, so a deploy of an earlier version after this
+  one refuses to start until this version is deployed again.
 - Pinned notes sit at the top of their room. A project room's tab row
   lists each pinned note after Stream, Plan and Whiteboard, by its first
   line; a person room lists the pinned notes that mention them. Choosing

@@ -461,6 +461,7 @@ describe('projects', () => {
       { col: 'activity', id: 'p1', deleted: true },
       { col: 'meetings', id: 'e1' },
       { col: 'notes', id: 'n1', deleted: true },
+      { col: 'notes', id: 'p1-notepad', deleted: true },
       { col: 'projects', id: 'p1', deleted: true },
       { col: 'tasks', id: 't1', deleted: true },
       { col: 'tasks', id: 't2', deleted: true },
@@ -558,7 +559,8 @@ describe('notes', () => {
     // Clearing it removes it; clearing nothing does nothing.
     ({ state } = at(state, { type: 'writeNotepad', id: 'pad4', body: '  \n' }));
     expect(state.notes.pad1).toBeUndefined();
-    expect(Object.keys(state.notes)).toEqual([]);
+    // Only the project's own Notepad is left.
+    expect(Object.keys(state.notes)).toEqual(['p1-notepad']);
     expect(
       at(state, { type: 'writeNotepad', id: 'pad5', body: '' }).changed,
     ).toEqual([]);
@@ -2669,7 +2671,12 @@ describe('filing a note (#328)', () => {
       T2,
     );
     expect(next.notes.n1).toEqual({ ...before, projectId: 'p2' });
-    expect(Object.keys(next.notes).sort()).toEqual(['n1', 'n2']);
+    expect(Object.keys(next.notes).sort()).toEqual([
+      'n1',
+      'n2',
+      'p1-notepad',
+      'p2-notepad',
+    ]);
     expect(lastLog(next, 'p2')).toBe('Filed a note to "Hoth Ops"');
     expect(next.projects.p2?.updatedAt).toBe(T2);
     expect(sorted(changed)).toEqual([

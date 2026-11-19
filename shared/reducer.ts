@@ -2,6 +2,7 @@ import { checkShape } from './board';
 import { formatDay } from './dates';
 import { LIMITS } from './limits';
 import { byDate } from './milestones';
+import { notepadId, notepadNote } from './notepad';
 import { notepadOf } from './notes';
 import { applyPagePatch } from './pages';
 import type { Op, OpOf, ParsedExport } from './protocol';
@@ -560,6 +561,10 @@ function apply(d: Draft, op: Op, now: string) {
           : 'Created project',
         now,
       );
+      // Its Notepad, pinned; silent in Activity, part of the project.
+      if (!d.get('notes', notepadId(op.id))) {
+        d.set('notes', notepadId(op.id), notepadNote(op.id, now));
+      }
       template?.tasks.forEach((t, i) => {
         const id = op.template?.taskIds[i] as string;
         fresh(d, 'tasks', id, 'task');

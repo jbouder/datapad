@@ -285,6 +285,15 @@ export function PinnedNoteView({
           />
         ) : (
           <div className="note-row-body">
+            {shown.text.trim() === '' && (
+              <button
+                type="button"
+                onClick={() => setEditing(act.editText())}
+                className="press min-h-11 w-full text-left text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring desk:min-h-8"
+              >
+                Nothing here yet. Write something.
+              </button>
+            )}
             <Markdown
               text={shown.text}
               people={people}

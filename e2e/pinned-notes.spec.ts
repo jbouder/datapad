@@ -219,3 +219,29 @@ test('more pins than fit go under the Pinned menu, and nothing scrolls sideways'
   await expect(opened(page, /Runbook part 8/)).toBeVisible();
   await expectAccessible(page);
 });
+
+test('a new project starts with a pinned Notepad to write in', async ({
+  page,
+  request,
+}) => {
+  await openLive(page);
+  const capture = page.getByRole('combobox', { name: 'Capture' });
+  await capture.fill('/project Hangar Ops');
+  await capture.press('Enter');
+  await expectSaved(page);
+  const data = (await (await request.get('/api/export.json')).json()) as {
+    projects: Record<string, { id: string; name: string }>;
+  };
+  const id = Object.values(data.projects).find(
+    (p) => p.name === 'Hangar Ops',
+  )?.id;
+  await openLive(page, `/projects/${id}`);
+  await expect(pinnedNav(page).getByRole('link')).toHaveText(['Notepad']);
+  await openPinned(page, 'Notepad');
+  const note = opened(page, 'Notepad');
+  await note
+    .getByRole('button', { name: 'Nothing here yet. Write something.' })
+    .click();
+  await expect(note.getByRole('textbox')).toBeVisible();
+  await expectAccessible(page);
+});

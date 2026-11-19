@@ -1,6 +1,7 @@
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '#shared/limits';
+import { NOTEPAD_BODY, notepadId } from '#shared/notepad';
 import {
   type CreatedSpace,
   newerFormatMessage,
@@ -204,8 +205,13 @@ describe('DatapadObject storage', () => {
         const file = await revived.export(MAIN_SPACE);
         expect(file.tasks['t-1']).toEqual(task);
         expect(Object.keys(file.projects)).toEqual([project?.id]);
-        // 7, plus one for the meetings migration (schema 3), once.
-        expect(await revived.stats()).toMatchObject({ docs: 2, seq: 8 });
+        // The project gained its Notepad at schema 6.
+        expect(file.notes[notepadId(project?.id ?? '')]).toMatchObject({
+          body: NOTEPAD_BODY,
+          pinned: true,
+        });
+        // 7, plus one for the migrations, once.
+        expect(await revived.stats()).toMatchObject({ docs: 3, seq: 8 });
         const { spaces } = await revived.listSpaces();
         expect(spaces.map((s) => [s.id, s.name])).toEqual([
           [MAIN_SPACE, 'Main'],
@@ -214,7 +220,12 @@ describe('DatapadObject storage', () => {
       const rows = sql
         .exec<{ space: string }>('SELECT space FROM docs')
         .toArray();
-      expect(rows.map((r) => r.space)).toEqual([MAIN_SPACE, MAIN_SPACE]);
+      // The task, the project and the project's Notepad, all in main.
+      expect(rows.map((r) => r.space)).toEqual([
+        MAIN_SPACE,
+        MAIN_SPACE,
+        MAIN_SPACE,
+      ]);
       // The global seq is gone; main's row holds it now.
       expect(
         sql.exec("SELECT value FROM meta WHERE key = 'seq'").toArray(),
@@ -402,7 +413,11 @@ describe('DatapadObject storage', () => {
     const imported = (await (
       await get(email, '/api/export.json')
     ).json()) as Snapshot;
-    expect(imported.notes).toEqual(migrated?.notes);
+    // Import restores the file as it is: only the schema 6 step adds a
+    // Notepad, so a deleted one never comes back from a backup.
+    const { [notepadId('p-echo')]: pad, ...rest } = migrated?.notes ?? {};
+    expect(pad).toMatchObject({ body: NOTEPAD_BODY, pinned: true });
+    expect(imported.notes).toEqual(rest);
     expect(imported.tasks).toEqual(migrated?.tasks);
   });
 

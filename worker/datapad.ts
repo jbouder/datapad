@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { LIMITS } from '#shared/limits';
 import { migrate, migrateFormat3, migrateSettings } from '#shared/migrate';
+import { addNotepads } from '#shared/notepad';
 import {
   type BackupInfo,
   type BackupList,
@@ -177,7 +178,7 @@ const SEQ = 'seq';
  * All's settings (#343).
  */
 const SCHEMA = 'schema_version';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 /** The collections the meetings migration reads and may rewrite. */
 const MIGRATED = ['projects', 'notes', 'events', 'meetings'] as const;
 /**
@@ -577,6 +578,10 @@ export class DatapadObject extends DurableObject<Bindings> {
       if (version < 4) this.migrateSpaceDocs(FORMAT3_READ, migrateFormat3);
       else if (version < 5)
         this.migrateSpaceDocs(FORMAT3_READ, migrateSettings);
+      // Schema 6, once: a Notepad for every project from before it. Run
+      // again it would bring back a Notepad deleted since.
+      if (version < 6)
+        this.migrateSpaceDocs(['projects', 'notes'], addNotepads);
       this.bumpSpaces();
       this.setMeta(SCHEMA, String(SCHEMA_VERSION));
     });
@@ -649,7 +654,8 @@ export class DatapadObject extends DurableObject<Bindings> {
    * 3's `migrate()` (events became meetings and milestones moved onto
    * their project; it drops the `events` rows) and schema 4's
    * `migrateFormat3()` (to decide, lists as notes, no Notepad; with
-   * schema 5's `migrateSettings()`, All's settings from the old pages').
+   * schema 5's `migrateSettings()`, All's settings from the old pages')
+   * and schema 6's `addNotepads()` (a Notepad for every project).
    * `shared/migrate.ts` has the rules. Writes only the rows that changed.
    * Runs inside `ensureTables()`'s transaction.
    */
