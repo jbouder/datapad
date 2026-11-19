@@ -194,7 +194,9 @@ Beyond the spec:
   source note shown in its panel; "Mine" as a one-key filter.
 - **Notes.** Composer that feels like a text editor: `@` mentions, a `/`
   command menu for formatting (`/h1` `/h2` `/h3`, `/bullet`, `/numbered`,
-  `/checklist`, `/code`, `/quote`, `/divider`, `/date`, `/mention`, `/task`),
+  `/checklist`, `/code`, `/quote`, `/divider`, `/date`, `/mention`, and the
+  create commands `/task`, `/decide`, `/waiting`, `/note`, `/meeting`,
+  `/milestone`, `/project`, `/person`, which the capture line shares, #375),
   ⌘B / ⌘I / ⌘E (code) / ⌘⇧7 / ⌘⇧8 toggles, a compact formatting bar on
   touch, list and checklist continuation, paste of Markdown preserved,
   ⌘/Ctrl+Enter to add, drafts kept per project across navigation. Rendered

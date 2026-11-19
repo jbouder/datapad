@@ -50,7 +50,9 @@ over WebSockets, and backs itself up to R2 every night.
   Type a line and chips say what it becomes and where it goes: a note,
   a task (`[ ]`, `todo` or a date), something to decide (`?`) or
   something you are waiting on (`waiting on @Name`). `#project` files
-  it, `@Name` mentions or assigns. Enter saves, with Undo.
+  it, `@Name` mentions or assigns. `/` at the start makes something
+  else: `/meeting` (with a day and time), `/milestone`, `/project` or
+  `/person`. Enter saves, with Undo.
 - **Scratch.** The notes with no home yet, as one running pad: write at
   the top, then file each to a project, make a task of it or mark it to
   decide.
@@ -79,7 +81,9 @@ over WebSockets, and backs itself up to R2 every night.
   side panel.
 - **Notes.** Markdown with three heading levels, lists, clickable
   checklists, code, quotes and links; `@` mentions of people; a `/`
-  command menu and formatting keys in the composer; select text to make a
+  command menu and formatting keys in the composer, whose `/task`,
+  `/meeting`, `/person` and other create commands turn the line you are
+  on into one; select text to make a
   task from it; note templates for the 1:1s and status updates you write
   the same way every time.
 - **Whiteboards.** A freeform canvas in each project room and one for the
