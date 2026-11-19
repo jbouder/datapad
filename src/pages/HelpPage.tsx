@@ -121,6 +121,8 @@ export function HelpPage({ section }: { section?: string }) {
             person’s room shows the pinned notes that mention them). Choose one
             to open it at the top of the room, on any tab; Esc, Close or Back
             closes it. Pins that do not fit go under <strong>Pinned</strong>.
+            Every project starts with a pinned <strong>Notepad</strong>, an
+            ordinary note you can write in, unpin or delete.
           </Term>
           <Term name="All" to={{ name: 'all' }}>
             Every task, note, meeting, project and person in one list. Pick

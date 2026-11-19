@@ -190,6 +190,12 @@ pages' saved layouts and sorts into All's settings: each space's
 below gets it in the schema 4 step. A space that has saved something for
 All already is left as it is. The old pages' preferences stay as stored.
 
+Schema version 6 gives every project a Notepad: each space's `projects`
+and `notes` go through `addNotepads()` in `shared/notepad.ts`, which
+adds a pinned `# Notepad` note under `<projectId>-notepad` to each
+project without one. It runs once; an import does not run it, so a
+Notepad deleted since does not come back.
+
 An upgrade that crosses several schemas runs each step in the same
 transaction and bumps each space's `seq` once.
 
