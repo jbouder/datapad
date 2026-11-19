@@ -18,10 +18,12 @@ import {
   applyCommand,
   type Command,
   type CommandId,
+  type CreateCommandId,
   continueList,
   type Edit,
   inList,
   insertTemplate,
+  isCreateCommand,
   matchCommands,
   matchFormatShortcut,
   matchTemplates,
@@ -97,7 +99,8 @@ export function NoteComposer({
   onChange,
   people,
   onSubmit,
-  onTask,
+  onCreate,
+  creates,
   templates,
   draftKey,
   id,
@@ -117,8 +120,13 @@ export function NoteComposer({
   people: Record<string, Person>;
   /** ⌘/Ctrl+Enter. */
   onSubmit?: () => void;
-  /** `/task`: make a task titled with the line. Hidden without it. */
-  onTask?: (title: string) => boolean;
+  /**
+   * `/task`, `/meeting` and the other create commands (#375): make one
+   * from the line's text. False when nothing was made.
+   */
+  onCreate?: (id: CreateCommandId, line: string) => boolean;
+  /** The create commands the menu offers; none without `onCreate`. */
+  creates?: readonly CreateCommandId[];
   /** Note templates the `/` menu offers after its commands. */
   templates?: readonly TemplateChoice[];
   /** Where the unsaved draft lives in sessionStorage. */
@@ -175,7 +183,11 @@ export function NoteComposer({
     const slash = slashQuery(value, caret);
     if (slash && dismissed !== slash.start) {
       const items = [
-        ...matchCommands(slash.query).filter((c) => c.id !== 'task' || onTask),
+        ...matchCommands(slash.query).filter(
+          (c) =>
+            !isCreateCommand(c.id) ||
+            (onCreate !== undefined && (creates ?? []).includes(c.id)),
+        ),
         ...matchTemplates(slash.query, templates ?? []),
       ];
       if (items.length > 0) {
@@ -191,7 +203,7 @@ export function NoteComposer({
       }
     }
     return null;
-  }, [caret, value, dismissed, people, onTask, templates]);
+  }, [caret, value, dismissed, people, onCreate, creates, templates]);
   const open = popup !== null;
   const count = popup?.items.length ?? 0;
   const highlighted = Math.min(active, Math.max(count - 1, 0));
@@ -251,9 +263,15 @@ export function NoteComposer({
     end: area.current?.selectionEnd ?? 0,
   });
 
+  /** Make what a create command names; false when nothing was made. */
+  const made = (result: { create?: { id: CreateCommandId; line: string } }) =>
+    !result.create ||
+    !onCreate ||
+    onCreate(result.create.id, result.create.line);
+
   const command = (id: CommandId, arg = '') => {
     const result = applyCommand(value, sel(), id, now(), arg);
-    if (result.task && onTask && !onTask(result.task)) return;
+    if (!made(result)) return;
     apply(result);
   };
 
@@ -279,7 +297,7 @@ export function NoteComposer({
       return;
     }
     const result = applyCommand(text, at, cmd.id, now(), popup.arg);
-    if (result.task && onTask && !onTask(result.task)) {
+    if (!made(result)) {
       apply({ text, sel: at });
       return;
     }

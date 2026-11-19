@@ -3,15 +3,17 @@ import {
   canSave,
   captureChips,
   captureOps,
+  captureProblem,
   captureToast,
   hashQuery,
   newProjectFor,
   nextKind,
   parseCapture,
   projectWord,
+  slashKind,
   undoCaptureOp,
 } from '#shared/capture';
-import { addDays } from '#shared/dates';
+import { addDays, formatDay } from '#shared/dates';
 import { reduce } from '#shared/reducer';
 import {
   emptySnapshot,
@@ -473,5 +475,174 @@ describe('the # menu', () => {
       NOW,
     ).state;
     expect(parseCapture('Scout #Hoth', next, TODAY).projectId).toBe('hoth');
+  });
+});
+
+describe('/ commands (#375)', () => {
+  const save = (text: string, context = {}, state = snapshot()) => {
+    const capture = parse(text, context, undefined, state);
+    const ops = captureOps(capture, state, 'new');
+    const op = ops.length === 1 ? ops[0] : { type: 'batch' as const, ops };
+    if (!op) throw new Error('no op');
+    return { capture, before: state, state: reduce(state, op, NOW).state };
+  };
+  const undo = (saved: ReturnType<typeof save>) =>
+    reduce(
+      saved.state,
+      undoCaptureOp(saved.capture.kind, 'new', saved.capture.projectId),
+      NOW,
+    ).state;
+
+  it('reads the leading word as the kind', () => {
+    expect(slashKind('/meeting Sync')).toEqual({
+      kind: 'meeting',
+      rest: 'Sync',
+    });
+    expect(slashKind('/waiting @Han')?.kind).toBe('wait');
+    expect(slashKind('/Person Lando')?.kind).toBe('person');
+    expect(slashKind('/meet Sync')).toBeNull();
+    expect(slashKind('a /task')).toBeNull();
+  });
+
+  it('/note keeps its date words, /task and /decide force their kind', () => {
+    expect(parse('/note Ship it fri')).toMatchObject({
+      kind: 'note',
+      text: 'Ship it fri',
+      due: '',
+    });
+    expect(parse('/task Refuel').kind).toBe('task');
+    expect(parse('/decide Refit or replace').kind).toBe('decide');
+  });
+
+  it('/waiting waits on the first person named', () => {
+    const { state } = save('/waiting @Chewbacca the parts list');
+    expect(state.tasks.new).toMatchObject({
+      title: 'the parts list',
+      blocked: { on: 'chewie', note: '' },
+    });
+  });
+
+  it('/meeting reads the project, attendees, day and time', () => {
+    const saved = save('/meeting Coil review #falcon with @Han Solo fri 2pm');
+    expect(saved.state.meetings.new).toMatchObject({
+      title: 'Coil review with Han Solo',
+      projectId: 'falcon',
+      date: '2026-11-20',
+      time: '14:00',
+      attendees: ['han'],
+    });
+    expect(undo(saved).meetings.new).toBeUndefined();
+  });
+
+  it('/meeting is today when no day is given, and reads at and 2 pm', () => {
+    expect(parse('/meeting Standup at 9')).toMatchObject({
+      text: 'Standup',
+      due: TODAY,
+      time: '09:00',
+    });
+    expect(parse('/meeting Standup 10 am').time).toBe('10:00');
+    // A bare number is not a time.
+    expect(parse('/meeting Top 5 risks')).toMatchObject({
+      text: 'Top 5 risks',
+      time: '',
+    });
+  });
+
+  it('/meeting in a room takes its project or person', () => {
+    expect(parse('/meeting Sync', { projectId: 'fleet' }).projectId).toBe(
+      'fleet',
+    );
+    expect(parse('/meeting 1:1', { personId: 'chewie' }).people).toEqual([
+      'chewie',
+    ]);
+  });
+
+  it('/milestone needs a project and a date', () => {
+    const state = snapshot();
+    const none = parse('/milestone Beta');
+    expect(canSave(none, state)).toBe(false);
+    expect(captureProblem(none, state)).toBe('Needs a #project');
+    const undated = parse('/milestone Beta #falcon');
+    expect(captureProblem(undated, state)).toBe('Needs a date');
+    const saved = save('/milestone Beta by fri #falcon');
+    expect(saved.state.projects.falcon?.milestones).toEqual([
+      { id: 'new', title: 'Beta', date: '2026-11-20' },
+    ]);
+    expect(undo(saved).projects.falcon?.milestones).toEqual([]);
+    expect(parse('/milestone Beta fri', { projectId: 'echo' }).projectId).toBe(
+      'echo',
+    );
+  });
+
+  it('/project creates one in the default org, not a name taken', () => {
+    const state = snapshot();
+    expect(captureProblem(parse('/project falcon refit'), state)).toBe(
+      'Already a project',
+    );
+    const saved = save('/project Death Star II');
+    expect(saved.state.projects.new).toMatchObject({ name: 'Death Star II' });
+    expect(captureToast(saved.capture, saved.before)).toBe(
+      'Created Death Star II',
+    );
+    expect(undo(saved).projects.new).toBeUndefined();
+  });
+
+  it('/person adds someone new to People', () => {
+    const state = snapshot();
+    expect(captureProblem(parse('/person han solo'), state)).toBe(
+      'Already in People',
+    );
+    expect(canSave(parse('/person '), state)).toBe(false);
+    const saved = save('/person @Lando Calrissian');
+    expect(saved.state.people.new).toMatchObject({ name: 'Lando Calrissian' });
+    expect(captureToast(saved.capture, saved.before)).toBe(
+      'Added Lando Calrissian to People',
+    );
+    expect(undo(saved).people.new).toBeUndefined();
+  });
+
+  it('the chips say what it makes and what is missing', () => {
+    const state = snapshot();
+    const labels = (text: string) =>
+      captureChips(parse(text), state, TODAY).map((c) => c.label);
+    expect(labels('/meeting Sync #fleet tomorrow 10am')).toEqual([
+      'Meeting',
+      'Fleet Ops',
+      `${formatDay(addDays(TODAY, 1), TODAY)} at 10:00`,
+    ]);
+    expect(labels('/milestone Beta')).toEqual([
+      'Milestone',
+      'Needs a #project',
+    ]);
+  });
+
+  it('a line from a note stays in its project and links back', () => {
+    const state = snapshot();
+    state.notes.n1 = {
+      id: 'n1',
+      projectId: 'falcon',
+      body: 'x',
+      pinned: false,
+      meetingId: null,
+      phase: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    } as Snapshot['notes'][string];
+    state.settings[SETTINGS_ID] = {
+      ...state.settings[SETTINGS_ID],
+      roomNotes: 'unfiled',
+    };
+    const context = { projectId: 'falcon', noteId: 'n1', fromNote: true };
+    const task = parse('/task Fix it', context, undefined, state);
+    expect(task.noteId).toBe('n1');
+    expect(captureOps(task, state, 'new')[0]).toMatchObject({
+      sourceNoteId: 'n1',
+    });
+    expect(parse('/note Split', context, undefined, state).projectId).toBe(
+      'falcon',
+    );
+    expect(
+      parse('/note Split', { projectId: 'falcon' }, undefined, state).projectId,
+    ).toBeNull();
   });
 });

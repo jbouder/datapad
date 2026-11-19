@@ -135,9 +135,14 @@ export function HelpPage({ section }: { section?: string }) {
             <code>?</code> or <code>decide:</code> something to decide;{' '}
             <code>waiting on @Name</code> a task blocked on them.{' '}
             <code>#project</code> files it and <code>@Name</code> mentions
-            someone. Chips say what it will become before you press Enter.
-            Shift+Enter opens the full note composer. In a room, what you write
-            belongs to the room.
+            someone. Chips say what it will become before you press Enter.{' '}
+            <Key>/</Key> at the start makes something else:{' '}
+            <code>/meeting</code> (a day and time in the line, today if none),{' '}
+            <code>/milestone</code> (needs a project and a date),{' '}
+            <code>/project</code> and <code>/person</code>, or forces{' '}
+            <code>/note</code>, <code>/task</code>, <code>/decide</code> or{' '}
+            <code>/waiting</code>. Shift+Enter opens the full note composer. In
+            a room, what you write belongs to the room.
           </Term>
           <Term name="Search">
             <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
@@ -224,6 +229,16 @@ export function HelpPage({ section }: { section?: string }) {
           at the start of a line for a menu of blocks, or use the keys below.
           Lists carry on when you press Enter; Enter on an empty item ends the
           list.
+        </p>
+        <p className="text-sm">
+          The same menu makes things from the line you are on, read the way the
+          capture line reads it, in the note’s project: <code>/task</code>,{' '}
+          <code>/decide</code> and <code>/waiting</code> turn the line into a
+          checklist item and make a task, <code>/meeting</code> and{' '}
+          <code>/milestone</code> leave the line as it is, <code>/project</code>{' '}
+          makes a project, <code>/person</code> adds someone to People and
+          mentions them, and <code>/note</code> moves the line into a note of
+          its own. Each offers Undo.
         </p>
         <p className="text-sm">
           A task keeps <strong>running notes</strong> too: in its panel, under

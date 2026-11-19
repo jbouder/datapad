@@ -4,12 +4,15 @@ import {
   COMMANDS,
   type CommandId,
   type Context,
+  CREATE_COMMANDS,
+  captureKindOf,
   continueList,
   describeFormatKeys,
   type Edit,
   FORMAT_SHORTCUTS,
   inList,
   insertTemplate,
+  isCreateCommand,
   matchCommands,
   matchFormatShortcut,
   matchTemplates,
@@ -22,6 +25,11 @@ import { parseMarkdown } from '#shared/markdown';
 /**
  * Text with the selection marked: `|` is a caret, `«`…`»` a selection.
  */
+function at(source: string): [string, Edit['sel']] {
+  const { text, sel } = mark(source);
+  return [text, sel];
+}
+
 function mark(source: string): Edit {
   const caret = source.indexOf('|');
   if (caret !== -1) {
@@ -83,10 +91,46 @@ describe('applyCommand', () => {
     const { text, sel } = mark('notes\n- call the vet|\nmore');
     const result = applyCommand(text, sel, 'task', ctx);
     expect(show(result)).toBe('notes\n- [ ] call the vet|\nmore');
-    expect(result.task).toBe('call the vet');
-    expect(applyCommand('', { start: 0, end: 0 }, 'task', ctx).task).toBe(
-      undefined,
-    );
+    expect(result.create).toEqual({ id: 'task', line: 'call the vet' });
+    expect(
+      applyCommand('', { start: 0, end: 0 }, 'task', ctx).create,
+    ).toBeUndefined();
+  });
+
+  it('/decide and /waiting make the line a checklist item too', () => {
+    for (const id of ['decide', 'waiting'] as const) {
+      const { text, sel } = mark('- parts from @Han|');
+      const result = applyCommand(text, sel, id, ctx);
+      expect(show(result)).toBe('- [ ] parts from @Han|');
+      expect(result.create).toEqual({ id, line: 'parts from @Han' });
+    }
+  });
+
+  it('/meeting, /milestone and /project leave the line as it is', () => {
+    for (const id of ['meeting', 'milestone', 'project'] as const) {
+      const { text, sel } = mark('a\n## Sync| fri 10am\nb');
+      const result = applyCommand(text, sel, id, ctx);
+      expect(show(result)).toBe('a\n## Sync fri 10am|\nb');
+      expect(result.create).toEqual({ id, line: 'Sync fri 10am' });
+    }
+  });
+
+  it('/person makes the line a mention, keeping its marker', () => {
+    const { text, sel } = mark('- Lando| Calrissian');
+    const result = applyCommand(text, sel, 'person', ctx);
+    expect(show(result)).toBe('- @Lando Calrissian|');
+    expect(result.create).toEqual({ id: 'person', line: 'Lando Calrissian' });
+  });
+
+  it('/note moves the line out of the note', () => {
+    const middle = applyCommand(...at('a\nsplit| me\nb'), 'note', ctx);
+    expect(show(middle)).toBe('a\n|b');
+    expect(middle.create).toEqual({ id: 'note', line: 'split me' });
+    expect(show(applyCommand(...at('a\nlast|'), 'note', ctx))).toBe('a|');
+    expect(show(applyCommand(...at('only|'), 'note', ctx))).toBe('|');
+    const empty = applyCommand(...at('a\n|\nb'), 'note', ctx);
+    expect(show(empty)).toBe('a\n|\nb');
+    expect(empty.create).toBeUndefined();
   });
 
   it('every command produces what the renderer reads', () => {
@@ -161,6 +205,21 @@ describe('the / menu', () => {
     ]);
     expect(matchCommands('date tomorrow').map((c) => c.id)).toEqual(['date']);
     expect(matchCommands('h1 x')).toEqual([]);
+    expect(matchCommands('me').map((c) => c.id)).toEqual([
+      'mention',
+      'meeting',
+    ]);
+    expect(matchCommands('pe').map((c) => c.id)).toEqual(['person']);
+  });
+
+  it('lists every create command, each with a capture kind', () => {
+    for (const id of CREATE_COMMANDS) {
+      expect(COMMANDS.some((c) => c.id === id)).toBe(true);
+      expect(isCreateCommand(id)).toBe(true);
+    }
+    expect(captureKindOf('waiting')).toBe('wait');
+    expect(captureKindOf('meeting')).toBe('meeting');
+    expect(isCreateCommand('h1')).toBe(false);
   });
 });
 

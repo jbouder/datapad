@@ -19,6 +19,12 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- `/` commands that make things, in the capture line and in the note
+  composer: `/meeting`, `/milestone`, `/project`, `/person`, `/note`,
+  `/task`, `/decide` and `/waiting`. The capture line opens a menu of them
+  when a line starts with `/`. Each reads the line the way the capture line
+  does (`#project`, `@Name`, a day, a meeting's time) and offers Undo.
+
 - A **+** beside Rooms, in the rail and on the phone's Rooms page, adds a
   project or a person and opens the new room.
 - All's rooms (the **Rooms** chip) has **New person** beside People, and

@@ -11,7 +11,7 @@ import type { Note, Person, Snapshot } from '#shared/types';
 import { NoteComposer } from '@/components/NoteComposer';
 import { useNotes } from '@/components/notes/NotesProvider';
 import { useMakeTask } from '@/components/notes/useMakeTask';
-import { useNoteTemplates } from '@/components/notes/useNoteCommands';
+import { useNoteCommands } from '@/components/notes/useNoteCommands';
 import { Picker } from '@/components/pickers/Picker';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
@@ -276,8 +276,7 @@ export function NoteEditor({
   onDone: () => void;
 }) {
   const { actions } = useDatapad();
-  const makeTask = useMakeTask();
-  const templates = useNoteTemplates();
+  const commands = useNoteCommands(note.projectId, note.meetingId, note.id);
   const [text, setText] = useState(initial);
   const id = useId();
 
@@ -306,8 +305,7 @@ export function NoteEditor({
         onChange={setText}
         people={people}
         onSubmit={save}
-        onTask={(title) => makeTask(note, title)}
-        templates={templates}
+        {...commands}
         autoFocus
         rows={4}
       />
