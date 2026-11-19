@@ -84,6 +84,8 @@ changes the format says so here under **Export format**.
 
 ### Fixed
 
+- With a pinned note open at the top of a room, only its tab is
+  underlined; the tab you are on no longer is too.
 - A pinned note that starts with a heading no longer shows its title
   twice when it opens at the top of a room.
 - Typing `/` in the capture line no longer pushes the page down. The
