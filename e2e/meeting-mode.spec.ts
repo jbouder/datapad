@@ -400,3 +400,33 @@ test('search opens meeting mode', async ({ page, request }) => {
     page.getByRole('heading', { level: 1, name: 'Medal ceremony' }),
   ).toBeVisible();
 });
+
+test('the / menu in the notes sits above the note cards', async ({
+  page,
+  request,
+}) => {
+  await seed(request);
+  await openLive(page, '/meetings/e-1');
+  const notes = page
+    .getByRole('main')
+    .getByRole('region', { name: 'Notes', exact: true });
+  await notes.getByRole('textbox').first().click();
+  await page.keyboard.type('/');
+  const menu = page.getByRole('listbox', { name: 'Commands' });
+  await expect(menu).toBeVisible();
+  // Its lowest option on screen is over the note card below the
+  // composer, and must be what a click there reaches.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const list = document.querySelector(
+          '[role=listbox][aria-label=Commands]',
+        );
+        if (!list) return false;
+        const r = list.getBoundingClientRect();
+        const y = Math.min(r.bottom, window.innerHeight) - 20;
+        return list.contains(document.elementFromPoint(r.left + 20, y));
+      }),
+    )
+    .toBe(true);
+});

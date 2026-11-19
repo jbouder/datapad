@@ -170,6 +170,7 @@ export function AppShell() {
           id="main"
           key={key}
           tabIndex={-1}
+          data-full-screen
           className="page flex w-full min-w-0 flex-1 flex-col px-4 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] outline-none sm:px-6"
         >
           <ErrorBoundary

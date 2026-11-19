@@ -780,6 +780,19 @@ html[data-vt="page"] .page {
 ::view-transition-new(page) {
   animation: page-in var(--duration-slow) var(--ease-emphasized) both;
 }
+/* Meeting mode is full screen: no rail, so its page is wider. With the
+   same name the page would morph between the two widths and look like a
+   zoom; a name of its own makes the old page lift out and the new one
+   settle in where it is. */
+html[data-vt="page"] .page[data-full-screen] {
+  view-transition-name: page-full;
+}
+::view-transition-old(page-full) {
+  animation: page-out var(--duration-base) var(--ease-standard) both;
+}
+::view-transition-new(page-full) {
+  animation: page-in var(--duration-slow) var(--ease-emphasized) both;
+}
 @keyframes page-out {
   to {
     opacity: 0;
@@ -853,9 +866,12 @@ html[data-vt="space"]::view-transition-new(rail) {
 /* List rows and cards arriving. `--i` (optional, inline) staggers a group.
    The transition covers only these two properties so the delay cannot leak
    into hover states. */
+/* It settles at `translate: none`, not `0 0`: any other value makes the
+   element a stacking context, which traps a `/` or `@` menu inside it under
+   the next card. */
 .enter {
   opacity: 1;
-  translate: 0 0;
+  translate: none;
   transition:
     opacity var(--duration-slow) var(--ease-emphasized),
     translate var(--duration-slow) var(--ease-emphasized);
