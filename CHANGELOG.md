@@ -17,6 +17,18 @@ changes the format says so here under **Export format**.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-18
+
+This release builds on v2's rooms. Every project has a pinned
+**Notepad**, and any note can be pinned to the top of its room. The
+capture line and the note editor share `/` commands that make meetings,
+milestones, projects, people, notes and tasks. The note editor shows a note
+formatted as you write it, with no Markdown on screen. A room's notes
+start closed. Rooms can be added from the rail and hidden from it, and
+new tasks get a due date. The export format is still 3, with additive
+settings; the Durable Object's schema goes to 6, which adds each
+existing project's Notepad once.
+
 ### Added
 
 - Every project has a pinned **Notepad**, a note headed "Notepad" in
@@ -1014,7 +1026,8 @@ id, with `exportedAt`. The Durable Object's schema is version 3. Files from
 the original artifact (`ledger-*.json`, with `events`) and from every
 earlier Datapad build import unchanged.
 
-[Unreleased]: https://github.com/jbouder/datapad/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/jbouder/datapad/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/jbouder/datapad/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/jbouder/datapad/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/jbouder/datapad/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/jbouder/datapad/compare/v0.3.0...v0.4.0
