@@ -58,6 +58,9 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- Notes in a room's stream start closed, as two-line previews. Open one
+  with its toggle or a click on the preview; a link to a note still
+  opens it.
 - The note editor shows a note formatted as you write it: headings,
   lists, checklists you can tick, bold, italic, code, links, quotes,
   dividers, code blocks and mentions as name chips, with no Markdown on
