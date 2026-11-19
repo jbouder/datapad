@@ -159,7 +159,6 @@ function StreamEntry({
           note={item.note}
           state={state}
           chips={{ meeting: true, task: true }}
-          reveal
           arrive={item.note.id !== openAtTop}
         />
       );

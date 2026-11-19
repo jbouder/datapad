@@ -129,7 +129,15 @@ test('the room: header, state line, people, Next meeting and the stream', async 
     'added:t-2',
     'added:t-1',
   ]);
-  // Notes are open, with their checkboxes.
+  // Notes start closed, as previews; the toggle opens one.
+  const standup = stream(page).locator('[data-note-id="n-1"]');
+  const toggle = standup.getByRole('button', { name: /^Note from / });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    stream(page).getByRole('checkbox', { name: 'Check the heaters' }),
+  ).toBeHidden();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(
     stream(page).getByRole('checkbox', { name: 'Check the heaters' }),
   ).toBeVisible();
@@ -140,11 +148,18 @@ test('the room: header, state line, people, Next meeting and the stream', async 
 
 test('a note’s checkbox ticks in place in the stream', async ({ page }) => {
   await openLive(page, '/projects/p-echo');
+  const openStandup = () =>
+    stream(page)
+      .locator('[data-note-id="n-1"]')
+      .getByRole('button', { name: /^Note from / })
+      .click();
+  await openStandup();
   const box = stream(page).getByRole('checkbox', { name: 'Check the heaters' });
   await expect(box).not.toBeChecked();
   await box.click();
   await expect(box).toBeChecked();
   await page.reload();
+  await openStandup();
   await expect(
     stream(page).getByRole('checkbox', { name: 'Check the heaters' }),
   ).toBeChecked();
