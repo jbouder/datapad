@@ -19,10 +19,10 @@ changes the format says so here under **Export format**.
 
 ## [2.1.0] — 2026-11-18
 
-This release builds on v2's rooms. Every project has a pinned **Notepad**, and any
-note can be pinned to the top of its room. The capture line and the
-note editor share `/` commands that make meetings, milestones,
-projects, people, notes and tasks. The note editor shows a note
+This release builds on v2's rooms. Every project has a pinned
+**Notepad**, and any note can be pinned to the top of its room. The
+capture line and the note editor share `/` commands that make meetings,
+milestones, projects, people, notes and tasks. The note editor shows a note
 formatted as you write it, with no Markdown on screen. A room's notes
 start closed. Rooms can be added from the rail and hidden from it, and
 new tasks get a due date. The export format is still 3, with additive
