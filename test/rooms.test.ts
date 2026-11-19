@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { toggleCheck } from '#shared/markdown';
 import {
   hiddenProjects,
   hidePatch,
@@ -11,6 +12,7 @@ import {
   owedBy,
   PINNED_LABEL_MAX,
   peopleByOwed,
+  pinnedBody,
   pinnedFit,
   pinnedLabel,
   pinnedOf,
@@ -466,6 +468,27 @@ describe('pinned notes at the top of a room (#377)', () => {
     const long = pinnedLabel('x'.repeat(80), {});
     expect(long).toHaveLength(PINNED_LABEL_MAX);
     expect(long.endsWith('…')).toBe(true);
+  });
+
+  it('drops a leading heading the label already shows', () => {
+    expect(pinnedBody('## Standup\n\n- [ ] Check the heaters', {})).toEqual({
+      text: '- [ ] Check the heaters',
+      offset: 2,
+    });
+    expect(pinnedBody('\n# Standup\nFed', {})).toEqual({
+      text: 'Fed',
+      offset: 2,
+    });
+    // Not a heading, or a heading the label cuts short: kept.
+    expect(pinnedBody('Standup\nFed', {}).offset).toBe(0);
+    const long = `# ${'x'.repeat(80)}\nFed`;
+    expect(pinnedBody(long, {})).toEqual({ text: long, offset: 0 });
+    // A tick in what shows lands on the right line of the stored body.
+    const body = '## Standup\n\n- [ ] Check the heaters';
+    const shown = pinnedBody(body, {});
+    expect(toggleCheck(body, 0 + shown.offset)).toBe(
+      '## Standup\n\n- [x] Check the heaters',
+    );
   });
 
   it('fits every pin, or as many as fit beside the Pinned menu', () => {

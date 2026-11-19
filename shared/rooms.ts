@@ -398,6 +398,28 @@ export function pinnedLabel(body: string, people: Snapshot['people']): string {
 }
 
 /**
+ * A pinned note's body as it opens under its label: a leading heading
+ * goes when the label already shows it in full, so the title is not said
+ * twice. `offset` is how many lines went, to add back to a checkbox's
+ * line before it is ticked in the stored body.
+ */
+export function pinnedBody(
+  body: string,
+  people: Snapshot['people'],
+): { text: string; offset: number } {
+  const lines = body.split('\n');
+  let at = 0;
+  while (at < lines.length && (lines[at] ?? '').trim() === '') at += 1;
+  const first = lines[at] ?? '';
+  if (!/^#{1,6}\s+\S/.test(first)) return { text: body, offset: 0 };
+  const label = pinnedLabel(body, people);
+  if (label.endsWith('…')) return { text: body, offset: 0 };
+  at += 1;
+  while (at < lines.length && (lines[at] ?? '').trim() === '') at += 1;
+  return { text: lines.slice(at).join('\n'), offset: at };
+}
+
+/**
  * The pinned notes a room shows beside its tabs (#377): a project's
  * pinned notes, or for a person the pinned notes that mention them.
  * Narrowing the room (`?person=`, `?project=`) does not change them:
