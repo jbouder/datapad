@@ -64,7 +64,7 @@ export function TopBar({
           className="press -ml-1.5 hidden size-9 shrink-0 text-muted-foreground desk:inline-flex"
           title={`${railLabel} (${hint.startsWith('⌘') ? '⌘\\' : 'Ctrl+\\'})`}
           aria-controls={RAIL_ID}
-          aria-expanded={railShown}
+          aria-pressed={railShown}
           aria-keyshortcuts="Meta+Backslash Control+Backslash"
           onClick={onToggleRail}
         >

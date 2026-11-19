@@ -260,11 +260,11 @@ test('the sidebar button and ⌘\\ hide and show the rail, and the choice stays'
     name: 'Sidebar',
   });
   await expect(rail).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 
   await toggle.click();
   await expect(rail).toBeHidden();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   // The sync status moves from the rail's foot to the top bar.
   await expect(page.getByRole('banner').getByText('Saved')).toBeVisible();
   await expectAccessible(page);
@@ -275,5 +275,5 @@ test('the sidebar button and ⌘\\ hide and show the rail, and the choice stays'
 
   await page.keyboard.press('ControlOrMeta+Backslash');
   await expect(rail).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 });
