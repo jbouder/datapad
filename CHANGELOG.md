@@ -19,6 +19,12 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- Pinned notes sit at the top of their room. A project room's tab row
+  lists each pinned note after Stream, Plan and Whiteboard, by its first
+  line; a person room lists the pinned notes that mention them. Choosing
+  one opens it at the top of the room on whatever tab is current, with
+  Edit, Unpin and Close. The address keeps it (`?note=`), so Back closes
+  it, and so does Esc. Pins that do not fit go under a **Pinned** menu.
 - `/` commands that make things, in the capture line and in the note
   composer: `/meeting`, `/milestone`, `/project`, `/person`, `/note`,
   `/task`, `/decide` and `/waiting`. The capture line opens a menu of them

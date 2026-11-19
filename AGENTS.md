@@ -113,7 +113,7 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   in its panel everywhere), `components/*`: `capture/CaptureLine` (the
   capture line on Today and in each room), `today/` (the day timeline,
   the loop lanes and rows, the recap, the week zoom, Brief me),
-  `rooms/` (`RoomFrame`, the frame both rooms share, and `RoomStream`),
+  `rooms/` (`RoomFrame`, the frame both rooms share, `RoomStream`, and `PinnedNotes`: the pinned notes in the tab row and the one open at the top),
   `scratch/ScratchBlock` (one note on Scratch, with File to…, Make task
   and To decide), `all/SavedViews` (All's saved view chips),
   `settings/` (the v2 sections: Today, Rooms' options, Capture, All),
