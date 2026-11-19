@@ -2,6 +2,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   MagnifyingGlassIcon,
+  SidebarSimpleIcon,
 } from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { paletteHint } from '@/components/Palette';
@@ -9,9 +10,11 @@ import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
 import { Button } from '@/components/ui/button';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
+import { RAIL_ID, useRailShown } from '@/hooks/useRail';
 import { linkProps, useHistoryNav } from '@/lib/router';
 
 /**
+ * The sidebar button on desktop (shows or hides the rail, as ⌘\ does),
  * Back and Forward on desktop (through this tab's history, each disabled
  * with nowhere to go; phones have the system's own gestures), the current
  * title once the page's own h1 has scrolled away (with the brand on
@@ -25,17 +28,21 @@ export function TopBar({
   pageKey,
   email,
   onSearch,
+  onToggleRail,
 }: {
   title: string;
   /** Changes when the page does, so the h1 is found again. */
   pageKey: string;
   email: string | null;
   onSearch: () => void;
+  onToggleRail: () => void;
 }) {
   const hint = paletteHint();
   const bar = useRef<HTMLElement>(null);
   const showTitle = useHeadingScrolledPast(bar, pageKey);
   const steps = useHistoryNav();
+  const railShown = useRailShown();
+  const railLabel = railShown ? 'Hide sidebar' : 'Show sidebar';
   return (
     <header
       ref={bar}
@@ -49,7 +56,20 @@ export function TopBar({
           <DatapadMark className="size-6" />
           <span className="sr-only">Datapad, Today</span>
         </a>
-        <nav aria-label="History" className="-ml-1.5 hidden shrink-0 desk:flex">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="press -ml-1.5 hidden size-9 shrink-0 text-muted-foreground desk:inline-flex"
+          title={`${railLabel} (${hint.startsWith('⌘') ? '⌘\\' : 'Ctrl+\\'})`}
+          aria-controls={RAIL_ID}
+          aria-expanded={railShown}
+          aria-keyshortcuts="Meta+Backslash Control+Backslash"
+          onClick={onToggleRail}
+        >
+          <SidebarSimpleIcon weight={railShown ? 'fill' : 'bold'} />
+          <span className="sr-only">Sidebar</span>
+        </Button>
+        <nav aria-label="History" className="hidden shrink-0 desk:flex">
           <Button
             variant="ghost"
             size="icon"

@@ -848,6 +848,19 @@ html[data-vt="space"]::view-transition-new(rail) {
   }
 }
 
+/* Showing or hiding the rail (⌘\): the rail fades while the column
+   beside it glides to its new width. */
+html[data-vt="rail"] .vt-rail {
+  view-transition-name: rail;
+}
+html[data-vt="rail"] .vt-column {
+  view-transition-name: column;
+}
+html[data-vt="rail"]::view-transition-group(*) {
+  animation-duration: var(--duration-base);
+  animation-timing-function: var(--ease-emphasized);
+}
+
 /* ---- Entrances ---------------------------------------------------------- */
 
 /* List rows and cards arriving. `--i` (optional, inline) staggers a group.

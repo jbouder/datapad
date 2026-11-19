@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { projectRoomOf, taskRoom } from '#shared/routes';
 import {
   CrashForTests,
@@ -12,6 +19,7 @@ import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
+import { setRailShown, useRailShown } from '@/hooks/useRail';
 import { CAPTURE_ID, focusCapture } from '@/lib/capture';
 import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
@@ -57,6 +65,15 @@ export function AppShell() {
   const { state } = useDatapad();
   const { newTask } = useTaskPanels();
   usePreloadPages();
+
+  // The rail slides away and the page widens into its room (a `rail`
+  // view transition), or it just goes with motion off.
+  const railShown = useRailShown();
+  const railRef = useRef(railShown);
+  railRef.current = railShown;
+  const toggleRail = useCallback(() => {
+    withViewTransition(() => setRailShown(!railRef.current), active, 'rail');
+  }, [active]);
 
   useEffect(() => {
     setRouteTransition((update) => withViewTransition(update, active, 'page'));
@@ -105,6 +122,17 @@ export function AppShell() {
         setPalette((open) => !open);
         return;
       }
+      // ⌘\ / Ctrl+\ shows or hides the rail, also while typing.
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.code === 'Backslash'
+      ) {
+        event.preventDefault();
+        toggleRail();
+        return;
+      }
       if (!shortcutAllowed(event)) return;
       if (event.key === '/') {
         event.preventDefault();
@@ -142,7 +170,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [newTask, currentProject]);
+  }, [newTask, currentProject, toggleRail]);
 
   // A link inside the page took focus away with the old page: give it to
   // the new one, so the next Tab goes on from there, not from the top. A
@@ -170,7 +198,7 @@ export function AppShell() {
         Skip to content
       </a>
       <Rail route={route} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="vt-column flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar
           title={titleOf(
             room ? { name: 'project', id: room.id } : route,
@@ -179,6 +207,7 @@ export function AppShell() {
           pageKey={pageKey(route)}
           email={email}
           onSearch={() => setPalette(true)}
+          onToggleRail={toggleRail}
         />
         {/* Keyed by page so each mounts fresh and its entrances replay. */}
         <main

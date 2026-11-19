@@ -249,3 +249,29 @@ test('Back and Forward in the top bar walk the history, on desktop only', async 
   await expect(page).toHaveURL(/\/all/);
   await expect(forward).toBeDisabled();
 });
+
+test('the sidebar button and ⌘\\ hide and show the rail, and the choice stays', async ({
+  page,
+}) => {
+  test.skip(isMobile(page), 'The rail is desktop only.');
+  await openLive(page, '/');
+  const rail = page.getByRole('complementary', { name: 'Datapad' });
+  const toggle = page.getByRole('banner').getByRole('button', {
+    name: 'Sidebar',
+  });
+  await expect(rail).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+  await toggle.click();
+  await expect(rail).toBeHidden();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expectAccessible(page);
+
+  await page.reload();
+  await expect(page.getByRole('banner')).toBeVisible();
+  await expect(rail).toBeHidden();
+
+  await page.keyboard.press('ControlOrMeta+Backslash');
+  await expect(rail).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+});
