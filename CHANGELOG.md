@@ -77,6 +77,10 @@ changes the format says so here under **Export format**.
 
 - Typing `/` in the capture line no longer pushes the page down. The
   chips wait until the command word is chosen.
+- On a meeting's page, the `/` and `@` menus in the notes no longer
+  open under the note cards.
+- Opening a meeting no longer looks like a zoom. The page fades in
+  like every other page instead of growing to full screen.
 
 ### Export format
 
