@@ -145,3 +145,94 @@ test('an unsaved note in a panel asks on a click away and holds closing it', asy
   await ask.getByRole('button', { name: 'Discard' }).click();
   await expect(form).toBeHidden();
 });
+
+/** Edit a saved note of Shield review in place: double-click, then type. */
+async function editSaved(page: Page, text: string) {
+  const row = page
+    .getByRole('main')
+    .locator('[data-note-id]')
+    .filter({ hasText: 'Bring the power budget' });
+  await row.locator('[data-note-preview]').dblclick();
+  const editor = row.getByRole('textbox', { name: 'Edit note' });
+  await expect(editor).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(text);
+  return row;
+}
+
+const askingEdit = (page: Page) =>
+  page.getByRole('alertdialog', { name: 'Save changes to this note?' });
+
+test('an edited note holds a link until Discard, and keeps the old text', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/meetings/e-1');
+  await editSaved(page, ' And the charts.');
+
+  await roomLink(page).click();
+  await expect(askingEdit(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await expect(
+    askingEdit(page).getByRole('button', { name: 'Save note' }),
+  ).toBeFocused();
+  await expectAccessible(page);
+
+  // Esc goes back to the text and the link waits no more.
+  await page.keyboard.press('Escape');
+  await expect(askingEdit(page)).toBeHidden();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+
+  await roomLink(page).click();
+  await askingEdit(page).getByRole('button', { name: 'Discard' }).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  const bodies = Object.values((await stored(request)).notes).map(
+    (n) => n.body,
+  );
+  expect(bodies.some((b) => b.includes('And the charts.'))).toBe(false);
+});
+
+test('an edited note holds Forward until Save note, then saves and goes', async ({
+  page,
+  request,
+}) => {
+  await openLive(page, '/meetings/e-1');
+  // In-app history: the meeting, then its room, then Back to the meeting.
+  await roomLink(page).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  await page.goBack();
+  await editSaved(page, ' Bring the charts too.');
+
+  await page.goForward();
+  await expect(askingEdit(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/meetings\/e-1$/);
+  await askingEdit(page).getByRole('button', { name: 'Save note' }).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+  await expect
+    .poll(async () =>
+      Object.values((await stored(request)).notes).map((n) => n.body),
+    )
+    .toContainEqual(expect.stringContaining('Bring the charts too.'));
+});
+
+test('an unchanged note does not ask; a changed one holds Leave', async ({
+  page,
+}) => {
+  await openLive(page, '/meetings/e-1');
+  const row = page
+    .getByRole('main')
+    .locator('[data-note-id]')
+    .filter({ hasText: 'Bring the power budget' });
+  await row.locator('[data-note-preview]').dblclick();
+  await expect(row.getByRole('textbox', { name: 'Edit note' })).toBeFocused();
+  // Opened and not changed: nothing to lose, so a link goes at once.
+  await roomLink(page).click();
+  await expect(page).toHaveURL(/\/projects\/p-echo$/);
+
+  await openLive(page, '/meetings/e-1');
+  await editSaved(page, ' Leave asks.');
+  await page.getByRole('button', { name: /^Leave/ }).click();
+  await expect(askingEdit(page)).toBeVisible();
+  await askingEdit(page).getByRole('button', { name: 'Discard' }).click();
+  await expect(page).toHaveURL(/\/$/);
+});

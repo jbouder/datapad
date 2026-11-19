@@ -3,7 +3,14 @@ import {
   CheckSquareIcon,
   CheckSquareOffsetIcon,
 } from '@phosphor-icons/react';
-import { type RefObject, useEffect, useId, useMemo, useState } from 'react';
+import {
+  type RefObject,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { LIMITS } from '#shared/limits';
 import { namesToTokens, tokensToNames } from '#shared/mentions';
 import { inScratch, taskTitleFrom } from '#shared/notes';
@@ -18,6 +25,7 @@ import { useTemplateForm } from '@/components/templates/TemplateFormProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
+import { addLeaveGuard } from '@/lib/leave';
 import { linkProps, navigate, useQuery } from '@/lib/router';
 import { useToast } from '@/providers/ToastProvider';
 
@@ -278,6 +286,12 @@ export function editOnDoubleClick(start: () => void) {
 /**
  * Editing a note in place: the composer with mentions as names, Cancel
  * and Save note. Esc cancels. `onDone` runs once it is saved or dropped.
+ *
+ * With changes not yet saved, leaving asks "Save changes to this note?"
+ * (Discard or Save note) in place of its buttons: a link, Back, or
+ * closing the panel it sits in waits for the answer, then goes on
+ * (`src/lib/leave.ts`). A click elsewhere on the page keeps it open with
+ * its text, so it does not ask.
  */
 export function NoteEditor({
   note,
@@ -295,22 +309,64 @@ export function NoteEditor({
   const commands = useNoteCommands(note.projectId, note.meetingId, note.id);
   const [text, setText] = useState(initial);
   const id = useId();
+  const box = useRef<HTMLDivElement>(null);
+  const keep = useRef<HTMLButtonElement>(null);
+  /** Asking whether to save, after a leave it held. */
+  const [asking, setAsking] = useState(false);
+  /** The leave that waits for the answer. */
+  const pending = useRef<(() => void) | null>(null);
+  /** Whether there is anything to lose: the text differs from the start. */
+  const changed = useRef(false);
+  changed.current = text !== initial;
+
+  useEffect(
+    () =>
+      addLeaveGuard({
+        element: () => box.current,
+        hold: (resume) => {
+          if (!changed.current) return false;
+          pending.current = resume;
+          setAsking(true);
+          requestAnimationFrame(() => keep.current?.focus());
+          return true;
+        },
+      }),
+    [],
+  );
+
+  /** Done with it: close, then finish the leave that waited, if one did. */
+  const finish = () => {
+    changed.current = false;
+    setAsking(false);
+    const resume = pending.current;
+    pending.current = null;
+    onDone();
+    resume?.();
+  };
 
   const save = () => {
     const body = namesToTokens(text, people).trim();
     if (!body) return;
-    if (actions.editNote({ id: note.id, body }) !== false) onDone();
+    if (actions.editNote({ id: note.id, body }) !== false) finish();
   };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: Esc cancels the edit; the controls inside are the interactive part
     <div
+      ref={box}
       className="flex flex-col gap-2"
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !e.defaultPrevented) {
           e.preventDefault();
           e.stopPropagation();
-          onDone();
+          // While it asks, Esc goes back to the text and the leave waits
+          // no more.
+          if (asking) {
+            pending.current = null;
+            setAsking(false);
+          } else {
+            finish();
+          }
         }
       }}
     >
@@ -325,24 +381,53 @@ export function NoteEditor({
         autoFocus
         rows={4}
       />
-      <div className="flex justify-end gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          className="press h-11 desk:h-7"
-          onClick={onDone}
+      {asking ? (
+        <div
+          role="alertdialog"
+          aria-labelledby={`${id}-ask`}
+          className="flex flex-wrap items-center justify-end gap-2 border px-3 py-2"
         >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          className="press h-11 desk:h-7"
-          disabled={!text.trim()}
-          onClick={save}
-        >
-          Save note
-        </Button>
-      </div>
+          <p id={`${id}-ask`} className="flex-1 text-sm">
+            Save changes to this note?
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="press h-11 desk:h-8"
+            onClick={finish}
+          >
+            Discard
+          </Button>
+          <Button
+            ref={keep}
+            type="button"
+            className="press h-11 desk:h-8"
+            disabled={!text.trim()}
+            onClick={save}
+          >
+            Save note
+          </Button>
+        </div>
+      ) : (
+        <div className="flex justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            className="press h-11 desk:h-7"
+            onClick={finish}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="press h-11 desk:h-7"
+            disabled={!text.trim()}
+            onClick={save}
+          >
+            Save note
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
