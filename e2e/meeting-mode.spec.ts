@@ -220,7 +220,9 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
   }).toPass();
   await composer.press('Enter');
   await expect(composer).toHaveValue('- [ ] Order the sensors');
-  await expect(page.getByText('Added “Order the sensors”')).toBeVisible();
+  await expect(
+    page.getByText('Added an action item to Shield review'),
+  ).toBeVisible();
   await notes.getByRole('button', { name: 'Save note' }).click();
   await expect(composer).toHaveValue('');
 

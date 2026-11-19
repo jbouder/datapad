@@ -616,6 +616,35 @@ describe('/ commands (#375)', () => {
     ]);
   });
 
+  it('a task from a meeting note is its action item', () => {
+    const state = snapshot();
+    state.meetings.m1 = {
+      id: 'm1',
+      projectId: 'echo',
+      title: 'Shield review',
+      date: TODAY,
+      time: '',
+      end: '',
+      attendees: [],
+      link: '',
+      note: '',
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const task = parse(
+      '/task Order sensors',
+      { meetingId: 'm1' },
+      undefined,
+      state,
+    );
+    expect(captureOps(task, state, 'new')[0]).toMatchObject({
+      meetingId: 'm1',
+    });
+    expect(captureToast(task, state)).toBe(
+      'Added an action item to Shield review',
+    );
+  });
+
   it('a line from a note stays in its project and links back', () => {
     const state = snapshot();
     state.notes.n1 = {

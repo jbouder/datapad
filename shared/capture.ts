@@ -694,6 +694,12 @@ export function captureToast(capture: Capture, state: Snapshot): string {
     return 'Added a note to Scratch';
   }
   const where = project ?? 'General';
+  const meeting = capture.meetingId
+    ? state.meetings[capture.meetingId]?.title
+    : undefined;
+  if (meeting && capture.kind === 'task') {
+    return `Added an action item to ${meeting}`;
+  }
   if (capture.kind === 'decide') return `Added to decide in ${where}`;
   if (capture.kind === 'wait') {
     const on = capture.waitingOn ? state.people[capture.waitingOn]?.name : '';
