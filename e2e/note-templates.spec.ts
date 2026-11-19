@@ -1,12 +1,16 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   addFromSearch,
+  caretToEnd,
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectNote,
   expectSaved,
+  fillNote,
   noteAction,
   noteRow,
+  noteText,
   openLive,
   openNoteRow,
   openNotes,
@@ -47,9 +51,10 @@ test('make a note template in Settings, start a note from it, then /template', a
   await expect(panel.getByText('Give the template a name')).toBeVisible();
   await expect(panel.getByText('Write what a note starts with')).toBeVisible();
   await panel.getByRole('textbox', { name: 'Name' }).fill('Weekly 1:1');
-  await panel
-    .getByRole('combobox', { name: 'Note' })
-    .fill('## Wins\n- \n## Blockers\n- ');
+  await fillNote(
+    panel.getByRole('textbox', { name: 'Note' }),
+    '## Wins\n- \n## Blockers\n- ',
+  );
   await expectAccessible(page);
   await expectNoSidewaysScroll(page);
   await panel.getByRole('button', { name: 'Add template' }).click();
@@ -64,11 +69,11 @@ test('make a note template in Settings, start a note from it, then /template', a
   await openLive(page, '/notes?view=list');
   await addFromSearch(page, 'New note');
   const note = page.getByRole('dialog', { name: 'New note' });
-  const box = note.getByRole('combobox', { name: 'Note' });
+  const box = note.getByRole('textbox', { name: 'Note' });
   await note.getByRole('combobox', { name: 'Template' }).click();
   await page.getByRole('option', { name: 'Weekly 1:1' }).click();
-  await expect(box).toHaveValue('## Wins\n- \n## Blockers\n- ');
-  await box.press('ControlOrMeta+End');
+  await expectNote(box, '## Wins\n- \n## Blockers\n- ');
+  await caretToEnd(box);
   await page.keyboard.type('Hangar heaters');
   await note.getByRole('button', { name: 'Add note' }).click();
   await expect(note).toBeHidden();
@@ -78,21 +83,23 @@ test('make a note template in Settings, start a note from it, then /template', a
 
   // `/template` in a note's editor puts it in at the caret.
   await noteAction(card(page, 'Hangar heaters'), 'Edit');
-  const edit = card(page, 'Hangar heaters').getByRole('combobox', {
+  const edit = card(page, 'Hangar heaters').getByRole('textbox', {
     name: 'Edit note',
   });
-  await edit.evaluate((el: HTMLTextAreaElement) =>
-    el.setSelectionRange(el.value.length, el.value.length),
-  );
-  // Shift+Enter: a new line without continuing the list.
-  await page.keyboard.press('Shift+Enter');
-  await page.keyboard.press('Shift+Enter');
+  // The editor opens with the caret at the end.
+  await expect(edit).toBeFocused();
+  // Enter carries on the list, Enter on the empty item ends it, and one
+  // more leaves a blank line.
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
   await page.keyboard.type('/template week');
   const menu = page.getByRole('listbox', { name: 'Commands' });
   await expect(menu.getByRole('option')).toHaveCount(1);
   await expect(menu.getByRole('option')).toContainText('Weekly 1:1');
   await page.keyboard.press('Enter');
-  await expect(edit).toHaveValue(
+  await expectNote(
+    edit,
     '## Wins\n- \n## Blockers\n- Hangar heaters\n\n## Wins\n- \n## Blockers\n- ',
   );
   await page.keyboard.press('ControlOrMeta+Enter');
@@ -122,9 +129,9 @@ test('save a note as a template, mentions and all', async ({
     'Standup',
   );
   // Mentions read as names while editing.
-  await expect(panel.getByRole('combobox', { name: 'Note' })).toHaveValue(
-    /@Chewbacca has the hangar keys\./,
-  );
+  await expect
+    .poll(() => noteText(panel.getByRole('textbox', { name: 'Note' })))
+    .toMatch(/@Chewbacca has the hangar keys\./);
   await panel.getByRole('button', { name: 'Add template' }).click();
   await expect(panel).toBeHidden();
   await expectSaved(page);

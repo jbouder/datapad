@@ -4,7 +4,9 @@ import {
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectNote,
   expectSaved,
+  fillNote,
   isMobile,
   moreAction,
   moreActions,
@@ -196,12 +198,12 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
 
   // The composer is always open.
   const notes = main.getByRole('region', { name: 'Notes', exact: true });
-  const composer = notes.getByRole('combobox', {
+  const composer = notes.getByRole('textbox', {
     name: 'New note for “Shield review”',
   });
-  await composer.fill('The ridge needs two more sensors.');
+  await fillNote(composer, 'The ridge needs two more sensors.');
   await notes.getByRole('button', { name: 'Save note' }).click();
-  await expect(composer).toHaveValue('');
+  await expectNote(composer, '');
   await expect(notes.getByRole('list')).toContainText(
     'The ridge needs two more sensors.',
   );
@@ -212,19 +214,19 @@ test('add a topic, a note and an action item', async ({ page, request }) => {
   // The composer can still be settling after Save note: type again
   // until the / menu opens.
   await expect(async () => {
-    await composer.fill('Order the sensors ');
+    await fillNote(composer, 'Order the sensors ');
     await composer.pressSequentially('/task');
     await expect(page.getByRole('option', { name: /^Task/ })).toBeVisible({
       timeout: 2_000,
     });
   }).toPass();
   await composer.press('Enter');
-  await expect(composer).toHaveValue('- [ ] Order the sensors');
+  await expectNote(composer, '- [ ] Order the sensors');
   await expect(
     page.getByText('Added an action item to Shield review'),
   ).toBeVisible();
   await notes.getByRole('button', { name: 'Save note' }).click();
-  await expect(composer).toHaveValue('');
+  await expectNote(composer, '');
 
   const items = main.getByRole('region', { name: 'Action items' });
   await items.getByRole('button', { name: 'Add an action item' }).click();

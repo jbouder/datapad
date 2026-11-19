@@ -4,6 +4,7 @@ import {
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectNote,
   expectSaved,
   isMobile,
   openLive,
@@ -233,7 +234,8 @@ test('on a project page it files there; expand opens the composer', async ({
   await expect(chips(page)).toHaveText(['Note', 'Echo Base relocation']);
   await page.getByRole('button', { name: 'Write a longer note' }).click();
   const panel = page.getByRole('dialog', { name: 'New note' });
-  await expect(panel.getByRole('combobox', { name: 'Note' })).toHaveValue(
+  await expectNote(
+    panel.getByRole('textbox', { name: 'Note' }),
     'Notes from the walkthrough',
   );
   await expect(

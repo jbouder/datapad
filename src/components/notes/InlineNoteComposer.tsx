@@ -9,7 +9,10 @@ import {
 } from 'react';
 import { namesToTokens } from '#shared/mentions';
 import type { Person } from '#shared/types';
-import { NoteComposer } from '@/components/NoteComposer';
+import {
+  NoteComposer,
+  type NoteComposerHandle,
+} from '@/components/NoteComposer';
 import { useNoteCommands } from '@/components/notes/useNoteCommands';
 import { Button } from '@/components/ui/button';
 import { type ActionInput, useDatapad } from '@/hooks/useDatapad';
@@ -80,6 +83,7 @@ export function InlineNoteComposer({
   const noteId = useRef(newId());
   const commands = useNoteCommands(fields.projectId, fields.meetingId);
   const box = useRef<HTMLFieldSetElement>(null);
+  const editor = useRef<NoteComposerHandle>(null);
   const keep = useRef<HTMLButtonElement>(null);
   /** Asking whether to save, after a click away or a leave it held. */
   const [asking, setAsking] = useState(false);
@@ -88,13 +92,7 @@ export function InlineNoteComposer({
 
   const focus = () => {
     // After the frame: a menu that opened this hands focus back first.
-    requestAnimationFrame(() => {
-      const area = document.getElementById(id) as HTMLTextAreaElement | null;
-      if (!area) return;
-      area.focus({ preventScroll: true });
-      area.setSelectionRange(area.value.length, area.value.length);
-      area.scrollIntoView({ block: 'nearest' });
-    });
+    requestAnimationFrame(() => editor.current?.focus());
   };
   useImperativeHandle(ref, () => ({ focus }));
 
@@ -189,7 +187,13 @@ export function InlineNoteComposer({
       className={cn('enter flex min-w-0 flex-col gap-2', className)}
       onFocus={(e) => {
         // Back in the text: writing on, no question.
-        if (asking && e.target instanceof HTMLTextAreaElement) keepEditing();
+        if (
+          asking &&
+          e.target instanceof HTMLElement &&
+          e.target.isContentEditable
+        ) {
+          keepEditing();
+        }
       }}
       onKeyDown={(e) => {
         // Esc closes it, unless the composer's menu took it first; while
@@ -212,6 +216,7 @@ export function InlineNoteComposer({
     >
       <legend className="sr-only">{label}</legend>
       <NoteComposer
+        ref={editor}
         id={id}
         value={text}
         onChange={setText}

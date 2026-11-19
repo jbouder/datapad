@@ -79,7 +79,8 @@ over WebSockets, and backs itself up to R2 every night.
   (type `fri`, `+3d`, `10/31`), assignee, tags, links, Markdown details,
   dated running notes, blocked on someone, or to decide. Each opens in a
   side panel.
-- **Notes.** Markdown with three heading levels, lists, clickable
+- **Notes.** Formatted as you write, with no Markdown on screen, and
+  stored as plain Markdown: three heading levels, lists, clickable
   checklists, code, quotes and links; `@` mentions of people; a `/`
   command menu and formatting keys in the composer, whose `/task`,
   `/meeting`, `/person` and other create commands turn the line you are

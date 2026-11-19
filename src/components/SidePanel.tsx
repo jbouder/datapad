@@ -37,7 +37,7 @@ export function useSidePanel(): PanelContext {
 }
 
 const FIELDS =
-  'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="combobox"]:not([aria-disabled="true"])';
+  'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="combobox"]:not([aria-disabled="true"]), [contenteditable="true"]';
 
 export function SidePanel({
   open,

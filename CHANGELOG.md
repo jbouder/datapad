@@ -52,6 +52,14 @@ changes the format says so here under **Export format**.
 
 ### Changed
 
+- The note editor shows a note formatted as you write it: headings,
+  lists, checklists you can tick, bold, italic, code, links, quotes,
+  dividers, code blocks and mentions as name chips, with no Markdown on
+  screen. Markdown typed as you go (`# `, `- `, `- [ ] `, `**bold**`)
+  turns into formatting. The `/` and `@` menus, the formatting keys,
+  drafts, rich paste and ⌘Enter work as before, and notes are stored as
+  the same Markdown, so exports do not change (#376).
+
 - New tasks are due a week from today by default. Pick No date in
   Settings → Capture to go back to undated tasks.
 

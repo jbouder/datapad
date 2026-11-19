@@ -1,5 +1,12 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, expectAccessible, openLive, SEED, test } from './fixtures';
+import {
+  expect,
+  expectAccessible,
+  expectNote,
+  openLive,
+  SEED,
+  test,
+} from './fixtures';
 
 interface Stored {
   notes: Record<string, { body: string; meetingId: string | null }>;
@@ -12,7 +19,7 @@ async function stored(request: APIRequestContext): Promise<Stored> {
 const box = (page: Page) =>
   page
     .getByRole('main')
-    .getByRole('combobox', { name: 'New note for “Shield review”' });
+    .getByRole('textbox', { name: 'New note for “Shield review”' });
 
 const asking = (page: Page) =>
   page.getByRole('alertdialog', { name: 'Save this note?' });
@@ -68,7 +75,7 @@ test('a click away keeps the text; a link asks; Save note saves and goes on', as
   // Meeting mode's composer stays: a click elsewhere does not ask.
   await page.getByRole('heading', { level: 1 }).click();
   await expect(asking(page)).toBeHidden();
-  await expect(box(page)).toHaveValue('Bring the charts');
+  await expectNote(box(page), 'Bring the charts');
 
   // A link waits for Save note, then follows it.
   await roomLink(page).click();
@@ -103,7 +110,7 @@ test('Back and Forward over an unsaved note wait for the answer', async ({
   await page.keyboard.press('Escape');
   await expect(asking(page)).toBeHidden();
   await expect(box(page)).toBeFocused();
-  await expect(box(page)).toHaveValue('Ask about the ridge');
+  await expectNote(box(page), 'Ask about the ridge');
   await expect(page).toHaveURL(/\/meetings\/e-1$/);
 });
 
@@ -119,7 +126,7 @@ test('an unsaved note in a panel asks on a click away and holds closing it', asy
   const region = form.getByRole('region', { name: 'Notes', exact: true });
   await region.getByRole('button', { name: 'Add note' }).click();
   // Typed once the composer has focus, or the letters are shortcuts.
-  const composer = region.getByRole('combobox').first();
+  const composer = region.getByRole('textbox').first();
   await expect(composer).toBeFocused();
   await page.keyboard.type('Check the generator');
   const ask = form.getByRole('alertdialog', { name: 'Save this note?' });
@@ -130,7 +137,7 @@ test('an unsaved note in a panel asks on a click away and holds closing it', asy
   await expect(ask).toBeVisible();
   await composer.click();
   await expect(ask).toBeHidden();
-  await expect(composer).toHaveValue('Check the generator');
+  await expectNote(composer, 'Check the generator');
 
   await form.getByRole('button', { name: 'Close' }).click();
   await expect(ask).toBeVisible();

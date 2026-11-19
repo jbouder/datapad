@@ -2,6 +2,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import {
   addFromSearch,
   expect,
+  expectNote,
   expectSaved,
   isMobile,
   openLive,
@@ -61,12 +62,12 @@ test('edit every field from the panel; one save, one log line', async ({
   await tags.press('Enter');
 
   // @ suggests people; Enter inserts the name.
-  const details = panel.getByRole('combobox', { name: 'Details' });
+  const details = panel.getByRole('textbox', { name: 'Details' });
   await details.click();
   await details.pressSequentially('Ask @Ch');
   await expect(panel.getByRole('option', { name: /Chewbacca/ })).toBeVisible();
   await details.press('Enter');
-  await expect(details).toHaveValue('Ask @Chewbacca ');
+  await expectNote(details, 'Ask @Chewbacca ');
   await details.pressSequentially('about the seals.');
 
   await panel.getByRole('button', { name: 'Add link', exact: true }).click();

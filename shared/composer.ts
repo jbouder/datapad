@@ -1,22 +1,14 @@
 import { type CaptureKind, SLASH_KINDS } from './capture';
 import { addDays } from './dates';
+import type { MarkType } from './note-doc';
 
 /**
- * The note composer's editing, as pure functions over (text, selection):
- * the `/` commands, the formatting shortcuts and list continuation. The
- * textarea (`src/components/NoteComposer.tsx`) only applies the result.
- * Every edit produces exactly the Markdown `markdown.ts` renders.
+ * The note composer's commands, as pure functions: the `/` menu, the
+ * formatting keys and what each one does. The editor
+ * (`src/components/NoteComposer.tsx`) carries out the plan on its
+ * document; the document is stored as the Markdown `markdown.ts` renders
+ * (`note-doc.ts`).
  */
-
-export interface Selection {
-  start: number;
-  end: number;
-}
-
-export interface Edit {
-  text: string;
-  sel: Selection;
-}
 
 export type CommandId =
   | 'h1'
@@ -292,11 +284,6 @@ function lineStart(text: string, pos: number): number {
   return text.lastIndexOf('\n', pos - 1) + 1;
 }
 
-function lineEnd(text: string, pos: number): number {
-  const at = text.indexOf('\n', pos);
-  return at === -1 ? text.length : at;
-}
-
 const FENCE_LINE = /^\s*```/;
 
 /** Whether `pos` sits inside a fenced code block (after its opening). */
@@ -309,304 +296,115 @@ export function inFence(text: string, pos: number): boolean {
   return open;
 }
 
-/** One line's block prefix and what follows it. */
-const PREFIX =
-  /^(#{1,6}\s+|>\s?|\s*[-*•]\s+\[[ xX]\]\s+|\s*[-*•]\s+|\s*\d{1,9}[.)]\s+)?(.*)$/;
+/* ---- What a command does ------------------------------------------------ */
 
-function split(line: string): { prefix: string; content: string } {
-  const m = PREFIX.exec(line);
-  return { prefix: m?.[1] ?? '', content: m?.[2] ?? line };
-}
-
-type LineKind =
+/** The kinds of line a command or a formatting key turns a line into. */
+export type BlockKind =
   | 'h1'
   | 'h2'
   | 'h3'
-  | 'quote'
-  | 'checklist'
+  | 'text'
   | 'bullet'
   | 'numbered'
-  | 'text';
-
-function kindOf(prefix: string): LineKind {
-  if (/^#\s/.test(prefix)) return 'h1';
-  if (/^##\s/.test(prefix)) return 'h2';
-  if (/^#{3,}\s/.test(prefix)) return 'h3';
-  if (prefix.startsWith('>')) return 'quote';
-  if (/\[[ xX]\]/.test(prefix)) return 'checklist';
-  if (/^\s*[-*•]/.test(prefix)) return 'bullet';
-  if (/^\s*\d/.test(prefix)) return 'numbered';
-  return 'text';
-}
-
-function prefixFor(kind: LineKind, n: number): string {
-  switch (kind) {
-    case 'h1':
-      return '# ';
-    case 'h2':
-      return '## ';
-    case 'h3':
-      return '### ';
-    case 'quote':
-      return '> ';
-    case 'checklist':
-      return '- [ ] ';
-    case 'bullet':
-      return '- ';
-    case 'numbered':
-      return `${n}. `;
-    default:
-      return '';
-  }
-}
+  | 'checklist'
+  | 'quote'
+  | 'code';
 
 /**
- * Give every line the selection touches the `kind` prefix, replacing
- * whatever block prefix it had. When every line already has it, take it
- * away (back to body text): applying twice undoes.
+ * What a create command does to its line once the thing is made (#375):
+ * a checklist item (`/task`, `/decide`, `/waiting`), a mention of the new
+ * person (`/person`), gone into a note of its own (`/note`), or as it was.
  */
-export function setLineKind(
-  text: string,
-  sel: Selection,
-  kind: LineKind,
-): Edit {
-  const from = lineStart(text, sel.start);
-  const to = lineEnd(text, Math.max(sel.end, sel.start));
-  const lines = text.slice(from, to).split('\n');
-  const parts = lines.map(split);
-  const all = kind !== 'text' && parts.every((p) => kindOf(p.prefix) === kind);
-  const target = all ? 'text' : kind;
-  const next = parts.map((p, i) => prefixFor(target, i + 1) + p.content);
-  const block = next.join('\n');
-  const out = text.slice(0, from) + block + text.slice(to);
+export type LineAfter = 'checklist' | 'mention' | 'remove' | 'keep';
 
-  if (sel.start === sel.end && lines.length === 1) {
-    // Keep the caret on the same character of the content.
-    const head = parts[0] ?? { prefix: '', content: '' };
-    const offset = Math.max(0, sel.start - from - head.prefix.length);
-    const at = from + (next[0]?.length ?? 0) - head.content.length + offset;
-    return { text: out, sel: { start: at, end: at } };
-  }
-  return { text: out, sel: { start: from, end: from + block.length } };
-}
+export type CommandPlan =
+  /** The line becomes this kind; already that kind, body text. */
+  | { block: BlockKind }
+  | { divider: true }
+  /** Text at the caret. */
+  | { insert: string }
+  /** Make something from the line, then change the line. */
+  | { create: CreateCommandId; line: LineAfter };
 
-/* ---- Inline ------------------------------------------------------------ */
-
-/**
- * Wrap the selection in `mark` (`**`, `_`, `` ` ``, `~~`), or unwrap it
- * when it is already wrapped (the marks inside or just outside the
- * selection). No selection: a pair of marks with the caret between.
- */
-export function toggleWrap(text: string, sel: Selection, mark: string): Edit {
-  const { start, end } = sel;
-  const m = mark.length;
-  const inner = text.slice(start, end);
-  if (inner.length >= 2 * m && inner.startsWith(mark) && inner.endsWith(mark)) {
-    const bare = inner.slice(m, -m);
-    return {
-      text: text.slice(0, start) + bare + text.slice(end),
-      sel: { start, end: start + bare.length },
-    };
-  }
-  if (
-    text.slice(start - m, start) === mark &&
-    text.slice(end, end + m) === mark &&
-    start >= m
-  ) {
-    return {
-      text: text.slice(0, start - m) + inner + text.slice(end + m),
-      sel: { start: start - m, end: end - m },
-    };
-  }
-  return {
-    text: text.slice(0, start) + mark + inner + mark + text.slice(end),
-    sel: { start: start + m, end: end + m },
-  };
-}
-
-const LINK = /^\[([^\]\n]*)\]\(([^)\s]*)\)$/;
-
-/**
- * ⌘K: the selection becomes `[selection](https://)` with the URL selected
- * to type over; a selected link goes back to its label. Nothing selected:
- * `[text](https://)` with `text` selected.
- */
-export function toggleLink(text: string, sel: Selection): Edit {
-  const inner = text.slice(sel.start, sel.end);
-  const link = LINK.exec(inner);
-  if (link) {
-    const label = link[1] ?? '';
-    return {
-      text: text.slice(0, sel.start) + label + text.slice(sel.end),
-      sel: { start: sel.start, end: sel.start + label.length },
-    };
-  }
-  if (/^https?:\/\/\S+$/.test(inner)) {
-    const out = `[link](${inner})`;
-    return {
-      text: text.slice(0, sel.start) + out + text.slice(sel.end),
-      sel: { start: sel.start + 1, end: sel.start + 5 },
-    };
-  }
-  const label = inner || 'text';
-  const out = `[${label}](https://)`;
-  const urlAt = sel.start + label.length + 3;
-  return {
-    text: text.slice(0, sel.start) + out + text.slice(sel.end),
-    sel: inner
-      ? { start: urlAt, end: urlAt + 'https://'.length }
-      : { start: sel.start + 1, end: sel.start + 1 + label.length },
-  };
-}
-
-/* ---- Inserts ----------------------------------------------------------- */
-
-function insert(
-  text: string,
-  sel: Selection,
-  value: string,
-  caret = value.length,
-): Edit {
-  return {
-    text: text.slice(0, sel.start) + value + text.slice(sel.end),
-    sel: { start: sel.start + caret, end: sel.start + caret },
-  };
-}
-
-/** A block of its own: on an empty line, there; otherwise on the next. */
-function insertBlock(
-  text: string,
-  sel: Selection,
-  block: string,
-  caret: number,
-): Edit {
-  const from = lineStart(text, sel.start);
-  const to = lineEnd(text, sel.end);
-  const line = text.slice(from, to);
-  if (line.trim() === '') {
-    return {
-      text: text.slice(0, from) + block + text.slice(to),
-      sel: { start: from + caret, end: from + caret },
-    };
-  }
-  const at = to;
-  return {
-    text: `${text.slice(0, at)}\n${block}${text.slice(at)}`,
-    sel: { start: at + 1 + caret, end: at + 1 + caret },
-  };
-}
-
-function codeBlock(text: string, sel: Selection): Edit {
-  if (sel.start !== sel.end) {
-    const from = lineStart(text, sel.start);
-    const to = lineEnd(text, sel.end);
-    const body = text.slice(from, to);
-    const block = `\`\`\`\n${body}\n\`\`\``;
-    return {
-      text: text.slice(0, from) + block + text.slice(to),
-      sel: { start: from + 4, end: from + 4 + body.length },
-    };
-  }
-  return insertBlock(text, sel, '```\n\n```', 4);
-}
-
-export interface CommandResult extends Edit {
-  /**
-   * A create command (#375): what to make, from the line's text (its block
-   * marker taken off). Absent when the line is empty.
-   */
-  create?: { id: CreateCommandId; line: string };
-}
-
-/** The line at the caret: where it is and its text without the marker. */
-function caretLine(text: string, sel: Selection) {
-  const from = lineStart(text, sel.start);
-  const to = lineEnd(text, sel.start);
-  const { prefix, content } = split(text.slice(from, to));
-  return { from, to, prefix, content: content.trim() };
-}
-
-/** A create command at the selection: the line's edit and what to make. */
-function createFromLine(
-  text: string,
-  sel: Selection,
-  id: CreateCommandId,
-): CommandResult {
-  const { from, to, prefix, content } = caretLine(text, sel);
-  const create = content ? { create: { id, line: content } } : {};
-  const put = (line: string): CommandResult => ({
-    text: text.slice(0, from) + line + text.slice(to),
-    sel: { start: from + line.length, end: from + line.length },
-    ...create,
-  });
-  switch (id) {
-    case 'task':
-    case 'decide':
-    case 'waiting':
-      return put(`- [ ] ${content}`);
-    case 'person':
-      return put(content ? `${prefix}@${content.replace(/^@/, '')}` : prefix);
-    case 'note': {
-      if (!content) return { text, sel, ...create };
-      // The line goes, with one of the line breaks around it.
-      const cut = to < text.length ? to + 1 : from > 0 ? from - 1 : from;
-      const start = Math.min(from, cut);
-      const out = text.slice(0, start) + text.slice(Math.max(to, cut));
-      return { text: out, sel: { start, end: start }, ...create };
-    }
-    default:
-      return { text, sel: { start: to, end: to }, ...create };
-  }
+/** The day `/date` names: today, or `/date tomorrow`, `/date yesterday`. */
+export function dateFor(arg: string, today: string): string {
+  const word = arg.trim();
+  if (/^tom/i.test(word)) return addDays(today, 1);
+  if (/^yes/i.test(word)) return addDays(today, -1);
+  return today;
 }
 
 /**
- * Apply one `/` command (or its shortcut) at the selection. `arg` is what
+ * What one `/` command (or its formatting key) does. `arg` is what
  * follows the command in the menu (`/date tomorrow`).
  */
-export function applyCommand(
-  text: string,
-  sel: Selection,
+export function planCommand(
   id: CommandId,
   ctx: Context,
   arg = '',
-): CommandResult {
+): CommandPlan {
   switch (id) {
     case 'h1':
     case 'h2':
     case 'h3':
+    case 'text':
     case 'bullet':
     case 'numbered':
     case 'checklist':
     case 'quote':
-      return setLineKind(text, sel, id);
-    case 'text':
-      return setLineKind(text, sel, 'text');
     case 'code':
-      return codeBlock(text, sel);
+      return { block: id };
     case 'divider':
-      return insertBlock(text, sel, '---\n', 4);
-    case 'date': {
-      const day = /^tom/i.test(arg.trim())
-        ? addDays(ctx.today, 1)
-        : /^yes/i.test(arg.trim())
-          ? addDays(ctx.today, -1)
-          : ctx.today;
-      return insert(text, sel, day);
-    }
+      return { divider: true };
+    case 'date':
+      return { insert: dateFor(arg, ctx.today) };
     case 'time':
-      return insert(text, sel, ctx.time);
+      return { insert: ctx.time };
     case 'mention':
-      return insert(text, sel, '@');
+      return { insert: '@' };
     case 'task':
     case 'decide':
     case 'waiting':
+      return { create: id, line: 'checklist' };
+    case 'person':
+      return { create: id, line: 'mention' };
     case 'note':
+      return { create: id, line: 'remove' };
     case 'meeting':
     case 'milestone':
     case 'project':
-    case 'person':
-      return createFromLine(text, sel, id);
+      return { create: id, line: 'keep' };
   }
+}
+
+/** `/person`'s line: the name, as a mention (without a second `@`). */
+export function personLine(line: string): string {
+  return `@${line.trim().replace(/^@/, '')}`;
+}
+
+/** The mark a formatting key's Markdown wrap stands for. */
+export function markOf(wrap: string): MarkType {
+  switch (wrap) {
+    case '**':
+      return 'bold';
+    case '`':
+      return 'code';
+    case '~~':
+      return 'strike';
+    default:
+      return 'italic';
+  }
+}
+
+/**
+ * A safe address for the link key, or null: `https://` goes in front of
+ * a bare host, and only http(s) and mailto are kept (as `safeHref`).
+ */
+export function linkHref(input: string): string | null {
+  const url = input.trim();
+  if (!url || /\s/.test(url)) return null;
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+  return /^(https?:\/\/[^/\s]|mailto:\S)/i.test(full) ? full : null;
 }
 
 /* ---- The `/` menu ------------------------------------------------------ */
@@ -673,53 +471,13 @@ export function matchTemplates(
 }
 
 /**
- * A template's body at the caret: in place of an empty line, otherwise
- * from the next line; the caret after it. Bodies are saved trimmed, so a
- * last line that is a bare list marker (`-`, `- [ ]`, `1.`) gets its
+ * A template's body as it goes into a note. Bodies are saved trimmed, so
+ * a last line that is a bare list marker (`-`, `- [ ]`, `1.`) gets its
  * space back, ready to type.
  */
-export function insertTemplate(
-  text: string,
-  sel: Selection,
-  body: string,
-): Edit {
-  let block = body.replace(/\s+$/, '');
-  if (/(^|\n)\s*([-*•]( \[[ xX]\])?|\d{1,9}[.)])$/.test(block)) block += ' ';
-  return insertBlock(text, sel, block, block.length);
-}
-
-/* ---- Enter and Tab in lists -------------------------------------------- */
-
-const LIST_LINE =
-  /^(\s*)([-*•]\s+\[[ xX]\]\s+|[-*•]\s+|(\d{1,9})([.)])\s+)(.*)$/;
-
-/** Whether the caret's line is a list item (Tab there does nothing). */
-export function inList(text: string, sel: Selection): boolean {
-  const from = lineStart(text, sel.start);
-  return LIST_LINE.test(text.slice(from, lineEnd(text, sel.start)));
-}
-
-/**
- * Enter in a list item continues the list (a checked item continues
- * unchecked, numbers count up); Enter on an empty item ends the list.
- * Null when Enter should just be Enter.
- */
-export function continueList(text: string, sel: Selection): Edit | null {
-  if (sel.start !== sel.end || inFence(text, sel.start)) return null;
-  const from = lineStart(text, sel.start);
-  const to = lineEnd(text, sel.start);
-  const m = LIST_LINE.exec(text.slice(from, to));
-  if (!m) return null;
-  const [, indent = '', marker = '', num, delim, content = ''] = m;
-  if (content.trim() === '') {
-    return {
-      text: text.slice(0, from) + text.slice(to),
-      sel: { start: from, end: from },
-    };
-  }
-  let next: string;
-  if (num !== undefined) next = `${Number(num) + 1}${delim} `;
-  else if (/\[[ xX]\]/.test(marker)) next = `${marker.trim()[0]} [ ] `;
-  else next = `${marker.trim()} `;
-  return insert(text, sel, `\n${indent}${next}`);
+export function templateBody(body: string): string {
+  const block = body.replace(/\s+$/, '');
+  return /(^|\n)\s*([-*•]( \[[ xX]\])?|\d{1,9}[.)])$/.test(block)
+    ? `${block} `
+    : block;
 }

@@ -59,9 +59,11 @@ first is `main`). Data is **kept**: nothing is wiped. `docs/SPEC.md` is the prod
   `spaces.ts` (space names and order, and the pure halves of moving a
   project between spaces), `shortcuts.ts` (every keyboard shortcut and
   the rule that keeps single letters out of inputs and overlays; Help
-  and the `?` sheet list it), `composer.ts` (the note composer as pure
-  functions: the `/` commands, the formatting keys, list continuation;
-  Help's tables come from it), `mentions.ts` (`@{id}` tokens ↔ `@Name`),
+  and the `?` sheet list it), `composer.ts` (the note composer's commands as pure
+  functions: the `/` commands and what each does (`planCommand`), the
+  formatting keys; Help's tables come from it), `note-doc.ts` (the note
+  editor's document as JSON and the Markdown both ways, one line one
+  block, so a note round-trips unchanged), `mentions.ts` (`@{id}` tokens ↔ `@Name`),
   `notes.ts`, `tasks.ts`, `projects.ts` (filters, sorts and selection),
   `people.ts` and `orgs.ts` (records by name, inline add), `lists.ts`
   (what is left of lists: the helpers the migration and MCP's retired
@@ -161,7 +163,7 @@ React 19 + TypeScript + Vite · Tailwind CSS v4 (CSS-first, `src/index.css`)
 · [Beskar](https://github.com/jbouder/beskar), a shadcn `base-lyra` registry on
 Base UI (`src/components/ui`, CLI-managed, do not hand-edit; add or update one
 with `bunx shadcn@latest add @beskar/<name> --overwrite`, and see the
-`beskar-ui` skill in `.claude/skills`) · Phosphor icons · `cmdk` · zod · Biome · Cloudflare Workers +
+`beskar-ui` skill in `.claude/skills`) · Phosphor icons · `cmdk` · zod · Tiptap v3 on ProseMirror for the note editor (`src/components/note-editor/`, its own Markdown serializer in `shared/note-doc.ts`; injected CSS off, styles in `src/index.css`) · Biome · Cloudflare Workers +
 Durable Objects via `@cloudflare/vite-plugin` · **bun** for installs (npm's
 resolver fails on Vitest 4.1 peers; one version, `packageManager` in
 `package.json`, which every workflow uses) · WebLLM for summaries (in-browser, `src/lib/summary-*.ts`; its downloads
