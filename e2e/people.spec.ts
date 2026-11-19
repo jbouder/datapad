@@ -5,6 +5,7 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  fillNote,
   openLive,
   SEED,
   test,
@@ -60,9 +61,10 @@ test('add, assign, mention, the person’s room, This is me, remove', async ({
 
   await addFromSearch(page, 'New note');
   const write = page.getByRole('dialog', { name: 'New note' });
-  await write
-    .getByRole('combobox', { name: 'Note' })
-    .fill('Ask @Han Solo about the **compressor**');
+  await fillNote(
+    write.getByRole('textbox', { name: 'Note' }),
+    'Ask @Han Solo about the **compressor**',
+  );
   await write.getByRole('button', { name: 'Add note' }).click();
   await expect(write).toBeHidden();
   await expectSaved(page);

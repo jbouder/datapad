@@ -3,6 +3,7 @@ import {
   addTask,
   expect,
   expectAccessible,
+  expectNote,
   expectSaved,
   openLive,
   SEED,
@@ -203,7 +204,7 @@ test('a page that throws can be reloaded, and keeps a note being written', async
   page,
 }) => {
   await openLive(page, '/dev/components');
-  const composer = page.getByRole('combobox', { name: 'Composer' });
+  const composer = page.getByRole('textbox', { name: 'Composer' });
   await composer.click();
   await page.keyboard.type('half a thought');
 
@@ -236,7 +237,7 @@ test('a page that throws can be reloaded, and keeps a note being written', async
 
   await page.getByRole('button', { name: 'Reload this view' }).click();
   await expect(heading).toHaveCount(0);
-  await expect(composer).toHaveValue('half a thought');
+  await expectNote(composer, 'half a thought');
 });
 
 test('the app that throws offers a reload', async ({ page }) => {

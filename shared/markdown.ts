@@ -20,9 +20,11 @@ export type Inline =
   | { t: 'text'; v: string }
   | { t: 'code'; v: string }
   | { t: 'strong'; c: Inline[] }
-  | { t: 'em'; c: Inline[] }
+  /** `star`: written `*like this*` rather than `_like this_`. */
+  | { t: 'em'; c: Inline[]; star?: true }
   | { t: 's'; c: Inline[] }
-  | { t: 'link'; href: string; c: Inline[] }
+  /** `bare`: a URL written as it is, not `[label](url)`. */
+  | { t: 'link'; href: string; c: Inline[]; bare?: true }
   | { t: 'mention'; id: string };
 
 export interface CheckItem {
@@ -205,15 +207,17 @@ export function parseInline(text: string): Inline[] {
     } else if (bare !== undefined) {
       const url = trimUrl(bare);
       end = m.index + url.length;
-      push({ t: 'link', href: url, c: [{ t: 'text', v: url }] });
+      push({ t: 'link', href: url, c: [{ t: 'text', v: url }], bare: true });
     } else if (mention !== undefined) {
       push({ t: 'mention', id: mention });
     } else if (strong !== undefined) {
       push({ t: 'strong', c: parseInline(strong) });
     } else if (strike !== undefined) {
       push({ t: 's', c: parseInline(strike) });
+    } else if (underscore !== undefined) {
+      push({ t: 'em', c: parseInline(underscore) });
     } else {
-      push({ t: 'em', c: parseInline(underscore ?? star ?? '') });
+      push({ t: 'em', c: parseInline(star ?? ''), star: true });
     }
     at = end;
     re.lastIndex = end;

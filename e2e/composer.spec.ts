@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import {
   expect,
   expectAccessible,
+  expectNote,
+  fillNote,
   isMobile,
   openLive,
   SEED,
@@ -11,7 +13,7 @@ import {
 /** The composer sample on /dev/components, with its live preview. */
 async function open(page: Page) {
   await openLive(page, '/dev/components');
-  const box = page.getByRole('combobox', { name: 'Composer' });
+  const box = page.getByRole('textbox', { name: 'Composer' });
   await box.click();
   return { box, preview: page.getByTestId('composer-preview') };
 }
@@ -29,7 +31,7 @@ test('writes a note with / commands, ⌘B, a mention and a fenced block', async 
   await kb.type('/h2');
   const menu = page.getByRole('listbox', { name: 'Commands' });
   await expect(menu).toBeVisible();
-  await expect(box).toHaveAttribute('aria-expanded', 'true');
+  await expect(box).toHaveAttribute('aria-controls', /.+/);
   await expect(menu.getByRole('option', { selected: true })).toContainText(
     'Heading 2',
   );
@@ -48,8 +50,7 @@ test('writes a note with / commands, ⌘B, a mention and a fenced block', async 
   await kb.type('Ask ');
   await kb.press('ControlOrMeta+b');
   await kb.type('now');
-  await kb.press('ArrowRight');
-  await kb.press('ArrowRight');
+  await kb.press('ControlOrMeta+b');
   await kb.type(' @le');
   const people = page.getByRole('listbox', { name: 'People' });
   await expect(people.getByRole('option')).toHaveText([/^Leia Organa/]);
@@ -61,7 +62,8 @@ test('writes a note with / commands, ⌘B, a mention and a fenced block', async 
   await kb.type('/not a command');
   await expect(menu).toBeHidden();
 
-  await expect(box).toHaveValue(
+  await expectNote(
+    box,
     '## Standup\n- [ ] Feed the tauntauns\n- [ ] Check heaters\nAsk **now** @Leia Organa \n```\n/not a command\n```',
   );
   await expect(preview.locator('h4')).toHaveText('Standup');
@@ -78,26 +80,26 @@ test('shortcuts toggle, Tab in a list stays put, / mid-word does nothing', async
   const kb = page.keyboard;
   await kb.type('and/or');
   await expect(page.getByRole('listbox', { name: 'Commands' })).toBeHidden();
-  await box.fill('');
+  await fillNote(box, '');
 
   await kb.type('Plan');
   await kb.press('ControlOrMeta+Alt+Digit1');
-  await expect(box).toHaveValue('# Plan');
+  await expectNote(box, '# Plan');
   await kb.press('ControlOrMeta+Alt+Digit1');
-  await expect(box).toHaveValue('Plan');
+  await expectNote(box, 'Plan');
   await kb.press('ControlOrMeta+Shift+Digit9');
-  await expect(box).toHaveValue('- [ ] Plan');
+  await expectNote(box, '- [ ] Plan');
   await kb.press('Tab');
   await expect(box).toBeFocused();
-  await expect(box).toHaveValue('- [ ] Plan');
+  await expectNote(box, '- [ ] Plan');
 
-  await box.fill('');
+  await fillNote(box, '');
   await kb.type('gone');
   await kb.press('ControlOrMeta+a');
   await kb.press('ControlOrMeta+Shift+KeyX');
-  await expect(box).toHaveValue('~~gone~~');
+  await expectNote(box, '~~gone~~');
   await kb.press('ControlOrMeta+z');
-  await expect(box).toHaveValue('gone');
+  await expectNote(box, 'gone');
 });
 
 test('/date tomorrow, Esc closes the menu, ⌘Enter submits', async ({
@@ -108,7 +110,7 @@ test('/date tomorrow, Esc closes the menu, ⌘Enter submits', async ({
   await kb.type('/h');
   await kb.press('Escape');
   await expect(page.getByRole('listbox', { name: 'Commands' })).toBeHidden();
-  await box.fill('');
+  await fillNote(box, '');
   await kb.type('Due /date tomorrow');
   await kb.press('Enter');
   const tomorrow = await page.evaluate(() => {
@@ -116,12 +118,60 @@ test('/date tomorrow, Esc closes the menu, ⌘Enter submits', async ({
     d.setDate(d.getDate() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
-  await expect(box).toHaveValue(`Due ${tomorrow}`);
+  await expectNote(box, `Due ${tomorrow}`);
   await kb.press('ControlOrMeta+Enter');
   await expect(page.locator('output.toast')).toContainText(
     'Would add the note',
   );
-  await expect(box).toHaveValue('');
+  await expectNote(box, '');
+});
+
+test('shows a heading, a checklist and a mention formatted, never as Markdown (#376)', async ({
+  page,
+}) => {
+  const { box, preview } = await open(page);
+  const kb = page.keyboard;
+
+  // Markdown typed as you go turns into formatting.
+  await kb.type('# Supply run');
+  await kb.press('Enter');
+  await kb.type('- [ ] Thermal capes');
+  await kb.press('Enter');
+  await kb.type('Ask @lei');
+  await expect(
+    page.getByRole('listbox', { name: 'People' }).getByRole('option'),
+  ).toHaveText([/^Leia Organa/]);
+  await kb.press('Enter');
+  await kb.type('about **fuel**');
+
+  await expect(box.locator('h3')).toHaveText('Supply run');
+  await expect(box.locator('ul[data-type="taskList"] > li')).toHaveCount(2);
+  await expect(box.locator('.mention')).toHaveText('@Leia Organa');
+  await expect(box.locator('strong')).toHaveText('fuel');
+  // No Markdown on screen.
+  const shown = (await box.allInnerTexts()).join('\n');
+  for (const syntax of ['#', '- [', '[ ]', '**']) {
+    expect(shown).not.toContain(syntax);
+  }
+
+  // A checkbox ticks, and undo and redo take it back and forth.
+  const capes = box.getByRole('checkbox', { name: 'To do: Thermal capes' });
+  await capes.check();
+  await expect(
+    box.getByRole('checkbox', { name: 'Done: Thermal capes' }),
+  ).toBeChecked();
+  const stored =
+    '# Supply run\n- [x] Thermal capes\n- [ ] Ask @Leia Organa about **fuel**';
+  await expectNote(box, stored);
+  await kb.press('ControlOrMeta+z');
+  await expectNote(box, stored.replace('[x]', '[ ]'));
+  await kb.press('ControlOrMeta+Shift+z');
+  await expectNote(box, stored);
+
+  // Saved, it renders the same.
+  await expect(preview.locator('h3')).toHaveText('Supply run');
+  await expect(preview.locator('.mention')).toHaveText('@Leia Organa');
+  await expectAccessible(page);
 });
 
 test('the draft survives leaving and coming back', async ({ page }) => {
@@ -134,7 +184,8 @@ test('the draft survives leaving and coming back', async ({ page }) => {
     .click();
   await expect(page.locator('[data-day-line]')).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('combobox', { name: 'Composer' })).toHaveValue(
+  await expectNote(
+    page.getByRole('textbox', { name: 'Composer' }),
     'half a thought',
   );
   await expect(box).toBeVisible();
@@ -153,10 +204,10 @@ for (const theme of ['light', 'dark'] as const) {
         await page.keyboard.type('loud');
         await page.keyboard.press('ControlOrMeta+a');
         await bar.getByRole('button', { name: 'Bold' }).click();
-        await expect(box).toHaveValue('**loud**');
+        await expectNote(box, '**loud**');
         await bar.getByRole('button', { name: 'Checklist' }).click();
-        await expect(box).toHaveValue('- [ ] **loud**');
-        await box.fill('');
+        await expectNote(box, '- [ ] **loud**');
+        await fillNote(box, '');
       } else {
         await expect(bar).toBeHidden();
       }

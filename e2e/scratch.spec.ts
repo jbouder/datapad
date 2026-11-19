@@ -3,7 +3,9 @@ import {
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectNote,
   expectSaved,
+  fillNote,
   openLive,
   SEED,
   test,
@@ -36,17 +38,16 @@ const blocks = (page: Page) =>
 const block = (page: Page, text: string | RegExp) =>
   blocks(page).filter({ hasText: text });
 const toast = (page: Page) => page.getByRole('status').filter({ hasText: /./ });
-const writer = (page: Page) =>
-  page.getByRole('combobox', { name: 'New block' });
+const writer = (page: Page) => page.getByRole('textbox', { name: 'New block' });
 
 async function addBlock(
   page: Page,
   text: string,
   shown = text.split('\n')[0] ?? text,
 ) {
-  await writer(page).fill(text);
+  await fillNote(writer(page), text);
   await page.getByRole('button', { name: 'Add block' }).click();
-  await expect(writer(page)).toHaveValue('');
+  await expectNote(writer(page), '');
   await expect(block(page, shown)).toBeVisible();
 }
 
@@ -79,9 +80,9 @@ test('add a block, file it, and Undo moves it back', async ({
   await expectNoSidewaysScroll(page);
 
   // ⌘Enter (or Ctrl+Enter) adds a block, at the top.
-  await writer(page).fill('The hangar doors stick in the cold');
+  await fillNote(writer(page), 'The hangar doors stick in the cold');
   await writer(page).press('ControlOrMeta+Enter');
-  await expect(writer(page)).toHaveValue('');
+  await expectNote(writer(page), '');
   await expect(blocks(page)).toHaveCount(2);
   await expect(blocks(page).first()).toContainText(
     'The hangar doors stick in the cold',
@@ -168,8 +169,11 @@ test('tick a checklist, edit in place, delete and Undo', async ({
 
   // Edit in place.
   await item.getByRole('button', { name: 'Edit' }).click();
-  const editor = item.getByRole('combobox', { name: 'Edit note' });
-  await editor.fill('Packing list\n- [x] Snow goggles\n- [ ] Thermal cape');
+  const editor = item.getByRole('textbox', { name: 'Edit note' });
+  await fillNote(
+    editor,
+    'Packing list\n- [x] Snow goggles\n- [ ] Thermal cape',
+  );
   await item.getByRole('button', { name: 'Save note' }).click();
   await expect(block(page, 'Packing list')).toContainText('edited');
 

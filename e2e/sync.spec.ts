@@ -1,5 +1,12 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { addFromSearch, addTask, expect, test } from './fixtures';
+import {
+  addFromSearch,
+  addTask,
+  expect,
+  expectNote,
+  fillNote,
+  test,
+} from './fixtures';
 
 const status = (page: Page) => page.locator('[data-status]').first();
 
@@ -150,9 +157,9 @@ test('offline changes survive a reload and replay once, in order', async ({
   await expect(status(page)).toContainText('Offline, 2 changes waiting');
   await addFromSearch(page, 'New note');
   const write = page.getByRole('dialog', { name: 'New note' });
-  const box = write.getByRole('combobox', { name: 'Note' });
-  await box.fill('Shield numbers look low');
-  await expect(box).toHaveValue('Shield numbers look low');
+  const box = write.getByRole('textbox', { name: 'Note' });
+  await fillNote(box, 'Shield numbers look low');
+  await expectNote(box, 'Shield numbers look low');
   await box.press('ControlOrMeta+Enter');
   await expect(write).toBeHidden();
   await expect(

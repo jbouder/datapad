@@ -121,7 +121,7 @@ test('the keyboard opens a row and its menu', async ({ page, request }) => {
 
   // Edit opens the composer in place; Esc drops it.
   await noteAction(prep, 'Edit');
-  const editor = prep.getByRole('combobox', { name: 'Edit note' });
+  const editor = prep.getByRole('textbox', { name: 'Edit note' });
   await expect(editor).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(editor).toBeHidden();

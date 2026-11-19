@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { insertTemplate } from '#shared/composer';
+import { templateBody } from '#shared/composer';
 import { namesToTokens } from '#shared/mentions';
 import { Field } from '@/components/Field';
 import { SelectField } from '@/components/inputs/SelectField';
@@ -51,9 +51,7 @@ export function NewNotePanel({
   const applyTemplate = (id: string) => {
     setTemplateId(id);
     const chosen = commands.templates.find((t) => t.id === id);
-    const body = chosen
-      ? insertTemplate('', { start: 0, end: 0 }, chosen.body).text
-      : '';
+    const body = chosen ? templateBody(chosen.body) : '';
     const untouched = text.trim() === '' || text === fromTemplate.current;
     const next = untouched
       ? body

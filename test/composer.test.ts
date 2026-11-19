@@ -1,178 +1,108 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyCommand,
   COMMANDS,
   type CommandId,
+  type CommandPlan,
   type Context,
   CREATE_COMMANDS,
   captureKindOf,
-  continueList,
+  dateFor,
   describeFormatKeys,
-  type Edit,
   FORMAT_SHORTCUTS,
-  inList,
-  insertTemplate,
   isCreateCommand,
+  linkHref,
+  markOf,
   matchCommands,
   matchFormatShortcut,
   matchTemplates,
+  personLine,
+  planCommand,
   slashQuery,
-  toggleLink,
-  toggleWrap,
+  templateBody,
 } from '#shared/composer';
 import { parseMarkdown } from '#shared/markdown';
-
-/**
- * Text with the selection marked: `|` is a caret, `«`…`»` a selection.
- */
-function at(source: string): [string, Edit['sel']] {
-  const { text, sel } = mark(source);
-  return [text, sel];
-}
-
-function mark(source: string): Edit {
-  const caret = source.indexOf('|');
-  if (caret !== -1) {
-    return {
-      text: source.replace('|', ''),
-      sel: { start: caret, end: caret },
-    };
-  }
-  const start = source.indexOf('«');
-  const end = source.indexOf('»') - 1;
-  return {
-    text: source.replace('«', '').replace('»', ''),
-    sel: { start, end },
-  };
-}
-
-function show({ text, sel }: Edit): string {
-  if (sel.start === sel.end) {
-    return `${text.slice(0, sel.start)}|${text.slice(sel.start)}`;
-  }
-  return `${text.slice(0, sel.start)}«${text.slice(sel.start, sel.end)}»${text.slice(sel.end)}`;
-}
+import { docToMarkdown, markdownToDoc } from '#shared/note-doc';
 
 const ctx: Context = { today: '2026-10-24', time: '09:30' };
 
-describe('applyCommand', () => {
-  const cases: [CommandId, string, string, string?][] = [
-    ['h1', 'Plan|', '# Plan|'],
-    ['h2', 'Pl|an', '## Pl|an'],
-    ['h3', '# Plan|', '### Plan|'],
-    ['h2', '## Plan|', 'Plan|'], // toggles off
-    ['text', '### Plan|', 'Plan|'],
-    ['text', '- [x] Plan|', 'Plan|'],
-    ['bullet', 'one|', '- one|'],
-    ['bullet', '- one|', 'one|'],
-    ['bullet', '1. one|', '- one|'],
-    ['numbered', '«a\nb\nc»', '«1. a\n2. b\n3. c»'],
-    ['numbered', '«1. a\n2. b»', '«a\nb»'],
-    ['checklist', 'buy milk|', '- [ ] buy milk|'],
-    ['checklist', '«- a\nb»', '«- [ ] a\n- [ ] b»'],
-    ['quote', 'said|', '> said|'],
-    ['code', '|', '```\n|\n```'],
-    ['code', 'above|', 'above\n```\n|\n```'],
-    ['code', '«x = 1»', '```\n«x = 1»\n```'],
-    ['divider', '|', '---\n|'],
-    ['divider', 'end|', 'end\n---\n|'],
-    ['date', 'on |', 'on 2026-10-24|'],
-    ['date', 'on |', 'on 2026-10-25|', 'tomorrow'],
-    ['time', 'at |', 'at 09:30|'],
-    ['mention', 'cc |', 'cc @|'],
+describe('planCommand', () => {
+  const cases: [CommandId, CommandPlan, string?][] = [
+    ['h1', { block: 'h1' }],
+    ['h2', { block: 'h2' }],
+    ['h3', { block: 'h3' }],
+    ['text', { block: 'text' }],
+    ['bullet', { block: 'bullet' }],
+    ['numbered', { block: 'numbered' }],
+    ['checklist', { block: 'checklist' }],
+    ['quote', { block: 'quote' }],
+    ['code', { block: 'code' }],
+    ['divider', { divider: true }],
+    ['date', { insert: '2026-10-24' }],
+    ['date', { insert: '2026-10-25' }, 'tomorrow'],
+    ['date', { insert: '2026-10-23' }, 'yes'],
+    ['time', { insert: '09:30' }],
+    ['mention', { insert: '@' }],
+    ['task', { create: 'task', line: 'checklist' }],
+    ['decide', { create: 'decide', line: 'checklist' }],
+    ['waiting', { create: 'waiting', line: 'checklist' }],
+    ['person', { create: 'person', line: 'mention' }],
+    ['note', { create: 'note', line: 'remove' }],
+    ['meeting', { create: 'meeting', line: 'keep' }],
+    ['milestone', { create: 'milestone', line: 'keep' }],
+    ['project', { create: 'project', line: 'keep' }],
   ];
-
-  it.each(cases)('%s: %j → %j', (id, before, after, arg) => {
-    const { text, sel } = mark(before);
-    expect(show(applyCommand(text, sel, id, ctx, arg))).toBe(after);
+  it.each(cases)('%s → %j', (id, plan, arg) => {
+    expect(planCommand(id, ctx, arg)).toEqual(plan);
   });
 
-  it('/task turns the line into a checklist item and names the task', () => {
-    const { text, sel } = mark('notes\n- call the vet|\nmore');
-    const result = applyCommand(text, sel, 'task', ctx);
-    expect(show(result)).toBe('notes\n- [ ] call the vet|\nmore');
-    expect(result.create).toEqual({ id: 'task', line: 'call the vet' });
-    expect(
-      applyCommand('', { start: 0, end: 0 }, 'task', ctx).create,
-    ).toBeUndefined();
+  it('plans every command in the menu', () => {
+    for (const c of COMMANDS) expect(planCommand(c.id, ctx)).toBeTruthy();
   });
 
-  it('/decide and /waiting make the line a checklist item too', () => {
-    for (const id of ['decide', 'waiting'] as const) {
-      const { text, sel } = mark('- parts from @Han|');
-      const result = applyCommand(text, sel, id, ctx);
-      expect(show(result)).toBe('- [ ] parts from @Han|');
-      expect(result.create).toEqual({ id, line: 'parts from @Han' });
+  it('reads /date words, today otherwise', () => {
+    expect(dateFor(' Tom', '2026-12-31')).toBe('2027-01-01');
+    expect(dateFor('nonsense', '2026-12-31')).toBe('2026-12-31');
+  });
+
+  it('/person mentions the line once', () => {
+    expect(personLine(' Lando Calrissian ')).toBe('@Lando Calrissian');
+    expect(personLine('@Lando')).toBe('@Lando');
+  });
+
+  it('the Markdown each command types is what the editor stores', () => {
+    for (const c of COMMANDS) {
+      const plan = planCommand(c.id, ctx);
+      if (
+        !('block' in plan) ||
+        plan.block === 'text' ||
+        plan.block === 'code'
+      ) {
+        continue;
+      }
+      const text = `${c.markdown}words`;
+      expect(docToMarkdown(markdownToDoc(text))).toBe(text);
     }
-  });
-
-  it('/meeting, /milestone and /project leave the line as it is', () => {
-    for (const id of ['meeting', 'milestone', 'project'] as const) {
-      const { text, sel } = mark('a\n## Sync| fri 10am\nb');
-      const result = applyCommand(text, sel, id, ctx);
-      expect(show(result)).toBe('a\n## Sync fri 10am|\nb');
-      expect(result.create).toEqual({ id, line: 'Sync fri 10am' });
-    }
-  });
-
-  it('/person makes the line a mention, keeping its marker', () => {
-    const { text, sel } = mark('- Lando| Calrissian');
-    const result = applyCommand(text, sel, 'person', ctx);
-    expect(show(result)).toBe('- @Lando Calrissian|');
-    expect(result.create).toEqual({ id: 'person', line: 'Lando Calrissian' });
-  });
-
-  it('/note moves the line out of the note', () => {
-    const middle = applyCommand(...at('a\nsplit| me\nb'), 'note', ctx);
-    expect(show(middle)).toBe('a\n|b');
-    expect(middle.create).toEqual({ id: 'note', line: 'split me' });
-    expect(show(applyCommand(...at('a\nlast|'), 'note', ctx))).toBe('a|');
-    expect(show(applyCommand(...at('only|'), 'note', ctx))).toBe('|');
-    const empty = applyCommand(...at('a\n|\nb'), 'note', ctx);
-    expect(show(empty)).toBe('a\n|\nb');
-    expect(empty.create).toBeUndefined();
-  });
-
-  it('every command produces what the renderer reads', () => {
-    const h = applyCommand('Title', { start: 5, end: 5 }, 'h2', ctx);
-    expect(parseMarkdown(h.text)[0]).toMatchObject({ t: 'h', level: 2 });
-    const c = applyCommand('a', { start: 1, end: 1 }, 'checklist', ctx);
-    expect(parseMarkdown(c.text)[0]).toMatchObject({ t: 'check' });
-    const code = applyCommand('', { start: 0, end: 0 }, 'code', ctx);
-    expect(parseMarkdown(code.text)[0]).toMatchObject({ t: 'code' });
-    const q = applyCommand('a', { start: 1, end: 1 }, 'quote', ctx);
-    expect(parseMarkdown(q.text)[0]).toMatchObject({ t: 'quote' });
-    const hr = applyCommand('', { start: 0, end: 0 }, 'divider', ctx);
-    expect(parseMarkdown(hr.text)[0]).toMatchObject({ t: 'hr' });
+    expect(parseMarkdown('---')[0]).toMatchObject({ t: 'hr' });
   });
 });
 
-describe('inline shortcuts', () => {
-  const cases: [string, string, string][] = [
-    ['**', 'make «bold» now', 'make **«bold»** now'],
-    ['**', 'make **«bold»** now', 'make «bold» now'],
-    ['**', 'make «**bold**» now', 'make «bold» now'],
-    ['_', 'an «aside»', 'an _«aside»_'],
-    ['`', 'run «ls»', 'run `«ls»`'],
-    ['~~', '«old»', '~~«old»~~'],
-    ['**', 'x |', 'x **|**'],
-  ];
-  it.each(cases)('%s on %j', (m, before, after) => {
-    const { text, sel } = mark(before);
-    expect(show(toggleWrap(text, sel, m))).toBe(after);
-  });
-
-  it('links wrap the selection and select the URL to type over', () => {
-    const { text, sel } = mark('see «the doc»');
-    expect(show(toggleLink(text, sel))).toBe('see [the doc](«https://»)');
-  });
-
-  it('a selected link goes back to its label; nothing selected gets a placeholder', () => {
-    const linked = mark('«[x](https://a.b)»');
-    expect(show(toggleLink(linked.text, linked.sel))).toBe('«x»');
-    expect(show(toggleLink('', { start: 0, end: 0 }))).toBe(
-      '[«text»](https://)',
+describe('formatting marks and links', () => {
+  it('maps each wrap to its mark', () => {
+    const wraps = FORMAT_SHORTCUTS.flatMap((s) =>
+      'wrap' in s.does ? [s.does.wrap] : [],
     );
+    expect(wraps.map(markOf)).toEqual(['bold', 'italic', 'code', 'strike']);
+  });
+
+  it('keeps only safe link addresses, https for a bare host', () => {
+    expect(linkHref('example.com/a')).toBe('https://example.com/a');
+    expect(linkHref(' https://a.b ')).toBe('https://a.b');
+    expect(linkHref('http://a.b')).toBe('http://a.b');
+    expect(linkHref('mailto:a@b.c')).toBe('mailto:a@b.c');
+    expect(linkHref('javascript:alert(1)')).toBeNull();
+    expect(linkHref('https://')).toBeNull();
+    expect(linkHref('two words')).toBeNull();
+    expect(linkHref('')).toBeNull();
   });
 });
 
@@ -255,44 +185,11 @@ describe('note templates in the / menu', () => {
     });
   });
 
-  it('inserts on an empty line, or from the next one, caret after', () => {
-    expect(insertTemplate('', { start: 0, end: 0 }, '## Wins\n- \n')).toEqual({
-      text: '## Wins\n- ',
-      sel: { start: 10, end: 10 },
-    });
-    expect(insertTemplate('Notes', { start: 5, end: 5 }, '# Q3')).toEqual({
-      text: 'Notes\n# Q3',
-      sel: { start: 10, end: 10 },
-    });
-    expect(insertTemplate('', { start: 0, end: 0 }, 'Todo\n- [ ]').text).toBe(
-      'Todo\n- [ ] ',
-    );
-  });
-});
-
-describe('list continuation', () => {
-  const cases: [string, string | null][] = [
-    ['- one|', '- one\n- |'],
-    ['* one|', '* one\n* |'],
-    ['• one|', '• one\n• |'],
-    ['3. three|', '3. three\n4. |'],
-    ['1) one|', '1) one\n2) |'],
-    ['- [x] done|', '- [x] done\n- [ ] |'],
-    ['- [ ] to|do', '- [ ] to\n- [ ] |do'],
-    ['a\n- |', 'a\n|'],
-    ['- [ ] |', '|'],
-    ['plain|', null],
-    ['```\n- in code|', null],
-  ];
-  it.each(cases)('%j', (before, after) => {
-    const { text, sel } = mark(before);
-    const result = continueList(text, sel);
-    expect(result ? show(result) : null).toBe(after);
-  });
-
-  it('knows a list line, for Tab', () => {
-    expect(inList('- a', { start: 1, end: 1 })).toBe(true);
-    expect(inList('a', { start: 1, end: 1 })).toBe(false);
+  it('gives a bare last marker its space back', () => {
+    expect(templateBody('## Wins\n- \n')).toBe('## Wins\n- ');
+    expect(templateBody('# Q3')).toBe('# Q3');
+    expect(templateBody('Todo\n- [ ]')).toBe('Todo\n- [ ] ');
+    expect(templateBody('1.')).toBe('1. ');
   });
 });
 

@@ -7,6 +7,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
+import { type DocNode, docToMarkdown } from '../shared/note-doc';
 import type { ThemeId } from '../src/lib/themes';
 import {
   briefingSeed,
@@ -307,4 +308,65 @@ export async function openLive(page: Page, path = '/') {
 export async function expectSaved(page: Page) {
   await expect(syncStatus(page)).toHaveAttribute('data-status', 'live');
   await expect(syncStatus(page)).toContainText('Saved');
+}
+
+/**
+ * The Markdown a note editor holds (#376), mentions as `@Name`: what it
+ * would save. The editor shows it formatted, so this reads its document
+ * (Tiptap keeps the editor on its element) and writes it out the way the
+ * app does.
+ */
+export async function noteText(box: Locator): Promise<string> {
+  const doc = await box.evaluate(
+    (el) =>
+      (
+        el as HTMLElement & { editor?: { getJSON: () => unknown } }
+      ).editor?.getJSON() ?? null,
+  );
+  return doc ? docToMarkdown(doc as DocNode) : '';
+}
+
+/** A note editor holds exactly `markdown`, retried until it does. */
+export async function expectNote(box: Locator, markdown: string) {
+  await expect.poll(() => noteText(box)).toBe(markdown);
+}
+
+/**
+ * Replace what a note editor holds with `markdown`, pasted as plain
+ * text, which the editor reads as Markdown. For setting up text; type
+ * with the keyboard to test typing.
+ */
+export async function fillNote(box: Locator, markdown: string) {
+  await box.evaluate((el, text) => {
+    const editor = (
+      el as HTMLElement & {
+        editor?: { commands: { clearContent: (emit: boolean) => void } };
+      }
+    ).editor;
+    editor?.commands.clearContent(true);
+    el.focus();
+    if (!text) return;
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(
+      new ClipboardEvent('paste', {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, markdown);
+}
+
+/** The caret to the end of a note editor, the editor focused. */
+export async function caretToEnd(box: Locator) {
+  await box.evaluate((el) =>
+    (
+      el as HTMLElement & {
+        editor?: { commands: { focus: (at: 'end') => void } };
+      }
+    ).editor?.commands.focus('end'),
+  );
+  // The editor takes focus a frame later.
+  await expect(box).toBeFocused();
 }

@@ -4,6 +4,7 @@ import {
   expectAccessible,
   expectNoSidewaysScroll,
   expectSaved,
+  fillNote,
   noteAction,
   openLive,
   openNoteRow,
@@ -61,7 +62,7 @@ test('running notes on a task: add, edit and delete from its panel', async ({
 
   // Esc closes the composer, not the panel.
   await notes.getByRole('button', { name: 'Add note' }).click();
-  const box = panel.getByRole('combobox', { name: `New note on “${TITLE}”` });
+  const box = panel.getByRole('textbox', { name: `New note on “${TITLE}”` });
   await expect(box).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(box).toBeHidden();
@@ -97,9 +98,9 @@ test('running notes on a task: add, edit and delete from its panel', async ({
 
   // Edit in place, from the row's menu.
   await noteAction(items.nth(1), 'Edit');
-  const edit = panel.getByRole('combobox', { name: 'Edit note' });
+  const edit = panel.getByRole('textbox', { name: 'Edit note' });
   await expect(edit).toBeFocused();
-  await edit.fill('Pinged legal again');
+  await fillNote(edit, 'Pinged legal again');
   await panel.getByRole('button', { name: 'Save note' }).click();
   await expect(items.nth(1)).toContainText('Pinged legal again');
   await expect(items.nth(1)).toContainText('edited');
@@ -146,7 +147,7 @@ test('a task’s note shows on Notes with a link to its task', async ({
   const panel = await openPanel(page);
   await panel.getByRole('button', { name: 'Add note' }).click();
   await expect(
-    panel.getByRole('combobox', { name: `New note on “${TITLE}”` }),
+    panel.getByRole('textbox', { name: `New note on “${TITLE}”` }),
   ).toBeFocused();
   await page.keyboard.type('Seals ordered from Bespin');
   await panel.getByRole('button', { name: 'Save note' }).click();

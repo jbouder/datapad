@@ -3,6 +3,7 @@ import {
   expect,
   expectAccessible,
   expectNoSidewaysScroll,
+  expectNote,
   expectSaved,
   openLive,
   SEED,
@@ -71,7 +72,7 @@ test('/person in a note adds them to People and mentions them', async ({
   request,
 }) => {
   await openLive(page, '/scratch');
-  const box = page.getByRole('combobox', { name: 'New block' });
+  const box = page.getByRole('textbox', { name: 'New block' });
   await box.click();
   await page.keyboard.type('Lando Calrissian /pers');
   const menu = page.getByRole('listbox', { name: 'Commands' });
@@ -79,7 +80,7 @@ test('/person in a note adds them to People and mentions them', async ({
     'Person',
   );
   await page.keyboard.press('Enter');
-  await expect(box).toHaveValue('@Lando Calrissian');
+  await expectNote(box, '@Lando Calrissian');
   await expect(toast(page)).toContainText('Added Lando Calrissian to People');
   await expectSaved(page);
   const data = await stored(request);

@@ -3,8 +3,10 @@ import {
   addFromSearch,
   expect,
   expectSaved,
+  fillNote,
   noteAction,
   noteRow,
+  noteText,
   openLive,
   openNoteRow,
   openNotes,
@@ -53,11 +55,12 @@ test('pins, edits in place and toggles a checkbox without logging', async ({
   // Edit: mentions come back as names, and are tokens again on save.
   const standup = noteRow(page, 'Standup');
   await noteAction(standup, 'Edit');
-  const editor = standup.getByRole('combobox', { name: 'Edit note' });
-  await expect(editor).toHaveValue(/@Chewbacca has the hangar keys/);
-  await editor.evaluate((el: HTMLTextAreaElement) =>
-    el.setSelectionRange(el.value.length, el.value.length),
-  );
+  const editor = standup.getByRole('textbox', { name: 'Edit note' });
+  await expect
+    .poll(() => noteText(editor))
+    .toMatch(/@Chewbacca has the hangar keys/);
+  // The editor opens with the caret at the end.
+  await expect(editor).toBeFocused();
   await page.keyboard.type(' Ask @Han');
   await page.keyboard.press('Enter');
   await standup.getByRole('button', { name: 'Save note' }).click();
@@ -133,7 +136,7 @@ test('writes a note from anywhere, into the project you are on', async ({
   await openLive(page, '/projects/p-falcon');
   await addFromSearch(page, 'New note');
   const panel = page.getByRole('dialog', { name: 'New note' });
-  const body = panel.getByRole('combobox', { name: 'Note' });
+  const body = panel.getByRole('textbox', { name: 'Note' });
   await expect(body).toBeFocused();
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
@@ -143,7 +146,7 @@ test('writes a note from anywhere, into the project you are on', async ({
   await panel.getByRole('button', { name: 'Add note' }).click();
   await expect(panel.getByText('Write something first')).toBeVisible();
 
-  await body.fill('Check the coolant lines');
+  await fillNote(body, 'Check the coolant lines');
   await page.keyboard.press('ControlOrMeta+Enter');
   await expect(panel).toBeHidden();
   await expect(
@@ -165,7 +168,7 @@ test('Write a note writes a General note from a page with no project', async ({
   await openLive(page, '/tasks');
   await addFromSearch(page, 'New note');
   const panel = page.getByRole('dialog', { name: 'New note' });
-  await expect(panel.getByRole('combobox', { name: 'Note' })).toBeFocused();
+  await expect(panel.getByRole('textbox', { name: 'Note' })).toBeFocused();
   await expect(
     panel.getByRole('combobox', { name: 'Project', exact: true }),
   ).toHaveValue('General');

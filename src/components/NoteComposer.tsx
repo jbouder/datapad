@@ -6,38 +6,49 @@ import {
   TextHIcon,
   TextItalicIcon,
 } from '@phosphor-icons/react';
+import { Editor } from '@tiptap/core';
+import type { Slice } from '@tiptap/pm/model';
+import { Selection } from '@tiptap/pm/state';
 import {
+  type CSSProperties,
+  type Ref,
   useEffect,
   useId,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import {
-  applyCommand,
   type Command,
   type CommandId,
   type CreateCommandId,
-  continueList,
-  type Edit,
-  inList,
-  insertTemplate,
   isCreateCommand,
+  linkHref,
   matchCommands,
   matchFormatShortcut,
   matchTemplates,
   slashQuery,
   type TemplateChoice,
-  toggleLink,
-  toggleWrap,
+  templateBody,
 } from '#shared/composer';
 import { localDate } from '#shared/dates';
 import { LIMITS } from '#shared/limits';
 import { mentionMatches, mentionQuery } from '#shared/mentions';
+import { type DocNode, docToMarkdown, markdownToDoc } from '#shared/note-doc';
 import type { Person } from '#shared/types';
-import { Textarea } from '@/components/ui/textarea';
-import { caretPosition } from '@/lib/caret';
+import {
+  applyFormat,
+  type CaretLine,
+  caretLine,
+  inList,
+  insertDoc,
+  runCommand,
+  setLink,
+  toggleLinkAt,
+} from '@/components/note-editor/commands';
+import { noteExtensions } from '@/components/note-editor/extensions';
 import { htmlToMarkdown, looksLikeMarkdown } from '@/lib/paste';
 import { cn } from '@/lib/utils';
 
@@ -79,42 +90,32 @@ function firstLine(body: string): string {
 type Popup =
   | {
       kind: 'slash';
-      start: number;
+      /** Where the typed `/query` starts in the document. */
+      from: number;
       arg: string;
       items: (Command | TemplateChoice)[];
     }
-  | { kind: 'mention'; start: number; items: Person[] };
+  | { kind: 'mention'; from: number; items: Person[] };
+
+export interface NoteComposerHandle {
+  /** The caret to the end of the text, the composer in view. */
+  focus: () => void;
+}
 
 /**
- * The editor for notes, task details and project descriptions: a textarea
- * (plain Markdown, in the body font) with a `/` command menu, `@`
- * mentions, formatting shortcuts, list continuation, rich-text paste and,
- * with `draftKey`, a draft kept in sessionStorage. Text is edited with
- * names; the caller turns them into `@{id}` tokens on save.
+ * The editor for notes, task details and project descriptions (#376): the
+ * text shows formatted as you write it, headings, lists, checklists, bold
+ * and the rest, with no Markdown to see, and is stored as the same
+ * Markdown the textarea wrote (`shared/note-doc.ts`). It keeps the `/`
+ * command menu, `@` mentions, the formatting keys, Markdown typed as you
+ * go (`# `, `- `, `**bold**`), rich-text paste and, with `draftKey`, a
+ * draft kept in sessionStorage.
  *
- * Edits go through `insertText`, so the browser's own undo keeps working.
+ * `value` and `onChange` are Markdown with mentions as `@Name`; the caller
+ * turns them into `@{id}` tokens on save. Nothing is handed back until
+ * the text changes, so opening a note never rewrites it.
  */
-export function NoteComposer({
-  value,
-  onChange,
-  people,
-  onSubmit,
-  onCreate,
-  creates,
-  templates,
-  draftKey,
-  id,
-  label,
-  placeholder,
-  rows = 3,
-  maxLength = LIMITS.bodyMax,
-  autoFocus,
-  toolbar = true,
-  className,
-  'aria-describedby': describedBy,
-  'aria-invalid': invalid,
-  data,
-}: {
+export function NoteComposer(props: {
   value: string;
   onChange: (value: string) => void;
   people: Record<string, Person>;
@@ -135,7 +136,9 @@ export function NoteComposer({
   /** An accessible name, when no `<label>` points at `id`. */
   label?: string;
   placeholder?: string;
+  /** The height it starts at, in lines. */
   rows?: number;
+  /** The most Markdown it holds, in characters. */
   maxLength?: number;
   autoFocus?: boolean;
   /** The formatting buttons (touch and narrow screens only). */
@@ -143,16 +146,46 @@ export function NoteComposer({
   className?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
-  /** `data-*` attributes for the textarea (e.g. its linked meeting). */
+  'aria-required'?: boolean;
+  /** `data-*` attributes for the editor (e.g. its linked meeting). */
   data?: Record<`data-${string}`, string | undefined>;
+  ref?: Ref<NoteComposerHandle>;
 }) {
+  const {
+    value,
+    onChange,
+    people,
+    onCreate,
+    creates,
+    templates,
+    draftKey,
+    id,
+    label,
+    rows = 3,
+    toolbar = true,
+    className,
+    data,
+    ref,
+  } = props;
   const listId = useId();
-  const area = useRef<HTMLTextAreaElement>(null);
-  const [caret, setCaret] = useState<number | null>(null);
+  const linkId = useId();
+  const latest = useRef(props);
+  latest.current = props;
+  const box = useRef<HTMLDivElement>(null);
+  const mount = useRef<HTMLDivElement>(null);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  /** The Markdown the editor holds, as last handed out or taken in. */
+  const held = useRef(value);
+  const [line, setLine] = useState<CaretLine | null>(null);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<number | null>(null);
-  const pendingSel = useRef<Edit['sel'] | null>(null);
   const [anchor, setAnchor] = useState({ top: 0, left: 0 });
+  const [labelledBy, setLabelledBy] = useState<string | undefined>();
+  /** The link field (⌘K), open over this range. */
+  const [linking, setLinking] = useState<{ from: number; to: number } | null>(
+    null,
+  );
+  const [href, setHref] = useState('');
 
   // A draft from earlier in this tab comes back once.
   const restored = useRef(false);
@@ -167,21 +200,11 @@ export function NoteComposer({
     if (restored.current) writeDraft(draftKey, value);
   }, [draftKey, value]);
 
-  // A fallback edit (no insertText) puts the selection back once the
-  // new text is on screen.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the text it waits for arrives
-  useLayoutEffect(() => {
-    const sel = pendingSel.current;
-    if (!sel || !area.current) return;
-    pendingSel.current = null;
-    area.current.setSelectionRange(sel.start, sel.end);
-    setCaret(sel.start === sel.end ? sel.start : null);
-  }, [value]);
-
   const popup = useMemo<Popup | null>(() => {
-    if (caret === null) return null;
-    const slash = slashQuery(value, caret);
-    if (slash && dismissed !== slash.start) {
+    if (!line) return null;
+    const slash = slashQuery(line.text, line.text.length);
+    const slashFrom = slash ? line.start + slash.start : -1;
+    if (slash && dismissed !== slashFrom) {
       const items = [
         ...matchCommands(slash.query).filter(
           (c) =>
@@ -192,199 +215,320 @@ export function NoteComposer({
       ];
       if (items.length > 0) {
         const arg = slash.query.split(' ').slice(1).join(' ');
-        return { kind: 'slash', start: slash.start, arg, items };
+        return { kind: 'slash', from: slashFrom, arg, items };
       }
     }
-    const mention = mentionQuery(value, caret);
-    if (mention && dismissed !== mention.start) {
+    const mention = mentionQuery(line.text, line.text.length);
+    const mentionFrom = mention ? line.start + mention.start : -1;
+    if (mention && dismissed !== mentionFrom) {
       const items = mentionMatches(people, mention.query);
       if (items.length > 0) {
-        return { kind: 'mention', start: mention.start, items };
+        return { kind: 'mention', from: mentionFrom, items };
       }
     }
     return null;
-  }, [caret, value, dismissed, people, onCreate, creates, templates]);
+  }, [line, dismissed, people, onCreate, creates, templates]);
   const open = popup !== null;
   const count = popup?.items.length ?? 0;
   const highlighted = Math.min(active, Math.max(count - 1, 0));
 
+  /** What the editor's own handlers read: always this render's. */
+  const live = useRef({ popup, highlighted, count });
+  live.current = { popup, highlighted, count };
+
+  // The editor element's attributes, read whenever the view updates.
+  const attrs = useRef<Record<string, string>>({});
+  attrs.current = Object.fromEntries(
+    Object.entries({
+      ...data,
+      id,
+      // A text editor to a screen reader; its menus are announced through
+      // the option the arrow keys are on.
+      role: 'textbox',
+      'aria-multiline': 'true',
+      'aria-label': label,
+      'aria-labelledby': label ? undefined : labelledBy,
+      'aria-autocomplete': 'list',
+      'aria-controls': listId,
+      'aria-activedescendant': open ? `${listId}-${highlighted}` : undefined,
+      'aria-describedby': props['aria-describedby'],
+      'aria-invalid': props['aria-invalid'] ? 'true' : undefined,
+      'aria-required': props['aria-required'] ? 'true' : undefined,
+      autocapitalize: 'sentences',
+      'data-slot': 'textarea',
+      class: cn(
+        'note-editor prose-note max-h-[60vh] w-full overflow-y-auto border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors duration-(--duration-fast) ease-(--ease-standard) focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 desk:text-[15px] dark:bg-input/30',
+        className,
+      ),
+    }).filter((e): e is [string, string] => typeof e[1] === 'string'),
+  );
+
+  const blurTimer = useRef<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const el = mount.current;
+    if (!el) return;
+    /** The caret's line, for the menus; none while not typing. */
+    const track = (e: Editor) => {
+      setLine(e.isFocused ? caretLine(e.state) : null);
+    };
+    const ed = new Editor({
+      element: el,
+      extensions: noteExtensions({
+        placeholder: () => latest.current.placeholder ?? '',
+        maxLength: () => latest.current.maxLength ?? LIMITS.bodyMax,
+      }),
+      content: markdownToDoc(held.current, latest.current.people),
+      injectCSS: false,
+      enablePasteRules: false,
+      autofocus: latest.current.autoFocus ? 'end' : false,
+      editorProps: {
+        attributes: () => attrs.current,
+        handleDOMEvents: {
+          // Esc (with no menu open) and ⌘Enter outside code belong to
+          // what the editor sits in: closing a composer, submitting a
+          // panel. Left to the editor, it would mark them handled.
+          keydown: (view, event) => {
+            const mod = event.metaKey || event.ctrlKey;
+            if (event.key === 'Escape') return !live.current.popup;
+            return (
+              event.key === 'Enter' &&
+              mod &&
+              !view.state.selection.$from.parent.type.spec.code
+            );
+          },
+        },
+        handleKeyDown: (_view, event) => keyDown.current(event),
+        handlePaste: (_view, event) => paste.current(event),
+        clipboardTextSerializer: (slice: Slice) =>
+          docToMarkdown({
+            type: 'doc',
+            content: slice.content.toJSON() as DocNode[] | undefined,
+          }),
+      },
+      onUpdate: ({ editor: e }) => {
+        const md = docToMarkdown(e.getJSON() as DocNode);
+        if (md === held.current) return;
+        held.current = md;
+        setActive(0);
+        setDismissed(null);
+        latest.current.onChange(md);
+      },
+      onTransaction: ({ editor: e }) => track(e),
+      onFocus: ({ editor: e }) => {
+        window.clearTimeout(blurTimer.current);
+        track(e);
+      },
+      onBlur: () => {
+        // A blur closes the menu a moment later, so a click on an option
+        // still lands; back in the field before then, it stays.
+        window.clearTimeout(blurTimer.current);
+        blurTimer.current = window.setTimeout(() => {
+          if (!ed.isDestroyed && !ed.isFocused) setLine(null);
+        }, 120);
+      },
+    });
+    setEditor(ed);
+    return () => {
+      window.clearTimeout(blurTimer.current);
+      ed.destroy();
+      setEditor(null);
+    };
+  }, []);
+
+  // A new value from outside (a draft, a reset after saving) replaces the
+  // text, out of the undo history.
+  useLayoutEffect(() => {
+    if (!editor || value === held.current) return;
+    held.current = value;
+    const doc = editor.schema.nodeFromJSON(markdownToDoc(value, people));
+    const { tr } = editor.state;
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+      .setSelection(Selection.atEnd(tr.doc))
+      .setMeta('addToHistory', false)
+      .setMeta('preventUpdate', true);
+    editor.view.dispatch(tr);
+  }, [editor, value, people]);
+
+  // The view reads the attributes again when they change.
+  const attrKey = JSON.stringify(attrs.current);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attrKey is the change
+  useLayoutEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.view.dispatch(editor.state.tr.setMeta('attributes', true));
+    }
+  }, [editor, attrKey]);
+
+  // A `<label for>` names the editor and focuses it, as for a textarea.
+  useEffect(() => {
+    if (!id || label || !editor) return;
+    const el = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+    if (!(el instanceof HTMLLabelElement)) return;
+    if (!el.id) el.id = `${id}-label`;
+    setLabelledBy(el.id);
+    const click = () => editor.commands.focus('end');
+    el.addEventListener('click', click);
+    return () => el.removeEventListener('click', click);
+  }, [id, label, editor]);
+
+  const focusEnd = () => {
+    if (!editor) return;
+    editor.commands.focus('end', { scrollIntoView: false });
+    editor.view.dom.scrollIntoView({ block: 'nearest' });
+  };
+  useImperativeHandle(ref, () => ({ focus: focusEnd }));
+
   // The menu sits under the caret, inside the field's width.
   useLayoutEffect(() => {
-    const el = area.current;
-    if (!popup || !el) return;
-    const at = caretPosition(el, popup.start);
-    const width = Math.min(288, el.clientWidth);
+    const at = popup?.from ?? linking?.from;
+    if (at === undefined || !editor || !box.current) return;
+    const outer = box.current.getBoundingClientRect();
+    const coords = editor.view.coordsAtPos(
+      Math.min(at, editor.state.doc.content.size),
+    );
+    const width = Math.min(288, outer.width);
     setAnchor({
-      top: el.offsetTop + at.top + at.height + 4,
-      left: el.offsetLeft + Math.min(at.left, el.clientWidth - width),
+      top: coords.bottom - outer.top + 4,
+      left: Math.max(
+        0,
+        Math.min(coords.left - outer.left, outer.width - width),
+      ),
     });
-  }, [popup]);
+  }, [popup, linking, editor]);
 
   const list = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (open) list.current?.scrollIntoView({ block: 'nearest' });
   }, [open]);
 
-  /** Replace the text with `edit`, through the browser's undo stack. */
-  const apply = (edit: Edit) => {
-    const el = area.current;
-    if (!el) return;
-    const old = el.value;
-    const next = edit.text;
-    let a = 0;
-    while (a < old.length && a < next.length && old[a] === next[a]) a++;
-    let b = 0;
-    while (
-      b < old.length - a &&
-      b < next.length - a &&
-      old[old.length - 1 - b] === next[next.length - 1 - b]
-    ) {
-      b++;
-    }
-    el.focus();
-    el.setSelectionRange(a, old.length - b);
-    const inserted = next.slice(a, next.length - b);
-    let ok = true;
-    if (inserted) ok = document.execCommand('insertText', false, inserted);
-    else if (old.length - b > a) ok = document.execCommand('delete');
-    if (ok && el.value === next) {
-      el.setSelectionRange(edit.sel.start, edit.sel.end);
-      setCaret(edit.sel.start === edit.sel.end ? edit.sel.start : null);
-    } else {
-      pendingSel.current = edit.sel;
-      onChange(next);
-    }
+  const choose = (index: number) => {
+    const p = live.current.popup;
+    if (!p || !editor) return;
+    const to = editor.state.selection.from;
+    const range = { from: p.from, to };
     setActive(0);
     setDismissed(null);
-  };
-
-  const sel = () => ({
-    start: area.current?.selectionStart ?? 0,
-    end: area.current?.selectionEnd ?? 0,
-  });
-
-  /** Make what a create command names; false when nothing was made. */
-  const made = (result: { create?: { id: CreateCommandId; line: string } }) =>
-    !result.create ||
-    !onCreate ||
-    onCreate(result.create.id, result.create.line);
-
-  const command = (id: CommandId, arg = '') => {
-    const result = applyCommand(value, sel(), id, now(), arg);
-    if (!made(result)) return;
-    apply(result);
-  };
-
-  const choose = (index: number) => {
-    if (!popup || caret === null) return;
-    // The typed `/query` or `@query` goes, then the choice applies.
-    const text = value.slice(0, popup.start) + value.slice(caret);
-    const at = { start: popup.start, end: popup.start };
-    if (popup.kind === 'mention') {
-      const person = popup.items[index];
+    if (p.kind === 'mention') {
+      const person = p.items[index];
       if (!person) return;
-      const name = `@${person.name} `;
-      apply({
-        text: text.slice(0, at.start) + name + text.slice(at.start),
-        sel: { start: at.start + name.length, end: at.start + name.length },
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(range, [
+          {
+            type: 'mention',
+            attrs: { id: person.id, label: person.name },
+          },
+          { type: 'text', text: ' ' },
+        ])
+        .run();
+      return;
+    }
+    const item = p.items[index];
+    if (!item) return;
+    // The typed `/query` goes, then the choice applies.
+    editor.chain().focus().deleteRange(range).run();
+    if (isTemplate(item)) {
+      const body = templateBody(item.body);
+      insertDoc(editor, markdownToDoc(body, latest.current.people), {
+        template: true,
       });
       return;
     }
-    const cmd = popup.items[index];
-    if (!cmd) return;
-    if (isTemplate(cmd)) {
-      apply(insertTemplate(text, at, cmd.body));
-      return;
-    }
-    const result = applyCommand(text, at, cmd.id, now(), popup.arg);
-    if (!made(result)) {
-      apply({ text, sel: at });
-      return;
-    }
-    apply(result);
+    command(item.id, p.arg);
   };
 
-  /**
-   * A blur closes the menu a moment later (so a click on an option still
-   * lands). Back in the field before then, the close is dropped: typing
-   * right after Save note, which blurs the field, must not lose the menu.
-   */
-  const blurTimer = useRef<number | undefined>(undefined);
-  const track = (el: HTMLTextAreaElement) => {
-    window.clearTimeout(blurTimer.current);
-    setCaret(el.selectionStart === el.selectionEnd ? el.selectionStart : null);
+  const command = (cmd: CommandId, arg = '') => {
+    if (!editor) return;
+    runCommand(editor, cmd, now(), arg, (create, text) => {
+      const make = latest.current.onCreate;
+      return !make || make(create, text);
+    });
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const startLink = () => {
+    if (!editor) return;
+    if (toggleLinkAt(editor)) return;
+    const { from, to } = editor.state.selection;
+    const text = editor.state.doc.textBetween(from, to, ' ');
+    setHref(linkHref(text) ? text : '');
+    setLinking({ from, to });
+  };
+
+  const finishLink = (apply: boolean) => {
+    const range = linking;
+    setLinking(null);
+    if (!editor || !range) return;
+    const url = apply ? linkHref(href) : null;
+    if (url) setLink(editor, range, url);
+    else editor.chain().focus().setTextSelection(range).run();
+  };
+
+  const keyDown = useRef<(e: KeyboardEvent) => boolean>(() => false);
+  keyDown.current = (e) => {
+    if (!editor) return false;
+    const { popup: p, highlighted: h, count: n } = live.current;
     const mod = e.metaKey || e.ctrlKey;
-    if (open && !mod) {
+    if (p && !mod) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const step = e.key === 'ArrowDown' ? 1 : -1;
-        setActive((highlighted + step + count) % count);
-        return;
+        setActive((h + step + n) % n);
+        return true;
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        choose(highlighted);
-        return;
+        choose(h);
+        return true;
       }
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        setDismissed(popup?.start ?? null);
-        return;
+        setDismissed(p.from);
+        return true;
       }
-    }
-    if (mod && e.key === 'Enter') {
-      if (onSubmit) {
-        e.preventDefault();
-        onSubmit();
-      }
-      return;
     }
     if (mod) {
       const shortcut = matchFormatShortcut(e);
-      if (!shortcut) return;
+      if (!shortcut) return false;
       e.preventDefault();
       const { does } = shortcut;
       if ('wrap' in does) {
-        apply(toggleWrap(value, sel(), does.wrap));
+        applyFormat(editor, does.wrap);
       } else if ('link' in does) {
         // ⌘K here is a link, not the search palette.
         e.stopPropagation();
-        apply(toggleLink(value, sel()));
+        startLink();
       } else {
         command(does.command);
       }
-      return;
+      return true;
     }
-    if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
-      const edit = continueList(value, sel());
-      if (edit) {
-        e.preventDefault();
-        apply(edit);
-      }
-      return;
-    }
-    if (e.key === 'Tab' && inList(value, sel())) {
-      // Nested lists are not supported; Tab stays put instead of leaving.
+    if (e.key === 'Tab' && !e.shiftKey && inList(editor.state)) {
+      // Lists do not nest; Tab stays put instead of leaving.
       e.preventDefault();
+      return true;
     }
+    return false;
   };
 
-  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const html = e.clipboardData.getData('text/html');
-    const plain = e.clipboardData.getData('text/plain');
-    if (!html || looksLikeMarkdown(plain)) return;
-    const markdown = htmlToMarkdown(html);
-    if (!markdown || markdown === plain.trim()) return;
+  const paste = useRef<(e: ClipboardEvent) => boolean>(() => false);
+  paste.current = (e) => {
+    const data = e.clipboardData;
+    if (!editor || !data) return false;
+    // In a code block, text goes in as it is.
+    if (editor.state.selection.$from.parent.type.spec.code) return false;
+    const html = data.getData('text/html');
+    const plain = data.getData('text/plain');
+    let markdown = plain;
+    // Copied from a note: its plain text is already the Markdown.
+    if (html && !html.includes('data-pm-slice') && !looksLikeMarkdown(plain)) {
+      markdown = htmlToMarkdown(html) || plain;
+    }
+    if (!markdown) return false;
     e.preventDefault();
-    const { start, end } = sel();
-    apply({
-      text: value.slice(0, start) + markdown + value.slice(end),
-      sel: { start: start + markdown.length, end: start + markdown.length },
-    });
+    insertDoc(editor, markdownToDoc(markdown, latest.current.people));
+    return true;
   };
 
   const bar: {
@@ -395,17 +539,17 @@ export function NoteComposer({
     {
       label: 'Bold',
       icon: <TextBIcon />,
-      run: () => apply(toggleWrap(value, sel(), '**')),
+      run: () => editor && applyFormat(editor, '**'),
     },
     {
       label: 'Italic',
       icon: <TextItalicIcon />,
-      run: () => apply(toggleWrap(value, sel(), '_')),
+      run: () => editor && applyFormat(editor, '_'),
     },
     {
       label: 'Code',
       icon: <CodeIcon />,
-      run: () => apply(toggleWrap(value, sel(), '`')),
+      run: () => editor && applyFormat(editor, '`'),
     },
     {
       label: 'Bulleted list',
@@ -422,19 +566,43 @@ export function NoteComposer({
       label: 'Commands',
       icon: <span className="font-mono text-sm">/</span>,
       run: () => {
-        const { start, end } = sel();
-        const before = value.slice(0, start);
+        if (!editor) return;
+        const { $from } = editor.state.selection;
+        const before = $from.parent.textBetween(
+          0,
+          $from.parentOffset,
+          undefined,
+          '￼',
+        );
         const lead = before === '' || /\s$/.test(before) ? '/' : ' /';
-        apply({
-          text: before + lead + value.slice(end),
-          sel: { start: start + lead.length, end: start + lead.length },
-        });
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: 'text', text: lead })
+          .run();
       },
     },
   ];
 
   return (
-    <div className="relative flex flex-col gap-1">
+    <div
+      ref={box}
+      className="relative flex min-w-0 flex-col gap-1"
+      style={{ '--note-rows': rows } as CSSProperties}
+      onKeyDownCapture={(e) => {
+        // ⌘Enter submits. Caught on the way in, before the editor sees
+        // it: Chrome on Android hands Enter to the editor late, without
+        // its modifiers.
+        const submit = latest.current.onSubmit;
+        if (!submit || e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
+        if (!(e.target instanceof HTMLElement) || !e.target.isContentEditable) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        submit();
+      }}
+    >
       {toolbar && (
         <fieldset className="format-bar">
           <legend className="sr-only">Formatting</legend>
@@ -453,45 +621,40 @@ export function NoteComposer({
           ))}
         </fieldset>
       )}
-      <Textarea
-        {...data}
-        ref={area}
-        id={id}
-        value={value}
-        rows={rows}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        aria-label={label}
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-activedescendant={open ? `${listId}-${highlighted}` : undefined}
-        aria-describedby={describedBy}
-        aria-invalid={invalid}
-        autoCapitalize="sentences"
-        className={cn(
-          'max-h-[60vh] overflow-y-auto text-base desk:text-[15px] desk:leading-[1.45]',
-          className,
-        )}
-        onChange={(e) => {
-          onChange(e.target.value);
-          track(e.target);
-          setActive(0);
-          setDismissed(null);
-        }}
-        onSelect={(e) => track(e.currentTarget)}
-        onFocus={() => window.clearTimeout(blurTimer.current)}
-        onBlur={() => {
-          window.clearTimeout(blurTimer.current);
-          blurTimer.current = window.setTimeout(() => {
-            if (document.activeElement !== area.current) setCaret(null);
-          }, 120);
-        }}
-        onKeyDown={onKeyDown}
-        onPaste={onPaste}
-      />
+      <div ref={mount} className="note-editor-mount min-w-0" />
+      {linking && (
+        <fieldset
+          style={{ top: anchor.top, left: anchor.left }}
+          className="absolute z-50 m-0 flex w-72 max-w-full min-w-0 items-center gap-1 border bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          <legend className="sr-only">Link</legend>
+          <label htmlFor={linkId} className="sr-only">
+            Link address
+          </label>
+          <input
+            id={linkId}
+            // biome-ignore lint/a11y/noAutofocus: opened by ⌘K to type the address
+            autoFocus
+            value={href}
+            placeholder="https://"
+            inputMode="url"
+            onChange={(e) => setHref(e.target.value)}
+            onBlur={() => finishLink(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                finishLink(true);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                finishLink(false);
+              }
+            }}
+            aria-invalid={href !== '' && !linkHref(href) ? true : undefined}
+            className="h-11 min-w-0 flex-1 bg-transparent px-2 text-base outline-none desk:h-8 desk:text-sm"
+          />
+        </fieldset>
+      )}
       <div
         ref={list}
         id={listId}
