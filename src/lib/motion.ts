@@ -19,7 +19,8 @@ export type ViewTransitionType =
   | 'theme'
   | 'filter'
   | 'layout'
-  | 'space';
+  | 'space'
+  | 'rail';
 
 /**
  * Run a React state update inside a view transition, or just run it.

@@ -2,6 +2,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   MagnifyingGlassIcon,
+  SidebarSimpleIcon,
 } from '@phosphor-icons/react';
 import { useRef } from 'react';
 import { paletteHint } from '@/components/Palette';
@@ -9,14 +10,18 @@ import { PreferencesMenu } from '@/components/PreferencesMenu';
 import { SyncStatus } from '@/components/SyncStatus';
 import { Button } from '@/components/ui/button';
 import { useHeadingScrolledPast } from '@/hooks/useHeadingScrolledPast';
+import { RAIL_ID, useRailShown } from '@/hooks/useRail';
 import { linkProps, useHistoryNav } from '@/lib/router';
+import { cn } from '@/lib/utils';
 
 /**
+ * The sidebar button on desktop (shows or hides the rail, as ⌘\ does),
  * Back and Forward on desktop (through this tab's history, each disabled
  * with nowhere to go; phones have the system's own gestures), the current
  * title once the page's own h1 has scrolled away (with the brand on
- * phones, where there is no rail), then the sync status
- * (a colored dot, with its word on desktop), Search (with its shortcut on
+ * phones, where there is no rail), then the sync status (a colored
+ * dot, with its word on desktop, where it shows here only while the
+ * rail, which has it at its foot, is hidden), Search (with its shortcut on
  * desktop; ⌘K also adds a task, note, meeting or project) and the account
  * menu (Help is there). New things come from the capture line.
  */
@@ -25,17 +30,21 @@ export function TopBar({
   pageKey,
   email,
   onSearch,
+  onToggleRail,
 }: {
   title: string;
   /** Changes when the page does, so the h1 is found again. */
   pageKey: string;
   email: string | null;
   onSearch: () => void;
+  onToggleRail: () => void;
 }) {
   const hint = paletteHint();
   const bar = useRef<HTMLElement>(null);
   const showTitle = useHeadingScrolledPast(bar, pageKey);
   const steps = useHistoryNav();
+  const railShown = useRailShown();
+  const railLabel = railShown ? 'Hide sidebar' : 'Show sidebar';
   return (
     <header
       ref={bar}
@@ -49,7 +58,20 @@ export function TopBar({
           <DatapadMark className="size-6" />
           <span className="sr-only">Datapad, Today</span>
         </a>
-        <nav aria-label="History" className="-ml-1.5 hidden shrink-0 desk:flex">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="press -ml-1.5 hidden size-9 shrink-0 text-muted-foreground desk:inline-flex"
+          title={`${railLabel} (${hint.startsWith('⌘') ? '⌘\\' : 'Ctrl+\\'})`}
+          aria-controls={RAIL_ID}
+          aria-expanded={railShown}
+          aria-keyshortcuts="Meta+Backslash Control+Backslash"
+          onClick={onToggleRail}
+        >
+          <SidebarSimpleIcon weight={railShown ? 'fill' : 'bold'} />
+          <span className="sr-only">Sidebar</span>
+        </Button>
+        <nav aria-label="History" className="hidden shrink-0 desk:flex">
           <Button
             variant="ghost"
             size="icon"
@@ -86,7 +108,12 @@ export function TopBar({
         <div className="flex shrink-0 items-center gap-1">
           {/* A touch target's width, so the dot sits as far from Search as
               the icons do from each other. */}
-          <SyncStatus className="min-w-11 justify-center desk:hidden" />
+          <SyncStatus
+            className={cn(
+              'min-w-11 justify-center',
+              railShown && 'desk:hidden',
+            )}
+          />
           <Button
             variant="outline"
             className="press size-11 p-0 text-muted-foreground sm:size-9 desk:mr-1 desk:h-9 desk:w-auto desk:gap-2 desk:px-2.5"

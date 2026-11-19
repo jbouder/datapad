@@ -24,6 +24,9 @@ changes the format says so here under **Export format**.
 
 ### Added
 
+- Hide the sidebar on desktop with the sidebar button at the left of
+  the top bar, or `⌘\` (`Ctrl+\`). It stays hidden on this device until
+  you show it again.
 - Double-click a note's text to edit it, in a room, in meeting mode,
   in Scratch and in a pinned note.
 

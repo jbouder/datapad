@@ -44,6 +44,11 @@ export const SHORTCUTS: Shortcut[] = [
     scope: 'Anywhere',
   },
   {
+    keys: ['⌘\\', 'Ctrl+\\'],
+    action: 'Show or hide the sidebar (desktop)',
+    scope: 'Anywhere',
+  },
+  {
     keys: ['Esc'],
     action: 'Close the panel or menu; clear a selection',
     scope: 'Anywhere',

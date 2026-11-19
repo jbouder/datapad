@@ -2,6 +2,7 @@ import { RoomLists } from '@/components/RoomLists';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { SyncStatus } from '@/components/SyncStatus';
 import { usePlaces } from '@/hooks/usePlaces';
+import { RAIL_ID, useRailShown } from '@/hooks/useRail';
 import { useRooms } from '@/hooks/useRooms';
 import { placeOf } from '@/lib/nav';
 import { linkProps, type Route } from '@/lib/router';
@@ -22,17 +23,23 @@ const CURRENT =
  * them out); and the sync status at the foot. All opens on the kinds
  * Settings → All names.
  * The rooms come from `useRooms`, which the phone's Rooms page shares.
- * Hidden below 820px, where the tab bar takes over.
+ * Hidden below 820px, where the tab bar takes over, and on desktop
+ * while the top bar's sidebar button (or ⌘\) has hidden it.
  */
 export function Rail({ route }: { route: Route }) {
   const place = placeOf(route);
   const places = usePlaces();
   const rail = useRooms(route);
+  const shown = useRailShown();
 
   return (
     <aside
+      id={RAIL_ID}
       aria-label="Datapad"
-      className="vt-rail sticky top-0 hidden h-dvh w-(--rail-width) shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground desk:flex"
+      className={cn(
+        'vt-rail sticky top-0 hidden h-dvh w-(--rail-width) shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground',
+        shown && 'desk:flex',
+      )}
     >
       <SpaceSwitcher />
 

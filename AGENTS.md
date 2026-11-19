@@ -266,7 +266,7 @@ pinned with integrity hashes in `summary-pins.ts`)
   in script `DURATION.base`, `EASE.emphasized` from `@/lib/motion`).
   Animate `opacity`/`transform` only; position changes go through FLIP or View
   Transitions. Scope `view-transition-name`s with `html[data-vt="…"]`
-  (types in use: `page`, `theme`, `filter`, `layout`, `space`). Panels use `@starting-style`,
+  (types in use: `page`, `theme`, `filter`, `layout`, `space`, `rail`). Panels use `@starting-style`,
   not a view transition. Counts never animate.
 - **Motion respects two switches:** Settings → Appearance → Motion (also in the account menu)
   (`html[data-motion="off"]`) and `prefers-reduced-motion` (hard override).
