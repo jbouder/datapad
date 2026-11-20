@@ -133,6 +133,14 @@ test('Today: the day, Next up, what is due, the timeline and the loops', async (
   ).toHaveValue('Book the tauntaun vet');
 });
 
+test('Today shows no Scratch card while Scratch is empty', async ({ page }) => {
+  await openLive(page);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    longDay(today(), today()),
+  );
+  await expect(page.locator('[data-scratch-card]')).toHaveCount(0);
+});
+
 test('a save that moves a loop to another lane keeps focus on it', async ({
   page,
   request,

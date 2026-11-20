@@ -21,6 +21,8 @@ changes the format says so here under **Export format**.
 
 - Meeting mode is no longer full screen. A meeting opens in the app's
   frame like any other page, with the rail, top bar and tab bar.
+- Today hides the Scratch card while Scratch is empty. Scratch is
+  still in the sidebar and the tab bar.
 
 ### Added
 
