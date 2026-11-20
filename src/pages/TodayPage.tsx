@@ -79,7 +79,7 @@ const HEADING =
  * on today); on today, the open high-priority tasks not already due;
  * and the timeline, with meetings as anchors and the Now line
  * at the current minute. Beside it on desktop, below it on phones: the
- * Scratch card and the three lanes of open loops (`lanesOf`), each a
+ * Scratch card (only while Scratch has notes) and the three lanes of open loops (`lanesOf`), each a
  * section that collapses, hides and moves (Settings → Today, saved under
  * Focus's key so its old settings carry over). Everything follows the
  * local date and rolls over at midnight; the day you step to is an
@@ -349,18 +349,18 @@ export function TodayPage() {
             aria-label="Open loops"
             className="flex min-w-0 flex-col gap-4"
           >
-            <a
-              {...linkProps({ name: 'scratch' })}
-              data-scratch-card
-              className="press flex min-h-11 flex-col gap-0.5 border p-3 outline-ring/50 hover:bg-accent focus-visible:outline-2"
-            >
-              <span className="text-sm font-medium">Scratch</span>
-              <span className="text-sm text-muted-foreground">
-                {scratch === 0
-                  ? 'Nothing waiting for a home.'
-                  : `${scratch} ${scratch === 1 ? 'note' : 'notes'} with no home yet.`}
-              </span>
-            </a>
+            {scratch > 0 && (
+              <a
+                {...linkProps({ name: 'scratch' })}
+                data-scratch-card
+                className="press flex min-h-11 flex-col gap-0.5 border p-3 outline-ring/50 hover:bg-accent focus-visible:outline-2"
+              >
+                <span className="text-sm font-medium">Scratch</span>
+                <span className="text-sm text-muted-foreground">
+                  {`${scratch} ${scratch === 1 ? 'note' : 'notes'} with no home yet.`}
+                </span>
+              </a>
+            )}
             <div ref={lanesRoot} className="flex flex-col gap-4">
               <LoopLanes
                 lanes={lanes}
