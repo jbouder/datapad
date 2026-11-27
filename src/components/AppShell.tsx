@@ -20,7 +20,7 @@ import { TopBar } from '@/components/TopBar';
 import { useTaskPanels } from '@/components/tasks/TaskPanelProvider';
 import { useDatapad } from '@/hooks/useDatapad';
 import { setRailShown, useRailShown } from '@/hooks/useRail';
-import { CAPTURE_ID, focusCapture } from '@/lib/capture';
+import { CAPTURE_ID, focusCapture, startCommand } from '@/lib/capture';
 import { focusPage, hasFocus } from '@/lib/focus';
 import { withViewTransition } from '@/lib/motion';
 import { titleOf } from '@/lib/nav';
@@ -136,7 +136,8 @@ export function AppShell() {
       if (!shortcutAllowed(event)) return;
       if (event.key === '/') {
         event.preventDefault();
-        setPalette(true);
+        // The capture line's `/` menu where there is one, search elsewhere.
+        if (!startCommand()) setPalette(true);
         return;
       }
       if (event.key === 'n') {

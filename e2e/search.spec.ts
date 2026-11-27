@@ -13,13 +13,13 @@ test.beforeEach(async ({ request }) => {
   await request.post('/api/import', { data: SEED });
 });
 
-test('the trigger shows its shortcut; ⌘K, Ctrl+K and / open search', async ({
+test('the trigger shows its shortcut; ⌘K and Ctrl+K open search', async ({
   page,
 }) => {
   await openLive(page);
   const trigger = page.getByRole('button', { name: 'Search' });
   if (!isMobile(page)) await expect(trigger).toContainText(/⌘K|Ctrl K/);
-  await page.locator('body').press('/');
+  await page.keyboard.press('Meta+k');
   await expect(palette(page)).toBeVisible();
   // Empty: the most recent projects, then the actions.
   await expect(
