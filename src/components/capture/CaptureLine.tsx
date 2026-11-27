@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatapad } from '@/hooks/useDatapad';
 import { useToday } from '@/hooks/useNow';
-import { CAPTURE_ID, takeCaptureFocus } from '@/lib/capture';
+import { CAPTURE_ID, onStartCommand, takeCaptureFocus } from '@/lib/capture';
 import { newId } from '@/lib/ids';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
@@ -237,6 +237,24 @@ export function CaptureLine({
     setDismissed(null);
     if (!next.trim()) setForce(null);
   };
+
+  // `/` anywhere (AppShell): type `/` into an empty line so the command
+  // menu opens; a line with text just takes focus.
+  const textRef = useRef(text);
+  textRef.current = text;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: registered once; reads the text through its ref
+  useEffect(
+    () =>
+      onStartCommand(() => {
+        const el = input.current;
+        if (!el) return;
+        el.focus();
+        if (textRef.current) return;
+        change('/');
+        pendingCaret.current = 1;
+      }),
+    [],
+  );
 
   const clear = () => {
     change('');

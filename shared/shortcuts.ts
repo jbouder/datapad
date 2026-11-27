@@ -39,8 +39,14 @@ export const SHORTCUTS: Shortcut[] = [
   },
   { keys: ['?'], action: 'Show these shortcuts', scope: 'Anywhere' },
   {
-    keys: ['⌘K', 'Ctrl+K', '/'],
+    keys: ['⌘K', 'Ctrl+K'],
     action: 'Search everything, or run an action',
+    scope: 'Anywhere',
+  },
+  {
+    keys: ['/'],
+    action:
+      'Make something: the capture line with its / menu open (where there is none, search)',
     scope: 'Anywhere',
   },
   {

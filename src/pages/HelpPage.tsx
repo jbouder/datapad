@@ -142,18 +142,18 @@ export function HelpPage({ section }: { section?: string }) {
             <code>waiting on @Name</code> a task blocked on them.{' '}
             <code>#project</code> files it and <code>@Name</code> mentions
             someone. Chips say what it will become before you press Enter.{' '}
-            <Key>/</Key> at the start makes something else:{' '}
-            <code>/meeting</code> (a day and time in the line, today if none),{' '}
-            <code>/milestone</code> (needs a project and a date),{' '}
-            <code>/project</code> and <code>/person</code>, or forces{' '}
-            <code>/note</code>, <code>/task</code>, <code>/decide</code> or{' '}
-            <code>/waiting</code>. Shift+Enter opens the full note composer. In
-            a room, what you write belongs to the room.
+            <Key>/</Key> at the start makes something else (press <Key>/</Key>{' '}
+            anywhere to jump here with the menu open): <code>/meeting</code> (a
+            day and time in the line, today if none), <code>/milestone</code>{' '}
+            (needs a project and a date), <code>/project</code> and{' '}
+            <code>/person</code>, or forces <code>/note</code>,{' '}
+            <code>/task</code>, <code>/decide</code> or <code>/waiting</code>.
+            Shift+Enter opens the full note composer. In a room, what you write
+            belongs to the room.
           </Term>
           <Term name="Search">
-            <Key>⌘K</Key> or <Key>/</Key> finds any project, task, note,
-            meeting, org, person or whiteboard item, and adds a task, a note, a
-            meeting or a project.
+            <Key>⌘K</Key> finds any project, task, note, meeting, org, person or
+            whiteboard item, and adds a task, a note, a meeting or a project.
           </Term>
         </dl>
         <p className="text-sm">

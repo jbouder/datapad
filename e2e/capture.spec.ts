@@ -177,6 +177,26 @@ test('the kind chip and Tab change the kind; Esc clears', async ({ page }) => {
   await expect(chips(page)).toHaveCount(0);
 });
 
+test('/ anywhere opens the capture line with its command menu', async ({
+  page,
+}) => {
+  await openLive(page);
+  const line = capture(page);
+  await page.locator('body').press('/');
+  await expect(line).toBeFocused();
+  await expect(line).toHaveValue('/');
+  const menu = page.getByRole('listbox', { name: 'Commands' });
+  await expect(menu.getByRole('option').first()).toBeVisible();
+  await page.keyboard.type('ta');
+  await expect(line).toHaveValue('/ta');
+  await page.keyboard.press('Enter');
+  await expect(line).toHaveValue('/task ');
+  // Search still has ⌘K, and `/` opens it where there is no capture line.
+  await page.goto('/help');
+  await page.locator('body').press('/');
+  await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible();
+});
+
 test('an unknown name can be added to People', async ({ page, request }) => {
   await openLive(page);
   const line = capture(page);

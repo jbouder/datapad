@@ -23,6 +23,9 @@ changes the format says so here under **Export format**.
   frame like any other page, with the rail, top bar and tab bar.
 - Today hides the Scratch card while Scratch is empty. Scratch is
   still in the sidebar and the tab bar.
+- `/` now goes to the capture line with `/` typed in, so its menu of
+  things to make opens. On a page with no capture line it still opens
+  search. `⌘K` (`Ctrl+K`) always opens search.
 
 ### Added
 
